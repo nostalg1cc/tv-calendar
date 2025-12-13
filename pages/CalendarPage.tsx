@@ -106,7 +106,7 @@ const CalendarPage: React.FC = () => {
     const remainder = Math.max(0, eps.length - 4); 
 
     return (
-      <div className="w-full h-full bg-slate-900/80 p-1 flex flex-col overflow-hidden relative backdrop-blur-sm">
+      <div className="w-full h-full bg-slate-900/60 p-1 flex flex-col overflow-hidden relative backdrop-blur-sm">
         <div className="flex-1 flex flex-col gap-1 min-h-0 overflow-hidden">
             {displayEps.map((ep) => (
                 <div key={`${ep.show_id}-${ep.id}`} className="flex items-center gap-1.5 bg-white/5 p-1 rounded-lg border border-white/5 shrink-0">
@@ -150,8 +150,9 @@ const CalendarPage: React.FC = () => {
         mx-auto 
         ${settings.compactCalendar ? 'h-full flex flex-col w-full overflow-hidden' : 'max-w-[1400px] pb-12'}
     `}>
-      {/* Decorative background */}
-      <div className="fixed top-20 right-0 w-[500px] h-[500px] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none -z-10"></div>
+      {/* 
+         Removed the decorative background blob to allow the default body gradient to show.
+      */}
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4 px-2 shrink-0">
@@ -215,7 +216,7 @@ const CalendarPage: React.FC = () => {
             {isGridView && (
                 <div className={`
                     hidden md:flex flex-col
-                    bg-slate-900/30 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl overflow-hidden
+                    bg-slate-900/20 backdrop-blur-xl border border-white/5 rounded-3xl p-4 shadow-2xl overflow-hidden
                     ${settings.compactCalendar ? 'flex-1 h-full min-h-0' : 'sm:p-6'}
                 `}>
                     {/* Days Header */}

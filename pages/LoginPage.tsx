@@ -135,7 +135,7 @@ const LoginPage: React.FC = () => {
               <div className="flex-1 flex items-center justify-center relative">
                   <Scanner 
                       onScan={handleScan} 
-                      onError={(err) => console.log(err)}
+                      onError={(err: any) => console.log(err)}
                       components={{ audio: false, finder: true }}
                       styles={{ container: { width: '100%', height: '100%' } }}
                   />
@@ -146,8 +146,8 @@ const LoginPage: React.FC = () => {
 
   return (
     <>
-        <div className="min-h-screen bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-        <div className="bg-slate-800/80 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/10">
+        <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-slate-900/60 backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/10">
             <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-500/10 text-indigo-500 mb-4 border border-indigo-500/20">
                 <Tv className="w-8 h-8" />
@@ -172,7 +172,7 @@ const LoginPage: React.FC = () => {
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder:text-slate-600"
                 placeholder="Enter your name"
                 required
                 />
@@ -199,7 +199,7 @@ const LoginPage: React.FC = () => {
                         id="apiKey"
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
-                        className="w-full bg-slate-900/50 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all font-mono text-sm"
+                        className="w-full bg-slate-800/50 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all font-mono text-sm placeholder:text-slate-600"
                         placeholder="eyJhbGciOiJIUzI1NiJ9..."
                         required
                     />
@@ -218,17 +218,17 @@ const LoginPage: React.FC = () => {
             <div className="my-6 grid grid-cols-2 gap-3">
                  <button 
                     onClick={() => setShowScanner(true)}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-900/50 hover:bg-slate-900 border border-white/5 hover:border-indigo-500/50 transition-all gap-2"
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/50 transition-all gap-2 group"
                  >
-                     <QrCode className="w-6 h-6 text-white" />
-                     <span className="text-xs font-bold text-slate-400">Scan QR Code</span>
+                     <QrCode className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
+                     <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors">Scan QR Code</span>
                  </button>
                  <button 
                     onClick={handleImportClick}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-900/50 hover:bg-slate-900 border border-white/5 hover:border-indigo-500/50 transition-all gap-2"
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/50 transition-all gap-2 group"
                  >
-                     <Upload className="w-6 h-6 text-white" />
-                     <span className="text-xs font-bold text-slate-400">Import File</span>
+                     <Upload className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
+                     <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors">Import File</span>
                  </button>
             </div>
 
