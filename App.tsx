@@ -27,14 +27,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return (
         <div className={`
             bg-slate-900 text-slate-50
-            ${isCompactMode ? 'h-screen overflow-hidden flex flex-col' : 'min-h-screen pb-20 md:pb-0'}
+            ${isCompactMode ? 'h-screen overflow-hidden flex flex-col md:flex-row' : 'min-h-screen pb-20 md:pb-0 flex flex-col md:flex-row'}
         `}>
             <Navbar />
             <SearchModal />
             <main className={`
+                flex-1 
+                md:ml-20 /* Offset for sidebar */
                 ${isCompactMode 
-                    ? 'flex-1 w-full overflow-hidden p-3' 
-                    : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8' 
+                    ? 'h-full overflow-hidden p-3' 
+                    : 'w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8' 
                 }
             `}>
                 {children}

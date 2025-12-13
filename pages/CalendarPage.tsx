@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
-  eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths 
+  eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths, addDays 
 } from 'date-fns';
 import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -20,20 +20,25 @@ const CalendarPage: React.FC = () => {
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
-  const startDate = startOfWeek(monthStart);
-  const endDate = endOfWeek(monthEnd);
 
-  // Grid days (includes padding for previous/next months)
-  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
-  
-  // List days (strict month interval)
+  // Generate exactly 42 days (6 weeks) to ensure consistent grid height
+  // This accounts for months starting on different days and variable row counts (4, 5, or 6)
+  const calendarDays = useMemo(() => {
+    const start = startOfWeek(monthStart);
+    const days = [];
+    let day = start;
+    
+    // 6 weeks * 7 days = 42 cells
+    for (let i = 0; i < 42; i++) {
+        days.push(day);
+        day = addDays(day, 1);
+    }
+    return days;
+  }, [monthStart]);
+
   const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   
-  // Calculate number of weeks to properly set grid rows in compact mode
-  const weeksCount = Math.ceil(calendarDays.length / 7);
-
   // Helper to filter episodes based on settings
   const filterEpisodes = (eps: Episode[]) => {
       if (!eps) return [];
@@ -101,7 +106,7 @@ const CalendarPage: React.FC = () => {
     const remainder = Math.max(0, eps.length - 4); 
 
     return (
-      <div className="w-full h-full bg-slate-900/90 p-1 flex flex-col overflow-hidden border-2 border-slate-700/50 rounded-xl relative">
+      <div className="w-full h-full bg-slate-900/90 p-1 flex flex-col overflow-hidden relative">
         <div className="flex-1 flex flex-col gap-1 min-h-0 overflow-hidden">
             {displayEps.map((ep) => (
                 <div key={`${ep.show_id}-${ep.id}`} className="flex items-center gap-1.5 bg-white/5 p-1 rounded-lg border border-white/5 shrink-0">
@@ -110,7 +115,7 @@ const CalendarPage: React.FC = () => {
                         className="w-4 h-6 object-cover rounded-[2px] shrink-0" 
                         alt=""
                     />
-                    <div className="overflow-hidden min-w-0">
+                    <div className="overflow-hidden min-w-0 flex-1">
                         <p className="text-[9px] font-bold text-slate-200 truncate leading-none">{ep.show_name}</p>
                         {ep.is_movie ? (
                             <div className="mt-0.5 flex items-center">
@@ -138,7 +143,6 @@ const CalendarPage: React.FC = () => {
   // --- View Rendering Logic ---
   const activeDays = monthDays.filter(day => getEpisodesForDay(day).length > 0);
   
-  // Default to 'grid' if undefined (backwards compatibility)
   const isGridView = settings.viewMode !== 'list';
 
   return (
@@ -229,7 +233,8 @@ const CalendarPage: React.FC = () => {
                             grid grid-cols-7 gap-2 
                             ${settings.compactCalendar ? 'h-full' : 'sm:gap-3'}
                         `}
-                        style={settings.compactCalendar ? { gridTemplateRows: `repeat(${weeksCount}, 1fr)` } : {}}
+                        // Enforce 6 rows always using gridTemplateRows
+                        style={settings.compactCalendar ? { gridTemplateRows: `repeat(6, 1fr)` } : {}}
                     >
                     {calendarDays.map((day) => {
                         const dayEpisodes = getEpisodesForDay(day);
@@ -244,26 +249,34 @@ const CalendarPage: React.FC = () => {
                             onClick={() => handleDayClick(day)}
                             style={!settings.compactCalendar ? { aspectRatio: '2/3' } : {}}
                             className={`
-                            relative w-full rounded-xl flex flex-col transition-all duration-300 group overflow-hidden border
-                            ${!isCurrentMonth ? 'opacity-30 border-transparent bg-slate-900/20 grayscale' : 'bg-slate-800 border-white/5'}
-                            ${hasEpisodes ? 'cursor-pointer hover:z-10 hover:shadow-2xl' : ''}
-                            ${settings.compactCalendar ? 'min-h-0' : ''} 
+                                group relative w-full rounded-xl flex flex-col transition-all duration-200 overflow-hidden
+                                ${!isCurrentMonth ? 'bg-slate-900/20 grayscale text-opacity-50' : 'bg-slate-800'}
+                                
+                                /* Border/Ring Styling */
+                                ${isDayToday 
+                                    ? 'ring-2 ring-white z-10' // Active: White 2px outline, elevated Z
+                                    : 'ring-1 ring-white/5'    // Default: Subtle border
+                                }
+                                
+                                /* Interactive Styling: Always hover, but only cursor-pointer if episodes exist */
+                                hover:ring-2 hover:ring-indigo-500 hover:z-20 hover:shadow-2xl
+                                ${hasEpisodes ? 'cursor-pointer' : 'cursor-default'}
+
+                                ${settings.compactCalendar ? 'min-h-0' : ''} 
                             `}
                         >
                             {/* Date Number */}
                             <div className={`
-                            absolute top-1 left-1 z-20 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold pointer-events-none
-                            ${isDayToday 
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' 
-                                : 'bg-black/40 backdrop-blur-md text-white/80'}
+                                absolute top-1 left-1 z-20 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold pointer-events-none
+                                ${isDayToday 
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' 
+                                    : 'bg-black/40 backdrop-blur-md text-white/80'}
                             `}>
                             {format(day, 'd')}
                             </div>
 
                             {hasEpisodes ? (
                                 <>
-                                    <div className="absolute inset-0 z-50 pointer-events-none rounded-xl border-2 border-[#4f46e5] opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    
                                     {isSingle ? (
                                         <RenderFeaturedCell ep={dayEpisodes[0]} />
                                     ) : (
@@ -271,7 +284,7 @@ const CalendarPage: React.FC = () => {
                                     )}
                                 </>
                             ) : (
-                                <div className="w-full h-full opacity-0 group-hover:opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+                                <div className="w-full h-full opacity-0 group-hover:opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent transition-opacity duration-300"></div>
                             )}
                         </div>
                         );
@@ -309,20 +322,20 @@ const CalendarPage: React.FC = () => {
                                 </div>
 
                                 {/* Episodes Column */}
-                                <div className="flex-1 flex flex-col gap-2">
+                                <div className="flex-1 flex flex-col gap-2 min-w-0">
                                     {dayEpisodes.map(ep => (
                                         <div 
                                             key={`${ep.show_id}-${ep.id}`}
-                                            onClick={() => setSelectedDate(day)} // Opens modal same as desktop
+                                            onClick={() => setSelectedDate(day)}
                                             className="flex bg-slate-800/80 border border-white/5 rounded-xl p-2.5 gap-3 active:scale-[0.98] transition-transform cursor-pointer hover:bg-slate-700/80"
                                         >
                                             <img 
                                                 src={getImageUrl(ep.poster_path)} 
-                                                alt={ep.name}
-                                                className="w-10 h-14 object-cover rounded-md bg-slate-900"
+                                                alt={ep.name} 
+                                                className="w-10 h-14 object-cover rounded-md bg-slate-900 shrink-0"
                                             />
                                             <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                <h3 className="font-bold text-slate-200 text-sm truncate">{ep.show_name}</h3>
+                                                <h3 className="font-bold text-slate-200 text-sm truncate pr-2">{ep.show_name}</h3>
                                                 {ep.is_movie ? (
                                                     <div className="flex items-center gap-1.5 mt-0.5">
                                                         {ep.release_type === 'theatrical' ? (
@@ -336,7 +349,7 @@ const CalendarPage: React.FC = () => {
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <p className="text-xs text-slate-400">
+                                                    <p className="text-xs text-slate-400 truncate">
                                                         {ep.season_number}x{ep.episode_number} • <span className="text-slate-500">{ep.name}</span>
                                                     </p>
                                                 )}
