@@ -41,7 +41,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
-const DB_KEY_EPISODES = 'tv_calendar_episodes_v2'; // Changed key to force fresh start with new logic
+const DB_KEY_EPISODES = 'tv_calendar_episodes_v2'; 
 const DB_KEY_META = 'tv_calendar_meta_v2';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -93,7 +93,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setUser(updatedUser);
           try {
              localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser));
-             // Force refresh with new key
              setTimeout(() => refreshEpisodes(true), 100);
           } catch (e) {
              console.warn('Failed to save user to localStorage', e);
@@ -105,7 +104,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setUser(null);
     try {
       localStorage.removeItem('tv_calendar_user');
-      // Clear IndexedDB cache on logout
       del(DB_KEY_EPISODES);
       del(DB_KEY_META);
     } catch (e) {
@@ -139,26 +137,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Combined unique set of all shows to track
   const allTrackedShows = useMemo(() => {
       const map = new Map<number, TVShow>();
-      
-      // Add manual watchlist
       watchlist.forEach(show => map.set(show.id, show));
-      
-      // Add subscribed lists
       subscribedLists.forEach(list => {
           list.items.forEach(show => {
-              if (!map.has(show.id)) {
-                  map.set(show.id, show);
-              }
+              if (!map.has(show.id)) map.set(show.id, show);
           });
       });
-      
       return Array.from(map.values());
   }, [watchlist, subscribedLists]);
 
-  // Episodes State (Initially empty, loaded via effect)
+  // Episodes State
   const [episodes, setEpisodes] = useState<Record<string, Episode[]>>({});
-  
-  // Start true so we can show loading until cache is checked
   const [loading, setLoading] = useState<boolean>(true);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -187,11 +176,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const details = await getShowDetails(show.id);
       const seasonCount = details.number_of_seasons || 1;
       
-      // Optimization: Always fetch current season. If more than 1, fetch previous too.
       const seasonsToFetch = [seasonCount]; 
-      if (seasonCount > 1) {
-        seasonsToFetch.push(seasonCount - 1);
-      }
+      if (seasonCount > 1) seasonsToFetch.push(seasonCount - 1);
 
       const newEpisodes: Record<string, Episode[]> = {};
 
@@ -201,10 +187,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (seasonData && seasonData.episodes) {
             seasonData.episodes.forEach((ep) => {
               if (ep.air_date) {
-                const dateKey = ep.air_date; // YYYY-MM-DD
-                if (!newEpisodes[dateKey]) {
-                  newEpisodes[dateKey] = [];
-                }
+                const dateKey = ep.air_date;
+                if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
                 newEpisodes[dateKey].push({
                   ...ep,
                   show_id: show.id,
@@ -215,9 +199,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               }
             });
           }
-        } catch (e) {
-          // Silent fail for individual seasons is okay
-        }
+        } catch (e) { /* silent fail */ }
       }
       return newEpisodes;
     } catch (error) {
@@ -230,18 +212,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchEpisodesForMovie = async (show: TVShow): Promise<Record<string, Episode[]>> => {
     try {
        const releaseDates = await getMovieReleaseDates(show.id);
-       
        if (releaseDates.length === 0 && show.first_air_date) {
          releaseDates.push({ date: show.first_air_date, type: 'theatrical' });
        }
 
        const newEpisodes: Record<string, Episode[]> = {};
-
        releaseDates.forEach(rd => {
-           if (!newEpisodes[rd.date]) {
-               newEpisodes[rd.date] = [];
-           }
-           
+           if (!newEpisodes[rd.date]) newEpisodes[rd.date] = [];
            const movieEp: Episode = {
                id: show.id * 1000 + (rd.type === 'digital' ? 2 : 1), 
                name: show.name,
@@ -259,10 +236,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
            };
            newEpisodes[rd.date].push(movieEp);
        });
-
        return newEpisodes;
     } catch (error) {
-        console.error(`Error fetching details for movie ${show.name}`, error);
         return {};
     }
   };
@@ -299,7 +274,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             cachedShowIds = meta.showIds || [];
             isFresh = (Date.now() - meta.timestamp) < CACHE_DURATION;
             
-            // OPTIMISTIC UPDATE: Show cache immediately
+            // OPTIMISTIC UPDATE: Show what we have instantly
             setEpisodes(currentEpisodes);
         }
     } catch (e) {
@@ -311,31 +286,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const missingShowIds = currentTrackedIds.filter(id => !cachedShowIds.includes(id));
     const removedShowIds = cachedShowIds.filter(id => !currentTrackedIds.includes(id));
     
+    // Logic: Full update if force requested, or if cache is stale AND we have no new/removed shows (just generic refresh)
     const needsFullUpdate = force || (!isFresh && missingShowIds.length === 0 && removedShowIds.length === 0);
     const needsPartialUpdate = missingShowIds.length > 0;
     const needsCleanup = removedShowIds.length > 0;
 
     if (!needsFullUpdate && !needsPartialUpdate && !needsCleanup && Object.keys(currentEpisodes).length > 0) {
-        console.log('Cache is fresh and complete. No fetch needed.');
+        console.log('Cache is fresh and complete.');
         setLoading(false);
         return;
     }
 
     // 3. PRIORITY SORTING FOR FETCH
-    // Determine which shows to fetch
     const showsToFetch = needsFullUpdate ? [...allTrackedShows] : allTrackedShows.filter(s => missingShowIds.includes(s.id));
 
     if (showsToFetch.length > 0) {
-        console.log(`Fetching ${showsToFetch.length} shows. Prioritizing current week.`);
-        
-        // Define "Current Window": Last Week to Next 2 Weeks
+        // Define "Current Window": 2 Weeks Back to 3 Weeks Forward for a slightly wider "safe" buffer
         const today = new Date();
-        const startWindow = format(subWeeks(today, 1), 'yyyy-MM-dd');
-        const endWindow = format(addWeeks(today, 2), 'yyyy-MM-dd');
+        const startWindow = format(subWeeks(today, 2), 'yyyy-MM-dd');
+        const endWindow = format(addWeeks(today, 3), 'yyyy-MM-dd');
         
         const priorityShowIds = new Set<number>();
         
-        // Scan current cache (even if stale) to find active shows in this window
+        // Scan current cache (stale or not) to find what was airing recently
         if (currentEpisodes) {
             Object.keys(currentEpisodes).forEach(date => {
                 if (date >= startWindow && date <= endWindow) {
@@ -346,17 +319,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             });
         }
 
-        // Sort: 1. Newly Added (Missing) 2. Visible in Current View (Priority) 3. Others
+        // Sort Strategy: 
+        // 1. Missing shows (User wants to see what they just added)
+        // 2. Priority shows (Shows visible on current calendar view)
+        // 3. Everything else
         showsToFetch.sort((a, b) => {
             const aIsMissing = missingShowIds.includes(a.id);
             const bIsMissing = missingShowIds.includes(b.id);
-            
             if (aIsMissing && !bIsMissing) return -1;
             if (!aIsMissing && bIsMissing) return 1;
 
             const aIsPriority = priorityShowIds.has(a.id);
             const bIsPriority = priorityShowIds.has(b.id);
-
             if (aIsPriority && !bIsPriority) return -1;
             if (!aIsPriority && bIsPriority) return 1;
 
@@ -382,9 +356,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             results.forEach((showEpisodes) => {
                 Object.entries(showEpisodes).forEach(([date, eps]) => {
-                    if (!newFetchedEpisodes[date]) {
-                        newFetchedEpisodes[date] = [];
-                    }
+                    if (!newFetchedEpisodes[date]) newFetchedEpisodes[date] = [];
                     newFetchedEpisodes[date] = [...newFetchedEpisodes[date], ...eps];
                 });
             });
@@ -394,44 +366,40 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 current: Math.min(prev.total, i + batch.length) 
             }));
             
-            // Merge incrementally into state so UI updates "in steps"
-            if (needsFullUpdate) {
-               // For full update, we want to replace, but incrementally adding to a temporary object 
-               // and setting state gives visual feedback. 
-               // However, mixing old and new data might be confusing if we don't clear old.
-               // We will merge into 'currentEpisodes' which started as the cache.
-               // This means we are "refreshing" the data live.
+            // Incrementally merge into UI state
+            // We use functional state update to ensure we don't clobber updates from previous loop if React batches oddly
+            setEpisodes(prev => {
+                const updated = { ...prev };
+                // If this is a full update, we essentially want to overwrite eventually, 
+                // but purely additive is safer for visual stability until the end.
                 Object.entries(newFetchedEpisodes).forEach(([date, eps]) => {
-                    if (!currentEpisodes[date]) currentEpisodes[date] = [];
-                    // Very simple merge: remove old eps for this show on this date, add new
-                    // But simpler: just append and dedup later, or just overwrite key if we assume structure.
-                    // To avoid complexity: We will just push to state.
-                    // Actually, for full refresh, we ideally want to clear old data for these shows.
-                    // But keeping it simple: Just updating the UI with what we have.
+                    // Simple merge: If we fetched new data for this date, assume it's "truer" than old data? 
+                    // No, newFetchedEpisodes only contains specific shows. We must append to existing date key.
+                    // BUT we must filter duplicates if we are "updating" existing shows.
+                    // To keep it simple: We just add to the pile and rely on the final consolidation to be clean.
+                    if (!updated[date]) updated[date] = [];
+                    
+                    // Add only unique IDs to avoid temporary duplicates in UI
+                    const existingIds = new Set(updated[date].map(e => e.id));
+                    const uniqueNew = eps.filter(e => !existingIds.has(e.id));
+                    updated[date] = [...updated[date], ...uniqueNew];
                 });
-                
-                // Construct a merged view for UI
-                const mergedView = { ...currentEpisodes, ...newFetchedEpisodes };
-                setEpisodes(mergedView);
-            } else {
-                // Partial update (new shows)
-                const mergedView = { ...currentEpisodes };
-                Object.entries(newFetchedEpisodes).forEach(([date, eps]) => {
-                    if (!mergedView[date]) mergedView[date] = [];
-                    mergedView[date] = [...mergedView[date], ...eps];
-                });
-                setEpisodes(mergedView);
-            }
+                return updated;
+            });
 
             if (i + BATCH_SIZE < showsToFetch.length) {
                 await new Promise(resolve => setTimeout(resolve, 50));
             }
         }
         
-        // Final consolidation
+        // Final Consolidation
         if (needsFullUpdate) {
+            // If full update, the new fetch IS the truth. 
+            // However, we fetched showsToFetch which IS allTrackedShows.
+            // So newFetchedEpisodes is the complete new state.
             currentEpisodes = newFetchedEpisodes;
         } else {
+            // Partial update: Merge new stuff into old stuff
             Object.entries(newFetchedEpisodes).forEach(([date, eps]) => {
                 if (!currentEpisodes[date]) currentEpisodes[date] = [];
                 currentEpisodes[date] = [...currentEpisodes[date], ...eps];
@@ -439,16 +407,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }
 
-    // 4. CLEANUP (Remove episodes from untracked shows)
+    // 4. CLEANUP
     if (needsCleanup && !needsFullUpdate) {
         const trackedIdSet = new Set(currentTrackedIds);
         const cleanedEpisodes: Record<string, Episode[]> = {};
-        
         Object.entries(currentEpisodes).forEach(([date, eps]) => {
             const filtered = eps.filter(ep => trackedIdSet.has(ep.show_id!));
-            if (filtered.length > 0) {
-                cleanedEpisodes[date] = filtered;
-            }
+            if (filtered.length > 0) cleanedEpisodes[date] = filtered;
         });
         currentEpisodes = cleanedEpisodes;
     }
@@ -462,7 +427,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             timestamp: Date.now(),
             showIds: currentTrackedIds
         });
-        console.log('Saved updated cache to IndexedDB');
     } catch (e) {
         console.error('Failed to save to IDB', e);
     }
@@ -471,7 +435,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setTimeout(() => setSyncProgress({ current: 0, total: 0 }), 1000);
   }, [allTrackedShows, user]);
 
-  // Initial fetch / cache check
   useEffect(() => {
     refreshEpisodes();
   }, [refreshEpisodes]); 
