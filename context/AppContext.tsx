@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
 import { User, TVShow, Episode, AppSettings, SubscribedList } from '../types';
 import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails } from '../services/tmdb';
+import { get, set, del } from 'idb-keyval';
 
 interface AppContextType {
   user: User | null;
@@ -101,8 +102,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setUser(null);
     try {
       localStorage.removeItem('tv_calendar_user');
-      localStorage.removeItem('tv_calendar_episodes');
-      localStorage.removeItem('tv_calendar_cache_meta');
+      // Clear IDB cache on logout
+      del('tv_calendar_episodes');
+      del('tv_calendar_cache_meta');
     } catch (e) {
       console.warn('Failed to remove user/data from localStorage', e);
     }
@@ -150,17 +152,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return Array.from(map.values());
   }, [watchlist, subscribedLists]);
 
-  // Load episodes from cache initially
-  const [episodes, setEpisodes] = useState<Record<string, Episode[]>>(() => {
-      try {
-          const cached = localStorage.getItem('tv_calendar_episodes');
-          return cached ? JSON.parse(cached) : {};
-      } catch {
-          return {};
-      }
-  });
+  // Episodes State (Initially empty, loaded via effect)
+  const [episodes, setEpisodes] = useState<Record<string, Episode[]>>({});
   
-  const [loading, setLoading] = useState<boolean>(false);
+  // Start true so we can show loading until IDB is checked
+  const [loading, setLoading] = useState<boolean>(true);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -270,43 +266,51 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const refreshEpisodes = useCallback(async (force = false) => {
     if (!user || !user.tmdbKey) {
         setEpisodes({});
+        setLoading(false);
         return;
     }
 
     if (allTrackedShows.length === 0) {
       setEpisodes({});
-      localStorage.removeItem('tv_calendar_episodes');
-      localStorage.removeItem('tv_calendar_cache_meta');
+      await del('tv_calendar_episodes');
+      await del('tv_calendar_cache_meta');
       setSyncProgress({ current: 0, total: 0 });
+      setLoading(false);
       return;
     }
     
-    // Check Cache if not forced
+    // START LOADING
+    setLoading(true);
+
+    // 1. Try Loading Cache from IndexedDB
     if (!force) {
         try {
-            const cacheMetaStr = localStorage.getItem('tv_calendar_cache_meta');
-            if (cacheMetaStr) {
-                const meta = JSON.parse(cacheMetaStr);
+            const [cachedEpisodes, cacheMeta] = await Promise.all([
+                get('tv_calendar_episodes'),
+                get('tv_calendar_cache_meta')
+            ]);
+
+            if (cachedEpisodes && cacheMeta) {
+                const meta = cacheMeta as any;
                 const currentIds = allTrackedShows.map(s => s.id).sort((a,b) => a - b);
                 const cachedIds = (meta.showIds || []).sort((a:number,b:number) => a - b);
                 
                 const isSameShows = JSON.stringify(currentIds) === JSON.stringify(cachedIds);
                 const isFresh = (Date.now() - meta.timestamp) < CACHE_DURATION;
 
-                // Check if episodes state is actually populated (it should be from useState init)
-                const hasData = Object.keys(episodes).length > 0;
-
-                if (isSameShows && isFresh && hasData) {
-                    console.log('Using cached episodes');
+                if (isSameShows && isFresh) {
+                    console.log('Using cached episodes from IndexedDB');
+                    setEpisodes(cachedEpisodes);
+                    setLoading(false);
                     return;
                 }
             }
         } catch (e) {
-            console.warn('Error reading cache meta', e);
+            console.warn('Error reading IDB cache', e);
         }
     }
     
-    setLoading(true);
+    // 2. Fetch from API (if no cache or invalid)
     setSyncProgress({ current: 0, total: allTrackedShows.length });
     
     const allEpisodes: Record<string, Episode[]> = {};
@@ -347,20 +351,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setEpisodes(allEpisodes);
     
-    // Save to Cache
+    // 3. Save to IndexedDB
     try {
-        localStorage.setItem('tv_calendar_episodes', JSON.stringify(allEpisodes));
-        localStorage.setItem('tv_calendar_cache_meta', JSON.stringify({
+        await set('tv_calendar_episodes', allEpisodes);
+        await set('tv_calendar_cache_meta', {
             timestamp: Date.now(),
             showIds: allTrackedShows.map(s => s.id)
-        }));
+        });
+        console.log('Saved episodes to IndexedDB');
     } catch (e) {
-        console.warn('Failed to save episodes to cache (quota likely exceeded)', e);
+        console.error('Failed to save to IDB', e);
     }
 
     setLoading(false);
     setTimeout(() => setSyncProgress({ current: 0, total: 0 }), 1000);
-  }, [allTrackedShows, user, episodes]);
+  }, [allTrackedShows, user]);
 
   // Initial fetch / cache check
   useEffect(() => {
