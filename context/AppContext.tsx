@@ -15,6 +15,8 @@ interface AppContextType {
   allTrackedShows: TVShow[]; // Combined watchlist + subscribed lists
   addToWatchlist: (show: TVShow) => Promise<void>;
   removeFromWatchlist: (showId: number) => void;
+  batchAddShows: (shows: TVShow[]) => void; // New
+  batchSubscribe: (lists: SubscribedList[]) => void; // New
   subscribeToList: (listId: string) => Promise<void>;
   unsubscribeFromList: (listId: string) => void;
   episodes: Record<string, Episode[]>; // Key: "YYYY-MM-DD", Value: Episode[]
@@ -30,6 +32,10 @@ interface AppContextType {
   importBackup: (data: any) => void;
   getSyncPayload: () => string;
   processSyncPayload: (payload: string) => void;
+  
+  // Mobile Warning Logic
+  isMobileWarningOpen: boolean;
+  closeMobileWarning: (suppressFuture: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -41,6 +47,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   recommendationMethod: 'banner',
   compactCalendar: true, // Default to compact view
   viewMode: 'grid', // Default to grid view
+  suppressMobileAddWarning: false,
 };
 
 const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
@@ -154,6 +161,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [loading, setLoading] = useState<boolean>(true);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isMobileWarningOpen, setIsMobileWarningOpen] = useState(false);
 
   // Persist watchlist
   useEffect(() => {
@@ -267,15 +275,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // 1. ATTEMPT LOAD FROM IDB (Optimistic)
     try {
         const [cachedEpData, cacheMetaData] = await Promise.all([
-            get(DB_KEY_EPISODES),
-            get(DB_KEY_META)
+            get<Record<string, Episode[]>>(DB_KEY_EPISODES),
+            get<{timestamp: number, showIds: number[]}>(DB_KEY_META)
         ]);
 
         if (cachedEpData && cacheMetaData) {
-            const meta = cacheMetaData as any;
             currentEpisodes = cachedEpData;
-            cachedShowIds = meta.showIds || [];
-            isFresh = (Date.now() - meta.timestamp) < CACHE_DURATION;
+            cachedShowIds = cacheMetaData.showIds || [];
+            isFresh = (Date.now() - cacheMetaData.timestamp) < CACHE_DURATION;
             
             // OPTIMISTIC UPDATE: Show what we have instantly
             setEpisodes(currentEpisodes);
@@ -429,14 +436,44 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     refreshEpisodes();
   }, [refreshEpisodes]); 
 
+  const closeMobileWarning = (suppressFuture: boolean) => {
+      setIsMobileWarningOpen(false);
+      if (suppressFuture) {
+          updateSettings({ suppressMobileAddWarning: true });
+      }
+  };
+
   const addToWatchlist = async (show: TVShow) => {
     if (watchlist.find(s => s.id === show.id)) return;
+    
+    // Perform Add
     const updated = [...watchlist, show];
     setWatchlist(updated);
+
+    // Mobile Check
+    if (window.innerWidth < 768 && !settings.suppressMobileAddWarning) {
+        setIsMobileWarningOpen(true);
+    }
   };
 
   const removeFromWatchlist = (showId: number) => {
     setWatchlist(prev => prev.filter(s => s.id !== showId));
+  };
+
+  const batchAddShows = (shows: TVShow[]) => {
+      setWatchlist(prev => {
+          const currentIds = new Set(prev.map(s => s.id));
+          const newShows = shows.filter(s => !currentIds.has(s.id));
+          return [...prev, ...newShows];
+      });
+  };
+
+  const batchSubscribe = (lists: SubscribedList[]) => {
+      setSubscribedLists(prev => {
+          const currentIds = new Set(prev.map(l => l.id));
+          const newLists = lists.filter(l => !currentIds.has(l.id));
+          return [...prev, ...newLists];
+      });
   };
 
   const subscribeToList = async (listId: string) => {
@@ -516,11 +553,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const jsonStr = LZString.decompressFromEncodedURIComponent(payload);
           if (!jsonStr) throw new Error("Decompression failed");
           
-          const data = JSON.parse(jsonStr);
+          const data = JSON.parse(jsonStr) as any;
           if (!data.k || !data.u) throw new Error("Invalid payload data");
 
-          // 1. Restore User
-          login(data.u, data.k);
+          // 1. Restore User (If not logged in, or update key)
+          // If already logged in, we keep current session but might update key if different
+          if (!user || user.username !== data.u) {
+              login(data.u, data.k);
+          } else if (user.tmdbKey !== data.k) {
+              updateUserKey(data.k);
+          }
 
           // 2. Restore Settings
           if (data.c) {
@@ -535,7 +577,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // We need to fetch details for these lists
           if (data.s && Array.isArray(data.s)) {
              const lists: SubscribedList[] = [];
-             for (const listId of data.s) {
+             const listIds = data.s as string[];
+             for (const listId of listIds) {
                  try {
                      const details = await getListDetails(listId);
                      lists.push({
@@ -546,29 +589,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                      });
                  } catch (e) { console.error(e); }
              }
+             // For sync, we replace to ensure mobile matches PC
              setSubscribedLists(lists);
           }
 
           // 4. Restore Watchlist (Hydration)
-          // We have IDs, need to fetch names/images.
-          // Since we can't batch fetch show details easily without many calls,
-          // we will rely on a "Rehydration" approach:
-          // We'll insert partial objects into watchlist (id, media_type)
-          // Then let 'refreshEpisodes' or a generic fetcher fill in the gaps?
-          // No, the UI needs names/images immediately.
-          // We'll use the 'searchShows' (by ID) trick or specific fetches.
           if (data.w && Array.isArray(data.w)) {
               setLoading(true);
               const restoredWatchlist: TVShow[] = [];
-              const batches = [];
+              const batches: any[][] = [];
               const BATCH = 5;
               
-              for (let i = 0; i < data.w.length; i += BATCH) {
-                  batches.push(data.w.slice(i, i + BATCH));
+              const watchItems = data.w as any[];
+              for (let i = 0; i < watchItems.length; i += BATCH) {
+                  batches.push(watchItems.slice(i, i + BATCH));
               }
 
               let current = 0;
-              setSyncProgress({ current: 0, total: data.w.length });
+              setSyncProgress({ current: 0, total: watchItems.length });
 
               for (const batch of batches) {
                   const promises = batch.map((item: any) => {
@@ -584,8 +622,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   });
                   
                   current += batch.length;
-                  setSyncProgress({ current, total: data.w.length });
+                  setSyncProgress({ current, total: watchItems.length });
               }
+              // For sync, we replace
               setWatchlist(restoredWatchlist);
           }
 
@@ -631,14 +670,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       user, login, logout, updateUserKey,
-      watchlist, addToWatchlist, removeFromWatchlist,
+      watchlist, addToWatchlist, removeFromWatchlist, batchAddShows, batchSubscribe,
       subscribedLists, subscribeToList, unsubscribeFromList, allTrackedShows,
       episodes, loading, syncProgress, refreshEpisodes,
       requestNotificationPermission, scheduleNotification,
       isSearchOpen, setIsSearchOpen,
       settings, updateSettings,
       importBackup,
-      getSyncPayload, processSyncPayload
+      getSyncPayload, processSyncPayload,
+      isMobileWarningOpen, closeMobileWarning
     }}>
       {children}
     </AppContext.Provider>

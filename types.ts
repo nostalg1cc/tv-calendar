@@ -56,6 +56,7 @@ export interface AppSettings {
   recommendationMethod: 'banner' | 'inline';
   compactCalendar: boolean;
   viewMode: 'grid' | 'list'; // Added viewMode
+  suppressMobileAddWarning: boolean; // New setting
 }
 
 export interface SubscribedList {

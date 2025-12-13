@@ -17,6 +17,10 @@ const WatchlistPage: React.FC = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isListManagerOpen, setIsListManagerOpen] = useState(false);
 
+  // Calculate counts
+  const movieCount = allTrackedShows.filter(s => s.media_type === 'movie').length;
+  const showCount = allTrackedShows.filter(s => s.media_type === 'tv').length;
+
   // Helper to find the next airing episode for a specific show ID
   // Updated Logic: Compare string directly since YYYY-MM-DD sortable, and check against today's date string
   const getNextEpisodeDate = (showId: number): string | null => {
@@ -110,7 +114,9 @@ const WatchlistPage: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 bg-transparent p-6 rounded-2xl border border-white/10 backdrop-blur-md">
         <div>
            <h1 className="text-3xl font-bold text-white mb-1">My Tracked Shows</h1>
-           <p className="text-slate-400 text-sm">Managing {allTrackedShows.length} titles on your calendar</p>
+           <p className="text-slate-400 text-sm">
+             <span className="text-white font-bold">{movieCount}</span> Movies, <span className="text-white font-bold">{showCount}</span> Shows being tracked
+           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4">

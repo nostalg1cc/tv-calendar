@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone } from 'lucide-react';
+import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import QRCode from 'react-qr-code';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -9,7 +10,7 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { settings, updateSettings, watchlist, subscribedLists, user, updateUserKey, importBackup, syncProgress, loading, getSyncPayload } = useAppContext();
+  const { settings, updateSettings, watchlist, subscribedLists, user, updateUserKey, importBackup, batchAddShows, batchSubscribe, syncProgress, loading, getSyncPayload, processSyncPayload } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Local state for key editing
@@ -20,12 +21,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [showExportWarning, setShowExportWarning] = useState(false);
   const [hasAcknowledgedRisk, setHasAcknowledgedRisk] = useState(false);
   
-  // Import Confirmation State
-  const [importPreview, setImportPreview] = useState<any>(null);
+  // Import / Merge State
+  const [mergePreview, setMergePreview] = useState<any>(null); // For "Merge" modal on PC
   const [isProcessingImport, setIsProcessingImport] = useState(false);
 
   // QR Sync State
-  const [showQr, setShowQr] = useState(false);
+  const [showQr, setShowQr] = useState(false); // Showing QR to be scanned (PC Side)
+  const [showScanner, setShowScanner] = useState(false); // Scanning QR (Mobile Side)
 
   // Hold Button State
   const [isHolding, setIsHolding] = useState(false);
@@ -130,8 +132,32 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   throw new Error('Invalid backup file format');
               }
               
-              // Set preview instead of importing immediately
-              setImportPreview(data);
+              // MERGE LOGIC
+              let incomingShows = [];
+              let incomingLists = [];
+              
+              if (Array.isArray(data)) {
+                  incomingShows = data;
+              } else {
+                  incomingShows = data.watchlist || [];
+                  incomingLists = data.subscribedLists || [];
+              }
+
+              const currentShowIds = new Set(watchlist.map(s => s.id));
+              const currentListIds = new Set(subscribedLists.map(l => l.id));
+
+              const newShows = incomingShows.filter((s: any) => !currentShowIds.has(s.id));
+              const newLists = incomingLists.filter((l: any) => !currentListIds.has(l.id));
+
+              const matchCount = incomingShows.length - newShows.length;
+
+              setMergePreview({
+                  matchCount,
+                  newShows,
+                  newLists,
+                  totalNew: newShows.length + newLists.length
+              });
+
           } catch (err) {
               console.error(err);
               alert('Failed to import: Invalid file format.');
@@ -141,12 +167,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const confirmImport = () => {
-      if (importPreview) {
-          setIsProcessingImport(true); // Start blocking UI
-          importBackup(importPreview); // Updates state, triggers refreshEpisodes
-          setImportPreview(null);
-          // Note: onClose is called via useEffect when loading becomes false
+  const confirmMerge = () => {
+      if (mergePreview) {
+          setIsProcessingImport(true);
+          
+          if (mergePreview.newShows.length > 0) {
+              batchAddShows(mergePreview.newShows);
+          }
+          if (mergePreview.newLists.length > 0) {
+              batchSubscribe(mergePreview.newLists);
+          }
+          
+          // Small delay to show loader then close
+          setTimeout(() => {
+              setIsProcessingImport(false);
+              setMergePreview(null);
+              onClose();
+          }, 1500);
       }
   };
 
@@ -157,85 +194,62 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       }
   };
 
-  const calculateEstimate = (count: number) => {
-      const batchSize = 4;
-      const delayPerBatch = 0.5; // 500ms
-      const batches = Math.ceil(count / batchSize);
-      const totalSeconds = batches * delayPerBatch;
-      
-      if (totalSeconds < 60) {
-          return `${Math.ceil(totalSeconds)} seconds`;
+  const handleScan = (result: any) => {
+      if (result && result[0]?.rawValue) {
+          setShowScanner(false);
+          setIsProcessingImport(true);
+          processSyncPayload(result[0].rawValue);
       }
-      return `${Math.ceil(totalSeconds / 60)} minutes`;
   };
 
-  // --- Render Import Confirmation Overlay ---
-  if (importPreview) {
-      // (Keep existing Import Preview Logic)
-      const showCount = Array.isArray(importPreview) 
-          ? importPreview.length 
-          : (importPreview.watchlist?.length || 0);
-      const listCount = !Array.isArray(importPreview) && importPreview.subscribedLists 
-          ? importPreview.subscribedLists.length 
-          : 0;
-      
-      let totalItemsToSync = showCount;
-      if (importPreview.subscribedLists) {
-          importPreview.subscribedLists.forEach((l: any) => {
-             if (l.items) totalItemsToSync += l.items.length;
-          });
-      }
-
-      const timeEstimate = calculateEstimate(totalItemsToSync);
-
+  // --- Render Merge Confirmation Overlay ---
+  if (mergePreview) {
       return (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
               <div className="glass-panel rounded-3xl shadow-2xl w-full max-w-sm p-6 animate-fade-in relative overflow-hidden">
                    <div className="text-center mb-6">
                        <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-400">
-                           <Upload className="w-8 h-8" />
+                           <Merge className="w-8 h-8" />
                        </div>
-                       <h2 className="text-xl font-bold text-white mb-2">Confirm Import</h2>
-                       <p className="text-slate-400 text-sm">You are about to add:</p>
-                   </div>
-                   {/* ... Keep rest of Import UI ... */}
-                   <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/5 space-y-3">
-                       <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                           <span className="text-slate-400 text-sm">TV Shows & Movies</span>
-                           <span className="text-white font-bold">{showCount}</span>
-                       </div>
-                       {listCount > 0 && (
-                            <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                <span className="text-slate-400 text-sm">Subscribed Lists</span>
-                                <span className="text-white font-bold">{listCount}</span>
-                            </div>
-                       )}
-                       <div className="flex justify-between items-center">
-                           <span className="text-slate-400 text-sm">Settings</span>
-                           <span className="text-white font-bold">{importPreview.settings ? 'Yes' : 'No'}</span>
-                       </div>
+                       <h2 className="text-xl font-bold text-white mb-2">Merge Content</h2>
+                       <p className="text-slate-400 text-sm">We compared your backup with your current profile.</p>
                    </div>
 
-                   <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 flex gap-3 mb-6">
-                       <Hourglass className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
-                       <div className="text-xs text-yellow-200 leading-relaxed">
-                           <strong className="block mb-1 text-yellow-100">Estimated Time: ~{timeEstimate}</strong>
-                           Please do not close the window while the import is processing.
+                   <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/5 space-y-3">
+                       <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                           <span className="text-slate-400 text-sm">Matching Items</span>
+                           <span className="text-slate-500 font-mono font-bold text-xs bg-slate-800 px-2 py-0.5 rounded">
+                               {mergePreview.matchCount} Skipped
+                           </span>
+                       </div>
+                       <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                           <span className="text-slate-400 text-sm">New Shows/Movies</span>
+                           <span className="text-green-400 font-bold">+{mergePreview.newShows.length}</span>
+                       </div>
+                       <div className="flex justify-between items-center">
+                           <span className="text-slate-400 text-sm">New Lists</span>
+                           <span className="text-green-400 font-bold">+{mergePreview.newLists.length}</span>
                        </div>
                    </div>
 
                    <div className="flex gap-3">
                        <button 
-                           onClick={() => setImportPreview(null)}
+                           onClick={() => setMergePreview(null)}
                            className="flex-1 py-3 rounded-lg font-medium text-slate-300 hover:bg-white/5 transition-colors"
                        >
                            Cancel
                        </button>
                        <button 
-                           onClick={confirmImport}
-                           className="flex-1 py-3 rounded-lg font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all"
+                           onClick={confirmMerge}
+                           disabled={mergePreview.totalNew === 0}
+                           className={`
+                                flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all
+                                ${mergePreview.totalNew === 0 
+                                    ? 'bg-white/10 text-slate-500 cursor-not-allowed' 
+                                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'}
+                           `}
                        >
-                           Import Now
+                           {mergePreview.totalNew === 0 ? 'Nothing to Add' : 'Import New'}
                        </button>
                    </div>
               </div>
@@ -243,7 +257,37 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       );
   }
 
-  // --- Render QR Overlay ---
+  // --- Render Scanner Overlay (Sync from PC) ---
+  if (showScanner) {
+      return (
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-fade-in">
+              <div className="flex justify-between items-center p-4 bg-black/50 absolute top-0 left-0 right-0 z-10 backdrop-blur-md">
+                  <h2 className="text-white font-bold">Scan QR from PC</h2>
+                  <button onClick={() => setShowScanner(false)} className="p-2 bg-white/10 rounded-full text-white">
+                      <X className="w-6 h-6" />
+                  </button>
+              </div>
+              <div className="flex-1 flex items-center justify-center relative">
+                  <Scanner 
+                      onScan={handleScan} 
+                      onError={(err: any) => console.log(err)}
+                      styles={{ container: { width: '100%', height: '100%' } }}
+                  />
+                  {/* Overlay Guide */}
+                  <div className="absolute inset-0 border-[30px] border-black/50 pointer-events-none flex items-center justify-center">
+                      <div className="w-64 h-64 border-2 border-indigo-500/50 rounded-lg relative">
+                           <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-indigo-500 -mt-1 -ml-1" />
+                           <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-indigo-500 -mt-1 -mr-1" />
+                           <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-indigo-500 -mb-1 -ml-1" />
+                           <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-indigo-500 -mb-1 -mr-1" />
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
+  // --- Render QR Overlay (Show to Mobile) ---
   if (showQr) {
       const payload = getSyncPayload();
       
@@ -275,7 +319,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
   // --- Render Processing/Syncing Overlay ---
   if (isProcessingImport) {
-     // (Keep existing processing UI)
       const pct = syncProgress.total > 0 ? Math.round((syncProgress.current / syncProgress.total) * 100) : 0;
       
       return (
@@ -290,9 +333,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                        </div>
                    </div>
                    
-                   <h2 className="text-2xl font-bold text-white mb-2">Syncing your Library</h2>
+                   <h2 className="text-2xl font-bold text-white mb-2">Syncing Data</h2>
                    <p className="text-slate-400 mb-8">
-                       Updating calendar events for {syncProgress.total} items...
+                       Processing {syncProgress.total} items...
                    </p>
 
                    <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-4">
@@ -301,18 +344,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                            style={{ width: `${pct}%` }}
                        />
                    </div>
-                   
-                   <p className="text-sm font-mono text-indigo-300 mb-8">
-                       {syncProgress.current} / {syncProgress.total} processed
-                   </p>
-
-                   <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-center gap-3 text-left">
-                        <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
-                        <p className="text-xs text-red-200">
-                            <strong>Do not close this window.</strong><br/>
-                            Interrupting this process may result in missing calendar data.
-                        </p>
-                   </div>
                </div>
           </div>
       );
@@ -320,7 +351,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
   // --- Render Export Warning Modal Overlay ---
   if (showExportWarning) {
-      // (Keep existing export warning)
       return (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-red-950/80 backdrop-blur-md">
               <div className="glass-panel border-2 border-red-500/50 rounded-3xl shadow-2xl w-full max-w-md p-6 animate-fade-in relative overflow-hidden">
@@ -449,23 +479,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
             <div className="h-px bg-white/5" />
 
-            {/* Sync to Mobile Section (NEW) */}
+            {/* Sync Section (Mobile <-> PC) */}
             <div>
                  <div className="flex items-center gap-3 mb-3">
                      <div className="p-2.5 rounded-xl bg-white/5 text-slate-300 h-fit">
                          <Smartphone className="w-6 h-6" />
                      </div>
                      <div>
-                         <h3 className="text-white font-medium">Sync to Mobile</h3>
-                         <p className="text-slate-400 text-sm">Transfer settings via QR Code.</p>
+                         <h3 className="text-white font-medium">Device Sync</h3>
+                         <p className="text-slate-400 text-sm">Transfer data between devices.</p>
                      </div>
                  </div>
-                 <button 
-                    onClick={() => setShowQr(true)}
-                    className="w-full bg-white text-slate-900 hover:bg-slate-200 font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all"
-                 >
-                     <QrCode className="w-5 h-5" /> Generate QR Code
-                 </button>
+                 
+                 <div className="grid grid-cols-2 gap-3">
+                     <button 
+                        onClick={() => setShowQr(true)}
+                        className="bg-white text-slate-900 hover:bg-slate-200 font-bold py-3 px-2 rounded-lg flex flex-col items-center justify-center gap-2 transition-all text-xs text-center"
+                     >
+                         <QrCode className="w-5 h-5" /> 
+                         <span>Show QR Code</span>
+                     </button>
+                     <button 
+                        onClick={() => setShowScanner(true)}
+                        className="bg-white/10 text-white hover:bg-white/20 border border-white/10 font-bold py-3 px-2 rounded-lg flex flex-col items-center justify-center gap-2 transition-all text-xs text-center"
+                     >
+                         <Scanner className="w-5 h-5" /> 
+                         <span>Scan to Sync</span>
+                     </button>
+                 </div>
             </div>
 
             <div className="h-px bg-white/5" />
@@ -502,8 +543,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 {/* ... existing toggles ... */}
             </div>
 
-            {/* ... existing sections ... */}
-
              {/* Data Management */}
              <div>
                  <div className="flex items-center gap-3 mb-4">
@@ -530,13 +569,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             onTouchEnd={stopHold}
                             className="relative w-full h-10 bg-white/5 rounded-lg font-medium text-xs text-slate-200 overflow-hidden select-none touch-none group"
                         >
-                            {/* Progress Background */}
                             <div 
                                 className="absolute inset-y-0 left-0 bg-indigo-600 transition-all duration-[50ms] ease-linear"
                                 style={{ width: `${holdProgress}%` }}
                             />
-                            
-                            {/* Text / Label */}
                             <div className="absolute inset-0 flex items-center justify-center gap-2 z-10">
                                 <Download className={`w-3 h-3 ${isHolding ? 'animate-bounce' : ''}`} /> 
                                 {isHolding 
@@ -544,9 +580,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                                     : 'Hold 5s to Export Profile'}
                             </div>
                         </button>
-                        <p className="text-[10px] text-slate-500 mt-2 text-center">
-                            Importing full profiles is only available on the Login screen.
-                        </p>
+                        
+                        {/* New MERGE Import Button */}
+                        <button 
+                            onClick={handleImportClick}
+                            className="mt-2 w-full h-10 bg-white/5 hover:bg-white/10 rounded-lg font-medium text-xs text-slate-300 flex items-center justify-center gap-2 border border-white/5 hover:border-indigo-500/20 transition-all"
+                        >
+                            <ArrowDownToLine className="w-3 h-3" /> Import & Merge Backup
+                        </button>
                      </div>
 
                      {/* Watchlist Only */}
@@ -563,7 +604,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                                 <Download className="w-3 h-3" /> Export List
                             </button>
                             <button 
-                                onClick={handleImportClick}
+                                onClick={handleImportClick} // Reuses handleImportClick but logic handles watchlist-only files automatically
                                 className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-indigo-300 border border-indigo-500/20 py-2 rounded-lg font-medium transition-colors text-xs"
                             >
                                 <Upload className="w-3 h-3" /> Import List

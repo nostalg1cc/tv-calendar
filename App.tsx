@@ -8,6 +8,7 @@ import WatchlistPage from './pages/WatchlistPage';
 import DiscoverPage from './pages/DiscoverPage';
 import LoginPage from './pages/LoginPage';
 import SearchModal from './components/SearchModal';
+import MobileAddWarning from './components/MobileAddWarning';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAppContext();
@@ -32,6 +33,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         `}>
             <Navbar />
             <SearchModal />
+            <MobileAddWarning />
             <main className={`
                 flex-1 
                 md:ml-20 /* Offset for sidebar */

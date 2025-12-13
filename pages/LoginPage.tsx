@@ -136,7 +136,6 @@ const LoginPage: React.FC = () => {
                   <Scanner 
                       onScan={handleScan} 
                       onError={(err: any) => console.log(err)}
-                      components={{ finder: true }} 
                       styles={{ container: { width: '100%', height: '100%' } }}
                   />
               </div>
