@@ -1,5 +1,5 @@
 import React from 'react';
-import { Monitor, Smartphone, X, ArrowRight } from 'lucide-react';
+import { Monitor, Smartphone, ArrowRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 const MobileAddWarning: React.FC = () => {

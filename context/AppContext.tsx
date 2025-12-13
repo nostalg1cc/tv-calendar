@@ -275,10 +275,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // 1. ATTEMPT LOAD FROM IDB (Optimistic)
     try {
-        const [cachedEpData, cacheMetaData] = await Promise.all([
-            get<Record<string, Episode[]>>(DB_KEY_EPISODES),
-            get<{timestamp: number, showIds: number[]}>(DB_KEY_META)
+        const cacheValues = await Promise.all([
+            get(DB_KEY_EPISODES),
+            get(DB_KEY_META)
         ]);
+        
+        const cachedEpData = cacheValues[0] as Record<string, Episode[]> | undefined;
+        const cacheMetaData = cacheValues[1] as {timestamp: number, showIds: number[]} | undefined;
 
         if (cachedEpData && cacheMetaData) {
             currentEpisodes = cachedEpData;
