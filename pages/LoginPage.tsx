@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Tv, ArrowRight, Upload, Key, HelpCircle, RefreshCw, Hourglass, Loader2, AlertTriangle, QrCode, X, Cloud, HardDrive, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
+import { Tv, ArrowRight, Upload, Key, HelpCircle, RefreshCw, Hourglass, Loader2, AlertTriangle, QrCode, X, Cloud, HardDrive, Mail, Lock, UserPlus, LogIn, Database, Settings, PlugZap } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import { supabase, isSupabaseConfigured } from '../services/supabase';
+import { supabase, isSupabaseConfigured, configureSupabase, getStoredSupabaseConfig, clearSupabaseConfig } from '../services/supabase';
 
 const LoginPage: React.FC = () => {
   // Local Auth State
@@ -13,6 +13,12 @@ const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [cloudUsername, setCloudUsername] = useState(''); // Only for signup
+  
+  // Configuration State
+  const [showConfig, setShowConfig] = useState(false);
+  const [configUrl, setConfigUrl] = useState('');
+  const [configKey, setConfigKey] = useState('');
+  const [isConfiguring, setIsConfiguring] = useState(false);
   
   // UI State
   const [mode, setMode] = useState<'local' | 'cloud'>('local');
@@ -27,10 +33,18 @@ const LoginPage: React.FC = () => {
   const [isProcessingImport, setIsProcessingImport] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
 
-  // Switch to cloud default if configured
+  // Initialize
   useEffect(() => {
+      // If configured, default to cloud
       if (isSupabaseConfigured()) {
           setMode('cloud');
+      } 
+      
+      // Pre-fill config if it exists (even if invalid/failed to load)
+      const stored = getStoredSupabaseConfig();
+      if (stored) {
+          setConfigUrl(stored.url || '');
+          setConfigKey(stored.key || '');
       }
   }, []);
 
@@ -79,6 +93,22 @@ const LoginPage: React.FC = () => {
       }
   };
 
+  const handleConfigSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      setError('');
+      setIsConfiguring(true);
+
+      // Small timeout to allow UI to update to "Connecting..." before reload
+      setTimeout(() => {
+          try {
+              configureSupabase(configUrl, configKey);
+          } catch (err: any) {
+              setError(err.message);
+              setIsConfiguring(false);
+          }
+      }, 500);
+  };
+
   const handleImportClick = () => {
       fileInputRef.current?.click();
   };
@@ -97,7 +127,6 @@ const LoginPage: React.FC = () => {
                   throw new Error('Invalid backup file. Missing user data.');
               }
 
-              // Set preview instead of importing immediately
               setImportPreview(data);
           } catch (err) {
               console.error(err);
@@ -138,7 +167,6 @@ const LoginPage: React.FC = () => {
 
   if (isProcessingImport) {
      const pct = syncProgress.total > 0 ? Math.round((syncProgress.current / syncProgress.total) * 100) : 0;
-
      return (
           <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-fade-in">
                <div className="w-full max-w-sm text-center">
@@ -150,25 +178,10 @@ const LoginPage: React.FC = () => {
                            <span className="text-xs font-bold text-white mt-12">{pct}%</span>
                        </div>
                    </div>
-                   
                    <h2 className="text-2xl font-bold text-white mb-2">Restoring Profile</h2>
-                   <p className="text-slate-400 mb-8">
-                       Syncing {syncProgress.total} items...
-                   </p>
-
+                   <p className="text-slate-400 mb-8">Syncing {syncProgress.total} items...</p>
                    <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-4">
-                       <div 
-                           className="h-full bg-indigo-500 transition-all duration-300 ease-out"
-                           style={{ width: `${pct}%` }}
-                       />
-                   </div>
-                   
-                   <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-center gap-3 text-left">
-                        <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
-                        <p className="text-xs text-red-200">
-                            <strong>Do not close this window.</strong><br/>
-                            We are fetching your calendar data.
-                        </p>
+                       <div className="h-full bg-indigo-500 transition-all duration-300 ease-out" style={{ width: `${pct}%` }} />
                    </div>
                </div>
           </div>
@@ -210,101 +223,190 @@ const LoginPage: React.FC = () => {
             </div>
 
             {/* Mode Switcher */}
-            {isSupabaseConfigured() && (
-                <div className="flex bg-white/5 p-1 rounded-xl mb-6 border border-white/5">
-                    <button 
-                        onClick={() => setMode('cloud')}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${mode === 'cloud' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                    >
-                        <Cloud className="w-4 h-4" /> Cloud
-                    </button>
-                    <button 
-                        onClick={() => setMode('local')}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${mode === 'local' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}
-                    >
-                        <HardDrive className="w-4 h-4" /> Local
-                    </button>
-                </div>
-            )}
+            <div className="flex bg-white/5 p-1 rounded-xl mb-6 border border-white/5">
+                <button 
+                    onClick={() => { setMode('cloud'); setError(''); }}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${mode === 'cloud' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                >
+                    <Cloud className="w-4 h-4" /> Cloud
+                </button>
+                <button 
+                    onClick={() => { setMode('local'); setError(''); }}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${mode === 'local' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                    <HardDrive className="w-4 h-4" /> Local
+                </button>
+            </div>
 
             {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm mb-6 text-center animate-fade-in">
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm mb-6 text-center animate-fade-in flex items-center justify-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
                     {error}
                 </div>
             )}
 
             {mode === 'cloud' ? (
                 // --- CLOUD FORM ---
-                <form onSubmit={handleCloudSubmit} className="space-y-4 animate-fade-in">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Email</label>
-                        <div className="relative">
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full bg-black/30 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
-                                placeholder="you@example.com"
-                                required
-                            />
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                !isSupabaseConfigured() ? (
+                    showConfig ? (
+                        // Manual Config Form
+                        <form onSubmit={handleConfigSubmit} className="animate-fade-in space-y-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <button type="button" onClick={() => setShowConfig(false)} className="text-slate-400 hover:text-white">
+                                    <ArrowRight className="w-4 h-4 rotate-180" />
+                                </button>
+                                <h3 className="text-white font-bold">Connect Custom Database</h3>
+                            </div>
+                            
+                            <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-3 text-xs text-indigo-300 mb-2">
+                                <p>Enter your Supabase project credentials below. These will be saved to your browser.</p>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Supabase Project URL</label>
+                                <input
+                                    type="text"
+                                    value={configUrl}
+                                    onChange={(e) => setConfigUrl(e.target.value)}
+                                    className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                    placeholder="https://xyz.supabase.co"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Supabase Anon Key</label>
+                                <input
+                                    type="password"
+                                    value={configKey}
+                                    onChange={(e) => setConfigKey(e.target.value)}
+                                    className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
+                                    placeholder="eyJ..."
+                                    required
+                                />
+                            </div>
+                             <button
+                                type="submit"
+                                disabled={isConfiguring}
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                            >
+                                {isConfiguring ? (
+                                    <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                                ) : (
+                                    <><PlugZap className="w-4 h-4" /> Connect & Reload</>
+                                )}
+                            </button>
+                            
+                             {configUrl && (
+                                <div className="text-center pt-2">
+                                    <button type="button" onClick={() => { clearSupabaseConfig(); setConfigUrl(''); setConfigKey(''); }} className="text-xs text-red-400 hover:text-red-300">
+                                        Clear Saved Config
+                                    </button>
+                                </div>
+                            )}
+                        </form>
+                    ) : (
+                        // Placeholder
+                        <div className="text-center py-8 bg-white/5 rounded-2xl border border-dashed border-white/10 animate-fade-in">
+                            <Cloud className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                            <h3 className="text-white font-bold mb-1">Service Not Configured</h3>
+                            <p className="text-slate-400 text-sm px-4 mb-4">
+                                No database connection found.
+                            </p>
+                            <button 
+                                onClick={() => setShowConfig(true)}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold transition-colors shadow-lg shadow-indigo-500/20"
+                            >
+                                <Settings className="w-4 h-4" /> Configure Connection
+                            </button>
+                        </div>
+                    )
+                ) : (
+                    <div className="space-y-6 animate-fade-in">
+                        {/* Auth Mode Tabs */}
+                        <div className="grid grid-cols-2 gap-4 border-b border-white/10 pb-2">
+                            <button
+                                type="button" 
+                                onClick={() => { setAuthMode('signin'); setError(''); }}
+                                className={`pb-2 text-sm font-medium transition-colors relative ${authMode === 'signin' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                Sign In
+                                {authMode === 'signin' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />}
+                            </button>
+                             <button
+                                type="button" 
+                                onClick={() => { setAuthMode('signup'); setError(''); }}
+                                className={`pb-2 text-sm font-medium transition-colors relative ${authMode === 'signup' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                Sign Up
+                                {authMode === 'signup' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />}
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCloudSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Email</label>
+                                <div className="relative">
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        className="w-full bg-black/30 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
+                                        placeholder="you@example.com"
+                                        required
+                                    />
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                </div>
+                            </div>
+                            
+                            {authMode === 'signup' && (
+                                <div className="animate-fade-in">
+                                    <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Username</label>
+                                    <input
+                                        type="text"
+                                        value={cloudUsername}
+                                        onChange={(e) => setCloudUsername(e.target.value)}
+                                        className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
+                                        placeholder="Display Name"
+                                        required
+                                    />
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Password</label>
+                                <div className="relative">
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="w-full bg-black/30 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
+                                        placeholder="••••••••"
+                                        required
+                                    />
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={cloudLoading}
+                                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {cloudLoading ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    authMode === 'signin' ? <><LogIn className="w-4 h-4" /> Sign In</> : <><UserPlus className="w-4 h-4" /> Create Account</>
+                                )}
+                            </button>
+                        </form>
+                        
+                        <div className="pt-2 text-center">
+                            <button onClick={() => { setShowConfig(true); }} className="text-xs text-slate-500 hover:text-white flex items-center justify-center gap-1 mx-auto">
+                                <Settings className="w-3 h-3" /> Edit Connection Settings
+                            </button>
                         </div>
                     </div>
-                    
-                    {authMode === 'signup' && (
-                        <div className="animate-fade-in">
-                            <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Username</label>
-                            <input
-                                type="text"
-                                value={cloudUsername}
-                                onChange={(e) => setCloudUsername(e.target.value)}
-                                className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
-                                placeholder="Display Name"
-                                required
-                            />
-                        </div>
-                    )}
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Password</label>
-                        <div className="relative">
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full bg-black/30 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
-                                placeholder="••••••••"
-                                required
-                            />
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                        </div>
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={cloudLoading}
-                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {cloudLoading ? (
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                            authMode === 'signin' ? <><LogIn className="w-4 h-4" /> Sign In</> : <><UserPlus className="w-4 h-4" /> Create Account</>
-                        )}
-                    </button>
-
-                    <div className="text-center pt-2">
-                        <button 
-                            type="button"
-                            onClick={() => {
-                                setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
-                                setError('');
-                            }}
-                            className="text-sm text-slate-400 hover:text-white transition-colors"
-                        >
-                            {authMode === 'signin' ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-                        </button>
-                    </div>
-                </form>
+                )
             ) : (
                 // --- LOCAL FORM ---
                 <form onSubmit={handleLocalSubmit} className="space-y-4 animate-fade-in">
