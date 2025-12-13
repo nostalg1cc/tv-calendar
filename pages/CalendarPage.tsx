@@ -224,17 +224,26 @@ const CalendarPage: React.FC = () => {
                                             // Stacked View for Multiple Episodes
                                             <div className="absolute inset-0 p-1 flex flex-col gap-1 overflow-hidden z-10 pt-8">
                                                 {dayEpisodes.slice(0, 3).map((ep, i) => (
-                                                    <div key={i} className="flex items-center gap-2 bg-zinc-900/90 p-1 rounded border border-zinc-800/50 truncate">
+                                                    <div key={i} className="flex items-center gap-2 bg-zinc-900/90 p-1.5 rounded border border-zinc-800/50 truncate">
                                                         {/* Small Thumbnail */}
-                                                        <img 
-                                                            src={getImageUrl(ep.poster_path)} 
-                                                            className="w-5 h-7 object-cover rounded-[2px] shrink-0 opacity-80" 
-                                                            alt="" 
-                                                        />
-                                                        <div className="min-w-0">
-                                                            <div className="text-[9px] text-zinc-200 font-medium truncate leading-tight">{ep.show_name}</div>
-                                                            <div className="text-[8px] text-zinc-500 truncate leading-tight">
-                                                                {ep.is_movie ? 'Movie' : `S${ep.season_number}E${ep.episode_number}`}
+                                                        <div className="relative shrink-0 w-5 h-7">
+                                                            <img 
+                                                                src={getImageUrl(ep.poster_path)} 
+                                                                className="w-full h-full object-cover rounded-[2px] opacity-90" 
+                                                                alt="" 
+                                                            />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1 flex flex-col justify-center">
+                                                            <div className="text-[9px] text-zinc-200 font-medium truncate leading-none mb-0.5">{ep.show_name}</div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[8px] text-zinc-500 truncate leading-none">
+                                                                    {ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema' : 'Digital') : `S${ep.season_number}E${ep.episode_number}`}
+                                                                </span>
+                                                                {ep.is_movie && (
+                                                                     ep.release_type === 'theatrical' 
+                                                                     ? <Ticket className="w-2.5 h-2.5 text-pink-400" />
+                                                                     : <MonitorPlay className="w-2.5 h-2.5 text-emerald-400" />
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -250,7 +259,7 @@ const CalendarPage: React.FC = () => {
                                     
                                     {/* Active Day Outline */}
                                     {isDayToday && (
-                                        <div className="absolute inset-0 border-[2px] border-white pointer-events-none z-30" />
+                                        <div className="absolute inset-0 border-[2px] border-indigo-500 pointer-events-none z-30 shadow-[inset_0_0_10px_rgba(99,102,241,0.2)]" />
                                     )}
                                     
                                     {/* Hover Effect (No Zoom, just highlight) */}
