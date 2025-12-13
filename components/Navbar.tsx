@@ -42,8 +42,8 @@ const Navbar: React.FC = () => {
 
   return (
     <>
-      {/* DESKTOP SIDEBAR */}
-      <nav className="hidden md:flex flex-col w-20 bg-slate-900 border-r border-white/5 h-screen fixed left-0 top-0 z-50 items-center py-6 gap-8">
+      {/* DESKTOP SIDEBAR - Updated with backdrop blur and transparent bg */}
+      <nav className="hidden md:flex flex-col w-20 bg-slate-900/60 backdrop-blur-xl border-r border-white/5 h-screen fixed left-0 top-0 z-50 items-center py-6 gap-8">
         
         {/* Logo */}
         <Link to="/" className="p-2 bg-indigo-500/10 rounded-xl text-indigo-500 hover:bg-indigo-500/20 transition-colors">

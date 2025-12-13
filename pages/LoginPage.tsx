@@ -1,27 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Tv, ArrowRight, Upload, Key, HelpCircle, RefreshCw, Hourglass, Loader2, AlertTriangle } from 'lucide-react';
+import { Tv, ArrowRight, Upload, Key, HelpCircle, RefreshCw, Hourglass, Loader2, AlertTriangle, QrCode, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { Scanner } from 'react-qr-scanner';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState('');
-  const { login, importBackup, syncProgress, loading } = useAppContext();
+  const { login, importBackup, syncProgress, loading, processSyncPayload } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importPreview, setImportPreview] = useState<any>(null);
   const [isProcessingImport, setIsProcessingImport] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   // Reset local processing state when global loading stops (import finished)
-  // In the login page context, usually we'd redirect or just show the main app once user is set.
-  // But importBackup sets the user, so the AppRoutes will unmount LoginPage and mount Layout.
-  // This useEffect ensures we see the progress bar until that transition happens.
   useEffect(() => {
-      // If we are authenticated (user is set in context), the main App component will switch views.
-      // But if we are just "loading" data inside context, we stay here.
-      // Actually, once importBackup runs, `user` is set, so this component unmounts.
-      // BUT, we want to block until data is fetched.
-      // The ProtectedRoute/AppRoutes logic handles the view switch. 
-      // We might not need to manually handle "finish" here because the component will die.
   }, [loading]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -70,6 +63,14 @@ const LoginPage: React.FC = () => {
       }
   };
 
+  const handleScan = (result: any) => {
+      if (result && result[0]?.rawValue) {
+          setShowScanner(false);
+          setIsProcessingImport(true);
+          processSyncPayload(result[0].rawValue);
+      }
+  };
+
   const calculateEstimate = (count: number) => {
       const batchSize = 4;
       const delayPerBatch = 0.5; // 500ms
@@ -82,38 +83,7 @@ const LoginPage: React.FC = () => {
       return `${Math.ceil(totalSeconds / 60)} minutes`;
   };
 
-  // --- Render Processing/Syncing Overlay ---
-  // Note: Even if user context is set, we might still be on this page for a split second, or the app might re-render.
-  // In `App.tsx`, if `user` is set, `LoginPage` is replaced by `Layout`.
-  // So `isProcessingImport` here is transient. 
-  // However, because `importBackup` sets the user, this component will likely unmount immediately.
-  // To show the progress bar properly, we should probably delay setting the user until fetching is done, 
-  // OR rely on a global loading overlay in `App.tsx` or `Layout`.
-  // Given current architecture, let's keep it simple: We show it here. If the app transitions, 
-  // the Main Layout should probably handle a global loading state if `loading` is true.
-  
-  // For now, `importBackup` sets the user immediately. So this component unmounts.
-  // The Main App will load. The Main App `Layout` should probably show a global loader if `loading` is true.
-  // BUT the user asked for a "Don't close window" message during import.
-  // Since we switch views, we need to ensure the user knows it's still working.
-  // We can add a Global Loader to `App.tsx`?
-  // Let's rely on the fact that `App.tsx` renders `Layout` which renders `Navbar`.
-  // `CalendarPage` has a loader. 
-  // Let's add a Global Loader in `App.tsx` or `Layout`? 
-  // No, let's keep the logic here for the 'Preview' and 'Confirmation'.
-  // Once confirmed, if the page switches, that's fine, as long as the user sees data populating.
-  // BUT, if we want a *blocking* "Don't Close" modal, we need it to persist.
-  
-  // Actually, if we look at `AppContext`: `importBackup` sets `user` -> state change -> `AppRoutes` rerenders -> `LoginPage` unmounts -> `Layout` mounts.
-  // The `refreshEpisodes` happens in `useEffect` in `AppProvider`.
-  // So the `loading` state will be true in the new view.
-  // We should add the Blocking Overlay to `Layout` or `App` to ensure it persists across the view change.
-  // OR, we just render the overlay here.
-
   if (isProcessingImport) {
-     // If we are here, it means we clicked confirm.
-     // If `user` was set, we might be unmounted.
-     // But if we are still here, show the loader.
      const pct = syncProgress.total > 0 ? Math.round((syncProgress.current / syncProgress.total) * 100) : 0;
 
      return (
@@ -133,7 +103,6 @@ const LoginPage: React.FC = () => {
                        Syncing {syncProgress.total} items...
                    </p>
 
-                   {/* Progress Bar */}
                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
                        <div 
                            className="h-full bg-indigo-500 transition-all duration-300 ease-out"
@@ -153,12 +122,34 @@ const LoginPage: React.FC = () => {
      )
   }
 
+  // --- Render Scanner Overlay ---
+  if (showScanner) {
+      return (
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col">
+              <div className="flex justify-between items-center p-4 bg-black/50 absolute top-0 left-0 right-0 z-10">
+                  <h2 className="text-white font-bold">Scan QR from Desktop</h2>
+                  <button onClick={() => setShowScanner(false)} className="p-2 bg-white/10 rounded-full text-white">
+                      <X className="w-6 h-6" />
+                  </button>
+              </div>
+              <div className="flex-1 flex items-center justify-center relative">
+                  <Scanner 
+                      onScan={handleScan} 
+                      onError={(err) => console.log(err)}
+                      components={{ audio: false, finder: true }}
+                      styles={{ container: { width: '100%', height: '100%' } }}
+                  />
+              </div>
+          </div>
+      );
+  }
+
   return (
     <>
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
+        <div className="min-h-screen bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="bg-slate-800/80 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/10">
             <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-500/10 text-indigo-500 mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-500/10 text-indigo-500 mb-4 border border-indigo-500/20">
                 <Tv className="w-8 h-8" />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">TV Calendar</h1>
@@ -181,7 +172,7 @@ const LoginPage: React.FC = () => {
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 placeholder="Enter your name"
                 required
                 />
@@ -208,15 +199,12 @@ const LoginPage: React.FC = () => {
                         id="apiKey"
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all font-mono text-sm"
+                        className="w-full bg-slate-900/50 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all font-mono text-sm"
                         placeholder="eyJhbGciOiJIUzI1NiJ9..."
                         required
                     />
                     <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1.5">
-                    Your key is stored locally in your browser and used only for API requests.
-                </p>
             </div>
 
             <button
@@ -226,22 +214,24 @@ const LoginPage: React.FC = () => {
                 Get Started <ArrowRight className="w-4 h-4" />
             </button>
             </form>
-
-            <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-700"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-slate-800 text-slate-500">Already have a profile?</span>
-                </div>
+            
+            <div className="my-6 grid grid-cols-2 gap-3">
+                 <button 
+                    onClick={() => setShowScanner(true)}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-900/50 hover:bg-slate-900 border border-white/5 hover:border-indigo-500/50 transition-all gap-2"
+                 >
+                     <QrCode className="w-6 h-6 text-white" />
+                     <span className="text-xs font-bold text-slate-400">Scan QR Code</span>
+                 </button>
+                 <button 
+                    onClick={handleImportClick}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-900/50 hover:bg-slate-900 border border-white/5 hover:border-indigo-500/50 transition-all gap-2"
+                 >
+                     <Upload className="w-6 h-6 text-white" />
+                     <span className="text-xs font-bold text-slate-400">Import File</span>
+                 </button>
             </div>
 
-            <button 
-                onClick={handleImportClick}
-                className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all border border-slate-600"
-            >
-                <Upload className="w-4 h-4" /> Import Profile Backup
-            </button>
             <input 
                 type="file" 
                 accept=".json" 
@@ -250,7 +240,7 @@ const LoginPage: React.FC = () => {
                 className="hidden" 
             />
 
-            <div className="mt-8 text-center text-xs text-slate-500">
+            <div className="text-center text-xs text-slate-500">
             <p>Powered by TMDB API.</p>
             </div>
         </div>
@@ -260,6 +250,7 @@ const LoginPage: React.FC = () => {
         {importPreview && (
             <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
                 <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in relative overflow-hidden">
+                    {/* ... Existing Import Preview ... */}
                     <div className="text-center mb-6">
                         <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-400">
                             <Upload className="w-8 h-8" />
@@ -277,12 +268,6 @@ const LoginPage: React.FC = () => {
                             <span className="text-slate-400 text-sm">TV Shows & Movies</span>
                             <span className="text-white font-bold">{importPreview.watchlist?.length || 0}</span>
                         </div>
-                        {importPreview.subscribedLists?.length > 0 && (
-                                <div className="flex justify-between items-center">
-                                    <span className="text-slate-400 text-sm">Subscribed Lists</span>
-                                    <span className="text-white font-bold">{importPreview.subscribedLists.length}</span>
-                                </div>
-                        )}
                     </div>
 
                     <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 flex gap-3 mb-6">

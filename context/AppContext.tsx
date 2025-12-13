@@ -3,6 +3,7 @@ import { User, TVShow, Episode, AppSettings, SubscribedList } from '../types';
 import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails } from '../services/tmdb';
 import { get, set, del } from 'idb-keyval';
 import { format, subWeeks, addWeeks } from 'date-fns';
+import LZString from 'lz-string';
 
 interface AppContextType {
   user: User | null;
@@ -27,6 +28,8 @@ interface AppContextType {
   settings: AppSettings;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
   importBackup: (data: any) => void;
+  getSyncPayload: () => string;
+  processSyncPayload: (payload: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -367,19 +370,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }));
             
             // Incrementally merge into UI state
-            // We use functional state update to ensure we don't clobber updates from previous loop if React batches oddly
             setEpisodes(prev => {
                 const updated = { ...prev };
-                // If this is a full update, we essentially want to overwrite eventually, 
-                // but purely additive is safer for visual stability until the end.
                 Object.entries(newFetchedEpisodes).forEach(([date, eps]) => {
-                    // Simple merge: If we fetched new data for this date, assume it's "truer" than old data? 
-                    // No, newFetchedEpisodes only contains specific shows. We must append to existing date key.
-                    // BUT we must filter duplicates if we are "updating" existing shows.
-                    // To keep it simple: We just add to the pile and rely on the final consolidation to be clean.
                     if (!updated[date]) updated[date] = [];
-                    
-                    // Add only unique IDs to avoid temporary duplicates in UI
                     const existingIds = new Set(updated[date].map(e => e.id));
                     const uniqueNew = eps.filter(e => !existingIds.has(e.id));
                     updated[date] = [...updated[date], ...uniqueNew];
@@ -394,12 +388,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         
         // Final Consolidation
         if (needsFullUpdate) {
-            // If full update, the new fetch IS the truth. 
-            // However, we fetched showsToFetch which IS allTrackedShows.
-            // So newFetchedEpisodes is the complete new state.
             currentEpisodes = newFetchedEpisodes;
         } else {
-            // Partial update: Merge new stuff into old stuff
             Object.entries(newFetchedEpisodes).forEach(([date, eps]) => {
                 if (!currentEpisodes[date]) currentEpisodes[date] = [];
                 currentEpisodes[date] = [...currentEpisodes[date], ...eps];
@@ -495,6 +485,119 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
+  // --- QR Sync Logic ---
+  const getSyncPayload = () => {
+    if (!user) return '';
+
+    // Minify the data to fit in QR Code
+    const payload = {
+        k: user.tmdbKey,
+        u: user.username,
+        // Map watchlist to simple array of IDs with types: [1234, 'movie'] -> compact format?
+        // Actually, 'searchShows' or 'refreshEpisodes' needs media_type to work efficiently.
+        // Let's store compact objects: {i: id, t: type (0=tv, 1=movie)}
+        w: watchlist.map(s => ({ i: s.id, t: s.media_type === 'movie' ? 1 : 0 })),
+        s: subscribedLists.map(l => l.id),
+        // Settings: c=compact, h=theatrical, s=spoilers
+        c: {
+            cc: settings.compactCalendar ? 1 : 0,
+            ht: settings.hideTheatrical ? 1 : 0,
+            hs: settings.hideSpoilers ? 1 : 0
+        }
+    };
+    
+    // Compress string
+    const jsonStr = JSON.stringify(payload);
+    return LZString.compressToEncodedURIComponent(jsonStr);
+  };
+
+  const processSyncPayload = async (payload: string) => {
+      try {
+          const jsonStr = LZString.decompressFromEncodedURIComponent(payload);
+          if (!jsonStr) throw new Error("Decompression failed");
+          
+          const data = JSON.parse(jsonStr);
+          if (!data.k || !data.u) throw new Error("Invalid payload data");
+
+          // 1. Restore User
+          login(data.u, data.k);
+
+          // 2. Restore Settings
+          if (data.c) {
+              updateSettings({
+                  compactCalendar: data.c.cc === 1,
+                  hideTheatrical: data.c.ht === 1,
+                  hideSpoilers: data.c.hs === 1
+              });
+          }
+
+          // 3. Restore Subscriptions (Lists)
+          // We need to fetch details for these lists
+          if (data.s && Array.isArray(data.s)) {
+             const lists: SubscribedList[] = [];
+             for (const listId of data.s) {
+                 try {
+                     const details = await getListDetails(listId);
+                     lists.push({
+                         id: listId,
+                         name: details.name,
+                         items: details.items,
+                         item_count: details.items.length
+                     });
+                 } catch (e) { console.error(e); }
+             }
+             setSubscribedLists(lists);
+          }
+
+          // 4. Restore Watchlist (Hydration)
+          // We have IDs, need to fetch names/images.
+          // Since we can't batch fetch show details easily without many calls,
+          // we will rely on a "Rehydration" approach:
+          // We'll insert partial objects into watchlist (id, media_type)
+          // Then let 'refreshEpisodes' or a generic fetcher fill in the gaps?
+          // No, the UI needs names/images immediately.
+          // We'll use the 'searchShows' (by ID) trick or specific fetches.
+          if (data.w && Array.isArray(data.w)) {
+              setLoading(true);
+              const restoredWatchlist: TVShow[] = [];
+              const batches = [];
+              const BATCH = 5;
+              
+              for (let i = 0; i < data.w.length; i += BATCH) {
+                  batches.push(data.w.slice(i, i + BATCH));
+              }
+
+              let current = 0;
+              setSyncProgress({ current: 0, total: data.w.length });
+
+              for (const batch of batches) {
+                  const promises = batch.map((item: any) => {
+                      const id = item.i;
+                      const type = item.t === 1 ? 'movie' : 'tv';
+                      if (type === 'movie') return getMovieDetails(id).catch(() => null);
+                      else return getShowDetails(id).catch(() => null);
+                  });
+                  
+                  const results = await Promise.all(promises);
+                  results.forEach(r => {
+                      if (r) restoredWatchlist.push(r);
+                  });
+                  
+                  current += batch.length;
+                  setSyncProgress({ current, total: data.w.length });
+              }
+              setWatchlist(restoredWatchlist);
+          }
+
+          setLoading(false);
+
+      } catch (e) {
+          console.error(e);
+          alert("Failed to sync from QR Code. Data may be corrupted.");
+          setLoading(false);
+      }
+  };
+
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
       alert('This browser does not support desktop notifications');
@@ -534,7 +637,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       requestNotificationPermission, scheduleNotification,
       isSearchOpen, setIsSearchOpen,
       settings, updateSettings,
-      importBackup
+      importBackup,
+      getSyncPayload, processSyncPayload
     }}>
       {children}
     </AppContext.Provider>

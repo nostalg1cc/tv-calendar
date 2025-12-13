@@ -106,7 +106,7 @@ const CalendarPage: React.FC = () => {
     const remainder = Math.max(0, eps.length - 4); 
 
     return (
-      <div className="w-full h-full bg-slate-900/90 p-1 flex flex-col overflow-hidden relative">
+      <div className="w-full h-full bg-slate-900/80 p-1 flex flex-col overflow-hidden relative backdrop-blur-sm">
         <div className="flex-1 flex flex-col gap-1 min-h-0 overflow-hidden">
             {displayEps.map((ep) => (
                 <div key={`${ep.show_id}-${ep.id}`} className="flex items-center gap-1.5 bg-white/5 p-1 rounded-lg border border-white/5 shrink-0">
@@ -130,7 +130,7 @@ const CalendarPage: React.FC = () => {
         </div>
         
         {remainder > 0 ? (
-            <div className="shrink-0 text-[9px] text-center text-indigo-400 font-bold bg-slate-900/95 pt-0.5 mt-0.5 border-t border-white/5">
+            <div className="shrink-0 text-[9px] text-center text-indigo-400 font-bold bg-slate-900/50 pt-0.5 mt-0.5 border-t border-white/5">
                 +{remainder} more
             </div>
         ) : (
@@ -171,7 +171,7 @@ const CalendarPage: React.FC = () => {
              </button>
 
             {/* View Toggle */}
-            <div className="hidden md:flex bg-slate-800 rounded-lg p-1 border border-white/10">
+            <div className="hidden md:flex bg-slate-800/50 backdrop-blur-md rounded-lg p-1 border border-white/10">
                 <button 
                     onClick={() => updateSettings({ viewMode: 'grid' })}
                     className={`p-1.5 rounded-md transition-colors ${isGridView ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
@@ -215,7 +215,7 @@ const CalendarPage: React.FC = () => {
             {isGridView && (
                 <div className={`
                     hidden md:flex flex-col
-                    bg-slate-800/40 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl overflow-hidden
+                    bg-slate-900/30 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl overflow-hidden
                     ${settings.compactCalendar ? 'flex-1 h-full min-h-0' : 'sm:p-6'}
                 `}>
                     {/* Days Header */}
@@ -250,7 +250,7 @@ const CalendarPage: React.FC = () => {
                             style={!settings.compactCalendar ? { aspectRatio: '2/3' } : {}}
                             className={`
                                 group relative w-full rounded-xl flex flex-col transition-all duration-200 overflow-hidden
-                                ${!isCurrentMonth ? 'bg-slate-900/20 grayscale text-opacity-50' : 'bg-slate-800'}
+                                ${!isCurrentMonth ? 'bg-slate-950/20 grayscale text-opacity-50' : 'bg-slate-900/40 backdrop-blur-sm'}
                                 
                                 /* Border/Ring Styling */
                                 ${isDayToday 
@@ -265,9 +265,9 @@ const CalendarPage: React.FC = () => {
                                 ${settings.compactCalendar ? 'min-h-0' : ''} 
                             `}
                         >
-                            {/* Date Number */}
+                            {/* Date Number - MOVED TO TOP RIGHT */}
                             <div className={`
-                                absolute top-1 left-1 z-20 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold pointer-events-none
+                                absolute top-1 right-1 z-20 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold pointer-events-none
                                 ${isDayToday 
                                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' 
                                     : 'bg-black/40 backdrop-blur-md text-white/80'}
@@ -315,7 +315,7 @@ const CalendarPage: React.FC = () => {
                                     shrink-0 w-16 flex flex-col items-center justify-center rounded-2xl border h-fit
                                     ${isDayToday 
                                         ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
-                                        : 'bg-slate-800 border-white/5 text-slate-400'}
+                                        : 'bg-slate-800/60 border-white/5 text-slate-400'}
                                 `}>
                                     <span className="text-xs font-semibold uppercase tracking-wider mt-2">{format(day, 'EEE')}</span>
                                     <span className="text-2xl font-bold mb-2">{format(day, 'd')}</span>
@@ -327,7 +327,7 @@ const CalendarPage: React.FC = () => {
                                         <div 
                                             key={`${ep.show_id}-${ep.id}`}
                                             onClick={() => setSelectedDate(day)}
-                                            className="flex bg-slate-800/80 border border-white/5 rounded-xl p-2.5 gap-3 active:scale-[0.98] transition-transform cursor-pointer hover:bg-slate-700/80"
+                                            className="flex bg-slate-800/80 backdrop-blur-sm border border-white/5 rounded-xl p-2.5 gap-3 active:scale-[0.98] transition-transform cursor-pointer hover:bg-slate-700/80"
                                         >
                                             <img 
                                                 src={getImageUrl(ep.poster_path)} 

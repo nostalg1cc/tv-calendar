@@ -26,7 +26,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
     return (
         <div className={`
-            bg-slate-900 text-slate-50
+            /* Removed solid bg-slate-900 to let body gradient show */
+            text-slate-50
             ${isCompactMode ? 'h-screen overflow-hidden flex flex-col md:flex-row' : 'min-h-screen pb-20 md:pb-0 flex flex-col md:flex-row'}
         `}>
             <Navbar />
