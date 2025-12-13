@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine } from 'lucide-react';
+import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -540,6 +540,37 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         />
                     </button>
                 </div>
+
+                {/* Poster Fill Mode Toggle */}
+                <div className="flex items-center justify-between">
+                    <div className="flex gap-4">
+                         <div className="p-2.5 rounded-xl bg-pink-500/10 text-pink-400 h-fit">
+                            {settings.calendarPosterFillMode === 'contain' ? <ImageIcon className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
+                        </div>
+                        <div>
+                            <h3 className="text-white font-medium mb-1">Grid Image Style</h3>
+                            <p className="text-slate-400 text-sm">Toggle between full cover or ratio preserve.</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex bg-white/10 rounded-lg p-1">
+                        <button
+                             onClick={() => updateSettings({ calendarPosterFillMode: 'cover' })}
+                             className={`p-1.5 rounded transition-colors ${settings.calendarPosterFillMode !== 'contain' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                             title="Full Cover"
+                        >
+                            <Maximize className="w-4 h-4" />
+                        </button>
+                         <button
+                             onClick={() => updateSettings({ calendarPosterFillMode: 'contain' })}
+                             className={`p-1.5 rounded transition-colors ${settings.calendarPosterFillMode === 'contain' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                             title="Preserve Ratio (Blur BG)"
+                        >
+                            <ImageIcon className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+
                 {/* ... existing toggles ... */}
             </div>
 

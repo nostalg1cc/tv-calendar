@@ -57,6 +57,7 @@ export interface AppSettings {
   compactCalendar: boolean;
   viewMode: 'grid' | 'list'; // Added viewMode
   suppressMobileAddWarning: boolean; // New setting
+  calendarPosterFillMode: 'cover' | 'contain'; // New setting for poster rendering
 }
 
 export interface SubscribedList {

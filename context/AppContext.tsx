@@ -48,6 +48,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   compactCalendar: true, // Default to compact view
   viewMode: 'grid', // Default to grid view
   suppressMobileAddWarning: false,
+  calendarPosterFillMode: 'cover', // Default to cover
 };
 
 const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
@@ -356,9 +357,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const batch = showsToFetch.slice(i, i + BATCH_SIZE);
             const promises = batch.map(show => {
                 if (show.media_type === 'movie') {
-                    return fetchEpisodesForMovie(show).catch(() => ({}));
+                    return fetchEpisodesForMovie(show).catch(() => ({} as Record<string, Episode[]>));
                 } else {
-                    return fetchEpisodesForTV(show).catch(() => ({}));
+                    return fetchEpisodesForTV(show).catch(() => ({} as Record<string, Episode[]>));
                 }
             });
 
@@ -535,11 +536,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Let's store compact objects: {i: id, t: type (0=tv, 1=movie)}
         w: watchlist.map(s => ({ i: s.id, t: s.media_type === 'movie' ? 1 : 0 })),
         s: subscribedLists.map(l => l.id),
-        // Settings: c=compact, h=theatrical, s=spoilers
+        // Settings: c=compact, h=theatrical, s=spoilers, pf=posterFill
         c: {
             cc: settings.compactCalendar ? 1 : 0,
             ht: settings.hideTheatrical ? 1 : 0,
-            hs: settings.hideSpoilers ? 1 : 0
+            hs: settings.hideSpoilers ? 1 : 0,
+            pf: settings.calendarPosterFillMode === 'contain' ? 1 : 0
         }
     };
     
@@ -569,7 +571,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               updateSettings({
                   compactCalendar: data.c.cc === 1,
                   hideTheatrical: data.c.ht === 1,
-                  hideSpoilers: data.c.hs === 1
+                  hideSpoilers: data.c.hs === 1,
+                  calendarPosterFillMode: data.c.pf === 1 ? 'contain' : 'cover'
               });
           }
 

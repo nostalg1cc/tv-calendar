@@ -66,39 +66,93 @@ const CalendarPage: React.FC = () => {
   // --- Render Helpers ---
 
   // Used when there is exactly 1 show on this day
-  const RenderFeaturedCell = ({ ep }: { ep: Episode }) => (
-    <>
-      <div className="absolute inset-0 z-0">
-        <img 
-            src={getImageUrl(ep.poster_path || ep.still_path)} 
-            alt={ep.name}
-            className="w-full h-full object-cover object-top opacity-90 transition-transform duration-500"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
-      </div>
-      
-      <div className="relative z-10 mt-auto p-2">
-         <h3 className="text-xs font-bold text-white leading-tight line-clamp-2 drop-shadow-md">
-            {ep.show_name}
-         </h3>
-         <div className="flex justify-between items-center mt-0.5">
-            {ep.is_movie ? (
-                <div className="flex items-center gap-1.5 opacity-90">
-                    {ep.release_type === 'theatrical' ? (
-                        <Ticket className="w-3 h-3 text-pink-400" />
+  const RenderFeaturedCell = ({ ep }: { ep: Episode }) => {
+    // New 'contain' mode logic
+    if (settings.calendarPosterFillMode === 'contain') {
+        return (
+            <>
+              {/* Background Blur Layer */}
+              <div className="absolute inset-0 z-0 overflow-hidden">
+                 <img 
+                    src={getImageUrl(ep.poster_path || ep.still_path)} 
+                    alt=""
+                    className="w-full h-full object-cover blur-2xl opacity-60 scale-125" 
+                 />
+                 <div className="absolute inset-0 bg-black/40"></div>
+              </div>
+
+              {/* Main Image Layer */}
+              <div className="absolute inset-0 z-0 flex items-center justify-center p-1">
+                <img 
+                    src={getImageUrl(ep.poster_path || ep.still_path)} 
+                    alt={ep.name}
+                    className="w-full h-full object-contain drop-shadow-2xl"
+                />
+              </div>
+
+              {/* Gradient Overlay for Text Readability - Stronger at bottom due to containment */}
+              <div className="absolute inset-x-0 bottom-0 h-2/3 z-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
+
+              {/* Text Content */}
+              <div className="relative z-10 mt-auto p-2">
+                 <h3 className="text-xs font-bold text-white leading-tight line-clamp-2 drop-shadow-md text-shadow-sm">
+                    {ep.show_name}
+                 </h3>
+                 <div className="flex justify-between items-center mt-0.5">
+                    {ep.is_movie ? (
+                        <div className="flex items-center gap-1.5 opacity-100">
+                            {ep.release_type === 'theatrical' ? (
+                                <Ticket className="w-3 h-3 text-pink-400 drop-shadow-sm" />
+                            ) : (
+                                <MonitorPlay className="w-3 h-3 text-emerald-400 drop-shadow-sm" />
+                            )}
+                        </div>
                     ) : (
-                        <MonitorPlay className="w-3 h-3 text-emerald-400" />
+                        <p className="text-[10px] text-slate-200 font-bold opacity-100 drop-shadow-sm">
+                            S{ep.season_number} E{ep.episode_number}
+                        </p>
                     )}
-                </div>
-            ) : (
-                <p className="text-[10px] text-slate-300 font-medium opacity-90">
-                    S{ep.season_number} E{ep.episode_number}
-                </p>
-            )}
-         </div>
-      </div>
-    </>
-  );
+                 </div>
+              </div>
+            </>
+        );
+    }
+
+    // Default 'cover' implementation
+    return (
+        <>
+        <div className="absolute inset-0 z-0">
+            <img 
+                src={getImageUrl(ep.poster_path || ep.still_path)} 
+                alt={ep.name}
+                className="w-full h-full object-cover object-top opacity-90 transition-transform duration-500"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
+        </div>
+        
+        <div className="relative z-10 mt-auto p-2">
+            <h3 className="text-xs font-bold text-white leading-tight line-clamp-2 drop-shadow-md">
+                {ep.show_name}
+            </h3>
+            <div className="flex justify-between items-center mt-0.5">
+                {ep.is_movie ? (
+                    <div className="flex items-center gap-1.5 opacity-90">
+                        {ep.release_type === 'theatrical' ? (
+                            <Ticket className="w-3 h-3 text-pink-400" />
+                        ) : (
+                            <MonitorPlay className="w-3 h-3 text-emerald-400" />
+                        )}
+                    </div>
+                ) : (
+                    <p className="text-[10px] text-slate-300 font-medium opacity-90">
+                        S{ep.season_number} E{ep.episode_number}
+                    </p>
+                )}
+            </div>
+        </div>
+        </>
+    );
+  };
 
   // Used when there are > 1 shows on this day
   const RenderListCell = ({ eps }: { eps: Episode[] }) => {
