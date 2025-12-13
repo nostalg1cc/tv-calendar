@@ -12,13 +12,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
-        --bg-color: #000000;
-        --card-bg: rgba(30, 33, 40, 0.6);
+        --bg-color: transparent;
+        --card-bg: rgba(0, 0, 0, 0.2);
         --accent-glow: rgba(99, 102, 241, 0.4);
       }
       body {
         font-family: 'Inter', sans-serif;
-        background-color: var(--bg-color);
+        background-color: #000000;
         background-image:
             radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
             radial-gradient(at 100% 100%, rgba(239, 68, 68, 0.1) 0px, transparent 50%);
@@ -27,20 +27,21 @@
         min-height: 100vh;
         overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
       }
+      
       /* Custom Scrollbar */
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: rgba(30, 41, 59, 0.5);
+        background: rgba(0, 0, 0, 0.1);
       }
       ::-webkit-scrollbar-thumb {
-        background: rgba(71, 85, 105, 0.8);
+        background: rgba(255, 255, 255, 0.1);
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: rgba(100, 116, 139, 1);
+        background: rgba(255, 255, 255, 0.2);
       }
       /* Safe area for mobile pill nav */
       .safe-area-bottom {
@@ -61,7 +62,8 @@
     "idb-keyval": "https://esm.sh/idb-keyval@6.2.1",
     "react-qr-code": "https://esm.sh/react-qr-code@2.0.15",
     "react-qr-scanner": "https://esm.sh/@yudiel/react-qr-scanner@2.0.8",
-    "lz-string": "https://esm.sh/lz-string@1.5.0"
+    "lz-string": "https://esm.sh/lz-string@1.5.0",
+    "@yudiel/react-qr-scanner": "https://esm.sh/@yudiel/react-qr-scanner@^2.4.1"
   }
 }
 </script>

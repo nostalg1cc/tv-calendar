@@ -14,7 +14,10 @@
     "react-router-dom": "^6.28.0",
     "lucide-react": "^0.460.0",
     "date-fns": "^4.1.0",
-    "idb-keyval": "^6.2.1"
+    "idb-keyval": "^6.2.1",
+    "react-qr-code": "^2.0.15",
+    "@yudiel/react-qr-scanner": "^2.0.8",
+    "lz-string": "^1.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

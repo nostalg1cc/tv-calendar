@@ -190,7 +190,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
       return (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-              <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in relative overflow-hidden">
+              <div className="bg-black/40 backdrop-blur-xl border border-indigo-500/30 rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in relative overflow-hidden">
                    <div className="text-center mb-6">
                        <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-400">
                            <Upload className="w-8 h-8" />
@@ -323,7 +323,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       // (Keep existing export warning)
       return (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-red-950/80 backdrop-blur-md">
-              <div className="bg-slate-900 border-2 border-red-500/50 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-fade-in relative overflow-hidden">
+              <div className="bg-black/80 backdrop-blur-xl border-2 border-red-500/50 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-fade-in relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
                       <ShieldAlert className="w-32 h-32 text-red-500" />
                   </div>
@@ -387,7 +387,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div 
-        className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]" 
+        className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]" 
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-white/10 flex justify-between items-center bg-white/5">

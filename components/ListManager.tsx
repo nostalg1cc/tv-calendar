@@ -44,7 +44,7 @@ const ListManager: React.FC<ListManagerProps> = ({ isOpen, onClose }) => {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
         <div 
-        className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]" 
+        className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]" 
         onClick={e => e.stopPropagation()}
         >
         <div className="p-5 border-b border-white/10 flex justify-between items-center bg-white/5">

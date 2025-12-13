@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Tv, ArrowRight, Upload, Key, HelpCircle, RefreshCw, Hourglass, Loader2, AlertTriangle, QrCode, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { Scanner } from 'react-qr-scanner';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -249,7 +249,7 @@ const LoginPage: React.FC = () => {
         {/* Import Confirmation Modal for Login Page */}
         {importPreview && (
             <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in relative overflow-hidden">
+                <div className="bg-black/60 backdrop-blur-xl border border-indigo-500/30 rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in relative overflow-hidden">
                     {/* ... Existing Import Preview ... */}
                     <div className="text-center mb-6">
                         <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-400">

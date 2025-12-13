@@ -112,7 +112,7 @@ const CalendarPage: React.FC = () => {
                 <div key={`${ep.show_id}-${ep.id}`} className="flex items-center gap-1.5 bg-white/5 p-1 rounded-lg border border-white/5 shrink-0">
                     <img 
                         src={getImageUrl(ep.poster_path)} 
-                        className="w-4 h-6 object-cover rounded-[2px] shrink-0" 
+                        className="w-4 h-6 object-cover rounded-[2px] shrink-0 bg-black/20" 
                         alt=""
                     />
                     <div className="overflow-hidden min-w-0 flex-1">
@@ -328,7 +328,7 @@ const CalendarPage: React.FC = () => {
                                             <img 
                                                 src={getImageUrl(ep.poster_path)} 
                                                 alt={ep.name} 
-                                                className="w-10 h-14 object-cover rounded-md bg-slate-900 shrink-0"
+                                                className="w-10 h-14 object-cover rounded-md bg-black/30 shrink-0"
                                             />
                                             <div className="flex-1 min-w-0 flex flex-col justify-center">
                                                 <h3 className="font-bold text-slate-200 text-sm truncate pr-2">{ep.show_name}</h3>

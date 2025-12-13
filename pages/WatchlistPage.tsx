@@ -277,7 +277,7 @@ const WatchlistPage: React.FC = () => {
       {deleteId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setDeleteId(null)}>
               <div 
-                className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+                className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
                 onClick={e => e.stopPropagation()}
               >
                   <div className="flex flex-col items-center text-center mb-6">

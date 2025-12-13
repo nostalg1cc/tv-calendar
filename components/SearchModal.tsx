@@ -117,7 +117,7 @@ const SearchModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20 px-4 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => setIsSearchOpen(false)}>
       <div 
-        className="w-full max-w-3xl bg-slate-900/90 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] backdrop-blur-xl"
+        className="w-full max-w-3xl bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Search Header */}
