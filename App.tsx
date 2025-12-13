@@ -22,28 +22,31 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { settings } = useAppContext();
     const location = useLocation();
     
+    // Determine if we need specialized layout logic
     const isCalendar = location.pathname === '/';
     const isCompactMode = settings.compactCalendar && isCalendar;
 
     return (
-        <div className={`
-            /* Removed solid bg-slate-900 to let body gradient show */
-            text-slate-50
-            ${isCompactMode ? 'h-screen overflow-hidden flex flex-col md:flex-row' : 'min-h-screen pb-20 md:pb-0 flex flex-col md:flex-row'}
-        `}>
+        <div className="flex h-screen w-screen bg-[var(--bg-main)] text-slate-100 overflow-hidden">
+            {/* Sidebar Navigation */}
             <Navbar />
+            
+            {/* Main Content Area */}
+            <div className={`
+                flex-1 flex flex-col min-w-0 relative
+                ${isCompactMode ? 'h-full' : 'h-full overflow-y-auto overflow-x-hidden'}
+            `}>
+                <div className={`
+                    flex-1 w-full mx-auto
+                    ${isCompactMode ? 'h-full p-2 md:p-4' : 'max-w-[1920px] p-4 md:p-8 md:pb-12 pb-24'}
+                `}>
+                    {children}
+                </div>
+            </div>
+
+            {/* Global Overlays */}
             <SearchModal />
             <MobileAddWarning />
-            <main className={`
-                flex-1 
-                md:ml-20 /* Offset for sidebar */
-                ${isCompactMode 
-                    ? 'h-full overflow-hidden p-3' 
-                    : 'w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8' 
-                }
-            `}>
-                {children}
-            </main>
         </div>
     )
 }

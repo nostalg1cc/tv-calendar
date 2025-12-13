@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TV Calendar</title>
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="#09090b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/manifest.json">
@@ -12,27 +12,45 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
-        --bg-color: #000000;
+        --bg-main: #09090b; /* Zinc 950 */
+        --bg-panel: #18181b; /* Zinc 900 */
+        --border-color: rgba(255, 255, 255, 0.08);
       }
+      
       body {
         font-family: 'Inter', sans-serif;
-        background-color: var(--bg-color);
-        background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(239, 68, 68, 0.1) 0px, transparent 50%);
-        background-attachment: fixed;
-        color: #e2e8f0;
+        background-color: var(--bg-main);
+        color: #e4e4e7; /* Zinc 200 */
         min-height: 100vh;
         overscroll-behavior-y: none;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
       
-      /* Heavy Frosted Glass Utility */
-      .glass-panel {
-        background-color: rgba(5, 5, 5, 0.75); /* Higher opacity for near-opaque look */
-        backdrop-filter: blur(240px); /* Extreme blur as requested */
-        -webkit-backdrop-filter: blur(240px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+      /* New Production Standard Utilities */
+      .surface-base {
+        background-color: var(--bg-main);
       }
       
-      /* Custom Scrollbar */
+      .surface-panel {
+        background-color: rgba(24, 24, 27, 0.8);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--border-color);
+      }
+
+      .surface-card {
+        background-color: rgba(39, 39, 42, 0.4); /* Zinc 800 alpha */
+        border: 1px solid var(--border-color);
+        transition: all 0.2s ease-out;
+      }
+
+      .surface-card:hover {
+        background-color: rgba(39, 39, 42, 0.8);
+        border-color: rgba(99, 102, 241, 0.3); /* Indigo hint */
+      }
+      
+      /* Refined Scrollbar */
       ::-webkit-scrollbar {
         width: 6px;
         height: 6px;
@@ -41,16 +59,33 @@
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 99px;
+        background: #3f3f46; /* Zinc 700 */
+        border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.2);
+        background: #52525b; /* Zinc 600 */
       }
       
-      /* Safe area for mobile pill nav */
+      /* Utility for hiding scrollbar but keeping functionality */
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      
       .safe-area-bottom {
         padding-bottom: env(safe-area-inset-bottom, 20px);
+      }
+
+      /* Animations */
+      @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-enter {
+        animation: fade-in-up 0.4s ease-out forwards;
       }
     </style>
   <script type="importmap">
@@ -76,7 +111,6 @@
 </head>
   <body>
     <div id="root"></div>
-    <!-- Vite Entry Point -->
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

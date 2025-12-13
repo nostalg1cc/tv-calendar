@@ -81,7 +81,6 @@ const SearchModal: React.FC = () => {
                   // Inline Mode (Spotify Style)
                   
                   // 1. Deduplication: Filter out items that are already currently displayed in the results list.
-                  // This prevents the "infinite loop" of adding A -> Recs B -> Add B -> Recs A (duplicate).
                   const currentIds = new Set(results.map(r => r.id));
                   const uniqueRecs = recs.filter(r => !currentIds.has(r.id));
 
@@ -115,43 +114,43 @@ const SearchModal: React.FC = () => {
   if (!isSearchOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20 px-4 bg-black/50 backdrop-blur-md animate-fade-in" onClick={() => setIsSearchOpen(false)}>
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20 px-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsSearchOpen(false)}>
       <div 
-        className="glass-panel w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+        className="bg-zinc-900 border border-zinc-800 w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Search Header */}
-        <div className="p-4 border-b border-white/5 flex items-center gap-4 bg-white/5">
-          <Search className="w-5 h-5 text-slate-400" />
+        <div className="p-4 border-b border-zinc-800 flex items-center gap-4 bg-zinc-900/50">
+          <Search className="w-5 h-5 text-zinc-400" />
           <input 
             type="text" 
             placeholder="Search TV Shows & Movies..." 
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-white text-lg placeholder:text-slate-500"
+            className="flex-1 bg-transparent border-none outline-none text-white text-lg placeholder:text-zinc-500"
             autoFocus
           />
           {loading && <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />}
           <button 
             onClick={() => setIsSearchOpen(false)}
-            className="p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white"
+            className="p-1 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Content Area */}
-        <div className="overflow-y-auto custom-scrollbar">
+        <div className="overflow-y-auto custom-scrollbar bg-zinc-950">
             
             {/* Banner Recommendations Section (Only if method is 'banner' and enabled) */}
             {settings.recommendationsEnabled && settings.recommendationMethod === 'banner' && (bannerRecommendations.length > 0 || loadingRecs) && (
-                <div className="p-4 bg-indigo-900/20 border-b border-white/5 animate-fade-in">
+                <div className="p-4 bg-indigo-900/10 border-b border-zinc-800 animate-fade-in">
                     <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-bold text-indigo-300 flex items-center gap-2">
                             <Sparkles className="w-4 h-4 text-indigo-400" />
                             {loadingRecs ? 'Finding recommendations...' : `Because you added "${sourceRecommendation}"`}
                         </h3>
-                        <button onClick={() => setBannerRecommendations([])} className="text-xs text-slate-400 hover:text-white">
+                        <button onClick={() => setBannerRecommendations([])} className="text-xs text-zinc-400 hover:text-white">
                             Dismiss
                         </button>
                     </div>
@@ -165,7 +164,7 @@ const SearchModal: React.FC = () => {
                             {bannerRecommendations.map(show => {
                                 const isAdded = allTrackedShows.some(w => w.id === show.id);
                                 return (
-                                    <div key={`rec-${show.id}`} className="flex gap-3 p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 hover:border-indigo-500/30 transition-all group">
+                                    <div key={`rec-${show.id}`} className="flex gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-indigo-500/30 transition-all group">
                                         <div className="relative w-12 h-16 shrink-0">
                                             <img 
                                             src={getImageUrl(show.poster_path)} 
@@ -175,7 +174,7 @@ const SearchModal: React.FC = () => {
                                         </div>
                                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                                             <h4 className="font-bold text-white text-sm truncate">{show.name}</h4>
-                                            <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-1.5">
+                                            <div className="flex items-center gap-2 text-[10px] text-zinc-400 mb-1.5">
                                                 {show.media_type === 'movie' ? 'Movie' : 'TV Show'} • {show.vote_average.toFixed(1)} ★
                                             </div>
                                             <button 
@@ -184,7 +183,7 @@ const SearchModal: React.FC = () => {
                                                 className={`
                                                     self-start px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1
                                                     ${isAdded 
-                                                        ? 'bg-green-500/10 text-green-400 cursor-default' 
+                                                        ? 'bg-emerald-500/10 text-emerald-400 cursor-default' 
                                                         : 'bg-indigo-600 hover:bg-indigo-500 text-white'}
                                                 `}
                                             >
@@ -203,7 +202,7 @@ const SearchModal: React.FC = () => {
             {/* Main Results List */}
             <div className="p-4">
             {results.length === 0 && !loading ? (
-                <div className="text-center py-12 text-slate-500">
+                <div className="text-center py-12 text-zinc-500">
                 <p>No results found.</p>
                 </div>
             ) : (
@@ -218,18 +217,18 @@ const SearchModal: React.FC = () => {
                         className={`
                             flex gap-4 p-3 rounded-xl transition-all group animate-fade-in
                             ${isInlineRec 
-                                ? 'bg-indigo-950/30 border border-indigo-500/30 shadow-lg shadow-indigo-900/10 relative overflow-hidden' 
-                                : 'bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10'}
+                                ? 'bg-indigo-950/20 border border-indigo-500/20 shadow-lg shadow-indigo-900/5 relative overflow-hidden' 
+                                : 'bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700'}
                         `}
                     >
                         {/* Subtle background glow for recommendations */}
                         {isInlineRec && <div className="absolute inset-0 bg-indigo-500/5 pointer-events-none"></div>}
 
-                        <div className="relative w-16 h-24 shrink-0 z-10">
+                        <div className="relative w-16 h-24 shrink-0 z-10 bg-black rounded-md overflow-hidden">
                             <img 
                             src={getImageUrl(show.poster_path)} 
                             alt={show.name} 
-                            className="w-full h-full object-cover rounded-md shadow-lg"
+                            className="w-full h-full object-cover"
                             />
                             <div className="absolute top-1 right-1 bg-black/60 backdrop-blur-[2px] rounded p-0.5">
                                 {show.media_type === 'movie' ? <Film className="w-3 h-3 text-white" /> : <Tv className="w-3 h-3 text-white" />}
@@ -245,7 +244,7 @@ const SearchModal: React.FC = () => {
                                 </div>
                             )}
                             <h4 className="font-bold text-white leading-tight mb-1 line-clamp-1">{show.name}</h4>
-                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                            <div className="flex items-center gap-2 text-xs text-zinc-400">
                             <span>{show.first_air_date?.split('-')[0] || 'N/A'}</span>
                             <span>•</span>
                             <div className="flex items-center gap-1 text-yellow-500">
@@ -261,7 +260,7 @@ const SearchModal: React.FC = () => {
                             className={`
                             self-start mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors
                             ${isAdded 
-                                ? 'bg-green-500/20 text-green-400 cursor-default' 
+                                ? 'bg-emerald-500/20 text-emerald-400 cursor-default' 
                                 : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'}
                             `}
                         >

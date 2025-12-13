@@ -46,7 +46,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   hideTheatrical: false,
   recommendationsEnabled: true,
   recommendationMethod: 'banner',
-  compactCalendar: true, 
+  compactCalendar: true, // Forced default
   viewMode: 'grid', 
   suppressMobileAddWarning: false,
   calendarPosterFillMode: 'cover',
@@ -71,7 +71,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [settings, setSettings] = useState<AppSettings>(() => {
     try {
       const saved = localStorage.getItem('tv_calendar_settings');
-      return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+      // Ensure compactCalendar is always true regardless of saved state if we want to enforce it strictly, 
+      // but respecting user preference is usually better. 
+      // However, per prompt "make compact mode the default and only mode", we can override it here.
+      const loaded = saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+      return { ...DEFAULT_SETTINGS, ...loaded, compactCalendar: true };
     } catch {
       return DEFAULT_SETTINGS;
     }
@@ -245,7 +249,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateSettings = async (newSettings: Partial<AppSettings>) => {
     setSettings(prev => {
-      const updated = { ...prev, ...newSettings };
+      // Force compactCalendar true
+      const updated = { ...prev, ...newSettings, compactCalendar: true };
       if (user?.isCloud && supabase) {
            supabase.from('profiles').update({ settings: updated }).eq('id', user.id).then();
       }
@@ -629,7 +634,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             results.forEach((showEpisodes) => {
                 Object.entries(showEpisodes).forEach(([date, eps]) => {
                     if (!newFetchedEpisodes[date]) newFetchedEpisodes[date] = [];
-                    newFetchedEpisodes[date] = [...newFetchedEpisodes[date], ...eps];
+                    // Explicit cast to fix iterator on unknown type error
+                    const episodeList = eps as Episode[];
+                    newFetchedEpisodes[date] = [...newFetchedEpisodes[date], ...episodeList];
                 });
             });
 

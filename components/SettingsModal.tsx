@@ -205,37 +205,37 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   // --- Render Merge Confirmation Overlay ---
   if (mergePreview) {
       return (
-          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <div className="glass-panel rounded-3xl shadow-2xl w-full max-w-sm p-6 animate-fade-in relative overflow-hidden">
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl w-full max-w-sm p-6 animate-fade-in relative overflow-hidden">
                    <div className="text-center mb-6">
                        <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-400">
                            <Merge className="w-8 h-8" />
                        </div>
                        <h2 className="text-xl font-bold text-white mb-2">Merge Content</h2>
-                       <p className="text-slate-400 text-sm">We compared your backup with your current profile.</p>
+                       <p className="text-zinc-400 text-sm">We compared your backup with your current profile.</p>
                    </div>
 
-                   <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/5 space-y-3">
-                       <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                           <span className="text-slate-400 text-sm">Matching Items</span>
-                           <span className="text-slate-500 font-mono font-bold text-xs bg-slate-800 px-2 py-0.5 rounded">
+                   <div className="bg-zinc-800/50 rounded-xl p-4 mb-6 border border-zinc-700/50 space-y-3">
+                       <div className="flex justify-between items-center border-b border-zinc-700/50 pb-2">
+                           <span className="text-zinc-400 text-sm">Matching Items</span>
+                           <span className="text-zinc-500 font-mono font-bold text-xs bg-zinc-900 px-2 py-0.5 rounded">
                                {mergePreview.matchCount} Skipped
                            </span>
                        </div>
-                       <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                           <span className="text-slate-400 text-sm">New Shows/Movies</span>
-                           <span className="text-green-400 font-bold">+{mergePreview.newShows.length}</span>
+                       <div className="flex justify-between items-center border-b border-zinc-700/50 pb-2">
+                           <span className="text-zinc-400 text-sm">New Shows/Movies</span>
+                           <span className="text-emerald-400 font-bold">+{mergePreview.newShows.length}</span>
                        </div>
                        <div className="flex justify-between items-center">
-                           <span className="text-slate-400 text-sm">New Lists</span>
-                           <span className="text-green-400 font-bold">+{mergePreview.newLists.length}</span>
+                           <span className="text-zinc-400 text-sm">New Lists</span>
+                           <span className="text-emerald-400 font-bold">+{mergePreview.newLists.length}</span>
                        </div>
                    </div>
 
                    <div className="flex gap-3">
                        <button 
                            onClick={() => setMergePreview(null)}
-                           className="flex-1 py-3 rounded-lg font-medium text-slate-300 hover:bg-white/5 transition-colors"
+                           className="flex-1 py-3 rounded-lg font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
                        >
                            Cancel
                        </button>
@@ -245,7 +245,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                            className={`
                                 flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all
                                 ${mergePreview.totalNew === 0 
-                                    ? 'bg-white/10 text-slate-500 cursor-not-allowed' 
+                                    ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
                                     : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'}
                            `}
                        >
@@ -322,10 +322,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       const pct = syncProgress.total > 0 ? Math.round((syncProgress.current / syncProgress.total) * 100) : 0;
       
       return (
-          <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
+          <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 bg-zinc-950/95 backdrop-blur-xl">
                <div className="w-full max-w-sm text-center">
                    <div className="mb-8 relative">
-                       <div className="w-20 h-20 mx-auto rounded-full border-4 border-white/10 flex items-center justify-center relative">
+                       <div className="w-20 h-20 mx-auto rounded-full border-4 border-zinc-800 flex items-center justify-center relative">
                            <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
                        </div>
                        <div className="absolute top-0 right-0 left-0 bottom-0 flex items-center justify-center">
@@ -334,11 +334,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                    </div>
                    
                    <h2 className="text-2xl font-bold text-white mb-2">Syncing Data</h2>
-                   <p className="text-slate-400 mb-8">
+                   <p className="text-zinc-400 mb-8">
                        Processing {syncProgress.total} items...
                    </p>
 
-                   <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-4">
+                   <div className="h-2 bg-zinc-800 rounded-full overflow-hidden mb-4">
                        <div 
                            className="h-full bg-indigo-500 transition-all duration-300 ease-out"
                            style={{ width: `${pct}%` }}
@@ -353,7 +353,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   if (showExportWarning) {
       return (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-red-950/80 backdrop-blur-md">
-              <div className="glass-panel border-2 border-red-500/50 rounded-3xl shadow-2xl w-full max-w-md p-6 animate-fade-in relative overflow-hidden">
+              <div className="bg-zinc-900 border-2 border-red-500/50 rounded-3xl shadow-2xl w-full max-w-md p-6 animate-fade-in relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
                       <ShieldAlert className="w-32 h-32 text-red-500" />
                   </div>
@@ -364,7 +364,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         <h2 className="text-2xl font-bold text-white">Security Warning</h2>
                     </div>
 
-                    <p className="text-slate-300 mb-4 leading-relaxed">
+                    <p className="text-zinc-300 mb-4 leading-relaxed">
                         You are about to export your <strong className="text-white">Full Profile</strong>.
                     </p>
                     
@@ -376,11 +376,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         </ul>
                     </div>
 
-                    <div className="flex items-start gap-3 mb-6 p-3 bg-white/5 rounded-lg cursor-pointer" onClick={() => setHasAcknowledgedRisk(!hasAcknowledgedRisk)}>
-                        <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${hasAcknowledgedRisk ? 'bg-indigo-600 border-indigo-500' : 'border-slate-500'}`}>
+                    <div className="flex items-start gap-3 mb-6 p-3 bg-zinc-800/50 rounded-lg cursor-pointer" onClick={() => setHasAcknowledgedRisk(!hasAcknowledgedRisk)}>
+                        <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${hasAcknowledgedRisk ? 'bg-indigo-600 border-indigo-500' : 'border-zinc-500'}`}>
                             {hasAcknowledgedRisk && <Check className="w-3.5 h-3.5 text-white" />}
                         </div>
-                        <p className="text-sm text-slate-400 select-none">
+                        <p className="text-sm text-zinc-400 select-none">
                             I understand the risks and agree to keep this file safe.
                         </p>
                     </div>
@@ -391,7 +391,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                                 setShowExportWarning(false);
                                 setHasAcknowledgedRisk(false);
                             }}
-                            className="flex-1 py-3 rounded-lg font-medium text-slate-300 hover:bg-white/5 transition-colors"
+                            className="flex-1 py-3 rounded-lg font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
                         >
                             Cancel
                         </button>
@@ -402,7 +402,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                                 flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all
                                 ${hasAcknowledgedRisk 
                                     ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20' 
-                                    : 'bg-white/5 text-slate-500 cursor-not-allowed'}
+                                    : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'}
                             `}
                         >
                             <Download className="w-4 h-4" /> Download Profile
@@ -417,12 +417,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div 
-        className="glass-panel rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]" 
+        className="bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]" 
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/5">
+        <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
           <h2 className="text-xl font-bold text-white">Settings</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -432,35 +432,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
             {/* API Key Management */}
             <div>
                  <div className="flex items-center gap-3 mb-3">
-                     <div className="p-2.5 rounded-xl bg-white/5 text-slate-300 h-fit">
+                     <div className="p-2.5 rounded-xl bg-zinc-800 text-zinc-300 h-fit">
                          <Key className="w-6 h-6" />
                      </div>
                      <div>
                          <h3 className="text-white font-medium">TMDB Access Token</h3>
-                         <p className="text-slate-400 text-sm">Update your API credentials.</p>
+                         <p className="text-zinc-400 text-sm">Update your API credentials.</p>
                      </div>
                  </div>
                  
-                 <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                 <div className="bg-zinc-800/30 p-3 rounded-lg border border-zinc-800">
                      {isEditingKey ? (
                          <div className="flex gap-2">
                              <input 
                                 type="password" 
                                 value={keyInput}
                                 onChange={(e) => setKeyInput(e.target.value)}
-                                className="flex-1 bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                                className="flex-1 bg-black/30 border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                                 placeholder="TMDB Token"
                              />
                              <button 
                                 onClick={saveKey}
-                                className="bg-green-600 hover:bg-green-500 text-white p-2 rounded transition-colors"
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white p-2 rounded transition-colors"
                              >
                                  <Check className="w-4 h-4" />
                              </button>
                          </div>
                      ) : (
                          <div className="flex justify-between items-center">
-                             <div className="text-slate-400 text-sm font-mono truncate max-w-[200px]">
+                             <div className="text-zinc-400 text-sm font-mono truncate max-w-[200px]">
                                  {user?.tmdbKey ? '••••••••••••••••' : 'Not Set'}
                              </div>
                              <button 
@@ -477,31 +477,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                  </div>
             </div>
 
-            <div className="h-px bg-white/5" />
+            <div className="h-px bg-zinc-800" />
 
             {/* Sync Section (Mobile <-> PC) */}
             <div>
                  <div className="flex items-center gap-3 mb-3">
-                     <div className="p-2.5 rounded-xl bg-white/5 text-slate-300 h-fit">
+                     <div className="p-2.5 rounded-xl bg-zinc-800 text-zinc-300 h-fit">
                          <Smartphone className="w-6 h-6" />
                      </div>
                      <div>
                          <h3 className="text-white font-medium">Device Sync</h3>
-                         <p className="text-slate-400 text-sm">Transfer data between devices.</p>
+                         <p className="text-zinc-400 text-sm">Transfer data between devices.</p>
                      </div>
                  </div>
                  
                  <div className="grid grid-cols-2 gap-3">
                      <button 
                         onClick={() => setShowQr(true)}
-                        className="bg-white text-slate-900 hover:bg-slate-200 font-bold py-3 px-2 rounded-lg flex flex-col items-center justify-center gap-2 transition-all text-xs text-center"
+                        className="bg-white text-zinc-900 hover:bg-zinc-200 font-bold py-3 px-2 rounded-lg flex flex-col items-center justify-center gap-2 transition-all text-xs text-center"
                      >
                          <QrCode className="w-5 h-5" /> 
                          <span>Show QR Code</span>
                      </button>
                      <button 
                         onClick={() => setShowScanner(true)}
-                        className="bg-white/10 text-white hover:bg-white/20 border border-white/10 font-bold py-3 px-2 rounded-lg flex flex-col items-center justify-center gap-2 transition-all text-xs text-center"
+                        className="bg-zinc-800 text-white hover:bg-zinc-700 border border-zinc-700 font-bold py-3 px-2 rounded-lg flex flex-col items-center justify-center gap-2 transition-all text-xs text-center"
                      >
                          <Scanner className="w-5 h-5" /> 
                          <span>Scan to Sync</span>
@@ -509,38 +509,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                  </div>
             </div>
 
-            <div className="h-px bg-white/5" />
+            <div className="h-px bg-zinc-800" />
             
             {/* Visual Settings Section */}
             <div className="space-y-4">
                 
-                {/* Compact Calendar Toggle */}
-                <div className="flex items-center justify-between">
-                    <div className="flex gap-4">
-                        <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 h-fit">
-                            {settings.compactCalendar ? <Shrink className="w-6 h-6" /> : <Expand className="w-6 h-6" />}
-                        </div>
-                        <div>
-                            <h3 className="text-white font-medium mb-1">Compact Calendar</h3>
-                            <p className="text-slate-400 text-sm">Fit calendar to 100% viewport height.</p>
-                        </div>
-                    </div>
-                    <button 
-                        onClick={() => updateSettings({ compactCalendar: !settings.compactCalendar })}
-                        className={`
-                            relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                            ${settings.compactCalendar ? 'bg-indigo-600' : 'bg-white/10'}
-                        `}
-                    >
-                        <span 
-                            className={`
-                                inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-                                ${settings.compactCalendar ? 'translate-x-6' : 'translate-x-1'}
-                            `} 
-                        />
-                    </button>
-                </div>
-
                 {/* Poster Fill Mode Toggle */}
                 <div className="flex items-center justify-between">
                     <div className="flex gap-4">
@@ -549,21 +522,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         </div>
                         <div>
                             <h3 className="text-white font-medium mb-1">Grid Image Style</h3>
-                            <p className="text-slate-400 text-sm">Toggle between full cover or ratio preserve.</p>
+                            <p className="text-zinc-400 text-sm">Toggle between full cover or ratio preserve.</p>
                         </div>
                     </div>
                     
-                    <div className="flex bg-white/10 rounded-lg p-1">
+                    <div className="flex bg-zinc-800 rounded-lg p-1">
                         <button
                              onClick={() => updateSettings({ calendarPosterFillMode: 'cover' })}
-                             className={`p-1.5 rounded transition-colors ${settings.calendarPosterFillMode !== 'contain' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                             className={`p-1.5 rounded transition-colors ${settings.calendarPosterFillMode !== 'contain' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'}`}
                              title="Full Cover"
                         >
                             <Maximize className="w-4 h-4" />
                         </button>
                          <button
                              onClick={() => updateSettings({ calendarPosterFillMode: 'contain' })}
-                             className={`p-1.5 rounded transition-colors ${settings.calendarPosterFillMode === 'contain' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                             className={`p-1.5 rounded transition-colors ${settings.calendarPosterFillMode === 'contain' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'}`}
                              title="Preserve Ratio (Blur BG)"
                         >
                             <ImageIcon className="w-4 h-4" />
@@ -571,25 +544,77 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     </div>
                 </div>
 
-                {/* ... existing toggles ... */}
+                {/* Spoilers Toggle */}
+                <div className="flex items-center justify-between">
+                    <div className="flex gap-4">
+                        <div className="p-2.5 rounded-xl bg-red-500/10 text-red-400 h-fit">
+                            {settings.hideSpoilers ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
+                        </div>
+                        <div>
+                            <h3 className="text-white font-medium mb-1">Hide Spoilers</h3>
+                            <p className="text-zinc-400 text-sm">Blur episode images and overviews.</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => updateSettings({ hideSpoilers: !settings.hideSpoilers })}
+                        className={`
+                            relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                            ${settings.hideSpoilers ? 'bg-indigo-600' : 'bg-zinc-800'}
+                        `}
+                    >
+                        <span 
+                            className={`
+                                inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                                ${settings.hideSpoilers ? 'translate-x-6' : 'translate-x-1'}
+                            `} 
+                        />
+                    </button>
+                </div>
+
+                {/* Theatrical Toggle */}
+                <div className="flex items-center justify-between">
+                    <div className="flex gap-4">
+                        <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 h-fit">
+                             <Ticket className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-white font-medium mb-1">Hide Cinema Releases</h3>
+                            <p className="text-zinc-400 text-sm">Only show digital/streaming dates.</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })}
+                        className={`
+                            relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                            ${settings.hideTheatrical ? 'bg-indigo-600' : 'bg-zinc-800'}
+                        `}
+                    >
+                        <span 
+                            className={`
+                                inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                                ${settings.hideTheatrical ? 'translate-x-6' : 'translate-x-1'}
+                            `} 
+                        />
+                    </button>
+                </div>
             </div>
 
              {/* Data Management */}
              <div>
                  <div className="flex items-center gap-3 mb-4">
-                     <div className="p-2.5 rounded-xl bg-white/5 text-slate-300 h-fit">
+                     <div className="p-2.5 rounded-xl bg-zinc-800 text-zinc-300 h-fit">
                          <HardDrive className="w-6 h-6" />
                      </div>
                      <div>
                          <h3 className="text-white font-medium">Backup & Restore</h3>
-                         <p className="text-slate-400 text-sm">Manage your local data.</p>
+                         <p className="text-zinc-400 text-sm">Manage your local data.</p>
                      </div>
                  </div>
                  
                  <div className="space-y-4">
                      {/* Full Profile - HOLD 5 SECONDS */}
-                     <div className="bg-white/5 p-3 rounded-lg border border-white/5">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                     <div className="bg-zinc-800/30 p-3 rounded-lg border border-zinc-800">
+                        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-2">
                             <FileJson className="w-3 h-3" /> Full Profile (Contains Keys)
                         </p>
                         <button 
@@ -598,7 +623,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             onMouseLeave={stopHold}
                             onTouchStart={startHold}
                             onTouchEnd={stopHold}
-                            className="relative w-full h-10 bg-white/5 rounded-lg font-medium text-xs text-slate-200 overflow-hidden select-none touch-none group"
+                            className="relative w-full h-10 bg-zinc-800 rounded-lg font-medium text-xs text-zinc-200 overflow-hidden select-none touch-none group border border-zinc-700/50"
                         >
                             <div 
                                 className="absolute inset-y-0 left-0 bg-indigo-600 transition-all duration-[50ms] ease-linear"
@@ -615,28 +640,28 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         {/* New MERGE Import Button */}
                         <button 
                             onClick={handleImportClick}
-                            className="mt-2 w-full h-10 bg-white/5 hover:bg-white/10 rounded-lg font-medium text-xs text-slate-300 flex items-center justify-center gap-2 border border-white/5 hover:border-indigo-500/20 transition-all"
+                            className="mt-2 w-full h-10 bg-zinc-800 hover:bg-zinc-700 rounded-lg font-medium text-xs text-zinc-300 flex items-center justify-center gap-2 border border-zinc-700/50 hover:border-indigo-500/30 transition-all"
                         >
                             <ArrowDownToLine className="w-3 h-3" /> Import & Merge Backup
                         </button>
                      </div>
 
                      {/* Watchlist Only */}
-                     <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                     <div className="bg-zinc-800/30 p-3 rounded-lg border border-zinc-800">
                         <div className="flex items-center gap-2 mb-2">
                              <ListVideo className="w-3 h-3 text-indigo-400" />
-                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Watchlist Only</p>
+                             <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Watchlist Only</p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <button 
                                 onClick={handleExportWatchlist}
-                                className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-indigo-300 border border-indigo-500/20 py-2 rounded-lg font-medium transition-colors text-xs"
+                                className="flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-indigo-300 border border-zinc-700/50 py-2 rounded-lg font-medium transition-colors text-xs"
                             >
                                 <Download className="w-3 h-3" /> Export List
                             </button>
                             <button 
-                                onClick={handleImportClick} // Reuses handleImportClick but logic handles watchlist-only files automatically
-                                className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-indigo-300 border border-indigo-500/20 py-2 rounded-lg font-medium transition-colors text-xs"
+                                onClick={handleImportClick} 
+                                className="flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-indigo-300 border border-zinc-700/50 py-2 rounded-lg font-medium transition-colors text-xs"
                             >
                                 <Upload className="w-3 h-3" /> Import List
                             </button>
