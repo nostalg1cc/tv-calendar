@@ -4,8 +4,8 @@ const BASE_URL = 'https://api.themoviedb.org/3';
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/original';
 
-export const getImageUrl = (path: string | null) => path ? `${IMAGE_BASE_URL}${path}` : 'https://placehold.co/500x750?text=No+Image';
-export const getBackdropUrl = (path: string | null) => path ? `${BACKDROP_BASE_URL}${path}` : 'https://placehold.co/1920x1080?text=No+Image';
+export const getImageUrl = (path: string | null | undefined) => path ? `${IMAGE_BASE_URL}${path}` : 'https://placehold.co/500x750?text=No+Image';
+export const getBackdropUrl = (path: string | null | undefined) => path ? `${BACKDROP_BASE_URL}${path}` : 'https://placehold.co/1920x1080?text=No+Image';
 
 // Helper to get token securely from client storage
 const getAccessToken = (): string => {
