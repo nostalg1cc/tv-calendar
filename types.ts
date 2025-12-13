@@ -37,9 +37,12 @@ export interface Season {
 }
 
 export interface User {
+  id?: string; // Supabase UUID if cloud user
   username: string;
   tmdbKey: string; // TMDB Read Access Token
   isAuthenticated: boolean;
+  isCloud?: boolean; // Flag to determine storage strategy
+  email?: string;
 }
 
 export interface CalendarDay {
