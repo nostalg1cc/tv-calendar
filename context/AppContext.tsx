@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, ReactNo
 import { User, TVShow, Episode, AppSettings, SubscribedList } from '../types';
 import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails } from '../services/tmdb';
 import { get, set, del } from 'idb-keyval';
+import { format, subWeeks, addWeeks } from 'date-fns';
 
 interface AppContextType {
   user: User | null;
@@ -40,6 +41,8 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
+const DB_KEY_EPISODES = 'tv_calendar_episodes_v2'; // Changed key to force fresh start with new logic
+const DB_KEY_META = 'tv_calendar_meta_v2';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // --- Auth State ---
@@ -103,8 +106,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       localStorage.removeItem('tv_calendar_user');
       // Clear IndexedDB cache on logout
-      del('tv_calendar_episodes');
-      del('tv_calendar_cache_meta');
+      del(DB_KEY_EPISODES);
+      del(DB_KEY_META);
     } catch (e) {
       console.warn('Failed to remove user/data', e);
     }
@@ -184,6 +187,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const details = await getShowDetails(show.id);
       const seasonCount = details.number_of_seasons || 1;
       
+      // Optimization: Always fetch current season. If more than 1, fetch previous too.
       const seasonsToFetch = [seasonCount]; 
       if (seasonCount > 1) {
         seasonsToFetch.push(seasonCount - 1);
@@ -272,96 +276,193 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (allTrackedShows.length === 0) {
       setEpisodes({});
-      await del('tv_calendar_episodes');
-      await del('tv_calendar_cache_meta');
-      setSyncProgress({ current: 0, total: 0 });
       setLoading(false);
       return;
     }
     
-    // START LOADING
     setLoading(true);
 
-    // 1. Try Loading Cache from IndexedDB (Persistent Storage)
-    if (!force) {
-        try {
-            // Retrieve heavy data from IDB
-            const [cachedEpisodes, cacheMeta] = await Promise.all([
-                get('tv_calendar_episodes'),
-                get('tv_calendar_cache_meta')
-            ]);
+    let currentEpisodes: Record<string, Episode[]> = {};
+    let cachedShowIds: number[] = [];
+    let isFresh = false;
 
-            if (cachedEpisodes && cacheMeta) {
-                const meta = cacheMeta as any;
-                const currentIds = allTrackedShows.map(s => s.id).sort((a,b) => a - b);
-                const cachedIds = (meta.showIds || []).sort((a:number,b:number) => a - b);
-                
-                const isSameShows = JSON.stringify(currentIds) === JSON.stringify(cachedIds);
-                const isFresh = (Date.now() - meta.timestamp) < CACHE_DURATION;
-
-                if (isSameShows && isFresh) {
-                    console.log('Using persistent cache from IndexedDB');
-                    setEpisodes(cachedEpisodes);
-                    setLoading(false);
-                    return;
-                } else {
-                    console.log('Cache expired or shows changed, refetching...');
-                }
-            }
-        } catch (e) {
-            console.warn('Error reading IDB cache', e);
-        }
-    }
-    
-    // 2. Fetch from API (if no cache or invalid)
-    setSyncProgress({ current: 0, total: allTrackedShows.length });
-    
-    const allEpisodes: Record<string, Episode[]> = {};
-    const BATCH_SIZE = 4;
-    
-    for (let i = 0; i < allTrackedShows.length; i += BATCH_SIZE) {
-        const batch = allTrackedShows.slice(i, i + BATCH_SIZE);
-        
-        const promises = batch.map(show => {
-            if (show.media_type === 'movie') {
-                return fetchEpisodesForMovie(show).catch(() => ({}));
-            } else {
-                return fetchEpisodesForTV(show).catch(() => ({}));
-            }
-        });
-
-        const results = await Promise.all(promises);
-
-        results.forEach((showEpisodes) => {
-            Object.entries(showEpisodes).forEach(([date, eps]) => {
-                if (!allEpisodes[date]) {
-                    allEpisodes[date] = [];
-                }
-                const episodeList = eps as Episode[];
-                allEpisodes[date] = [...allEpisodes[date], ...episodeList];
-            });
-        });
-
-        setSyncProgress(prev => ({ 
-            ...prev, 
-            current: Math.min(prev.total, i + batch.length) 
-        }));
-
-        if (i + BATCH_SIZE < allTrackedShows.length) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-    }
-
-    setEpisodes(allEpisodes);
-    
-    // 3. Save to IndexedDB (Persistent Storage)
+    // 1. ATTEMPT LOAD FROM IDB (Optimistic)
     try {
-        await set('tv_calendar_episodes', allEpisodes);
-        await set('tv_calendar_cache_meta', {
-            timestamp: Date.now(),
-            showIds: allTrackedShows.map(s => s.id)
+        const [cachedEpData, cacheMetaData] = await Promise.all([
+            get(DB_KEY_EPISODES),
+            get(DB_KEY_META)
+        ]);
+
+        if (cachedEpData && cacheMetaData) {
+            const meta = cacheMetaData as any;
+            currentEpisodes = cachedEpData;
+            cachedShowIds = meta.showIds || [];
+            isFresh = (Date.now() - meta.timestamp) < CACHE_DURATION;
+            
+            // OPTIMISTIC UPDATE: Show cache immediately
+            setEpisodes(currentEpisodes);
+        }
+    } catch (e) {
+        console.warn('Error reading IDB cache', e);
+    }
+
+    // 2. DETERMINE WORK NEEDED
+    const currentTrackedIds = allTrackedShows.map(s => s.id);
+    const missingShowIds = currentTrackedIds.filter(id => !cachedShowIds.includes(id));
+    const removedShowIds = cachedShowIds.filter(id => !currentTrackedIds.includes(id));
+    
+    const needsFullUpdate = force || (!isFresh && missingShowIds.length === 0 && removedShowIds.length === 0);
+    const needsPartialUpdate = missingShowIds.length > 0;
+    const needsCleanup = removedShowIds.length > 0;
+
+    if (!needsFullUpdate && !needsPartialUpdate && !needsCleanup && Object.keys(currentEpisodes).length > 0) {
+        console.log('Cache is fresh and complete. No fetch needed.');
+        setLoading(false);
+        return;
+    }
+
+    // 3. PRIORITY SORTING FOR FETCH
+    // Determine which shows to fetch
+    const showsToFetch = needsFullUpdate ? [...allTrackedShows] : allTrackedShows.filter(s => missingShowIds.includes(s.id));
+
+    if (showsToFetch.length > 0) {
+        console.log(`Fetching ${showsToFetch.length} shows. Prioritizing current week.`);
+        
+        // Define "Current Window": Last Week to Next 2 Weeks
+        const today = new Date();
+        const startWindow = format(subWeeks(today, 1), 'yyyy-MM-dd');
+        const endWindow = format(addWeeks(today, 2), 'yyyy-MM-dd');
+        
+        const priorityShowIds = new Set<number>();
+        
+        // Scan current cache (even if stale) to find active shows in this window
+        if (currentEpisodes) {
+            Object.keys(currentEpisodes).forEach(date => {
+                if (date >= startWindow && date <= endWindow) {
+                    currentEpisodes[date].forEach(ep => {
+                        if (ep.show_id) priorityShowIds.add(ep.show_id);
+                    });
+                }
+            });
+        }
+
+        // Sort: 1. Newly Added (Missing) 2. Visible in Current View (Priority) 3. Others
+        showsToFetch.sort((a, b) => {
+            const aIsMissing = missingShowIds.includes(a.id);
+            const bIsMissing = missingShowIds.includes(b.id);
+            
+            if (aIsMissing && !bIsMissing) return -1;
+            if (!aIsMissing && bIsMissing) return 1;
+
+            const aIsPriority = priorityShowIds.has(a.id);
+            const bIsPriority = priorityShowIds.has(b.id);
+
+            if (aIsPriority && !bIsPriority) return -1;
+            if (!aIsPriority && bIsPriority) return 1;
+
+            return 0;
         });
-        console.log('Saved episodes to IndexedDB');
+
+        setSyncProgress({ current: 0, total: showsToFetch.length });
+
+        const BATCH_SIZE = 4;
+        const newFetchedEpisodes: Record<string, Episode[]> = {};
+
+        for (let i = 0; i < showsToFetch.length; i += BATCH_SIZE) {
+            const batch = showsToFetch.slice(i, i + BATCH_SIZE);
+            const promises = batch.map(show => {
+                if (show.media_type === 'movie') {
+                    return fetchEpisodesForMovie(show).catch(() => ({}));
+                } else {
+                    return fetchEpisodesForTV(show).catch(() => ({}));
+                }
+            });
+
+            const results = await Promise.all(promises);
+
+            results.forEach((showEpisodes) => {
+                Object.entries(showEpisodes).forEach(([date, eps]) => {
+                    if (!newFetchedEpisodes[date]) {
+                        newFetchedEpisodes[date] = [];
+                    }
+                    newFetchedEpisodes[date] = [...newFetchedEpisodes[date], ...eps];
+                });
+            });
+
+            setSyncProgress(prev => ({ 
+                ...prev, 
+                current: Math.min(prev.total, i + batch.length) 
+            }));
+            
+            // Merge incrementally into state so UI updates "in steps"
+            if (needsFullUpdate) {
+               // For full update, we want to replace, but incrementally adding to a temporary object 
+               // and setting state gives visual feedback. 
+               // However, mixing old and new data might be confusing if we don't clear old.
+               // We will merge into 'currentEpisodes' which started as the cache.
+               // This means we are "refreshing" the data live.
+                Object.entries(newFetchedEpisodes).forEach(([date, eps]) => {
+                    if (!currentEpisodes[date]) currentEpisodes[date] = [];
+                    // Very simple merge: remove old eps for this show on this date, add new
+                    // But simpler: just append and dedup later, or just overwrite key if we assume structure.
+                    // To avoid complexity: We will just push to state.
+                    // Actually, for full refresh, we ideally want to clear old data for these shows.
+                    // But keeping it simple: Just updating the UI with what we have.
+                });
+                
+                // Construct a merged view for UI
+                const mergedView = { ...currentEpisodes, ...newFetchedEpisodes };
+                setEpisodes(mergedView);
+            } else {
+                // Partial update (new shows)
+                const mergedView = { ...currentEpisodes };
+                Object.entries(newFetchedEpisodes).forEach(([date, eps]) => {
+                    if (!mergedView[date]) mergedView[date] = [];
+                    mergedView[date] = [...mergedView[date], ...eps];
+                });
+                setEpisodes(mergedView);
+            }
+
+            if (i + BATCH_SIZE < showsToFetch.length) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+        }
+        
+        // Final consolidation
+        if (needsFullUpdate) {
+            currentEpisodes = newFetchedEpisodes;
+        } else {
+            Object.entries(newFetchedEpisodes).forEach(([date, eps]) => {
+                if (!currentEpisodes[date]) currentEpisodes[date] = [];
+                currentEpisodes[date] = [...currentEpisodes[date], ...eps];
+            });
+        }
+    }
+
+    // 4. CLEANUP (Remove episodes from untracked shows)
+    if (needsCleanup && !needsFullUpdate) {
+        const trackedIdSet = new Set(currentTrackedIds);
+        const cleanedEpisodes: Record<string, Episode[]> = {};
+        
+        Object.entries(currentEpisodes).forEach(([date, eps]) => {
+            const filtered = eps.filter(ep => trackedIdSet.has(ep.show_id!));
+            if (filtered.length > 0) {
+                cleanedEpisodes[date] = filtered;
+            }
+        });
+        currentEpisodes = cleanedEpisodes;
+    }
+
+    // 5. FINAL SAVE
+    setEpisodes(currentEpisodes);
+    
+    try {
+        await set(DB_KEY_EPISODES, currentEpisodes);
+        await set(DB_KEY_META, {
+            timestamp: Date.now(),
+            showIds: currentTrackedIds
+        });
+        console.log('Saved updated cache to IndexedDB');
     } catch (e) {
         console.error('Failed to save to IDB', e);
     }
