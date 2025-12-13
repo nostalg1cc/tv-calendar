@@ -102,11 +102,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setUser(null);
     try {
       localStorage.removeItem('tv_calendar_user');
-      // Clear IDB cache on logout
+      // Clear IndexedDB cache on logout
       del('tv_calendar_episodes');
       del('tv_calendar_cache_meta');
     } catch (e) {
-      console.warn('Failed to remove user/data from localStorage', e);
+      console.warn('Failed to remove user/data', e);
     }
     setWatchlist([]);
     setSubscribedLists([]);
@@ -155,7 +155,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Episodes State (Initially empty, loaded via effect)
   const [episodes, setEpisodes] = useState<Record<string, Episode[]>>({});
   
-  // Start true so we can show loading until IDB is checked
+  // Start true so we can show loading until cache is checked
   const [loading, setLoading] = useState<boolean>(true);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -282,9 +282,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // START LOADING
     setLoading(true);
 
-    // 1. Try Loading Cache from IndexedDB
+    // 1. Try Loading Cache from IndexedDB (Persistent Storage)
     if (!force) {
         try {
+            // Retrieve heavy data from IDB
             const [cachedEpisodes, cacheMeta] = await Promise.all([
                 get('tv_calendar_episodes'),
                 get('tv_calendar_cache_meta')
@@ -299,10 +300,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const isFresh = (Date.now() - meta.timestamp) < CACHE_DURATION;
 
                 if (isSameShows && isFresh) {
-                    console.log('Using cached episodes from IndexedDB');
+                    console.log('Using persistent cache from IndexedDB');
                     setEpisodes(cachedEpisodes);
                     setLoading(false);
                     return;
+                } else {
+                    console.log('Cache expired or shows changed, refetching...');
                 }
             }
         } catch (e) {
@@ -351,7 +354,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setEpisodes(allEpisodes);
     
-    // 3. Save to IndexedDB
+    // 3. Save to IndexedDB (Persistent Storage)
     try {
         await set('tv_calendar_episodes', allEpisodes);
         await set('tv_calendar_cache_meta', {

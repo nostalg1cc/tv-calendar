@@ -203,7 +203,7 @@ const CalendarPage: React.FC = () => {
           <div className="flex-1 flex flex-col items-center justify-center h-full min-h-[400px]">
              <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
              <p className="text-slate-400 font-medium">Loading your calendar...</p>
-             <p className="text-xs text-slate-500 mt-2">Checking local cache</p>
+             <p className="text-xs text-slate-500 mt-2">Checking database cache</p>
           </div>
       ) : (
           <>
