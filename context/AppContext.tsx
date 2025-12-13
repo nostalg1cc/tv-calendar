@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   recommendationsEnabled: true,
   recommendationMethod: 'banner',
   compactCalendar: true, // Default to compact view
+  viewMode: 'grid', // Default to grid view
 };
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

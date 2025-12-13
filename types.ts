@@ -1,3 +1,4 @@
+
 export interface TVShow {
   id: number;
   name: string; // Used for Title (Movie) or Name (TV)
@@ -54,6 +55,7 @@ export interface AppSettings {
   recommendationsEnabled: boolean;
   recommendationMethod: 'banner' | 'inline';
   compactCalendar: boolean;
+  viewMode: 'grid' | 'list'; // Added viewMode
 }
 
 export interface SubscribedList {

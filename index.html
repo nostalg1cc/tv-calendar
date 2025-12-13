@@ -2,8 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TV Calendar</title>
+    <meta name="theme-color" content="#0f1115">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -21,6 +25,7 @@
         background-attachment: fixed;
         color: #e2e8f0;
         min-height: 100vh;
+        overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
       }
       /* Custom Scrollbar */
       ::-webkit-scrollbar {
@@ -37,18 +42,22 @@
       ::-webkit-scrollbar-thumb:hover {
         background: rgba(100, 116, 139, 1);
       }
+      /* Safe area for mobile pill nav */
+      .safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom, 20px);
+      }
     </style>
   <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "vite": "https://esm.sh/vite@^7.2.7",
     "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
     "react-router-dom": "https://esm.sh/react-router-dom@^7.10.1",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "date-fns": "https://esm.sh/date-fns@^4.1.0"
+    "date-fns": "https://esm.sh/date-fns@^4.1.0",
+    "vite": "https://esm.sh/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
