@@ -76,7 +76,7 @@ const WatchlistPage: React.FC = () => {
   if (allTrackedShows.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center px-4">
-        <div className="bg-slate-800 p-6 rounded-full mb-6 animate-pulse">
+        <div className="bg-white/5 p-6 rounded-full mb-6 animate-pulse">
           <Tv className="w-16 h-16 text-slate-500" />
         </div>
         <h2 className="text-2xl font-bold text-white mb-2">Your Watchlist is Empty</h2>
@@ -92,7 +92,7 @@ const WatchlistPage: React.FC = () => {
             </Link>
             <button 
                 onClick={() => setIsListManagerOpen(true)}
-                className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+                className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
             >
                 <ListPlus className="w-4 h-4" /> Subscribe to List
             </button>
@@ -107,7 +107,7 @@ const WatchlistPage: React.FC = () => {
     <div className="max-w-6xl mx-auto pb-20">
       
       {/* Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 bg-slate-800/50 p-6 rounded-2xl border border-white/5 backdrop-blur-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 bg-transparent p-6 rounded-2xl border border-white/10 backdrop-blur-md">
         <div>
            <h1 className="text-3xl font-bold text-white mb-1">My Tracked Shows</h1>
            <p className="text-slate-400 text-sm">Managing {allTrackedShows.length} titles on your calendar</p>
@@ -124,7 +124,7 @@ const WatchlistPage: React.FC = () => {
             </button>
 
              {/* Filter Control */}
-            <div className="flex items-center gap-2 bg-slate-900/50 p-1 rounded-lg border border-white/5 overflow-x-auto">
+            <div className="flex items-center gap-2 bg-transparent p-1 rounded-lg border border-white/10 overflow-x-auto">
                 <button 
                     onClick={() => setFilterBy('all')}
                     className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap ${filterBy === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
@@ -146,7 +146,7 @@ const WatchlistPage: React.FC = () => {
             </div>
 
             {/* Sort Control */}
-            <div className="flex items-center gap-2 bg-slate-900/50 p-1 rounded-lg border border-white/5">
+            <div className="flex items-center gap-2 bg-transparent p-1 rounded-lg border border-white/10">
                 <button 
                     onClick={() => setSortBy('name')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap ${sortBy === 'name' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
@@ -172,12 +172,10 @@ const WatchlistPage: React.FC = () => {
           const isManual = watchlist.some(s => s.id === show.id);
           const foundList = subscribedLists.find(l => l.items.some(i => i.id === show.id));
           
-          // Can delete only if it is in manual watchlist AND not managed by subscription (or if we allow deleting manual override)
-          // For simplicity, if it's in a subscription, the subscription controls it. If it's also manual, deleting manual removes the manual flag but it stays via subscription.
           const isManagedBySub = !!foundList;
 
           return (
-            <div key={show.id} className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 flex flex-col sm:flex-row h-auto sm:h-48 group hover:border-slate-600 transition-colors">
+            <div key={show.id} className="bg-transparent backdrop-blur-sm rounded-xl overflow-hidden shadow-lg border border-white/5 flex flex-col sm:flex-row h-auto sm:h-48 group hover:border-indigo-500/30 transition-colors">
               <div className="relative w-full sm:w-32 shrink-0">
                  <img 
                    src={getImageUrl(show.poster_path)} 
@@ -200,7 +198,7 @@ const WatchlistPage: React.FC = () => {
               <div className="relative flex-1 p-5 flex flex-col justify-between overflow-hidden">
                  {/* Background image effect */}
                  <div 
-                   className="absolute inset-0 opacity-[0.07] bg-cover bg-center pointer-events-none group-hover:opacity-10 transition-opacity"
+                   className="absolute inset-0 opacity-[0.07] bg-cover bg-center pointer-events-none group-hover:opacity-15 transition-opacity"
                    style={{ backgroundImage: `url(${getBackdropUrl(show.backdrop_path)})` }}
                  />
                  

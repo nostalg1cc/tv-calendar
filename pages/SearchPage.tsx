@@ -56,7 +56,7 @@ const SearchPage: React.FC = () => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search for a TV show..."
-            className="w-full bg-slate-800 text-white pl-12 pr-4 py-4 rounded-full border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-lg text-lg"
+            className="w-full bg-transparent backdrop-blur-md text-white pl-12 pr-4 py-4 rounded-full border border-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-lg text-lg placeholder:text-slate-500"
           />
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-6 h-6" />
         </div>
@@ -71,7 +71,7 @@ const SearchPage: React.FC = () => {
           {results.map((show) => {
              const added = isInWatchlist(show.id);
              return (
-              <div key={show.id} className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 hover:border-slate-500 transition-all group flex flex-col">
+              <div key={show.id} className="bg-transparent rounded-xl overflow-hidden shadow-lg border border-white/5 hover:border-indigo-500/30 transition-all group flex flex-col hover:bg-white/5 backdrop-blur-sm">
                 <div className="relative aspect-[2/3] overflow-hidden">
                   <img
                     src={getImageUrl(show.poster_path)}

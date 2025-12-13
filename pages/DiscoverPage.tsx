@@ -160,14 +160,14 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                                 key={show.id} 
                                 className="snap-start shrink-0 w-[160px] md:w-[200px] flex flex-col gap-2 group relative"
                              >
-                                 <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-white/5 bg-slate-800 transition-all duration-300 group-hover:scale-[1.03] group-hover:border-indigo-500/30">
+                                 <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-white/5 bg-transparent transition-all duration-300 group-hover:scale-[1.03] group-hover:border-indigo-500/30">
                                      <img 
                                         src={getImageUrl(show.poster_path)} 
                                         alt={show.name} 
                                         loading="lazy"
                                         className="w-full h-full object-cover"
                                      />
-                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
                                          <p className="text-xs font-bold text-white mb-1">{show.vote_average.toFixed(1)} ★</p>
                                          <button 
                                             onClick={() => addToWatchlist(show)}
@@ -195,15 +195,16 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                         onClick={onShowMore}
                         className="snap-start shrink-0 w-[160px] md:w-[200px] flex items-center justify-center cursor-pointer group"
                      >
-                        <div className="w-full aspect-[2/3] rounded-xl border-2 border-dashed border-slate-700 bg-slate-800/30 hover:bg-slate-800 hover:border-indigo-500/50 flex flex-col items-center justify-center gap-3 transition-all">
-                             <div className="p-3 rounded-full bg-slate-700 group-hover:bg-indigo-600 transition-colors">
+                        <div className="w-full aspect-[2/3] rounded-xl border-2 border-dashed border-white/10 bg-transparent hover:bg-white/5 hover:border-indigo-500/50 flex flex-col items-center justify-center gap-3 transition-all">
+                             <div className="p-3 rounded-full bg-white/5 group-hover:bg-indigo-600 transition-colors">
                                  <ChevronRight className="w-6 h-6 text-slate-300 group-hover:text-white" />
                              </div>
                              <span className="font-medium text-slate-400 group-hover:text-white">View All</span>
                         </div>
                      </div>
                  </div>
-                 <div className="absolute top-0 bottom-0 right-0 w-12 bg-gradient-to-l from-slate-900 to-transparent pointer-events-none md:hidden"></div>
+                 {/* Gradient Fade to indicate scrolling */}
+                 <div className="absolute top-0 bottom-0 right-0 w-12 bg-gradient-to-l from-transparent to-transparent pointer-events-none md:hidden"></div>
              </div>
         </div>
     );

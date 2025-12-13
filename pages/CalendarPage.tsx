@@ -74,7 +74,7 @@ const CalendarPage: React.FC = () => {
             alt={ep.name}
             className="w-full h-full object-cover object-top opacity-90 transition-transform duration-500"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
       </div>
       
       <div className="relative z-10 mt-auto p-2">
@@ -106,7 +106,7 @@ const CalendarPage: React.FC = () => {
     const remainder = Math.max(0, eps.length - 4); 
 
     return (
-      <div className="w-full h-full bg-slate-900/60 p-1 flex flex-col overflow-hidden relative backdrop-blur-sm">
+      <div className="w-full h-full bg-transparent p-1 flex flex-col overflow-hidden relative backdrop-blur-sm">
         <div className="flex-1 flex flex-col gap-1 min-h-0 overflow-hidden">
             {displayEps.map((ep) => (
                 <div key={`${ep.show_id}-${ep.id}`} className="flex items-center gap-1.5 bg-white/5 p-1 rounded-lg border border-white/5 shrink-0">
@@ -130,7 +130,7 @@ const CalendarPage: React.FC = () => {
         </div>
         
         {remainder > 0 ? (
-            <div className="shrink-0 text-[9px] text-center text-indigo-400 font-bold bg-slate-900/50 pt-0.5 mt-0.5 border-t border-white/5">
+            <div className="shrink-0 text-[9px] text-center text-indigo-400 font-bold bg-white/5 pt-0.5 mt-0.5 border-t border-white/5">
                 +{remainder} more
             </div>
         ) : (
@@ -150,9 +150,6 @@ const CalendarPage: React.FC = () => {
         mx-auto 
         ${settings.compactCalendar ? 'h-full flex flex-col w-full overflow-hidden' : 'max-w-[1400px] pb-12'}
     `}>
-      {/* 
-         Removed the decorative background blob to allow the default body gradient to show.
-      */}
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4 px-2 shrink-0">
@@ -172,7 +169,7 @@ const CalendarPage: React.FC = () => {
              </button>
 
             {/* View Toggle */}
-            <div className="hidden md:flex bg-slate-800/50 backdrop-blur-md rounded-lg p-1 border border-white/10">
+            <div className="hidden md:flex bg-transparent backdrop-blur-md rounded-lg p-1 border border-white/10">
                 <button 
                     onClick={() => updateSettings({ viewMode: 'grid' })}
                     className={`p-1.5 rounded-md transition-colors ${isGridView ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
@@ -191,13 +188,13 @@ const CalendarPage: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="w-9 h-9 flex items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all">
+          <button onClick={prevMonth} className="w-9 h-9 flex items-center justify-center rounded-xl border border-white/10 bg-transparent text-slate-400 hover:text-white hover:bg-white/5 transition-all">
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <button onClick={goToToday} className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all">
+          <button onClick={goToToday} className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white bg-transparent hover:bg-white/5 border border-white/10 rounded-xl transition-all">
             Today
           </button>
-          <button onClick={nextMonth} className="w-9 h-9 flex items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all">
+          <button onClick={nextMonth} className="w-9 h-9 flex items-center justify-center rounded-xl border border-white/10 bg-transparent text-slate-400 hover:text-white hover:bg-white/5 transition-all">
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
@@ -216,7 +213,7 @@ const CalendarPage: React.FC = () => {
             {isGridView && (
                 <div className={`
                     hidden md:flex flex-col
-                    bg-slate-900/20 backdrop-blur-xl border border-white/5 rounded-3xl p-4 shadow-2xl overflow-hidden
+                    bg-transparent backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl overflow-hidden
                     ${settings.compactCalendar ? 'flex-1 h-full min-h-0' : 'sm:p-6'}
                 `}>
                     {/* Days Header */}
@@ -251,7 +248,7 @@ const CalendarPage: React.FC = () => {
                             style={!settings.compactCalendar ? { aspectRatio: '2/3' } : {}}
                             className={`
                                 group relative w-full rounded-xl flex flex-col transition-all duration-200 overflow-hidden
-                                ${!isCurrentMonth ? 'bg-slate-950/20 grayscale text-opacity-50' : 'bg-slate-900/40 backdrop-blur-sm'}
+                                ${!isCurrentMonth ? 'grayscale opacity-30' : 'backdrop-blur-sm'}
                                 
                                 /* Border/Ring Styling */
                                 ${isDayToday 
@@ -266,7 +263,7 @@ const CalendarPage: React.FC = () => {
                                 ${settings.compactCalendar ? 'min-h-0' : ''} 
                             `}
                         >
-                            {/* Date Number - MOVED TO TOP RIGHT */}
+                            {/* Date Number - TOP RIGHT */}
                             <div className={`
                                 absolute top-1 right-1 z-20 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold pointer-events-none
                                 ${isDayToday 
@@ -284,9 +281,7 @@ const CalendarPage: React.FC = () => {
                                         <RenderListCell eps={dayEpisodes} />
                                     )}
                                 </>
-                            ) : (
-                                <div className="w-full h-full opacity-0 group-hover:opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent transition-opacity duration-300"></div>
-                            )}
+                            ) : null}
                         </div>
                         );
                     })}
@@ -300,7 +295,7 @@ const CalendarPage: React.FC = () => {
                 ${isGridView ? 'md:hidden' : 'flex'}
             `}>
                 {activeDays.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-500 bg-slate-800/20 rounded-3xl border border-white/5">
+                <div className="flex flex-col items-center justify-center py-20 text-slate-500 bg-transparent rounded-3xl border border-white/5">
                         <CalendarIcon className="w-12 h-12 mb-3 opacity-20" />
                         <p>No episodes airing in {format(currentDate, 'MMMM')}</p>
                 </div>
@@ -316,7 +311,7 @@ const CalendarPage: React.FC = () => {
                                     shrink-0 w-16 flex flex-col items-center justify-center rounded-2xl border h-fit
                                     ${isDayToday 
                                         ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
-                                        : 'bg-slate-800/60 border-white/5 text-slate-400'}
+                                        : 'bg-transparent border-white/5 text-slate-400'}
                                 `}>
                                     <span className="text-xs font-semibold uppercase tracking-wider mt-2">{format(day, 'EEE')}</span>
                                     <span className="text-2xl font-bold mb-2">{format(day, 'd')}</span>
@@ -328,7 +323,7 @@ const CalendarPage: React.FC = () => {
                                         <div 
                                             key={`${ep.show_id}-${ep.id}`}
                                             onClick={() => setSelectedDate(day)}
-                                            className="flex bg-slate-800/80 backdrop-blur-sm border border-white/5 rounded-xl p-2.5 gap-3 active:scale-[0.98] transition-transform cursor-pointer hover:bg-slate-700/80"
+                                            className="flex bg-transparent backdrop-blur-md border border-white/5 rounded-xl p-2.5 gap-3 active:scale-[0.98] transition-transform cursor-pointer hover:bg-white/5"
                                         >
                                             <img 
                                                 src={getImageUrl(ep.poster_path)} 

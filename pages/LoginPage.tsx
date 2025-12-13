@@ -87,10 +87,10 @@ const LoginPage: React.FC = () => {
      const pct = syncProgress.total > 0 ? Math.round((syncProgress.current / syncProgress.total) * 100) : 0;
 
      return (
-          <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 bg-slate-950/95 backdrop-blur-xl animate-fade-in">
+          <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-fade-in">
                <div className="w-full max-w-sm text-center">
                    <div className="mb-8 relative">
-                       <div className="w-20 h-20 mx-auto rounded-full border-4 border-slate-800 flex items-center justify-center relative">
+                       <div className="w-20 h-20 mx-auto rounded-full border-4 border-white/10 flex items-center justify-center relative">
                            <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
                        </div>
                        <div className="absolute top-0 right-0 left-0 bottom-0 flex items-center justify-center">
@@ -103,7 +103,7 @@ const LoginPage: React.FC = () => {
                        Syncing {syncProgress.total} items...
                    </p>
 
-                   <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
+                   <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-4">
                        <div 
                            className="h-full bg-indigo-500 transition-all duration-300 ease-out"
                            style={{ width: `${pct}%` }}
@@ -147,9 +147,9 @@ const LoginPage: React.FC = () => {
   return (
     <>
         <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-slate-900/60 backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/10">
+        <div className="bg-transparent backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/10">
             <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-500/10 text-indigo-500 mb-4 border border-indigo-500/20">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/5 text-indigo-500 mb-4 border border-white/10">
                 <Tv className="w-8 h-8" />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">TV Calendar</h1>
@@ -172,7 +172,7 @@ const LoginPage: React.FC = () => {
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder:text-slate-600"
+                className="w-full bg-transparent border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder:text-slate-600"
                 placeholder="Enter your name"
                 required
                 />
@@ -199,7 +199,7 @@ const LoginPage: React.FC = () => {
                         id="apiKey"
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
-                        className="w-full bg-slate-800/50 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all font-mono text-sm placeholder:text-slate-600"
+                        className="w-full bg-transparent border border-white/10 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all font-mono text-sm placeholder:text-slate-600"
                         placeholder="eyJhbGciOiJIUzI1NiJ9..."
                         required
                     />
@@ -218,14 +218,14 @@ const LoginPage: React.FC = () => {
             <div className="my-6 grid grid-cols-2 gap-3">
                  <button 
                     onClick={() => setShowScanner(true)}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/50 transition-all gap-2 group"
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-indigo-500/50 transition-all gap-2 group"
                  >
                      <QrCode className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
                      <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors">Scan QR Code</span>
                  </button>
                  <button 
                     onClick={handleImportClick}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/50 transition-all gap-2 group"
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-indigo-500/50 transition-all gap-2 group"
                  >
                      <Upload className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
                      <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors">Import File</span>
@@ -259,7 +259,7 @@ const LoginPage: React.FC = () => {
                         <p className="text-slate-400 text-sm">You are about to restore:</p>
                     </div>
 
-                    <div className="bg-slate-800 rounded-xl p-4 mb-6 border border-white/5 space-y-3">
+                    <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/5 space-y-3">
                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
                             <span className="text-slate-400 text-sm">User</span>
                             <span className="text-white font-bold">{importPreview.user?.username || 'Unknown'}</span>
@@ -281,7 +281,7 @@ const LoginPage: React.FC = () => {
                     <div className="flex gap-3">
                         <button 
                             onClick={() => setImportPreview(null)}
-                            className="flex-1 py-3 rounded-lg font-medium text-slate-300 hover:bg-slate-800 transition-colors"
+                            className="flex-1 py-3 rounded-lg font-medium text-slate-300 hover:bg-white/5 transition-colors"
                         >
                             Cancel
                         </button>

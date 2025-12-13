@@ -61,7 +61,7 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
             </div>
           ) : (
             episodes.map((ep) => (
-              <div key={`${ep.show_id}-${ep.id}`} className="group bg-slate-800/50 rounded-xl p-4 flex gap-4 transition hover:bg-slate-800 border border-white/5 hover:border-white/10">
+              <div key={`${ep.show_id}-${ep.id}`} className="group bg-white/5 rounded-xl p-4 flex gap-4 transition hover:bg-white/10 border border-white/5 hover:border-white/10">
                 <div className="shrink-0 w-32 hidden sm:block relative overflow-hidden rounded-lg bg-black">
                   <img 
                     src={getImageUrl(ep.still_path || ep.poster_path)} 
@@ -103,11 +103,11 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
                              ) : (
                                 <span className="bg-emerald-900/30 border border-emerald-500/30 px-2 py-0.5 rounded text-emerald-300 flex items-center gap-1">
                                     <MonitorPlay className="w-3 h-3" /> Home Release
-                                </span>
+                                 </span>
                              )}
                         </>
                     ) : (
-                        <span className="bg-slate-900 border border-white/10 px-2 py-0.5 rounded text-slate-300">S{ep.season_number} E{ep.episode_number}</span>
+                        <span className="bg-black/40 border border-white/10 px-2 py-0.5 rounded text-slate-300">S{ep.season_number} E{ep.episode_number}</span>
                     )}
                   </div>
                   

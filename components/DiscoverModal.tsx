@@ -68,7 +68,7 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div 
-        className="w-full max-w-5xl bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[85vh]"
+        className="w-full max-w-5xl bg-slate-900/90 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[85vh] backdrop-blur-xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-white/10 flex justify-between items-center bg-white/5 shrink-0">
@@ -88,13 +88,13 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
                     const isAdded = allTrackedShows.some(s => s.id === show.id);
                     return (
                         <div key={`${show.id}-${show.media_type}`} className="flex flex-col gap-2 group relative">
-                            <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-white/5 bg-slate-800 transition-all duration-300 group-hover:border-indigo-500/30">
+                            <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-white/5 bg-white/5 transition-all duration-300 group-hover:border-indigo-500/30">
                                 <img 
                                     src={getImageUrl(show.poster_path)} 
                                     alt={show.name} 
                                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
                                     <p className="text-xs font-bold text-white mb-2">{show.vote_average.toFixed(1)} ★</p>
                                     <button 
                                         onClick={() => addToWatchlist(show)}

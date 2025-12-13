@@ -117,7 +117,7 @@ const SearchModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20 px-4 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => setIsSearchOpen(false)}>
       <div 
-        className="w-full max-w-3xl bg-slate-900/90 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+        className="w-full max-w-3xl bg-slate-900/90 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] backdrop-blur-xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Search Header */}
@@ -165,7 +165,7 @@ const SearchModal: React.FC = () => {
                             {bannerRecommendations.map(show => {
                                 const isAdded = allTrackedShows.some(w => w.id === show.id);
                                 return (
-                                    <div key={`rec-${show.id}`} className="flex gap-3 p-2 rounded-lg bg-slate-800/50 border border-white/5 hover:bg-slate-800 hover:border-indigo-500/30 transition-all group">
+                                    <div key={`rec-${show.id}`} className="flex gap-3 p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 hover:border-indigo-500/30 transition-all group">
                                         <div className="relative w-12 h-16 shrink-0">
                                             <img 
                                             src={getImageUrl(show.poster_path)} 

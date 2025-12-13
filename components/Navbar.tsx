@@ -22,12 +22,12 @@ const Navbar: React.FC = () => {
             relative p-3 rounded-xl transition-all duration-200 group flex items-center justify-center
             ${active 
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' 
-                : 'text-slate-400 hover:text-white hover:bg-white/10'}
+                : 'text-slate-400 hover:text-white hover:bg-white/5'}
         `}>
             <Icon className="w-6 h-6" />
             
             {/* Tooltip */}
-            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 px-2 py-1 bg-slate-800 text-white text-xs font-bold rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap border border-white/10 z-50">
+            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 px-2 py-1 bg-black/80 text-white text-xs font-bold rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap border border-white/10 z-50 backdrop-blur-md">
                 {label}
             </div>
         </div>
@@ -42,8 +42,8 @@ const Navbar: React.FC = () => {
 
   return (
     <>
-      {/* DESKTOP SIDEBAR - Updated with backdrop blur and transparent bg */}
-      <nav className="hidden md:flex flex-col w-20 bg-slate-900/60 backdrop-blur-xl border-r border-white/5 h-screen fixed left-0 top-0 z-50 items-center py-6 gap-8">
+      {/* DESKTOP SIDEBAR - Transparent */}
+      <nav className="hidden md:flex flex-col w-20 bg-transparent backdrop-blur-2xl border-r border-white/5 h-screen fixed left-0 top-0 z-50 items-center py-6 gap-8">
         
         {/* Logo */}
         <Link to="/" className="p-2 bg-indigo-500/10 rounded-xl text-indigo-500 hover:bg-indigo-500/20 transition-colors">
@@ -64,10 +64,10 @@ const Navbar: React.FC = () => {
                 onClick={() => setIsSettingsOpen(true)}
                 className="relative p-1 rounded-full group flex justify-center w-full"
             >
-                <div className="w-10 h-10 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center text-slate-300 font-bold group-hover:border-indigo-500 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-transparent border border-white/10 flex items-center justify-center text-slate-300 font-bold group-hover:border-indigo-500 transition-colors">
                     {user.username.charAt(0).toUpperCase()}
                 </div>
-                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 px-2 py-1 bg-slate-800 text-white text-xs font-bold rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap border border-white/10">
+                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 px-2 py-1 bg-black/80 text-white text-xs font-bold rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap border border-white/10 backdrop-blur-md">
                     Settings
                 </div>
             </button>
@@ -76,8 +76,8 @@ const Navbar: React.FC = () => {
         </div>
       </nav>
 
-      {/* MOBILE TOP BAR (Logo + Settings) */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 border-b border-white/5">
+      {/* MOBILE TOP BAR (Logo + Settings) - Transparent */}
+      <div className="md:hidden flex items-center justify-between p-4 bg-transparent backdrop-blur-xl sticky top-0 z-40 border-b border-white/5">
            <Link to="/" className="flex items-center gap-2 text-indigo-500 font-bold text-lg tracking-tight">
                 <div className="p-1 bg-indigo-500/10 rounded-lg">
                   <Tv className="w-5 h-5" />
@@ -86,7 +86,7 @@ const Navbar: React.FC = () => {
            </Link>
            <button 
                 onClick={() => setIsSettingsOpen(true)}
-                className="w-8 h-8 rounded-full bg-slate-800 border border-white/5 flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-transparent border border-white/5 flex items-center justify-center"
            >
                 <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] text-white font-bold">
                     {user.username.charAt(0).toUpperCase()}
@@ -94,9 +94,9 @@ const Navbar: React.FC = () => {
            </button>
       </div>
         
-      {/* MOBILE FLOATING PILL NAV (Bottom) */}
+      {/* MOBILE FLOATING PILL NAV (Bottom) - Transparent */}
       <div className="md:hidden fixed bottom-6 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none safe-area-bottom">
-          <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-2xl shadow-black/50 p-1.5 flex items-center gap-1 pointer-events-auto max-w-sm w-full justify-between">
+          <div className="bg-transparent backdrop-blur-2xl border border-white/10 rounded-full shadow-2xl shadow-black/50 p-1.5 flex items-center gap-1 pointer-events-auto max-w-sm w-full justify-between">
             <Link to="/" className={`relative p-3 rounded-full flex items-center justify-center w-full transition-all duration-300 ${isActive('/') ? 'text-white' : 'text-slate-500'}`}>
                 {isActive('/') && <div className="absolute inset-0 bg-indigo-600 rounded-full shadow-lg shadow-indigo-500/30 -z-10 animate-fade-in" />}
                 <Calendar className="w-5 h-5" />
