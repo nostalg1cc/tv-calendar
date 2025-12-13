@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
 import { User, TVShow, Episode, AppSettings, SubscribedList } from '../types';
 import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails } from '../services/tmdb';
 
@@ -17,7 +17,7 @@ interface AppContextType {
   episodes: Record<string, Episode[]>; // Key: "YYYY-MM-DD", Value: Episode[]
   loading: boolean;
   syncProgress: { current: number; total: number }; // New: Track batch progress
-  refreshEpisodes: () => Promise<void>;
+  refreshEpisodes: (force?: boolean) => Promise<void>;
   requestNotificationPermission: () => Promise<boolean>;
   scheduleNotification: (episode: Episode) => void;
   isSearchOpen: boolean;
@@ -37,6 +37,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   compactCalendar: true, // Default to compact view
   viewMode: 'grid', // Default to grid view
 };
+
+const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // --- Auth State ---
@@ -87,9 +89,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setUser(updatedUser);
           try {
              localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser));
-             // Removed window.location.reload() to prevent "Location.assign" errors in sandboxed environments
-             // Instead, we just re-fetch episodes with the new key
-             setTimeout(() => refreshEpisodes(), 100);
+             // Force refresh with new key
+             setTimeout(() => refreshEpisodes(true), 100);
           } catch (e) {
              console.warn('Failed to save user to localStorage', e);
           }
@@ -100,8 +101,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setUser(null);
     try {
       localStorage.removeItem('tv_calendar_user');
+      localStorage.removeItem('tv_calendar_episodes');
+      localStorage.removeItem('tv_calendar_cache_meta');
     } catch (e) {
-      console.warn('Failed to remove user from localStorage', e);
+      console.warn('Failed to remove user/data from localStorage', e);
     }
     setWatchlist([]);
     setSubscribedLists([]);
@@ -147,7 +150,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return Array.from(map.values());
   }, [watchlist, subscribedLists]);
 
-  const [episodes, setEpisodes] = useState<Record<string, Episode[]>>({});
+  // Load episodes from cache initially
+  const [episodes, setEpisodes] = useState<Record<string, Episode[]>>(() => {
+      try {
+          const cached = localStorage.getItem('tv_calendar_episodes');
+          return cached ? JSON.parse(cached) : {};
+      } catch {
+          return {};
+      }
+  });
+  
   const [loading, setLoading] = useState<boolean>(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -255,7 +267,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const refreshEpisodes = async () => {
+  const refreshEpisodes = useCallback(async (force = false) => {
     if (!user || !user.tmdbKey) {
         setEpisodes({});
         return;
@@ -263,16 +275,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (allTrackedShows.length === 0) {
       setEpisodes({});
+      localStorage.removeItem('tv_calendar_episodes');
+      localStorage.removeItem('tv_calendar_cache_meta');
       setSyncProgress({ current: 0, total: 0 });
       return;
+    }
+    
+    // Check Cache if not forced
+    if (!force) {
+        try {
+            const cacheMetaStr = localStorage.getItem('tv_calendar_cache_meta');
+            if (cacheMetaStr) {
+                const meta = JSON.parse(cacheMetaStr);
+                const currentIds = allTrackedShows.map(s => s.id).sort((a,b) => a - b);
+                const cachedIds = (meta.showIds || []).sort((a:number,b:number) => a - b);
+                
+                const isSameShows = JSON.stringify(currentIds) === JSON.stringify(cachedIds);
+                const isFresh = (Date.now() - meta.timestamp) < CACHE_DURATION;
+
+                // Check if episodes state is actually populated (it should be from useState init)
+                const hasData = Object.keys(episodes).length > 0;
+
+                if (isSameShows && isFresh && hasData) {
+                    console.log('Using cached episodes');
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Error reading cache meta', e);
+        }
     }
     
     setLoading(true);
     setSyncProgress({ current: 0, total: allTrackedShows.length });
     
     const allEpisodes: Record<string, Episode[]> = {};
-    
-    // BATCHING IMPLEMENTATION
     const BATCH_SIZE = 4;
     
     for (let i = 0; i < allTrackedShows.length; i += BATCH_SIZE) {
@@ -288,7 +325,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const results = await Promise.all(promises);
 
-        // Merge batch results into main object
         results.forEach((showEpisodes) => {
             Object.entries(showEpisodes).forEach(([date, eps]) => {
                 if (!allEpisodes[date]) {
@@ -299,29 +335,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             });
         });
 
-        // Update progress
         setSyncProgress(prev => ({ 
             ...prev, 
             current: Math.min(prev.total, i + batch.length) 
         }));
 
-        // Add a small delay between batches
         if (i + BATCH_SIZE < allTrackedShows.length) {
             await new Promise(resolve => setTimeout(resolve, 500));
         }
     }
 
     setEpisodes(allEpisodes);
-    setLoading(false);
-    // Reset progress after a short delay so UI can show 100% briefly
-    setTimeout(() => setSyncProgress({ current: 0, total: 0 }), 1000);
-  };
+    
+    // Save to Cache
+    try {
+        localStorage.setItem('tv_calendar_episodes', JSON.stringify(allEpisodes));
+        localStorage.setItem('tv_calendar_cache_meta', JSON.stringify({
+            timestamp: Date.now(),
+            showIds: allTrackedShows.map(s => s.id)
+        }));
+    } catch (e) {
+        console.warn('Failed to save episodes to cache (quota likely exceeded)', e);
+    }
 
-  // Initial fetch on load and whenever total tracking changes
+    setLoading(false);
+    setTimeout(() => setSyncProgress({ current: 0, total: 0 }), 1000);
+  }, [allTrackedShows, user, episodes]);
+
+  // Initial fetch / cache check
   useEffect(() => {
     refreshEpisodes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allTrackedShows, user]); 
+  }, [refreshEpisodes]); 
 
   const addToWatchlist = async (show: TVShow) => {
     if (watchlist.find(s => s.id === show.id)) return;
@@ -334,9 +378,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const subscribeToList = async (listId: string) => {
-      // Check if already subscribed
       if (subscribedLists.some(l => l.id === listId)) return;
-
       try {
           const listDetails = await getListDetails(listId);
           const newList: SubscribedList = {
@@ -356,14 +398,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const importBackup = (data: any) => {
-      // Case 1: Legacy Backup (Array of shows)
       if (Array.isArray(data)) {
           setWatchlist(data);
       } 
-      // Case 2: Structured Backup (Object)
       else if (typeof data === 'object' && data !== null) {
-          
-          // Restore User
           if (data.user) {
               const restoredUser = data.user;
               if (restoredUser.username && restoredUser.tmdbKey) {
@@ -371,32 +409,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   localStorage.setItem('tv_calendar_user', JSON.stringify({ ...restoredUser, isAuthenticated: true }));
               }
           }
-
-          // Restore Settings
           if (data.settings) {
               updateSettings(data.settings);
           }
-
-          // Restore Subscribed Lists FIRST (so useEffect doesn't fire double fetches unnecessarily if we set Watchlist second)
-          // Actually, React batching might handle it, but let's be safe.
           if (data.subscribedLists) {
               setSubscribedLists(data.subscribedLists);
           }
-
-          // Restore Watchlist
           if (data.watchlist && Array.isArray(data.watchlist)) {
               setWatchlist(data.watchlist);
           }
       } else {
           throw new Error('Invalid file format');
       }
-      
-      // We do NOT reload the page anymore. 
-      // The state updates (setWatchlist/setSubscribedLists) will trigger the `useEffect` on `allTrackedShows`.
-      // The `refreshEpisodes` function will be called automatically, and `syncProgress` will update.
   };
 
-  // --- Notifications ---
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
       alert('This browser does not support desktop notifications');

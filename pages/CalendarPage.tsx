@@ -3,14 +3,14 @@ import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths 
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import EpisodeModal from '../components/EpisodeModal';
 import { getImageUrl } from '../services/tmdb';
 import { Episode } from '../types';
 
 const CalendarPage: React.FC = () => {
-  const { episodes, loading, settings, updateSettings } = useAppContext();
+  const { episodes, loading, settings, updateSettings, refreshEpisodes } = useAppContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -156,6 +156,16 @@ const CalendarPage: React.FC = () => {
                 {format(currentDate, 'MMMM yyyy')}
             </h1>
             
+            {/* Refresh Button */}
+             <button 
+                onClick={() => refreshEpisodes(true)}
+                disabled={loading}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
+                title="Force Refresh Data"
+             >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
+             </button>
+
             {/* View Toggle */}
             <div className="hidden md:flex bg-slate-800 rounded-lg p-1 border border-white/10">
                 <button 
@@ -176,7 +186,6 @@ const CalendarPage: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
-           {loading && <Loader2 className="w-5 h-5 text-indigo-400 animate-spin mr-2" />}
           <button onClick={prevMonth} className="w-9 h-9 flex items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all">
             <ChevronLeft className="w-5 h-5" />
           </button>
