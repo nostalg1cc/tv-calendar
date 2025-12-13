@@ -115,13 +115,13 @@ const SearchModal: React.FC = () => {
   if (!isSearchOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20 px-4 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => setIsSearchOpen(false)}>
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20 px-4 bg-black/50 backdrop-blur-md animate-fade-in" onClick={() => setIsSearchOpen(false)}>
       <div 
-        className="w-full max-w-3xl bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+        className="glass-panel w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Search Header */}
-        <div className="p-4 border-b border-white/10 flex items-center gap-4 bg-white/5">
+        <div className="p-4 border-b border-white/5 flex items-center gap-4 bg-white/5">
           <Search className="w-5 h-5 text-slate-400" />
           <input 
             type="text" 
@@ -145,7 +145,7 @@ const SearchModal: React.FC = () => {
             
             {/* Banner Recommendations Section (Only if method is 'banner' and enabled) */}
             {settings.recommendationsEnabled && settings.recommendationMethod === 'banner' && (bannerRecommendations.length > 0 || loadingRecs) && (
-                <div className="p-4 bg-indigo-900/20 border-b border-white/10 animate-fade-in">
+                <div className="p-4 bg-indigo-900/20 border-b border-white/5 animate-fade-in">
                     <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-bold text-indigo-300 flex items-center gap-2">
                             <Sparkles className="w-4 h-4 text-indigo-400" />

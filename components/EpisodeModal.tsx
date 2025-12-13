@@ -18,12 +18,12 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div 
-        className="bg-black/40 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-white/10" 
+        className="glass-panel rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col" 
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-white/5">
+        <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/5">
           <div className="flex flex-col">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <CalendarIcon className="w-5 h-5 text-indigo-400" />
@@ -61,7 +61,7 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
             </div>
           ) : (
             episodes.map((ep) => (
-              <div key={`${ep.show_id}-${ep.id}`} className="group bg-white/5 rounded-xl p-4 flex gap-4 transition hover:bg-white/10 border border-white/5 hover:border-white/10">
+              <div key={`${ep.show_id}-${ep.id}`} className="group bg-white/5 rounded-2xl p-4 flex gap-4 transition hover:bg-white/10 border border-white/5 hover:border-white/10">
                 <div className="shrink-0 w-32 hidden sm:block relative overflow-hidden rounded-lg bg-black">
                   <img 
                     src={getImageUrl(ep.still_path || ep.poster_path)} 

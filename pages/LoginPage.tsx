@@ -136,7 +136,7 @@ const LoginPage: React.FC = () => {
                   <Scanner 
                       onScan={handleScan} 
                       onError={(err: any) => console.log(err)}
-                      components={{ audio: false, finder: true }}
+                      components={{ finder: true }} 
                       styles={{ container: { width: '100%', height: '100%' } }}
                   />
               </div>
@@ -147,7 +147,7 @@ const LoginPage: React.FC = () => {
   return (
     <>
         <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-transparent backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/10">
+        <div className="glass-panel p-8 rounded-3xl shadow-2xl w-full max-w-md">
             <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/5 text-indigo-500 mb-4 border border-white/10">
                 <Tv className="w-8 h-8" />
@@ -172,7 +172,7 @@ const LoginPage: React.FC = () => {
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-transparent border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder:text-slate-600"
+                className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder:text-slate-600"
                 placeholder="Enter your name"
                 required
                 />
@@ -199,7 +199,7 @@ const LoginPage: React.FC = () => {
                         id="apiKey"
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
-                        className="w-full bg-transparent border border-white/10 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all font-mono text-sm placeholder:text-slate-600"
+                        className="w-full bg-black/30 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all font-mono text-sm placeholder:text-slate-600"
                         placeholder="eyJhbGciOiJIUzI1NiJ9..."
                         required
                     />
@@ -209,7 +209,7 @@ const LoginPage: React.FC = () => {
 
             <button
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-indigo-500/20"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-indigo-500/20"
             >
                 Get Started <ArrowRight className="w-4 h-4" />
             </button>
@@ -248,8 +248,8 @@ const LoginPage: React.FC = () => {
 
         {/* Import Confirmation Modal for Login Page */}
         {importPreview && (
-            <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                <div className="bg-black/60 backdrop-blur-xl border border-indigo-500/30 rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in relative overflow-hidden">
+            <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <div className="glass-panel rounded-3xl shadow-2xl w-full max-w-sm p-6 animate-fade-in relative overflow-hidden">
                     {/* ... Existing Import Preview ... */}
                     <div className="text-center mb-6">
                         <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-400">

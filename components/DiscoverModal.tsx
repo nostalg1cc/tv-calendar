@@ -66,12 +66,12 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div 
-        className="w-full max-w-5xl bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[85vh]"
+        className="glass-panel w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-white/5 shrink-0">
+        <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/5 shrink-0">
           <h2 className="text-2xl font-bold text-white tracking-tight">{title}</h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
             <X className="w-6 h-6" />
