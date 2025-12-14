@@ -60,6 +60,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   viewMode: 'grid', 
   suppressMobileAddWarning: false,
   calendarPosterFillMode: 'cover',
+  useSeason1Art: false,
+  cleanGrid: false,
 };
 
 const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
@@ -275,6 +277,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                   season_number: 1,
                                   still_path: item.backdrop_path, 
                                   poster_path: item.poster_path,
+                                  season1_poster_path: item.poster_path, // Movies only have one poster
                                   show_id: item.id,
                                   show_name: item.name,
                                   is_movie: true,
@@ -298,6 +301,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           
                           const seasons = await Promise.all(seasonPromises);
                           
+                          // Find Season 1 Poster for Anti-Spoiler
+                          const season1 = seasons.find(s => s && s.season_number === 1);
+                          const s1Poster = season1?.poster_path || item.poster_path; // Fallback to show poster if S1 missing
+
                           seasons.forEach(season => {
                               if (!season || !season.episodes) return;
                               season.episodes.forEach(ep => {
@@ -309,7 +316,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                       ...ep,
                                       show_id: item.id,
                                       show_name: item.name,
-                                      poster_path: item.poster_path,
+                                      poster_path: item.poster_path, // Default show/season poster (often current season)
+                                      season1_poster_path: s1Poster, // Specifically Season 1 (or show default)
                                       is_movie: false
                                   });
                               });
@@ -354,9 +362,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
           
           // 2. Trigger Sync (Background)
-          // We pass current state to ensure overrides work if called during init, 
-          // though refreshEpisodes uses refs/closures so it picks up latest state mostly.
-          // But relying on dependency array of useCallback is safer.
           refreshEpisodes();
       };
       

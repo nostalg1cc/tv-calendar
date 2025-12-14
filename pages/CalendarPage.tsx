@@ -73,6 +73,14 @@ const CalendarPage: React.FC = () => {
       // Remove bg-black for contain mode so blur shows through.
       const isContain = settings.calendarPosterFillMode === 'contain';
       const imgClass = isContain ? 'object-contain' : 'object-cover';
+      
+      // Determine Poster Source based on Settings
+      // Priority: Season 1 (if enabled & exists) -> Poster Path -> Still Path
+      const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) 
+          ? ep.season1_poster_path 
+          : (ep.poster_path || ep.still_path);
+
+      const imageUrl = getImageUrl(posterSrc);
 
       return (
           <div className="absolute inset-0 flex flex-col justify-end p-2 sm:p-3 overflow-hidden">
@@ -82,39 +90,43 @@ const CalendarPage: React.FC = () => {
                    {isContain && (
                        <div 
                          className="absolute inset-0 bg-cover bg-center blur-md opacity-40 scale-110" 
-                         style={{ backgroundImage: `url(${getImageUrl(ep.poster_path || ep.still_path)})` }}
+                         style={{ backgroundImage: `url(${imageUrl})` }}
                        />
                    )}
                   <img 
-                      src={getImageUrl(ep.poster_path || ep.still_path)} 
-                      className={`w-full h-full ${imgClass} ${isContain ? 'opacity-100 drop-shadow-xl' : 'opacity-60'}`}
+                      src={imageUrl} 
+                      className={`w-full h-full ${imgClass} ${isContain ? 'opacity-100 drop-shadow-xl' : 'opacity-80'}`}
                       alt=""
                   />
-                  {/* Heavy Gradient for text readability */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-main)] via-[var(--bg-main)]/50 to-transparent" />
+                  
+                  {/* Heavy Gradient for text readability - Only show if Clean Grid is OFF */}
+                  {!settings.cleanGrid && (
+                       <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-main)] via-[var(--bg-main)]/50 to-transparent" />
+                  )}
               </div>
 
               {/* Content - Desktop gets Text, Mobile gets minimal icons */}
               <div className="relative z-10 w-full pointer-events-none">
-                  {!isMobile && (
+                  {/* Clean Grid Mode Logic: Hide Title Text */}
+                  {!isMobile && !settings.cleanGrid && (
                       <h4 className="text-[11px] sm:text-xs font-bold text-white leading-tight line-clamp-2 mb-1 drop-shadow-md">
                           {ep.show_name}
                       </h4>
                   )}
                   
-                  <div className="flex items-center gap-2">
+                  <div className={`flex items-center gap-2 ${settings.cleanGrid ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' : ''}`}>
                       {ep.is_movie ? (
                           <div className={`
-                              flex items-center gap-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold border
+                              flex items-center gap-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold border backdrop-blur-md
                               ${ep.release_type === 'theatrical' 
-                                  ? 'bg-pink-500/10 text-pink-300 border-pink-500/20' 
-                                  : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'}
+                                  ? 'bg-pink-500/30 text-pink-200 border-pink-500/20' 
+                                  : 'bg-emerald-500/30 text-emerald-200 border-emerald-500/20'}
                           `}>
                               {ep.release_type === 'theatrical' ? <Ticket className="w-3 h-3" /> : <MonitorPlay className="w-3 h-3" />}
-                              {!isMobile && <span className="hidden sm:inline">{ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}</span>}
+                              {!isMobile && !settings.cleanGrid && <span className="hidden sm:inline">{ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}</span>}
                           </div>
                       ) : (
-                          <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-md bg-white/10 text-slate-200 text-[10px] font-medium border border-white/5">
+                          <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-slate-200 text-[10px] font-medium border border-white/10 shadow-sm">
                               <span>S{ep.season_number} E{ep.episode_number}</span>
                           </div>
                       )}
@@ -251,26 +263,29 @@ const CalendarPage: React.FC = () => {
                                             <div className="absolute inset-0 p-1 flex flex-col gap-1 overflow-hidden z-10 pt-6 md:pt-8">
                                                 {/* Unified Stack (Desktop & Mobile) */}
                                                 <div className="flex flex-col gap-1 flex-1 min-h-0 overflow-hidden">
-                                                    {dayEpisodes.slice(0, 3).map((ep, i) => (
-                                                        <div key={i} className="flex items-center gap-2 bg-zinc-900/90 p-1.5 rounded border border-zinc-800/50 truncate shrink-0">
-                                                            <div className="relative shrink-0 w-5 h-7">
-                                                                <img src={getImageUrl(ep.poster_path)} className="w-full h-full object-cover rounded-[2px] opacity-90" alt="" />
-                                                            </div>
-                                                            <div className="min-w-0 flex-1 flex flex-col justify-center">
-                                                                <div className="text-[9px] text-zinc-200 font-medium truncate leading-none mb-0.5">{ep.show_name}</div>
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="text-[8px] text-zinc-500 truncate leading-none">
-                                                                        {ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema' : 'Digital') : `S${ep.season_number}E${ep.episode_number}`}
-                                                                    </span>
-                                                                    {ep.is_movie && (
-                                                                        ep.release_type === 'theatrical' 
-                                                                        ? <Ticket className="w-2.5 h-2.5 text-pink-400" />
-                                                                        : <MonitorPlay className="w-2.5 h-2.5 text-emerald-400" />
-                                                                    )}
+                                                    {dayEpisodes.slice(0, 3).map((ep, i) => {
+                                                        const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
+                                                        return (
+                                                            <div key={i} className="flex items-center gap-2 bg-zinc-900/90 p-1.5 rounded border border-zinc-800/50 truncate shrink-0">
+                                                                <div className="relative shrink-0 w-5 h-7">
+                                                                    <img src={getImageUrl(posterSrc)} className="w-full h-full object-cover rounded-[2px] opacity-90" alt="" />
+                                                                </div>
+                                                                <div className="min-w-0 flex-1 flex flex-col justify-center">
+                                                                    <div className="text-[9px] text-zinc-200 font-medium truncate leading-none mb-0.5">{ep.show_name}</div>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className="text-[8px] text-zinc-500 truncate leading-none">
+                                                                            {ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema' : 'Digital') : `S${ep.season_number}E${ep.episode_number}`}
+                                                                        </span>
+                                                                        {ep.is_movie && (
+                                                                            ep.release_type === 'theatrical' 
+                                                                            ? <Ticket className="w-2.5 h-2.5 text-pink-400" />
+                                                                            : <MonitorPlay className="w-2.5 h-2.5 text-emerald-400" />
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                                 
                                                 {/* Footer "+X more" */}
@@ -327,39 +342,42 @@ const CalendarPage: React.FC = () => {
                                         </div>
 
                                         <div className="flex-1 space-y-3 pb-4 border-b border-zinc-800 min-w-0">
-                                            {eps.map(ep => (
-                                                <div 
-                                                    key={`${ep.show_id}-${ep.id}`}
-                                                    onClick={() => setSelectedDate(day)}
-                                                    className="surface-card rounded-xl p-3 flex gap-3 cursor-pointer group bg-zinc-900 border border-zinc-800 hover:border-indigo-500/30 transition-colors"
-                                                >
-                                                    <div className="relative w-12 h-16 shrink-0 rounded-md overflow-hidden bg-black shadow-sm">
-                                                        <img src={getImageUrl(ep.poster_path)} className="w-full h-full object-cover" alt="" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                        <h4 className="font-bold text-zinc-200 text-sm truncate group-hover:text-indigo-400 transition-colors">
-                                                            {ep.show_name}
-                                                        </h4>
-                                                        
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            {ep.is_movie ? (
-                                                                <span className={`text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-1 ${ep.release_type === 'theatrical' ? 'text-pink-300 border-pink-500/20 bg-pink-500/5' : 'text-emerald-300 border-emerald-500/20 bg-emerald-500/5'}`}>
-                                                                    {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[10px] font-mono text-zinc-400">
-                                                                    S{ep.season_number} E{ep.episode_number}
-                                                                </span>
-                                                            )}
-                                                            <span className="text-[10px] text-zinc-500 truncate hidden sm:inline">• {ep.name}</span>
+                                            {eps.map(ep => {
+                                                const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
+                                                return (
+                                                    <div 
+                                                        key={`${ep.show_id}-${ep.id}`}
+                                                        onClick={() => setSelectedDate(day)}
+                                                        className="surface-card rounded-xl p-3 flex gap-3 cursor-pointer group bg-zinc-900 border border-zinc-800 hover:border-indigo-500/30 transition-colors"
+                                                    >
+                                                        <div className="relative w-12 h-16 shrink-0 rounded-md overflow-hidden bg-black shadow-sm">
+                                                            <img src={getImageUrl(posterSrc)} className="w-full h-full object-cover" alt="" />
                                                         </div>
-                                                        <span className="text-[10px] text-zinc-500 truncate sm:hidden mt-0.5">{ep.name}</span>
+                                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                            <h4 className="font-bold text-zinc-200 text-sm truncate group-hover:text-indigo-400 transition-colors">
+                                                                {ep.show_name}
+                                                            </h4>
+                                                            
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                {ep.is_movie ? (
+                                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-1 ${ep.release_type === 'theatrical' ? 'text-pink-300 border-pink-500/20 bg-pink-500/5' : 'text-emerald-300 border-emerald-500/20 bg-emerald-500/5'}`}>
+                                                                        {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[10px] font-mono text-zinc-400">
+                                                                        S{ep.season_number} E{ep.episode_number}
+                                                                    </span>
+                                                                )}
+                                                                <span className="text-[10px] text-zinc-500 truncate hidden sm:inline">• {ep.name}</span>
+                                                            </div>
+                                                            <span className="text-[10px] text-zinc-500 truncate sm:hidden mt-0.5">{ep.name}</span>
+                                                        </div>
+                                                        <div className="self-center pr-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <ChevronRight className="w-4 h-4 text-zinc-500" />
+                                                        </div>
                                                     </div>
-                                                    <div className="self-center pr-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <ChevronRight className="w-4 h-4 text-zinc-500" />
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 );

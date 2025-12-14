@@ -23,6 +23,7 @@ export interface Episode {
   show_id?: number; // Added for internal reference
   show_name?: string; // Added for internal reference
   poster_path?: string | null; // Added for Calendar UI (Vertical image)
+  season1_poster_path?: string | null; // Anti-Spoiler Art
   is_movie?: boolean; // Flag to identify movies in mixed lists
   release_type?: 'theatrical' | 'digital'; // Specific release type for movies
 }
@@ -58,9 +59,11 @@ export interface AppSettings {
   recommendationsEnabled: boolean;
   recommendationMethod: 'banner' | 'inline';
   compactCalendar: boolean;
-  viewMode: 'grid' | 'list'; // Added viewMode
-  suppressMobileAddWarning: boolean; // New setting
-  calendarPosterFillMode: 'cover' | 'contain'; // New setting for poster rendering
+  viewMode: 'grid' | 'list'; 
+  suppressMobileAddWarning: boolean; 
+  calendarPosterFillMode: 'cover' | 'contain'; 
+  useSeason1Art: boolean; // Anti-Spoiler
+  cleanGrid: boolean; // No Text Labels
 }
 
 export interface SubscribedList {

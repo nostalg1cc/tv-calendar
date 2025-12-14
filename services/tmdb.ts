@@ -73,6 +73,27 @@ export const getShowDetails = async (id: number): Promise<TVShow> => {
   };
 };
 
+export const getSeasonDetails = async (id: number, seasonNumber: number): Promise<Season> => {
+    const data = await fetchTMDB<any>(`/tv/${id}/season/${seasonNumber}`);
+    return {
+        id: data.id,
+        name: data.name,
+        overview: data.overview,
+        poster_path: data.poster_path,
+        season_number: data.season_number,
+        episodes: data.episodes.map((ep: any) => ({
+            id: ep.id,
+            name: ep.name,
+            overview: ep.overview,
+            vote_average: ep.vote_average,
+            air_date: ep.air_date,
+            episode_number: ep.episode_number,
+            season_number: ep.season_number,
+            still_path: ep.still_path
+        }))
+    };
+};
+
 export const getMovieDetails = async (id: number): Promise<TVShow> => {
   const data = await fetchTMDB<any>(`/movie/${id}`);
   return {
@@ -136,6 +157,22 @@ export const searchShows = async (query: string): Promise<TVShow[]> => {
       number_of_seasons: item.media_type === 'tv' ? 1 : undefined, // Placeholder
       media_type: item.media_type
     }));
+};
+
+export const getPopularShows = async (): Promise<TVShow[]> => {
+    const data = await fetchTMDB<{ results: any[] }>('/trending/all/week');
+    return data.results
+        .filter((item: any) => (item.media_type === 'tv' || item.media_type === 'movie') && item.poster_path)
+        .map((item: any) => ({
+            id: item.id,
+            name: item.media_type === 'movie' ? item.title : item.name,
+            poster_path: item.poster_path,
+            backdrop_path: item.backdrop_path,
+            overview: item.overview,
+            first_air_date: item.media_type === 'movie' ? item.release_date : item.first_air_date,
+            vote_average: item.vote_average,
+            media_type: item.media_type
+        }));
 };
 
 // Generic fetcher for lists (Popular, Top Rated, etc) with pagination and optional params
@@ -276,26 +313,7 @@ export const getMovieReleaseDates = async (id: number): Promise<{ date: string, 
         
         return releases;
     } catch (e) {
+        console.warn("Failed to fetch release dates", e);
         return [];
     }
-};
-
-export const getSeasonDetails = async (showId: number, seasonNumber: number): Promise<Season> => {
-  return fetchTMDB<Season>(`/tv/${showId}/season/${seasonNumber}`);
-};
-
-export const getPopularShows = async (): Promise<TVShow[]> => {
-  const data = await fetchTMDB<{ results: any[] }>('/trending/all/week');
-  return data.results
-    .filter((item: any) => (item.media_type === 'tv' || item.media_type === 'movie') && item.poster_path)
-    .map((item: any) => ({
-      id: item.id,
-      name: item.media_type === 'movie' ? item.title : item.name,
-      poster_path: item.poster_path,
-      backdrop_path: item.backdrop_path,
-      overview: item.overview,
-      first_air_date: item.media_type === 'movie' ? item.release_date : item.first_air_date,
-      vote_average: item.vote_average,
-      media_type: item.media_type
-    }));
 };

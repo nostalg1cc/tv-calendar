@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan } from 'lucide-react';
+import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -542,6 +542,52 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             <ImageIcon className="w-4 h-4" />
                         </button>
                     </div>
+                </div>
+
+                {/* Season 1 Art (Anti-Spoiler) */}
+                <div className="flex items-center justify-between">
+                    <div className="flex gap-4">
+                         <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 h-fit">
+                            <Sparkles className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-white font-medium mb-1">Use Season 1 Art</h3>
+                            <p className="text-zinc-400 text-sm">Always use original art to avoid spoilers.</p>
+                        </div>
+                    </div>
+                    
+                    <button 
+                        onClick={() => updateSettings({ useSeason1Art: !settings.useSeason1Art })}
+                        className={`
+                            relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                            ${settings.useSeason1Art ? 'bg-indigo-600' : 'bg-zinc-800'}
+                        `}
+                    >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.useSeason1Art ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                </div>
+
+                 {/* Clean Grid (No Text) */}
+                 <div className="flex items-center justify-between">
+                    <div className="flex gap-4">
+                         <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 h-fit">
+                            <SquareDashedBottom className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-white font-medium mb-1">Clean Grid Mode</h3>
+                            <p className="text-zinc-400 text-sm">Hide text labels on the calendar.</p>
+                        </div>
+                    </div>
+                    
+                    <button 
+                        onClick={() => updateSettings({ cleanGrid: !settings.cleanGrid })}
+                        className={`
+                            relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                            ${settings.cleanGrid ? 'bg-indigo-600' : 'bg-zinc-800'}
+                        `}
+                    >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.cleanGrid ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
                 </div>
 
                 {/* Spoilers Toggle */}
