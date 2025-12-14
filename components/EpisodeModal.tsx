@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Calendar as CalendarIcon, Star, Bell, Eye, EyeOff, Film, Ticket, MonitorPlay } from 'lucide-react';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
 import { useAppContext } from '../context/AppContext';
+import ReminderConfigModal from './ReminderConfigModal';
 
 interface EpisodeModalProps {
   isOpen: boolean;
@@ -12,12 +13,14 @@ interface EpisodeModalProps {
 }
 
 const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, date }) => {
-  const { scheduleNotification, settings, updateSettings } = useAppContext();
+  const { settings, updateSettings } = useAppContext();
   const { hideSpoilers } = settings;
+  const [reminderEp, setReminderEp] = useState<Episode | null>(null);
 
   if (!isOpen) return null;
 
   return (
+    <>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div 
         className="surface-panel rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-[var(--border-color)] animate-enter" 
@@ -93,7 +96,7 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
 
                   <div className="mt-2 flex justify-end">
                     <button 
-                        onClick={() => scheduleNotification(ep)}
+                        onClick={() => setReminderEp(ep)}
                         className="flex items-center gap-1.5 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
                     >
                         <Bell className="w-3.5 h-3.5" />
@@ -106,6 +109,15 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
         </div>
       </div>
     </div>
+    
+    {reminderEp && (
+        <ReminderConfigModal 
+            isOpen={!!reminderEp} 
+            onClose={() => setReminderEp(null)} 
+            episode={reminderEp} 
+        />
+    )}
+    </>
   );
 };
 

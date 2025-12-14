@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw } from 'lucide-react';
+import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw, Bell } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import SettingsModal from './SettingsModal';
 
@@ -79,6 +79,7 @@ const Navbar: React.FC = () => {
             <div>
                 <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Tools</p>
                 <DesktopNavItem icon={Search} label="Quick Search" onClick={() => setIsSearchOpen(true)} />
+                <DesktopNavItem to="/reminders" icon={Bell} label="Reminders" />
                 <DesktopNavItem icon={Settings} label="Settings" onClick={() => setIsSettingsOpen(true)} />
             </div>
         </div>
@@ -105,7 +106,10 @@ const Navbar: React.FC = () => {
       </nav>
 
       {/* MOBILE BOTTOM NAV (Visible < md) - Fixed Bottom */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-main)]/95 backdrop-blur-xl border-t border-[var(--border-color)] z-50 safe-area-bottom pb-safe transition-transform duration-300">
+      <div 
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-main)]/95 backdrop-blur-xl border-t border-[var(--border-color)] z-50 transition-transform duration-300"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 10px)' }}
+      >
           <div className="flex items-center justify-between px-2 h-16">
             <MobileTab to="/" icon={Calendar} label="Calendar" active={isActive('/')} />
             <MobileTab to="/discover" icon={Compass} label="Discover" active={isActive('/discover')} />
@@ -163,6 +167,15 @@ const Navbar: React.FC = () => {
                   </div>
 
                   <div className="space-y-3">
+                      <Link 
+                         to="/reminders"
+                         onClick={() => setIsUserMenuOpen(false)}
+                         className="w-full bg-zinc-800/50 hover:bg-zinc-800 p-4 rounded-xl flex items-center gap-4 text-zinc-200 transition-colors border border-zinc-800"
+                      >
+                         <Bell className="w-5 h-5 text-amber-400" />
+                         <div className="flex-1 text-left font-medium">Notifications & Reminders</div>
+                      </Link>
+
                       <button 
                         onClick={() => { setIsUserMenuOpen(false); setIsSettingsOpen(true); }}
                         className="w-full bg-zinc-800/50 hover:bg-zinc-800 p-4 rounded-xl flex items-center gap-4 text-zinc-200 transition-colors border border-zinc-800"
@@ -198,7 +211,8 @@ const Navbar: React.FC = () => {
 
 const MobileTab = ({ to, icon: Icon, label, active }: { to: string, icon: any, label: string, active: boolean }) => (
     <Link to={to} className={`flex flex-col items-center justify-center w-full max-w-[4rem] h-full gap-1 active:scale-95 transition-transform ${active ? 'text-indigo-400' : 'text-slate-500'}`}>
-        <Icon className={`w-5 h-5 ${active ? 'fill-current opacity-20' : ''}`} strokeWidth={active ? 2.5 : 2} />
+        {/* Removed fill-current to fix look on mobile active state */}
+        <Icon className={`w-5 h-5 ${active ? 'text-indigo-400 stroke-2' : 'stroke-2'}`} />
         <span className="text-[9px] font-medium">{label}</span>
     </Link>
 );

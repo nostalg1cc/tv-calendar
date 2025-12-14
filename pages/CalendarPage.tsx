@@ -236,8 +236,8 @@ const CalendarPage: React.FC = () => {
                                         ) : (
                                             // Stacked View for Multiple Episodes
                                             <div className="absolute inset-0 p-1 flex flex-col gap-1 overflow-hidden z-10 pt-6 md:pt-8">
-                                                {/* Desktop Stack */}
-                                                <div className="hidden md:flex flex-col gap-1 flex-1 min-h-0 overflow-hidden">
+                                                {/* Unified Stack (Desktop & Mobile) */}
+                                                <div className="flex flex-col gap-1 flex-1 min-h-0 overflow-hidden">
                                                     {dayEpisodes.slice(0, 3).map((ep, i) => (
                                                         <div key={i} className="flex items-center gap-2 bg-zinc-900/90 p-1.5 rounded border border-zinc-800/50 truncate shrink-0">
                                                             <div className="relative shrink-0 w-5 h-7">
@@ -260,23 +260,9 @@ const CalendarPage: React.FC = () => {
                                                     ))}
                                                 </div>
                                                 
-                                                {/* Mobile Stack - Just dots/icons or mini posters */}
-                                                <div className="md:hidden flex flex-wrap gap-1 content-start h-full pb-1">
-                                                     {dayEpisodes.slice(0, 4).map((ep, i) => (
-                                                        <div key={i} className="w-full h-1/2 min-h-[25px] relative rounded-sm overflow-hidden border border-zinc-800/50">
-                                                            <img src={getImageUrl(ep.poster_path)} className="w-full h-full object-cover" alt="" />
-                                                        </div>
-                                                     ))}
-                                                     {dayEpisodes.length > 2 && (
-                                                         <div className="absolute bottom-0 right-0 bg-black/80 text-[8px] text-white px-1 rounded-tl">
-                                                             +{dayEpisodes.length}
-                                                         </div>
-                                                     )}
-                                                </div>
-
-                                                {/* Desktop "More" Footer */}
+                                                {/* Footer "+X more" */}
                                                 {dayEpisodes.length > 3 && (
-                                                    <div className="hidden md:block mt-auto text-[9px] text-center text-zinc-500 font-medium bg-zinc-900/50 py-0.5 shrink-0">
+                                                    <div className="mt-auto text-[9px] text-center text-zinc-500 font-medium bg-zinc-900/50 py-0.5 shrink-0">
                                                         +{dayEpisodes.length - 3} more
                                                     </div>
                                                 )}

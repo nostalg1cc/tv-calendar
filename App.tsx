@@ -7,6 +7,7 @@ import SearchPage from './pages/SearchPage';
 import WatchlistPage from './pages/WatchlistPage';
 import DiscoverPage from './pages/DiscoverPage';
 import LoginPage from './pages/LoginPage';
+import RemindersPage from './pages/RemindersPage';
 import SearchModal from './components/SearchModal';
 import MobileAddWarning from './components/MobileAddWarning';
 
@@ -38,7 +39,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             `}>
                 <div className={`
                     flex-1 w-full mx-auto
-                    ${isCompactMode ? 'h-full p-2 md:p-4' : 'max-w-[1920px] p-4 md:p-8 md:pb-12 pb-24'}
+                    ${isCompactMode ? 'h-full p-2 pb-28 md:p-4 md:pb-4' : 'max-w-[1920px] p-4 md:p-8 md:pb-12 pb-28'}
                 `}>
                     {children}
                 </div>
@@ -65,6 +66,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="/discover" element={<DiscoverPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/watchlist" element={<WatchlistPage />} />
+                <Route path="/reminders" element={<RemindersPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </Layout>

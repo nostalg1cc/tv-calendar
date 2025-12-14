@@ -69,3 +69,14 @@ export interface SubscribedList {
   item_count: number;
   items: TVShow[];
 }
+
+export interface Reminder {
+  id?: string;
+  tmdb_id: number;
+  media_type: 'tv' | 'movie';
+  show_name?: string; // For display
+  scope: 'all' | 'episode' | 'movie_theatrical' | 'movie_digital';
+  episode_season?: number;
+  episode_number?: number;
+  offset_minutes: number; // 0 = On day, 1440 = 1 Day Before
+}
