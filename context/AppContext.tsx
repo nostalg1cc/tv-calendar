@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
 import { User, TVShow, Episode, AppSettings, SubscribedList } from '../types';
-import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails } from '../services/tmdb';
+import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails, setApiToken } from '../services/tmdb';
 import { get, set, del } from 'idb-keyval';
 import { format, subWeeks, addWeeks } from 'date-fns';
 import LZString from 'lz-string';
@@ -66,6 +66,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return null;
     }
   });
+
+  // Ensure TMDB service has token if user is loaded from storage
+  useEffect(() => {
+      if (user?.tmdbKey) {
+          setApiToken(user.tmdbKey);
+      }
+  }, [user]);
 
   // --- Settings State ---
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -160,6 +167,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const login = (username: string, apiKey: string) => {
     const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false };
     setUser(newUser);
+    setApiToken(apiKey);
     localStorage.setItem('tv_calendar_user', JSON.stringify(newUser));
   };
 
@@ -186,6 +194,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               isCloud: true
           };
           setUser(newUser);
+          setApiToken(newUser.tmdbKey);
           if (profile.settings) setSettings(profile.settings);
 
           // Fetch Data
@@ -237,6 +246,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (user) {
           const updatedUser = { ...user, tmdbKey: apiKey };
           setUser(updatedUser);
+          setApiToken(apiKey);
           
           if (user.isCloud && supabase) {
               await supabase.from('profiles').update({ tmdb_key: apiKey }).eq('id', user.id);

@@ -7,8 +7,19 @@ const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/original';
 export const getImageUrl = (path: string | null | undefined) => path ? `${IMAGE_BASE_URL}${path}` : 'https://placehold.co/500x750?text=No+Image';
 export const getBackdropUrl = (path: string | null | undefined) => path ? `${BACKDROP_BASE_URL}${path}` : 'https://placehold.co/1920x1080?text=No+Image';
 
-// Helper to get token securely from client storage
+// In-memory token storage for Cloud Mode compatibility
+let memoryApiToken: string | null = null;
+
+export const setApiToken = (token: string) => {
+    memoryApiToken = token;
+};
+
+// Helper to get token securely
 const getAccessToken = (): string => {
+  // 1. Prefer in-memory token (Cloud Mode / Active Session)
+  if (memoryApiToken) return memoryApiToken;
+
+  // 2. Fallback to LocalStorage (Local Mode / Persistence)
   try {
     const userStr = localStorage.getItem('tv_calendar_user');
     if (userStr) {
