@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { getCollection, getImageUrl, getBackdropUrl } from '../services/tmdb';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { getCollection, getImageUrl, getBackdropUrl, getMovieReleaseDates } from '../services/tmdb';
 import { TVShow } from '../types';
-import { Star, Plus, Check, Loader2, ChevronRight, ChevronLeft, Film, Tv, Flame, CalendarClock, MoveRight, Sparkles, Trophy, TrendingUp, Ticket } from 'lucide-react';
+import { Star, Plus, Check, Loader2, ChevronRight, ChevronLeft, Film, Tv, Flame, CalendarClock, MoveRight, Sparkles, Trophy, TrendingUp, Ticket, MonitorPlay } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import DiscoverModal from '../components/DiscoverModal';
+import { format, parseISO } from 'date-fns';
 
 interface SectionProps {
   title: string;
@@ -171,7 +172,9 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
     const [items, setItems] = useState<TVShow[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [digitalDate, setDigitalDate] = useState<string | null>(null);
     const { allTrackedShows, addToWatchlist, setReminderCandidate } = useAppContext();
+    const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
         setLoading(true);
@@ -182,12 +185,50 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
             .finally(() => setLoading(false));
     }, [fetchEndpoint, mediaType]);
 
+    // Fetch Digital Release Date for Active Item
+    useEffect(() => {
+        if (!items[currentIndex]) return;
+        
+        const fetchDates = async () => {
+            setDigitalDate(null); // Reset while fetching
+            if (mediaType === 'movie') {
+                try {
+                    const dates = await getMovieReleaseDates(items[currentIndex].id);
+                    const digital = dates.find(d => d.type === 'digital');
+                    if (digital) {
+                        setDigitalDate(digital.date);
+                    }
+                } catch (e) { console.error(e); }
+            }
+        };
+        fetchDates();
+    }, [currentIndex, items, mediaType]);
+
+    // Auto Scroll Logic
+    const resetTimer = useCallback(() => {
+        if (autoScrollRef.current) clearInterval(autoScrollRef.current);
+        autoScrollRef.current = setInterval(() => {
+            setCurrentIndex(prev => (prev + 1) % items.length);
+        }, 8000); // 8 Seconds
+    }, [items.length]);
+
+    useEffect(() => {
+        if (items.length > 0) {
+            resetTimer();
+        }
+        return () => {
+            if (autoScrollRef.current) clearInterval(autoScrollRef.current);
+        };
+    }, [items.length, resetTimer]);
+
     const handleNext = () => {
         setCurrentIndex(prev => (prev + 1) % items.length);
+        resetTimer(); // Reset timer on interaction
     };
 
     const handlePrev = () => {
         setCurrentIndex(prev => (prev - 1 + items.length) % items.length);
+        resetTimer(); // Reset timer on interaction
     };
 
     const handleAdd = async (show: TVShow) => {
@@ -220,10 +261,17 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
             {/* Content Container */}
             <div className="absolute inset-0 p-6 md:p-12 flex flex-col justify-end items-start max-w-3xl">
                 {/* Category Badge */}
-                <div className="flex items-center gap-2 mb-4 animate-fade-in-up">
+                <div className="flex flex-wrap items-center gap-2 mb-4 animate-fade-in-up">
                     <div className="bg-pink-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-pink-500/30">
                         <Ticket className="w-3.5 h-3.5" /> In Theaters
                     </div>
+                    
+                    {digitalDate && (
+                         <div className="bg-emerald-500/80 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
+                             <MonitorPlay className="w-3.5 h-3.5" /> Home Release {format(parseISO(digitalDate), 'MMM d')}
+                         </div>
+                    )}
+
                     <div className="bg-black/40 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-white/10">
                         <Star className="w-3.5 h-3.5 text-yellow-400 fill-current" /> {currentItem.vote_average.toFixed(1)}
                     </div>
@@ -245,10 +293,10 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
                         onClick={() => handleAdd(currentItem)}
                         disabled={isAdded}
                         className={`
-                            px-8 py-4 rounded-xl font-bold flex items-center gap-2 text-sm md:text-base transition-all
+                            px-8 h-14 rounded-xl font-bold flex items-center gap-2 text-sm md:text-base transition-all border
                             ${isAdded 
-                                ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 cursor-default' 
-                                : 'bg-white text-black hover:bg-zinc-200 hover:scale-105 shadow-xl shadow-white/10'}
+                                ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30 cursor-default' 
+                                : 'bg-white text-black border-transparent hover:bg-zinc-200 hover:scale-105 shadow-xl shadow-white/10'}
                         `}
                     >
                         {isAdded ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
