@@ -277,8 +277,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                   season_number: 1,
                                   still_path: item.backdrop_path, 
                                   poster_path: item.poster_path,
-                                  // Fix: safely handle null for strict types
-                                  season1_poster_path: item.poster_path || undefined, 
+                                  // Fix: safely handle null/undefined for strict types by using ternary
+                                  season1_poster_path: item.poster_path ? item.poster_path : undefined, 
                                   show_id: item.id,
                                   show_name: item.name,
                                   is_movie: true,
@@ -341,8 +341,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                       show_id: item.id,
                                       show_name: item.name,
                                       poster_path: item.poster_path, // Default show/season poster (often current season)
-                                      // Fix: safely handle null for strict types
-                                      season1_poster_path: s1Poster || undefined, 
+                                      // Fix: safely handle null/undefined for strict types by using ternary
+                                      season1_poster_path: s1Poster ? s1Poster : undefined, 
                                       is_movie: false
                                   });
                               });
