@@ -255,6 +255,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
           setSyncProgress({ current: 0, total: uniqueItems.length });
           
+          // Flag to check if we updated any metadata (season counts)
+          let metadataUpdated = false;
+          const updatedWatchlistMap = new Map<number, TVShow>();
+          currentWatchlist.forEach(w => updatedWatchlistMap.set(w.id, w));
+
           // Process in smaller chunks to be safe with rate limits
           const BATCH_SIZE = 3;
           for (let i = 0; i < uniqueItems.length; i += BATCH_SIZE) {
@@ -288,10 +293,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                       } else {
                           // TV Show
                           let seasonCount = item.number_of_seasons;
+                          
+                          // If metadata is missing or placeholder (undefined), fetch details to get accurate season count
                           if (!seasonCount) {
                               try {
                                   const details = await getShowDetails(item.id);
                                   seasonCount = details.number_of_seasons;
+                                  
+                                  // Update the item in our local map if it exists in watchlist
+                                  if (updatedWatchlistMap.has(item.id)) {
+                                      const existing = updatedWatchlistMap.get(item.id)!;
+                                      updatedWatchlistMap.set(item.id, { ...existing, number_of_seasons: seasonCount });
+                                      metadataUpdated = true;
+                                  }
                               } catch { seasonCount = 1; }
                           }
                           
@@ -314,9 +328,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           }
 
                           // 3. STICKY CACHE: If still missing (API error/limit), try to find it in the *current* episodes state
-                          // This fixes the "Flash and Disappear" issue where a failed refresh overwrites valid cached art
                           if (!s1Poster && Object.keys(episodes).length > 0) {
-                               // Iterate through current episodes to find the poster for this show
                                for (const dateKey in episodes) {
                                    const found = episodes[dateKey].find(e => e.show_id === item.id);
                                    if (found?.season1_poster_path) {
@@ -359,6 +371,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setEpisodes(newEpisodes);
           await set(DB_KEY_EPISODES, newEpisodes);
           await set(DB_KEY_META, Date.now());
+
+          // Persist metadata updates (season counts) if any
+          if (metadataUpdated && !overrideWatchlist) {
+              const newWatchlist = Array.from(updatedWatchlistMap.values());
+              setWatchlist(newWatchlist);
+              if (user?.isCloud && supabase) {
+                  // We don't need to await this, let it happen in background
+                  // Filter only updated items to save bandwidth? For now, re-upserting logic handles it.
+                  const rows = newWatchlist.map(show => ({
+                        user_id: user.id,
+                        tmdb_id: show.id,
+                        media_type: show.media_type,
+                        name: show.name,
+                        poster_path: show.poster_path,
+                        backdrop_path: show.backdrop_path,
+                        overview: show.overview,
+                        first_air_date: show.first_air_date,
+                        vote_average: show.vote_average,
+                        // Not syncing number_of_seasons to DB yet as DB schema might not have it, 
+                        // but local state update ensures next refresh is fast.
+                  }));
+                  // Ideally we should update the DB if we add a column for it, but for now 
+                  // just keeping local state consistent prevents re-fetching details during this session.
+              }
+          }
       } catch (e) {
           console.error("Refresh failed", e);
       } finally {

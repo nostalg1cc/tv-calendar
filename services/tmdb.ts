@@ -184,7 +184,7 @@ export const searchShows = async (query: string): Promise<TVShow[]> => {
       overview: item.overview,
       first_air_date: item.media_type === 'movie' ? item.release_date : item.first_air_date,
       vote_average: item.vote_average,
-      number_of_seasons: item.media_type === 'tv' ? 1 : undefined, // Placeholder
+      number_of_seasons: undefined, // Explicitly undefined so logic fetches real details
       media_type: item.media_type
     }));
 };
@@ -248,7 +248,7 @@ export const getRecommendations = async (id: number, mediaType: 'tv' | 'movie'):
           overview: item.overview,
           first_air_date: mediaType === 'movie' ? item.release_date : item.first_air_date,
           vote_average: item.vote_average,
-          number_of_seasons: mediaType === 'tv' ? 1 : undefined, 
+          number_of_seasons: undefined, // Explicitly undefined
           media_type: mediaType
         }));
   } catch (e) {
