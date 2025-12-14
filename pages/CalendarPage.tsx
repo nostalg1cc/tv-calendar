@@ -147,88 +147,149 @@ const CalendarPage: React.FC = () => {
   };
 
   return (
-    <div className={`flex flex-col h-full gap-4 ${settings.compactCalendar ? 'overflow-hidden' : ''}`}>
+    <div className={`flex flex-col h-full gap-2 ${settings.compactCalendar ? 'overflow-hidden' : ''}`}>
       
-      {/* Header Toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2 shrink-0 md:pb-0 pb-2">
-        <div className="flex items-center gap-4">
-            <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                {format(currentDate, 'MMMM yyyy')}
-            </h2>
-            
-            {/* View Toggle */}
-            <div className="flex items-center bg-zinc-800 rounded-lg p-0.5 border border-zinc-700">
-                <button 
-                    onClick={() => updateSettings({ viewMode: 'grid' })}
-                    className={`px-2 md:px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${isGridView ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'}`}
-                >
-                    <LayoutGrid className="w-3.5 h-3.5" /> <span className="hidden md:inline">Grid</span>
-                </button>
-                <button 
-                    onClick={() => updateSettings({ viewMode: 'list' })}
-                    className={`px-2 md:px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${!isGridView ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'}`}
-                >
-                    <List className="w-3.5 h-3.5" /> <span className="hidden md:inline">List</span>
-                </button>
-            </div>
-            
-            {/* Filter Toggle */}
-            <div className="hidden md:flex items-center gap-1">
-                <button 
-                    onClick={() => setShowTV(!showTV)}
-                    className={`p-1.5 rounded-lg border transition-colors ${showTV ? 'bg-zinc-800 border-zinc-700 text-indigo-400' : 'border-transparent text-zinc-600 hover:text-zinc-400'}`}
-                    title="Toggle TV Shows"
-                >
-                    <Tv className="w-4 h-4" />
-                </button>
-                <button 
-                    onClick={() => setShowMovies(!showMovies)}
-                    className={`p-1.5 rounded-lg border transition-colors ${showMovies ? 'bg-zinc-800 border-zinc-700 text-pink-400' : 'border-transparent text-zinc-600 hover:text-zinc-400'}`}
-                    title="Toggle Movies"
-                >
-                    <Film className="w-4 h-4" />
-                </button>
-            </div>
-        </div>
-        
-        <div className="flex items-center justify-between md:justify-end gap-2 w-full md:w-auto">
-             {/* Mobile Filter Toggles */}
-             <div className="flex md:hidden items-center gap-1 bg-zinc-900 rounded-lg p-0.5 border border-zinc-800">
-                <button 
-                    onClick={() => setShowTV(!showTV)}
-                    className={`p-1.5 rounded-md transition-colors ${showTV ? 'bg-zinc-800 text-indigo-400' : 'text-zinc-600'}`}
-                >
-                    <Tv className="w-4 h-4" />
-                </button>
-                <button 
-                    onClick={() => setShowMovies(!showMovies)}
-                    className={`p-1.5 rounded-md transition-colors ${showMovies ? 'bg-zinc-800 text-pink-400' : 'text-zinc-600'}`}
-                >
-                    <Film className="w-4 h-4" />
-                </button>
-             </div>
+      {/* Header Toolbar (New Minimal Design) */}
+      <div className="shrink-0 pb-2">
+      
+          {/* DESKTOP HEADER */}
+          <div className="hidden md:flex items-center justify-between">
+              
+              {/* Left: Title */}
+              <h2 className="text-3xl font-bold text-white tracking-tighter">
+                  {format(currentDate, 'MMMM yyyy')}
+              </h2>
 
-            <div className="flex items-center gap-1 md:gap-2">
-                <button 
-                        onClick={() => refreshEpisodes(true)}
-                        disabled={loading || isSyncing}
-                        className="p-2 text-zinc-400 hover:text-indigo-400 transition-colors"
-                        title="Refresh"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${loading || isSyncing ? 'animate-spin' : ''}`} />
-                    </button>
-                    <div className="h-6 w-px bg-zinc-800 mx-1" />
-                    <button onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
-                        <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <button onClick={goToToday} className="text-xs font-bold text-zinc-400 hover:text-white px-2 uppercase tracking-wider hidden md:block">
-                        Today
-                    </button>
-                    <button onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
-                        <ChevronRight className="w-5 h-5" />
-                    </button>
-            </div>
-        </div>
+              {/* Right: Controls Toolbar */}
+              <div className="flex items-center gap-4">
+                  
+                   {/* Refresh */}
+                   <button 
+                      onClick={() => refreshEpisodes(true)}
+                      disabled={loading || isSyncing}
+                      className="p-1 text-zinc-500 hover:text-indigo-400 transition-colors group"
+                      title="Force Refresh"
+                  >
+                      <RefreshCw className={`w-5 h-5 ${loading || isSyncing ? 'animate-spin text-indigo-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                  </button>
+
+                  {/* Divider */}
+                  <div className="w-px h-5 bg-zinc-800" />
+                  
+                  {/* Filters (Icons Only) */}
+                  <div className="flex items-center gap-6">
+                      <button 
+                          onClick={() => setShowTV(!showTV)}
+                          className={`transition-colors ${showTV ? 'text-white' : 'text-zinc-700 hover:text-zinc-500'}`}
+                          title="Toggle TV Shows"
+                      >
+                          <Tv className="w-5 h-5" />
+                      </button>
+                      <button 
+                          onClick={() => setShowMovies(!showMovies)}
+                          className={`transition-colors ${showMovies ? 'text-white' : 'text-zinc-700 hover:text-zinc-500'}`}
+                          title="Toggle Movies"
+                      >
+                          <Film className="w-5 h-5" />
+                      </button>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="w-px h-5 bg-zinc-800" />
+
+                  {/* View Mode */}
+                  <button 
+                      onClick={() => updateSettings({ viewMode: isGridView ? 'list' : 'grid' })}
+                      className="p-1 text-zinc-500 hover:text-white transition-colors"
+                      title="Toggle View"
+                  >
+                      {isGridView ? <List className="w-5 h-5" /> : <LayoutGrid className="w-5 h-5" />}
+                  </button>
+
+                   {/* Divider */}
+                   <div className="w-px h-5 bg-zinc-800" />
+
+                   {/* Navigation */}
+                   <div className="flex items-center gap-1">
+                      <button 
+                        onClick={prevMonth} 
+                        className="p-2 text-zinc-500 hover:text-white transition-colors" 
+                        title="Previous Month"
+                      >
+                          <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={goToToday} 
+                        className="px-2 text-sm font-bold text-zinc-500 hover:text-white transition-colors uppercase tracking-wider"
+                      >
+                          This Week
+                      </button>
+                      <button 
+                        onClick={nextMonth} 
+                        className="p-2 text-zinc-500 hover:text-white transition-colors" 
+                        title="Next Month"
+                      >
+                          <ChevronRight className="w-5 h-5" />
+                      </button>
+                  </div>
+              </div>
+          </div>
+
+          {/* MOBILE HEADER (Minimal Design) */}
+          <div className="md:hidden flex flex-col gap-2 pt-2">
+              <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-white tracking-tight">
+                      {format(currentDate, 'MMMM yyyy')}
+                  </h2>
+                  <div className="flex items-center gap-6">
+                      <button 
+                          onClick={() => setShowTV(!showTV)}
+                          className={`transition-colors ${showTV ? 'text-white' : 'text-zinc-700'}`}
+                      >
+                          <Tv className="w-5 h-5" />
+                      </button>
+                      <button 
+                          onClick={() => setShowMovies(!showMovies)}
+                          className={`transition-colors ${showMovies ? 'text-white' : 'text-zinc-700'}`}
+                      >
+                          <Film className="w-5 h-5" />
+                      </button>
+                  </div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                   {/* Left: Nav */}
+                   <div className="flex items-center gap-1">
+                        <button onClick={prevMonth} className="p-1 text-zinc-500 hover:text-white">
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <button onClick={goToToday} className="px-2 text-xs font-bold text-zinc-500 hover:text-white uppercase tracking-wider">
+                            This Week
+                        </button>
+                        <button onClick={nextMonth} className="p-1 text-zinc-500 hover:text-white">
+                            <ChevronRight className="w-5 h-5" />
+                        </button>
+                   </div>
+                   
+                   {/* Right: Controls */}
+                   <div className="flex items-center gap-3">
+                        <div className="w-px h-4 bg-zinc-800" />
+                        <button 
+                            onClick={() => refreshEpisodes(true)}
+                            className={`text-zinc-500 ${loading || isSyncing ? 'animate-spin text-indigo-400' : ''}`}
+                        >
+                            <RefreshCw className="w-5 h-5" />
+                        </button>
+                        <div className="w-px h-4 bg-zinc-800" />
+                        <button 
+                            onClick={() => updateSettings({ viewMode: isGridView ? 'list' : 'grid' })}
+                            className="text-zinc-500 hover:text-white"
+                        >
+                            {isGridView ? <List className="w-5 h-5" /> : <LayoutGrid className="w-5 h-5" />}
+                        </button>
+                   </div>
+              </div>
+          </div>
       </div>
       
       {/* Loading State: Only show full block if we have NO data. If we have cache but are syncing, show spinner in header. */}

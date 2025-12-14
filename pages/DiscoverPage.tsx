@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { getCollection, getImageUrl } from '../services/tmdb';
+import React, { useEffect, useState, useRef } from 'react';
+import { getCollection, getImageUrl, getBackdropUrl } from '../services/tmdb';
 import { TVShow } from '../types';
-import { Star, Plus, Check, Loader2, ChevronRight, Film, Tv, Flame, CalendarClock, MoveRight, Sparkles, Trophy, TrendingUp, Ticket } from 'lucide-react';
+import { Star, Plus, Check, Loader2, ChevronRight, ChevronLeft, Film, Tv, Flame, CalendarClock, MoveRight, Sparkles, Trophy, TrendingUp, Ticket } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import DiscoverModal from '../components/DiscoverModal';
 
@@ -24,7 +24,7 @@ const DiscoverPage: React.FC = () => {
 
   const today = new Date().toISOString().split('T')[0];
   
-  // Params - Adjusted to remove vote count restrictions for upcoming content and enforce English for "blockbuster" feel
+  // Params
   const upcomingMovieParams = { 
       'primary_release_date.gte': today, 
       'sort_by': 'popularity.desc', 
@@ -42,19 +42,17 @@ const DiscoverPage: React.FC = () => {
   return (
     <div className="max-w-[1600px] mx-auto pb-24">
         {/* Header Area */}
-        <div className="mb-8 px-4 md:px-0">
+        <div className="mb-6 px-4 md:px-0">
              <h1 className="text-3xl font-bold text-white mb-2">Discover</h1>
              <p className="text-zinc-400">Explore trending hits, new premieres, and cinema releases.</p>
         </div>
 
-        {/* HERO: In Theaters */}
-        <div className="mb-12">
-            <DiscoverSection 
-                title="Cinema Spotlight" 
-                icon={<Ticket className="w-5 h-5 text-pink-500" />}
+        {/* HERO: Cinema Spotlight Carousel */}
+        <div className="mb-16">
+            <HeroCarousel 
                 fetchEndpoint="/movie/now_playing"
                 mediaType="movie"
-                onShowMore={() => openModal("In Theaters", "/movie/now_playing", "movie")}
+                title="Cinema Spotlight"
             />
         </div>
 
@@ -167,6 +165,124 @@ const DiscoverPage: React.FC = () => {
     </div>
   );
 };
+
+// --- New Hero Carousel Component ---
+const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv'; title: string }> = ({ fetchEndpoint, mediaType, title }) => {
+    const [items, setItems] = useState<TVShow[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const { allTrackedShows, addToWatchlist, setReminderCandidate } = useAppContext();
+
+    useEffect(() => {
+        setLoading(true);
+        // Fetch fewer items for hero, focus on high quality
+        getCollection(fetchEndpoint, mediaType, 1)
+            .then(data => setItems(data.slice(0, 8))) // Take top 8
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, [fetchEndpoint, mediaType]);
+
+    const handleNext = () => {
+        setCurrentIndex(prev => (prev + 1) % items.length);
+    };
+
+    const handlePrev = () => {
+        setCurrentIndex(prev => (prev - 1 + items.length) % items.length);
+    };
+
+    const handleAdd = async (show: TVShow) => {
+        await addToWatchlist(show);
+        setReminderCandidate(show);
+    };
+
+    if (loading) {
+        return <div className="w-full aspect-[21/9] bg-zinc-900 rounded-3xl animate-pulse" />;
+    }
+
+    if (items.length === 0) return null;
+
+    const currentItem = items[currentIndex];
+    const isAdded = allTrackedShows.some(s => s.id === currentItem.id);
+
+    return (
+        <div className="relative w-full aspect-[16/9] md:aspect-[21/9] rounded-3xl overflow-hidden group shadow-2xl bg-zinc-950">
+            {/* Background Images - Using stacking context to crossfade could be done, simpler version for now */}
+            <div 
+                key={currentItem.id}
+                className="absolute inset-0 bg-cover bg-center transition-opacity duration-700 animate-fade-in"
+                style={{ backgroundImage: `url(${getBackdropUrl(currentItem.backdrop_path)})` }}
+            />
+            
+            {/* Overlays */}
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/40 to-transparent" />
+
+            {/* Content Container */}
+            <div className="absolute inset-0 p-6 md:p-12 flex flex-col justify-end items-start max-w-3xl">
+                {/* Category Badge */}
+                <div className="flex items-center gap-2 mb-4 animate-fade-in-up">
+                    <div className="bg-pink-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-pink-500/30">
+                        <Ticket className="w-3.5 h-3.5" /> In Theaters
+                    </div>
+                    <div className="bg-black/40 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-white/10">
+                        <Star className="w-3.5 h-3.5 text-yellow-400 fill-current" /> {currentItem.vote_average.toFixed(1)}
+                    </div>
+                </div>
+
+                {/* Title */}
+                <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight drop-shadow-lg animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+                    {currentItem.name}
+                </h2>
+
+                {/* Overview */}
+                <p className="text-zinc-300 text-sm md:text-base line-clamp-3 md:line-clamp-2 mb-8 max-w-2xl leading-relaxed drop-shadow-md animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+                    {currentItem.overview}
+                </p>
+
+                {/* Actions */}
+                <div className="flex items-center gap-4 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+                    <button 
+                        onClick={() => handleAdd(currentItem)}
+                        disabled={isAdded}
+                        className={`
+                            px-8 py-4 rounded-xl font-bold flex items-center gap-2 text-sm md:text-base transition-all
+                            ${isAdded 
+                                ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 cursor-default' 
+                                : 'bg-white text-black hover:bg-zinc-200 hover:scale-105 shadow-xl shadow-white/10'}
+                        `}
+                    >
+                        {isAdded ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                        {isAdded ? 'In Library' : 'Add to Calendar'}
+                    </button>
+                    
+                    {/* Dots Indicator */}
+                    <div className="hidden md:flex gap-2 ml-4">
+                        {items.map((_, idx) => (
+                            <div 
+                                key={idx} 
+                                className={`w-2 h-2 rounded-full transition-all ${idx === currentIndex ? 'bg-white w-6' : 'bg-white/30'}`}
+                            />
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Navigation Arrows */}
+            <button 
+                onClick={handlePrev}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/20 hover:bg-black/50 text-white/50 hover:text-white backdrop-blur-sm border border-white/5 transition-all opacity-0 group-hover:opacity-100"
+            >
+                <ChevronLeft className="w-8 h-8" />
+            </button>
+            <button 
+                onClick={handleNext}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/20 hover:bg-black/50 text-white/50 hover:text-white backdrop-blur-sm border border-white/5 transition-all opacity-0 group-hover:opacity-100"
+            >
+                <ChevronRight className="w-8 h-8" />
+            </button>
+        </div>
+    );
+}
 
 const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, fetchParams, mediaType, onShowMore, variant = 'default' }) => {
     const [items, setItems] = useState<TVShow[]>([]);

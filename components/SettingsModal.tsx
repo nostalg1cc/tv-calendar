@@ -10,7 +10,7 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { settings, updateSettings, watchlist, subscribedLists, user, updateUserKey, importBackup, batchAddShows, batchSubscribe, syncProgress, loading, getSyncPayload, processSyncPayload, reloadAccount } = useAppContext();
+  const { settings, updateSettings, watchlist, subscribedLists, user, updateUserKey, importBackup, batchAddShows, batchSubscribe, syncProgress, loading, getSyncPayload, processSyncPayload, reloadAccount, reminders, interactions } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Local state for key editing
@@ -86,6 +86,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
           watchlist,
           subscribedLists,
           settings,
+          reminders,
+          interactions
       };
       downloadJson(data, `tv-calendar-profile-${user?.username || 'backup'}-${new Date().toISOString().split('T')[0]}`);
       
@@ -155,7 +157,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   matchCount,
                   newShows,
                   newLists,
-                  totalNew: newShows.length + newLists.length
+                  totalNew: newShows.length + newLists.length,
+                  fullData: data // pass full data to access reminders/interactions later
               });
 
           } catch (err) {
@@ -177,6 +180,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
           if (mergePreview.newLists.length > 0) {
               batchSubscribe(mergePreview.newLists);
           }
+          
+          // Note: We deliberately do not merge Interactions/Reminders here to avoid state conflicts
+          // The "Full Restore" option in login/importBackup handles full state replacement including those.
+          // However, if the user does a Merge, we rely on the clean logic of adding new items.
           
           // Small delay to show loader then close
           setTimeout(() => {
