@@ -839,18 +839,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
-  // Deprecated simplified function kept for compatibility if needed, but logic is moved to reminders
-  const scheduleNotification = (episode: Episode) => {
-     alert('Please use the Bell icon to configure advanced reminders.');
-  };
-
   return (
     <AppContext.Provider value={{
       user, login, loginCloud, logout, updateUserKey,
       watchlist, addToWatchlist, removeFromWatchlist, batchAddShows, batchSubscribe,
       subscribedLists, subscribeToList, unsubscribeFromList, allTrackedShows,
       episodes, loading, syncProgress, refreshEpisodes,
-      requestNotificationPermission, scheduleNotification,
+      requestNotificationPermission,
       isSearchOpen, setIsSearchOpen,
       settings, updateSettings,
       importBackup, uploadBackupToCloud,
