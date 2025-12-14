@@ -24,7 +24,7 @@ interface AppContextType {
   episodes: Record<string, Episode[]>; 
   loading: boolean;
   syncProgress: { current: number; total: number }; 
-  refreshEpisodes: (force?: boolean) => Promise<void>;
+  refreshEpisodes: (force?: boolean, overrideWatchlist?: TVShow[], overrideLists?: SubscribedList[]) => Promise<void>;
   requestNotificationPermission: () => Promise<boolean>;
   
   // Reminders
@@ -179,7 +179,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [watchlist, subscribedLists, settings, user, reminders]);
 
   // --- Refresh Episodes Logic ---
-  const refreshEpisodes = useCallback(async (force = false) => {
+  const refreshEpisodes = useCallback(async (
+      force = false, 
+      overrideWatchlist?: TVShow[], 
+      overrideLists?: SubscribedList[]
+  ) => {
       if (!user || (!user.tmdbKey && !user.isCloud)) {
           setLoading(false);
           return;
@@ -202,9 +206,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const newEpisodes: Record<string, Episode[]> = {};
       const processedIds = new Set<number>();
       
+      // Use overrides if provided (fixing stale closure issues in async flows)
+      const currentWatchlist = overrideWatchlist || watchlist;
+      const currentLists = overrideLists || subscribedLists;
+
       // Combine watchlist and lists
-      let itemsToProcess: TVShow[] = [...watchlist];
-      subscribedLists.forEach(list => itemsToProcess.push(...list.items));
+      let itemsToProcess: TVShow[] = [...currentWatchlist];
+      currentLists.forEach(list => itemsToProcess.push(...list.items));
       
       // Deduplicate
       const uniqueItems: TVShow[] = [];
@@ -290,6 +298,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setLoading(false);
   }, [user, watchlist, subscribedLists]);
 
+  // --- Initial Data Load ---
+  useEffect(() => {
+      if (user) {
+          // If we have local data loaded synchronously, this will work.
+          // If we are waiting for Cloud login, this effect runs on mount (with user null) then user updates.
+          refreshEpisodes();
+      } else {
+          setLoading(false);
+      }
+  }, [user?.tmdbKey, user?.username]);
+
   // --- Auth Handlers ---
   
   // Local Login
@@ -328,9 +347,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // Fetch Data
           setLoading(true);
           
+          let loadedWatchlist: TVShow[] = [];
+          let loadedLists: SubscribedList[] = [];
+
           const { data: remoteWatchlist } = await supabase.from('watchlist').select('*');
           if (remoteWatchlist) {
-              const mapped = remoteWatchlist.map((item: any) => ({
+              loadedWatchlist = remoteWatchlist.map((item: any) => ({
                   id: item.tmdb_id,
                   name: item.name,
                   poster_path: item.poster_path,
@@ -340,16 +362,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   vote_average: item.vote_average,
                   media_type: item.media_type
               })) as TVShow[];
-              setWatchlist(mapped);
+              setWatchlist(loadedWatchlist);
           }
 
           const { data: remoteSubs } = await supabase.from('subscriptions').select('*');
           if (remoteSubs) {
-               const subList: SubscribedList[] = [];
                for (const sub of remoteSubs) {
                    try {
                        const listDetails = await getListDetails(sub.list_id);
-                       subList.push({
+                       loadedLists.push({
                            id: sub.list_id,
                            name: listDetails.name,
                            items: listDetails.items,
@@ -357,7 +378,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                        });
                    } catch (e) { console.error(e); }
                }
-               setSubscribedLists(subList);
+               setSubscribedLists(loadedLists);
           }
 
           // Fetch Reminders
@@ -374,8 +395,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               })));
           }
 
-          setLoading(false);
-          refreshEpisodes(true);
+          // Explicitly pass the loaded data to ensure refreshEpisodes uses the new data immediately
+          refreshEpisodes(true, loadedWatchlist, loadedLists);
       }
   };
 
@@ -390,7 +411,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           } else {
               localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser));
           }
-          setTimeout(() => refreshEpisodes(true), 100);
+          // Use effect to trigger refresh, or if needed immediately:
+          // refreshEpisodes(true) will be called by effect on user change, but user object change might not trigger if deep check? 
+          // Effect uses user.tmdbKey, so it will trigger.
       }
   };
 
@@ -419,12 +442,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // --- Reminders Logic ---
-  
+  // ... (No changes to reminders logic itself) ...
   const addReminder = async (reminder: Reminder) => {
-      // Local optimistic update
       const newReminder = { ...reminder, id: reminder.id || crypto.randomUUID() };
       setReminders(prev => [...prev, newReminder]);
-
       if (user?.isCloud && supabase) {
           await supabase.from('reminders').insert({
               user_id: user.id,
@@ -436,7 +457,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               offset_minutes: reminder.offset_minutes
           });
       }
-
       await requestNotificationPermission();
   };
 
@@ -457,86 +477,54 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return permission === 'granted';
   };
 
-  // Polling for reminders
   useEffect(() => {
       if (!user) return;
-
       const checkReminders = () => {
           if (Notification.permission !== 'granted') return;
-
           const now = new Date();
           const notifiedKey = 'tv_calendar_notified_events';
           const notifiedEvents = JSON.parse(localStorage.getItem(notifiedKey) || '{}');
-          
-          // Flatten episodes for easier search
           const allEpisodes = Object.values(episodes).flat() as Episode[];
           
           reminders.forEach(rule => {
-              // 1. Find matching event(s)
               let candidates: Episode[] = [];
-              
               if (rule.scope === 'all') {
-                  // All episodes for show
                    candidates = allEpisodes.filter(e => e.show_id === rule.tmdb_id && e.air_date);
               } else if (rule.scope === 'episode') {
-                  // Specific episode
                   candidates = allEpisodes.filter(e => e.show_id === rule.tmdb_id && e.season_number === rule.episode_season && e.episode_number === rule.episode_number);
               } else if (rule.scope.startsWith('movie')) {
-                  // Movie
                   candidates = allEpisodes.filter(e => e.show_id === rule.tmdb_id && e.is_movie);
-                  if (rule.scope === 'movie_theatrical') {
-                      candidates = candidates.filter(e => e.release_type === 'theatrical');
-                  } else if (rule.scope === 'movie_digital') {
-                      candidates = candidates.filter(e => e.release_type === 'digital');
-                  }
+                  if (rule.scope === 'movie_theatrical') candidates = candidates.filter(e => e.release_type === 'theatrical');
+                  else if (rule.scope === 'movie_digital') candidates = candidates.filter(e => e.release_type === 'digital');
               }
 
-              // 2. Check time
               candidates.forEach(ep => {
                   if (!ep.air_date) return;
                   const releaseDate = parseISO(ep.air_date);
-                  // Since we only have date (YYYY-MM-DD), assume 9 AM local time for notification if offset is 0
-                  // Or just use the date comparison
-                  
-                  // For "Day Of", we check if today is the day
                   if (rule.offset_minutes === 0) {
-                      if (isSameDay(now, releaseDate)) {
-                          triggerNotification(ep, rule, notifiedEvents);
-                      }
+                      if (isSameDay(now, releaseDate)) triggerNotification(ep, rule, notifiedEvents);
                   } else {
-                      // For offsets (e.g. 1 day before), subtract offset from release date and check if today is that day
                       const triggerDate = subMinutes(releaseDate, rule.offset_minutes);
-                      if (isSameDay(now, triggerDate)) {
-                          triggerNotification(ep, rule, notifiedEvents);
-                      }
+                      if (isSameDay(now, triggerDate)) triggerNotification(ep, rule, notifiedEvents);
                   }
               });
           });
-
           localStorage.setItem(notifiedKey, JSON.stringify(notifiedEvents));
       };
 
       const triggerNotification = (ep: Episode, rule: Reminder, history: any) => {
-          const key = `${rule.id}-${ep.id}-${new Date().toDateString()}`; // Unique per day
-          if (history[key]) return; // Already notified today
-
+          const key = `${rule.id}-${ep.id}-${new Date().toDateString()}`;
+          if (history[key]) return;
           const title = ep.is_movie ? ep.name : ep.show_name;
           const body = ep.is_movie 
             ? `${ep.release_type === 'theatrical' ? 'In Theaters' : 'Digital Release'} today!`
             : `S${ep.season_number}E${ep.episode_number} "${ep.name}" is airing!`;
-
-          new Notification(title || 'TV Calendar', {
-              body,
-              icon: '/vite.svg', // Replace with app icon
-              tag: key // Prevent duplicate
-          });
-          
+          new Notification(title || 'TV Calendar', { body, icon: '/vite.svg', tag: key });
           history[key] = Date.now();
       };
 
-      const interval = setInterval(checkReminders, 60000); // Check every minute
-      checkReminders(); // Initial check
-
+      const interval = setInterval(checkReminders, 60000);
+      checkReminders();
       return () => clearInterval(interval);
   }, [reminders, episodes, user]);
 
@@ -544,7 +532,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addToWatchlist = async (show: TVShow) => {
     if (watchlist.find(s => s.id === show.id)) return;
-    setWatchlist(prev => [...prev, show]);
+    
+    // Construct new state first
+    const newWatchlist = [...watchlist, show];
+    setWatchlist(newWatchlist);
+    
     if (user?.isCloud && supabase) {
         await supabase.from('watchlist').upsert({
             user_id: user.id,
@@ -561,23 +553,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (window.innerWidth < 768 && !settings.suppressMobileAddWarning) {
         setIsMobileWarningOpen(true);
     }
+    
+    // Force refresh with new state
+    refreshEpisodes(true, newWatchlist);
   };
 
   const removeFromWatchlist = async (showId: number) => {
-    setWatchlist(prev => prev.filter(s => s.id !== showId));
+    const newWatchlist = watchlist.filter(s => s.id !== showId);
+    setWatchlist(newWatchlist);
+    
     if (user?.isCloud && supabase) {
         await supabase.from('watchlist').delete().match({ user_id: user.id, tmdb_id: showId });
     }
+    refreshEpisodes(true, newWatchlist);
   };
 
   const batchAddShows = async (shows: TVShow[]) => {
-      setWatchlist(prev => {
-          const currentIds = new Set(prev.map(s => s.id));
-          const newShows = shows.filter(s => !currentIds.has(s.id));
-          return [...prev, ...newShows];
-      });
+      const currentIds = new Set(watchlist.map(s => s.id));
+      const newShows = shows.filter(s => !currentIds.has(s.id));
+      
+      if (newShows.length === 0) return;
+      
+      const newWatchlist = [...watchlist, ...newShows];
+      setWatchlist(newWatchlist);
+      
       if (user?.isCloud && supabase) {
-          const rows = shows.map(show => ({
+          const rows = newShows.map(show => ({
             user_id: user.id,
             tmdb_id: show.id,
             media_type: show.media_type,
@@ -592,6 +593,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               await supabase.from('watchlist').upsert(rows, { onConflict: 'user_id, tmdb_id' });
           }
       }
+      refreshEpisodes(true, newWatchlist);
   };
 
   const subscribeToList = async (listId: string) => {
@@ -604,7 +606,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               items: listDetails.items,
               item_count: listDetails.items.length
           };
-          setSubscribedLists(prev => [...prev, newList]);
+          
+          const newLists = [...subscribedLists, newList];
+          setSubscribedLists(newLists);
+          
           if (user?.isCloud && supabase) {
               await supabase.from('subscriptions').upsert({
                   user_id: user.id,
@@ -613,26 +618,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   item_count: listDetails.items.length
               }, { onConflict: 'user_id, list_id' });
           }
+          refreshEpisodes(true, undefined, newLists);
       } catch (error) {
           throw error;
       }
   };
 
   const unsubscribeFromList = async (listId: string) => {
-      setSubscribedLists(prev => prev.filter(l => l.id !== listId));
+      const newLists = subscribedLists.filter(l => l.id !== listId);
+      setSubscribedLists(newLists);
+      
       if (user?.isCloud && supabase) {
           await supabase.from('subscriptions').delete().match({ user_id: user.id, list_id: listId });
       }
+      refreshEpisodes(true, undefined, newLists);
   };
 
   const batchSubscribe = async (lists: SubscribedList[]) => {
-      setSubscribedLists(prev => {
-          const currentIds = new Set(prev.map(l => l.id));
-          const newLists = lists.filter(l => !currentIds.has(l.id));
-          return [...prev, ...newLists];
-      });
+      const currentIds = new Set(subscribedLists.map(l => l.id));
+      const freshLists = lists.filter(l => !currentIds.has(l.id));
+      
+      if (freshLists.length === 0) return;
+      
+      const newLists = [...subscribedLists, ...freshLists];
+      setSubscribedLists(newLists);
+      
       if (user?.isCloud && supabase) {
-          const rows = lists.map(l => ({
+          const rows = freshLists.map(l => ({
               user_id: user.id,
               list_id: l.id,
               name: l.name,
@@ -642,6 +654,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               await supabase.from('subscriptions').upsert(rows, { onConflict: 'user_id, list_id' });
           }
       }
+      refreshEpisodes(true, undefined, newLists);
   };
 
   const importBackup = (data: any) => {
@@ -649,7 +662,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           uploadBackupToCloud(data);
           return;
       }
+      // Local import
+      let newWatchlist = watchlist;
+      let newLists = subscribedLists;
+
       if (Array.isArray(data)) {
+          newWatchlist = data;
           setWatchlist(data);
       } 
       else if (typeof data === 'object' && data !== null) {
@@ -657,10 +675,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               setUser({ ...data.user, isAuthenticated: true, isCloud: false });
           }
           if (data.settings) updateSettings(data.settings);
-          if (data.subscribedLists) setSubscribedLists(data.subscribedLists);
-          if (data.watchlist) setWatchlist(data.watchlist);
+          if (data.subscribedLists) {
+              newLists = data.subscribedLists;
+              setSubscribedLists(data.subscribedLists);
+          }
+          if (data.watchlist) {
+              newWatchlist = data.watchlist;
+              setWatchlist(data.watchlist);
+          }
           if (data.reminders) setReminders(data.reminders);
       }
+      refreshEpisodes(true, newWatchlist, newLists);
   };
 
   const uploadBackupToCloud = async (data: any) => {
@@ -677,20 +702,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               settings: settingsToSet
           }).eq('id', user.id);
 
-          updateUserKey(keyToSet);
+          // Update user state which triggers effect
+          setUser(prev => prev ? ({ ...prev, tmdbKey: keyToSet }) : null);
+          setApiToken(keyToSet);
           setSettings(settingsToSet);
 
           let items: TVShow[] = [];
           if (Array.isArray(data)) items = data;
           else if (data.watchlist) items = data.watchlist;
+          
           if (items.length > 0) await batchAddShows(items);
           if (data.subscribedLists) await batchSubscribe(data.subscribedLists);
-          // Reminders sync could be added here
+          
       } catch (e) {
           console.error("Cloud upload failed", e);
           alert("Failed to upload backup to cloud.");
       } finally {
           setLoading(false);
+          // Note: batchAddShows etc called above already triggered refresh
       }
   };
 
@@ -749,9 +778,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                        }
                   } catch (e) { console.error(e); }
               }
-              // We call setWatchlist manually here via batch logic but respecting local state logic
-              // Since this function is inside AppProvider, it closes over the actions.
-              // But batchAddShows is const defined above. It's fine.
               await batchAddShows(shows);
           }
 
