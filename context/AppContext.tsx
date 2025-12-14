@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback, useRef } from 'react';
 import { User, TVShow, Episode, AppSettings, SubscribedList, Reminder, Interaction } from '../types';
 import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails, setApiToken } from '../services/tmdb';
 import { get, set, del } from 'idb-keyval';
@@ -25,7 +25,7 @@ interface AppContextType {
   loading: boolean; // Blocking load (no data)
   isSyncing: boolean; // Background sync (has data, updating)
   syncProgress: { current: number; total: number }; 
-  refreshEpisodes: (force?: boolean, overrideWatchlist?: TVShow[], overrideLists?: SubscribedList[]) => Promise<void>;
+  refreshEpisodes: (force?: boolean) => Promise<void>;
   requestNotificationPermission: () => Promise<boolean>;
   
   // Reminders
@@ -151,6 +151,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Reminder Candidate State (Global)
   const [reminderCandidate, setReminderCandidate] = useState<TVShow | Episode | null>(null);
 
+  // Sync Debounce Ref
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // --- Derived State ---
   const allTrackedShows = useMemo(() => {
       const map = new Map<number, TVShow>();
@@ -239,11 +242,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 
   // --- Refresh Episodes Logic ---
-  const refreshEpisodes = useCallback(async (
-      force = false, 
-      overrideWatchlist?: TVShow[], 
-      overrideLists?: SubscribedList[]
-  ) => {
+  const refreshEpisodes = useCallback(async (force = false) => {
       if (!user || (!user.tmdbKey && !user.isCloud)) {
           setLoading(false);
           return;
@@ -252,14 +251,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const lastUpdate = await get<number>(DB_KEY_META);
       const now = Date.now();
       
-      // Determine items to process
-      const currentWatchlist = overrideWatchlist || watchlist;
-      const currentLists = overrideLists || subscribedLists;
-      let totalItemsCount = currentWatchlist.length;
-      currentLists.forEach(l => totalItemsCount += l.items.length);
-
+      // Determine items to process from current state
+      const itemsToProcess = [...allTrackedShows];
+      
       // --- Cache Validation Strategy ---
-      // If NOT forced, and cache is fresh...
+      // If NOT forced, and cache is fresh, and we have data...
       if (!force && lastUpdate && (now - lastUpdate < CACHE_DURATION)) {
            // We might already have data in state.
            if (Object.keys(episodes).length > 0) {
@@ -274,18 +270,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                setLoading(false);
                return;
            }
-           // If IDB is empty but we have tracked items, fall through to fetch.
-           if (totalItemsCount > 0 && (!cachedEps || Object.keys(cachedEps).length === 0)) {
-               // Fallthrough to fetch
-           } else {
-               // Valid empty cache (no tracked items)
-               setLoading(false);
-               return;
-           }
+      }
+
+      // If we have no items to track, clear calendar and stop
+      if (itemsToProcess.length === 0) {
+          setEpisodes({});
+          setLoading(false);
+          return;
       }
 
       // --- Fetching Strategy ---
-      // If we have data in state, do NOT block UI. Use isSyncing.
       // If we have NO data in state, block UI with Loading.
       if (Object.keys(episodes).length === 0 && !force) {
           setLoading(true);
@@ -296,11 +290,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const newEpisodes: Record<string, Episode[]> = {};
           const processedIds = new Set<number>();
           
-          // Combine watchlist and lists
-          let itemsToProcess: TVShow[] = [...currentWatchlist];
-          currentLists.forEach(list => itemsToProcess.push(...list.items));
-          
-          // Deduplicate
+          // Deduplicate items just in case
           const uniqueItems: TVShow[] = [];
           itemsToProcess.forEach(item => {
               if (!processedIds.has(item.id)) {
@@ -314,10 +304,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // Flag to check if we updated any metadata (season counts)
           let metadataUpdated = false;
           const updatedWatchlistMap = new Map<number, TVShow>();
-          currentWatchlist.forEach(w => updatedWatchlistMap.set(w.id, w));
+          watchlist.forEach(w => updatedWatchlistMap.set(w.id, w));
 
-          // Process in smaller chunks to be safe with rate limits
-          const BATCH_SIZE = 3;
+          // Process in smaller batches to avoid rate limits
+          const BATCH_SIZE = 2; // Reduced batch size for stability
           for (let i = 0; i < uniqueItems.length; i += BATCH_SIZE) {
               const batch = uniqueItems.slice(i, i + BATCH_SIZE);
               
@@ -346,16 +336,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                               });
                           });
                       } else {
-                          // TV Show
+                          // TV Show Logic
                           let seasonCount = item.number_of_seasons;
                           
-                          // If metadata is missing or placeholder (undefined), fetch details to get accurate season count
+                          // If metadata is missing, fetch details to get accurate season count
+                          // This is critical for new imports or cloud restores
                           if (!seasonCount) {
                               try {
                                   const details = await getShowDetails(item.id);
                                   seasonCount = details.number_of_seasons;
                                   
-                                  // Update the item in our local map if it exists in watchlist
+                                  // Update local map to save later
                                   if (updatedWatchlistMap.has(item.id)) {
                                       const existing = updatedWatchlistMap.get(item.id)!;
                                       updatedWatchlistMap.set(item.id, { ...existing, number_of_seasons: seasonCount });
@@ -364,12 +355,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                               } catch { seasonCount = 1; }
                           }
                           
-                          const seasonPromises = [];
+                          // Rate Limit Protection: Fetch seasons sequentially with small delay
+                          const seasons = [];
                           for (let s = 1; s <= (seasonCount || 1); s++) {
-                              seasonPromises.push(getSeasonDetails(item.id, s).catch(() => null));
+                              try {
+                                  const seasonData = await getSeasonDetails(item.id, s);
+                                  seasons.push(seasonData);
+                                  // Small delay between season fetches to be kind to API
+                                  await new Promise(r => setTimeout(r, 50)); 
+                              } catch (e) {
+                                  // Ignore missing seasons
+                              }
                           }
-                          
-                          const seasons = await Promise.all(seasonPromises);
                           
                           // --- ANTI-SPOILER ART LOGIC ---
                           const season1 = seasons.find(s => s && s.season_number === 1);
@@ -422,9 +419,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           await set(DB_KEY_EPISODES, newEpisodes);
           await set(DB_KEY_META, Date.now());
 
-          if (metadataUpdated && !overrideWatchlist) {
+          // Save improved metadata back to storage/cloud
+          if (metadataUpdated) {
               const newWatchlist = Array.from(updatedWatchlistMap.values());
-              setWatchlist(newWatchlist);
+              setWatchlist(newWatchlist); // Update state
+              
               if (user?.isCloud && supabase) {
                   const rows = newWatchlist.map(show => ({
                         user_id: user.id,
@@ -436,7 +435,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         overview: show.overview,
                         first_air_date: show.first_air_date,
                         vote_average: show.vote_average,
+                        number_of_seasons: show.number_of_seasons // Important to save this!
                   }));
+                  // Batch upsert might be too large, but typically okay for watchlist size
+                  await supabase.from('watchlist').upsert(rows, { onConflict: 'user_id, tmdb_id' });
               }
           }
       } catch (e) {
@@ -445,32 +447,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setLoading(false);
           setIsSyncing(false);
       }
-  }, [user, watchlist, subscribedLists, episodes]);
+  }, [user, allTrackedShows, watchlist, episodes]); // Depend on allTrackedShows to react to any list/watchlist change
 
-  // --- Initial Data Load ---
+  // --- Auto-Sync Effect ---
   useEffect(() => {
-      const init = async () => {
-          if (!user) {
-              setLoading(false);
-              return;
-          }
-          
+      if (!user) {
+          setLoading(false);
+          return;
+      }
+
+      // 1. Try load cache immediately for fast UI
+      const loadCache = async () => {
           try {
               const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES);
               if (cached && Object.keys(cached).length > 0) {
                   setEpisodes(cached);
-                  setLoading(false); // Unblock immediately
+                  setLoading(false); 
               }
-          } catch (e) { 
-              console.warn("Failed to load cache", e); 
-          }
-          
-          // Trigger Sync (Background)
-          refreshEpisodes();
+          } catch (e) {}
       };
+      loadCache();
+
+      // 2. Schedule Refresh
+      // Debounce the refresh to prevent double-firing during login/restore sequences
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
       
-      init();
-  }, [user?.username]);
+      syncTimeoutRef.current = setTimeout(() => {
+          refreshEpisodes();
+      }, 1000);
+
+      return () => {
+          if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+      };
+  }, [user?.username, allTrackedShows.length]); // Re-run when user changes OR item count changes
 
   // --- Auth Handlers ---
   
@@ -501,19 +510,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               isAuthenticated: true,
               isCloud: true
           };
+          
+          // Clear any local cache from previous user to prevent bleeding
+          await del(DB_KEY_EPISODES);
+          await del(DB_KEY_META);
+          setEpisodes({}); 
+
           setUser(newUser);
           setApiToken(newUser.tmdbKey);
           if (profile.settings) setSettings(profile.settings);
 
-          // Fetch Data
+          // Fetch Data & Set State
+          // We do NOT call refreshEpisodes here manually.
+          // Setting these states will trigger the main useEffect above.
           setLoading(true);
           
-          let loadedWatchlist: TVShow[] = [];
-          let loadedLists: SubscribedList[] = [];
-
           const { data: remoteWatchlist } = await supabase.from('watchlist').select('*');
           if (remoteWatchlist) {
-              loadedWatchlist = remoteWatchlist.map((item: any) => ({
+              const loadedWatchlist = remoteWatchlist.map((item: any) => ({
                   id: item.tmdb_id,
                   name: item.name,
                   poster_path: item.poster_path,
@@ -521,13 +535,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   overview: item.overview,
                   first_air_date: item.first_air_date,
                   vote_average: item.vote_average,
-                  media_type: item.media_type
+                  media_type: item.media_type,
+                  number_of_seasons: item.number_of_seasons // Restore cached metadata
               })) as TVShow[];
               setWatchlist(loadedWatchlist);
           }
 
           const { data: remoteSubs } = await supabase.from('subscriptions').select('*');
           if (remoteSubs) {
+               const loadedLists: SubscribedList[] = [];
                for (const sub of remoteSubs) {
                    try {
                        const listDetails = await getListDetails(sub.list_id);
@@ -568,9 +584,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               });
               setInteractions(intMap);
           }
-
-          // Trigger explicit refresh with loaded data
-          refreshEpisodes(true, loadedWatchlist, loadedLists);
       }
   };
 
@@ -754,9 +767,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (window.innerWidth < 768 && !settings.suppressMobileAddWarning) {
         setIsMobileWarningOpen(true);
     }
-    
-    // Force refresh with new state
-    refreshEpisodes(true, newWatchlist);
+    // Effect will trigger refresh
   };
 
   const removeFromWatchlist = async (showId: number) => {
@@ -766,7 +777,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (user?.isCloud && supabase) {
         await supabase.from('watchlist').delete().match({ user_id: user.id, tmdb_id: showId });
     }
-    refreshEpisodes(true, newWatchlist);
+    // Effect will trigger refresh
   };
 
   const batchAddShows = async (shows: TVShow[]) => {
@@ -794,7 +805,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               await supabase.from('watchlist').upsert(rows, { onConflict: 'user_id, tmdb_id' });
           }
       }
-      refreshEpisodes(true, newWatchlist);
   };
 
   const subscribeToList = async (listId: string) => {
@@ -819,7 +829,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   item_count: listDetails.items.length
               }, { onConflict: 'user_id, list_id' });
           }
-          refreshEpisodes(true, undefined, newLists);
       } catch (error) {
           throw error;
       }
@@ -832,7 +841,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (user?.isCloud && supabase) {
           await supabase.from('subscriptions').delete().match({ user_id: user.id, list_id: listId });
       }
-      refreshEpisodes(true, undefined, newLists);
   };
 
   const batchSubscribe = async (lists: SubscribedList[]) => {
@@ -855,7 +863,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               await supabase.from('subscriptions').upsert(rows, { onConflict: 'user_id, list_id' });
           }
       }
-      refreshEpisodes(true, undefined, newLists);
   };
 
   const importBackup = (data: any) => {
@@ -864,11 +871,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           return;
       }
       // Local import
-      let newWatchlist = watchlist;
-      let newLists = subscribedLists;
-
       if (Array.isArray(data)) {
-          newWatchlist = data;
           setWatchlist(data);
       } 
       else if (typeof data === 'object' && data !== null) {
@@ -877,17 +880,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
           if (data.settings) updateSettings(data.settings);
           if (data.subscribedLists) {
-              newLists = data.subscribedLists;
               setSubscribedLists(data.subscribedLists);
           }
           if (data.watchlist) {
-              newWatchlist = data.watchlist;
               setWatchlist(data.watchlist);
           }
           if (data.reminders) setReminders(data.reminders);
           if (data.interactions) setInteractions(data.interactions);
       }
-      refreshEpisodes(true, newWatchlist, newLists);
   };
 
   const uploadBackupToCloud = async (data: any) => {
@@ -921,7 +921,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           alert("Failed to upload backup to cloud.");
       } finally {
           setLoading(false);
-          // Note: batchAddShows etc called above already triggered refresh
       }
   };
 
