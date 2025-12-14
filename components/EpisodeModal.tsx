@@ -114,7 +114,7 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
         <ReminderConfigModal 
             isOpen={!!reminderEp} 
             onClose={() => setReminderEp(null)} 
-            episode={reminderEp} 
+            item={reminderEp} 
         />
     )}
     </>

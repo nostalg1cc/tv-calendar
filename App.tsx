@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Navbar from './components/Navbar';
@@ -10,6 +10,9 @@ import LoginPage from './pages/LoginPage';
 import RemindersPage from './pages/RemindersPage';
 import SearchModal from './components/SearchModal';
 import MobileAddWarning from './components/MobileAddWarning';
+import AskReminderModal from './components/AskReminderModal';
+import ReminderConfigModal from './components/ReminderConfigModal';
+import { TVShow, Episode } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAppContext();
@@ -20,12 +23,26 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { settings } = useAppContext();
+    const { settings, reminderCandidate, setReminderCandidate } = useAppContext();
     const location = useLocation();
     
     // Determine if we need specialized layout logic
     const isCalendar = location.pathname === '/';
     const isCompactMode = settings.compactCalendar && isCalendar;
+
+    const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+    // If reminderCandidate is set (Ask Modal is triggered)
+    // If confirmed, close ask modal and open Config Modal
+    const handleConfirmReminder = () => {
+        setIsConfigOpen(true);
+        // keep reminderCandidate set so ConfigModal can use it
+    };
+
+    const handleCloseFlow = () => {
+        setReminderCandidate(null);
+        setIsConfigOpen(false);
+    };
 
     return (
         <div className="flex h-screen w-screen bg-[var(--bg-main)] text-slate-100 overflow-hidden">
@@ -48,6 +65,21 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             {/* Global Overlays */}
             <SearchModal />
             <MobileAddWarning />
+            
+            {/* Global Reminder Flow */}
+            <AskReminderModal 
+                isOpen={!!reminderCandidate && !isConfigOpen} 
+                item={reminderCandidate} 
+                onClose={() => setReminderCandidate(null)} 
+                onConfirm={handleConfirmReminder} 
+            />
+            {reminderCandidate && (
+                <ReminderConfigModal 
+                    isOpen={isConfigOpen} 
+                    item={reminderCandidate} 
+                    onClose={handleCloseFlow} 
+                />
+            )}
         </div>
     )
 }

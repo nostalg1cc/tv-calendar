@@ -54,21 +54,8 @@ const Navbar: React.FC = () => {
       {/* DESKTOP SIDEBAR (Visible md+) */}
       <nav className="hidden md:flex flex-col w-64 bg-[var(--bg-main)] border-r border-[var(--border-color)] h-full shrink-0">
         
-        {/* Header / Logo */}
-        <div className="p-6 pb-8">
-            <Link to="/" className="flex items-center gap-3 group">
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-900/20 group-hover:scale-105 transition-transform">
-                    <Tv className="w-5 h-5" />
-                </div>
-                <div>
-                    <h1 className="font-bold text-white tracking-tight leading-none">TV Calendar</h1>
-                    <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Pro Edition</span>
-                </div>
-            </Link>
-        </div>
-
-        {/* Navigation Links */}
-        <div className="flex-1 px-4 overflow-y-auto">
+        {/* Navigation Links - Added top padding since header is removed */}
+        <div className="flex-1 px-4 overflow-y-auto pt-8">
             <div className="mb-6">
                 <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Menu</p>
                 <DesktopNavItem to="/" icon={Calendar} label="Calendar" />

@@ -1,31 +1,43 @@
 import React, { useState } from 'react';
 import { Bell, Clock, X, Check, Calendar, Film, Tv } from 'lucide-react';
-import { Episode, Reminder } from '../types';
+import { Episode, Reminder, TVShow } from '../types';
 import { useAppContext } from '../context/AppContext';
 
 interface ReminderConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  episode: Episode;
+  item: Episode | TVShow;
 }
 
-const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClose, episode }) => {
+const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClose, item }) => {
   const { addReminder, reminders } = useAppContext();
-  const [scope, setScope] = useState<'all' | 'episode' | 'movie_theatrical' | 'movie_digital'>(
-      episode.is_movie ? 'movie_digital' : 'episode'
-  );
+  
+  // Normalize Item Data
+  const isMovie = 'media_type' in item ? item.media_type === 'movie' : item.is_movie;
+  const showId = 'show_id' in item && item.show_id ? item.show_id : item.id;
+  const name = 'show_name' in item && item.show_name ? item.show_name : item.name;
+  
+  // Determine if it is a specific episode context (has season/episode numbers)
+  const isSpecificEpisode = 'season_number' in item && item.season_number !== undefined && item.season_number !== 0;
+
+  // Default Scope Logic
+  const defaultScope = isMovie 
+    ? 'movie_digital' 
+    : (isSpecificEpisode ? 'episode' : 'all');
+
+  const [scope, setScope] = useState<'all' | 'episode' | 'movie_theatrical' | 'movie_digital'>(defaultScope);
   const [offset, setOffset] = useState(0); // Minutes
 
   if (!isOpen) return null;
 
   const handleSave = async () => {
       const newReminder: Reminder = {
-          tmdb_id: episode.show_id!,
-          media_type: episode.is_movie ? 'movie' : 'tv',
-          show_name: episode.show_name || episode.name,
+          tmdb_id: showId,
+          media_type: isMovie ? 'movie' : 'tv',
+          show_name: name,
           scope,
-          episode_season: episode.season_number,
-          episode_number: episode.episode_number,
+          episode_season: 'season_number' in item ? item.season_number : undefined,
+          episode_number: 'episode_number' in item ? item.episode_number : undefined,
           offset_minutes: offset
       };
       await addReminder(newReminder);
@@ -33,10 +45,10 @@ const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClo
   };
 
   const isAlreadySet = reminders.some(r => {
-      if (r.tmdb_id !== episode.show_id) return false;
+      if (r.tmdb_id !== showId) return false;
       if (scope === 'all' && r.scope === 'all') return true;
-      if (scope === 'episode' && r.scope === 'episode' && r.episode_season === episode.season_number && r.episode_number === episode.episode_number) return true;
-      if (episode.is_movie && r.scope.startsWith('movie')) return true;
+      if (scope === 'episode' && 'season_number' in item && r.scope === 'episode' && r.episode_season === item.season_number && r.episode_number === item.episode_number) return true;
+      if (isMovie && r.scope.startsWith('movie')) return true;
       return false;
   });
 
@@ -52,7 +64,7 @@ const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClo
             </div>
             
             <p className="text-sm text-zinc-400 mb-6">
-                Configure notifications for <strong className="text-white">{episode.show_name}</strong>.
+                Configure notifications for <strong className="text-white">{name}</strong>.
             </p>
 
             <div className="space-y-4 mb-6">
@@ -60,15 +72,17 @@ const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClo
                 <div>
                     <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-2">Notification Type</label>
                     <div className="space-y-2">
-                        {!episode.is_movie && (
+                        {!isMovie && (
                             <>
-                                <button 
-                                    onClick={() => setScope('episode')}
-                                    className={`w-full flex items-center gap-3 p-3 rounded-lg border text-sm transition-all ${scope === 'episode' ? 'bg-indigo-600/10 border-indigo-600 text-indigo-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'}`}
-                                >
-                                    <Calendar className="w-4 h-4" />
-                                    This Episode Only
-                                </button>
+                                {isSpecificEpisode && (
+                                    <button 
+                                        onClick={() => setScope('episode')}
+                                        className={`w-full flex items-center gap-3 p-3 rounded-lg border text-sm transition-all ${scope === 'episode' ? 'bg-indigo-600/10 border-indigo-600 text-indigo-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'}`}
+                                    >
+                                        <Calendar className="w-4 h-4" />
+                                        This Episode Only
+                                    </button>
+                                )}
                                 <button 
                                     onClick={() => setScope('all')}
                                     className={`w-full flex items-center gap-3 p-3 rounded-lg border text-sm transition-all ${scope === 'all' ? 'bg-indigo-600/10 border-indigo-600 text-indigo-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'}`}
@@ -79,7 +93,7 @@ const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClo
                             </>
                         )}
                         
-                        {episode.is_movie && (
+                        {isMovie && (
                              <>
                                 <button 
                                     onClick={() => setScope('movie_theatrical')}

@@ -9,7 +9,7 @@ const SearchPage: React.FC = () => {
   const [results, setResults] = useState<TVShow[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
-  const { watchlist, addToWatchlist } = useAppContext();
+  const { watchlist, addToWatchlist, setReminderCandidate } = useAppContext();
 
   // Load popular shows on first mount
   React.useEffect(() => {
@@ -36,6 +36,11 @@ const SearchPage: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleAdd = async (show: TVShow) => {
+      await addToWatchlist(show);
+      setReminderCandidate(show);
   };
 
   const isInWatchlist = useCallback((showId: number) => {
@@ -94,7 +99,7 @@ const SearchPage: React.FC = () => {
                   
                   <div className="mt-auto">
                     <button
-                      onClick={() => addToWatchlist(show)}
+                      onClick={() => handleAdd(show)}
                       disabled={added}
                       className={`
                         w-full py-2 px-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-all

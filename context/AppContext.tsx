@@ -32,6 +32,10 @@ interface AppContextType {
   addReminder: (reminder: Reminder) => Promise<void>;
   removeReminder: (id: string) => Promise<void>;
   
+  // Reminder UI State
+  reminderCandidate: TVShow | Episode | null;
+  setReminderCandidate: (item: TVShow | Episode | null) => void;
+  
   isSearchOpen: boolean;
   setIsSearchOpen: (isOpen: boolean) => void;
   settings: AppSettings;
@@ -124,6 +128,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileWarningOpen, setIsMobileWarningOpen] = useState(false);
+  
+  // Reminder Candidate State (Global)
+  const [reminderCandidate, setReminderCandidate] = useState<TVShow | Episode | null>(null);
 
   // --- Derived State ---
   const allTrackedShows = useMemo(() => {
@@ -171,6 +178,117 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [watchlist, subscribedLists, settings, user, reminders]);
 
+  // --- Refresh Episodes Logic ---
+  const refreshEpisodes = useCallback(async (force = false) => {
+      if (!user || (!user.tmdbKey && !user.isCloud)) {
+          setLoading(false);
+          return;
+      }
+      
+      const lastUpdate = await get<number>(DB_KEY_META);
+      const now = Date.now();
+      
+      // Cache check (skip if force=true)
+      if (!force && lastUpdate && (now - lastUpdate < CACHE_DURATION)) {
+           const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES);
+           if (cachedEps) {
+               setEpisodes(cachedEps);
+               setLoading(false);
+               return;
+           }
+      }
+
+      setLoading(true);
+      const newEpisodes: Record<string, Episode[]> = {};
+      const processedIds = new Set<number>();
+      
+      // Combine watchlist and lists
+      let itemsToProcess: TVShow[] = [...watchlist];
+      subscribedLists.forEach(list => itemsToProcess.push(...list.items));
+      
+      // Deduplicate
+      const uniqueItems: TVShow[] = [];
+      itemsToProcess.forEach(item => {
+          if (!processedIds.has(item.id)) {
+              processedIds.add(item.id);
+              uniqueItems.push(item);
+          }
+      });
+      
+      setSyncProgress({ current: 0, total: uniqueItems.length });
+      
+      let count = 0;
+      for (const item of uniqueItems) {
+          count++;
+          setSyncProgress({ current: count, total: uniqueItems.length });
+          
+          try {
+              if (item.media_type === 'movie') {
+                  const releaseDates = await getMovieReleaseDates(item.id);
+                  releaseDates.forEach(rel => {
+                       const dateKey = rel.date;
+                       if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
+                       newEpisodes[dateKey].push({
+                           id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), 
+                           name: item.name,
+                           overview: item.overview,
+                           vote_average: item.vote_average,
+                           air_date: rel.date,
+                           episode_number: 1,
+                           season_number: 1,
+                           still_path: item.backdrop_path, 
+                           poster_path: item.poster_path,
+                           show_id: item.id,
+                           show_name: item.name,
+                           is_movie: true,
+                           release_type: rel.type
+                       });
+                  });
+              } else {
+                  // TV Show
+                  // First ensure we know season count
+                  let seasonCount = item.number_of_seasons;
+                  if (!seasonCount) {
+                       try {
+                           const details = await getShowDetails(item.id);
+                           seasonCount = details.number_of_seasons;
+                       } catch { seasonCount = 1; }
+                  }
+                  
+                  const seasonPromises = [];
+                  for (let i = 1; i <= (seasonCount || 1); i++) {
+                       seasonPromises.push(getSeasonDetails(item.id, i).catch(() => null));
+                  }
+                  
+                  const seasons = await Promise.all(seasonPromises);
+                  
+                  seasons.forEach(season => {
+                      if (!season || !season.episodes) return;
+                      season.episodes.forEach(ep => {
+                          if (!ep.air_date) return;
+                          
+                          const dateKey = ep.air_date;
+                          if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
+                          newEpisodes[dateKey].push({
+                              ...ep,
+                              show_id: item.id,
+                              show_name: item.name,
+                              poster_path: item.poster_path,
+                              is_movie: false
+                          });
+                      });
+                  });
+              }
+          } catch (error) {
+              console.error(`Error processing ${item.name}`, error);
+          }
+      }
+      
+      setEpisodes(newEpisodes);
+      await set(DB_KEY_EPISODES, newEpisodes);
+      await set(DB_KEY_META, Date.now());
+      setLoading(false);
+  }, [user, watchlist, subscribedLists]);
 
   // --- Auth Handlers ---
   
@@ -257,6 +375,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
 
           setLoading(false);
+          refreshEpisodes(true);
       }
   };
 
@@ -386,10 +505,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                       }
                   } else {
                       // For offsets (e.g. 1 day before), subtract offset from release date and check if today is that day
-                      // Note: releaseDate is midnight. 
-                      // Simple logic: If (ReleaseDate - Offset) <= Now
-                      // This might be tricky with just dates. Let's stick to Day granularity for now.
-                      // If offset is 1440 (1 day), we notify if today == releaseDate - 1 day
                       const triggerDate = subMinutes(releaseDate, rule.offset_minutes);
                       if (isSameDay(now, triggerDate)) {
                           triggerNotification(ep, rule, notifiedEvents);
@@ -426,7 +541,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [reminders, episodes, user]);
 
   // --- Data Logic (Watchlist, Subs, Import etc) ---
-  // (Keeping existing implementations for brevity, just ensuring they are exported)
 
   const addToWatchlist = async (show: TVShow) => {
     if (watchlist.find(s => s.id === show.id)) return;
@@ -580,262 +694,86 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
-  // Episode fetching logic remains the same (omitted for brevity, assume refreshEpisodes etc are present)
-  // ... (refreshEpisodes, fetchEpisodesForTV, fetchEpisodesForMovie) ...
-  // Including the existing refreshEpisodes logic to ensure context completeness
-  const fetchEpisodesForTV = async (show: TVShow): Promise<Record<string, Episode[]>> => {
-    try {
-      const details = await getShowDetails(show.id);
-      const seasonCount = details.number_of_seasons || 1;
-      const seasonsToFetch = [seasonCount]; 
-      if (seasonCount > 1) seasonsToFetch.push(seasonCount - 1);
+  // --- Sync & Utility Functions ---
 
-      const newEpisodes: Record<string, Episode[]> = {};
-      for (const seasonNum of seasonsToFetch) {
-        try {
-          const seasonData = await getSeasonDetails(show.id, seasonNum);
-          if (seasonData && seasonData.episodes) {
-            seasonData.episodes.forEach((ep) => {
-              if (ep.air_date) {
-                const dateKey = ep.air_date;
-                if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
-                newEpisodes[dateKey].push({
-                  ...ep,
-                  show_id: show.id,
-                  show_name: show.name,
-                  poster_path: seasonData.poster_path || details.poster_path,
-                  is_movie: false
-                });
+  const getSyncPayload = useCallback(() => {
+      const simpleWatchlist = watchlist.map(item => ({ id: item.id, type: item.media_type }));
+      const simpleLists = subscribedLists.map(list => list.id);
+      
+      const payload = {
+          user: { 
+              username: user?.username, 
+              tmdbKey: user?.tmdbKey, 
+              isCloud: user?.isCloud 
+          },
+          watchlist: simpleWatchlist,
+          lists: simpleLists,
+          settings
+      };
+      return LZString.compressToEncodedURIComponent(JSON.stringify(payload));
+  }, [user, watchlist, subscribedLists, settings]);
+
+  const processSyncPayload = useCallback(async (encodedPayload: string) => {
+      try {
+          const json = LZString.decompressFromEncodedURIComponent(encodedPayload);
+          if (!json) throw new Error("Invalid payload");
+          const data = JSON.parse(json);
+          
+          if (data.user) {
+              const newUser: User = {
+                  ...data.user,
+                  isAuthenticated: true
+              };
+              setUser(newUser);
+              setApiToken(newUser.tmdbKey);
+              if (!newUser.isCloud) {
+                  localStorage.setItem('tv_calendar_user', JSON.stringify(newUser));
               }
-            });
           }
-        } catch (e) { }
+
+          if (data.settings) {
+              updateSettings(data.settings);
+          }
+
+          if (data.watchlist && Array.isArray(data.watchlist)) {
+              setLoading(true);
+              const shows: TVShow[] = [];
+              for (const item of data.watchlist) {
+                  try {
+                       if (item.type === 'movie') {
+                           const details = await getMovieDetails(item.id);
+                           shows.push(details);
+                       } else {
+                           const details = await getShowDetails(item.id);
+                           shows.push(details);
+                       }
+                  } catch (e) { console.error(e); }
+              }
+              // We call setWatchlist manually here via batch logic but respecting local state logic
+              // Since this function is inside AppProvider, it closes over the actions.
+              // But batchAddShows is const defined above. It's fine.
+              await batchAddShows(shows);
+          }
+
+          if (data.lists && Array.isArray(data.lists)) {
+               for (const listId of data.lists) {
+                   await subscribeToList(listId);
+               }
+          }
+          
+          setTimeout(() => window.location.reload(), 500);
+
+      } catch (e) {
+          console.error("Sync failed", e);
+          alert("Failed to process sync data.");
+          setLoading(false);
       }
-      return newEpisodes;
-    } catch (error) { return {}; }
-  };
-
-  const fetchEpisodesForMovie = async (show: TVShow): Promise<Record<string, Episode[]>> => {
-    try {
-       const releaseDates = await getMovieReleaseDates(show.id);
-       if (releaseDates.length === 0 && show.first_air_date) {
-         releaseDates.push({ date: show.first_air_date, type: 'theatrical' });
-       }
-       const newEpisodes: Record<string, Episode[]> = {};
-       releaseDates.forEach(rd => {
-           if (!newEpisodes[rd.date]) newEpisodes[rd.date] = [];
-           const movieEp: Episode = {
-               id: show.id * 1000 + (rd.type === 'digital' ? 2 : 1), 
-               name: show.name,
-               overview: show.overview,
-               vote_average: show.vote_average,
-               air_date: rd.date,
-               episode_number: 0,
-               season_number: 0,
-               still_path: show.backdrop_path, 
-               show_id: show.id,
-               show_name: show.name,
-               poster_path: show.poster_path,
-               is_movie: true,
-               release_type: rd.type
-           };
-           newEpisodes[rd.date].push(movieEp);
-       });
-       return newEpisodes;
-    } catch (error) { return {}; }
-  };
-
-  const refreshEpisodes = useCallback(async (force = false) => {
-    if (!user || !user.tmdbKey) {
-        setEpisodes({});
-        setLoading(false);
-        return;
-    }
-    if (allTrackedShows.length === 0) {
-      setEpisodes({});
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-
-    let currentEpisodes: Record<string, Episode[]> = {};
-    let cachedShowIds: number[] = [];
-    let isFresh = false;
-
-    try {
-        const cacheValues = await Promise.all([get(DB_KEY_EPISODES), get(DB_KEY_META)]);
-        const cachedEpData = cacheValues[0] as Record<string, Episode[]> | undefined;
-        const cacheMetaData = cacheValues[1] as {timestamp: number, showIds: number[]} | undefined;
-
-        if (cachedEpData && cacheMetaData) {
-            currentEpisodes = cachedEpData;
-            cachedShowIds = cacheMetaData.showIds || [];
-            isFresh = (Date.now() - cacheMetaData.timestamp) < CACHE_DURATION;
-            setEpisodes(currentEpisodes);
-        }
-    } catch (e) { }
-
-    const currentTrackedIds = allTrackedShows.map(s => s.id);
-    const missingShowIds = currentTrackedIds.filter(id => !cachedShowIds.includes(id));
-    const removedShowIds = cachedShowIds.filter(id => !currentTrackedIds.includes(id));
-    
-    const needsFullUpdate = force || (!isFresh && missingShowIds.length === 0 && removedShowIds.length === 0);
-    const needsPartialUpdate = missingShowIds.length > 0;
-    const needsCleanup = removedShowIds.length > 0;
-
-    if (!needsFullUpdate && !needsPartialUpdate && !needsCleanup && Object.keys(currentEpisodes).length > 0) {
-        setLoading(false);
-        return;
-    }
-
-    const showsToFetch = needsFullUpdate ? [...allTrackedShows] : allTrackedShows.filter(s => missingShowIds.includes(s.id));
-
-    if (showsToFetch.length > 0) {
-        setSyncProgress({ current: 0, total: showsToFetch.length });
-        const BATCH_SIZE = 4;
-        const newFetchedEpisodes: Record<string, Episode[]> = {};
-
-        for (let i = 0; i < showsToFetch.length; i += BATCH_SIZE) {
-            const batch = showsToFetch.slice(i, i + BATCH_SIZE);
-            const promises = batch.map(show => {
-                if (show.media_type === 'movie') return fetchEpisodesForMovie(show).catch(() => ({} as Record<string, Episode[]>));
-                else return fetchEpisodesForTV(show).catch(() => ({} as Record<string, Episode[]>));
-            });
-
-            const results = await Promise.all(promises);
-            results.forEach((showEpisodes) => {
-                Object.entries(showEpisodes).forEach(([date, eps]) => {
-                    if (!newFetchedEpisodes[date]) newFetchedEpisodes[date] = [];
-                    const episodeList = eps as Episode[];
-                    newFetchedEpisodes[date] = [...newFetchedEpisodes[date], ...episodeList];
-                });
-            });
-
-            setSyncProgress(prev => ({ ...prev, current: Math.min(prev.total, i + batch.length) }));
-            setEpisodes(prev => {
-                const updated = { ...prev };
-                Object.entries(newFetchedEpisodes).forEach(([date, eps]) => {
-                    if (!updated[date]) updated[date] = [];
-                    const existingIds = new Set(updated[date].map(e => e.id));
-                    const uniqueNew = eps.filter(e => !existingIds.has(e.id));
-                    updated[date] = [...updated[date], ...uniqueNew];
-                });
-                return updated;
-            });
-            if (i + BATCH_SIZE < showsToFetch.length) await new Promise(resolve => setTimeout(resolve, 50));
-        }
-        
-        if (needsFullUpdate) currentEpisodes = newFetchedEpisodes;
-        else {
-            Object.entries(newFetchedEpisodes).forEach(([date, eps]) => {
-                if (!currentEpisodes[date]) currentEpisodes[date] = [];
-                currentEpisodes[date] = [...currentEpisodes[date], ...eps];
-            });
-        }
-    }
-
-    if (needsCleanup && !needsFullUpdate) {
-        const trackedIdSet = new Set(currentTrackedIds);
-        const cleanedEpisodes: Record<string, Episode[]> = {};
-        Object.entries(currentEpisodes).forEach(([date, eps]) => {
-            const filtered = eps.filter(ep => trackedIdSet.has(ep.show_id!));
-            if (filtered.length > 0) cleanedEpisodes[date] = filtered;
-        });
-        currentEpisodes = cleanedEpisodes;
-    }
-
-    setEpisodes(currentEpisodes);
-    try {
-        await set(DB_KEY_EPISODES, currentEpisodes);
-        await set(DB_KEY_META, { timestamp: Date.now(), showIds: currentTrackedIds });
-    } catch (e) {}
-
-    setLoading(false);
-    setTimeout(() => setSyncProgress({ current: 0, total: 0 }), 1000);
-  }, [allTrackedShows, user]);
-
-  useEffect(() => { refreshEpisodes(); }, [refreshEpisodes]); 
+  }, [batchAddShows, subscribeToList, updateSettings]);
 
   const closeMobileWarning = (suppressFuture: boolean) => {
       setIsMobileWarningOpen(false);
-      if (suppressFuture) updateSettings({ suppressMobileAddWarning: true });
-  };
-  
-  const getSyncPayload = () => {
-    if (!user) return '';
-    const payload = {
-        k: user.tmdbKey,
-        u: user.username,
-        w: watchlist.map(s => ({ i: s.id, t: s.media_type === 'movie' ? 1 : 0 })),
-        s: subscribedLists.map(l => l.id),
-        c: {
-            cc: settings.compactCalendar ? 1 : 0,
-            ht: settings.hideTheatrical ? 1 : 0,
-            hs: settings.hideSpoilers ? 1 : 0,
-            pf: settings.calendarPosterFillMode === 'contain' ? 1 : 0
-        }
-    };
-    return LZString.compressToEncodedURIComponent(JSON.stringify(payload));
-  };
-
-  const processSyncPayload = async (payload: string) => {
-      try {
-          const jsonStr = LZString.decompressFromEncodedURIComponent(payload);
-          if (!jsonStr) throw new Error("Decompression failed");
-          const data = JSON.parse(jsonStr) as any;
-          if (!data.k || !data.u) throw new Error("Invalid payload data");
-
-          if (!user || user.username !== data.u) login(data.u, data.k);
-          else if (user.tmdbKey !== data.k) updateUserKey(data.k);
-
-          if (data.c) {
-              updateSettings({
-                  compactCalendar: data.c.cc === 1,
-                  hideTheatrical: data.c.ht === 1,
-                  hideSpoilers: data.c.hs === 1,
-                  calendarPosterFillMode: data.c.pf === 1 ? 'contain' : 'cover'
-              });
-          }
-
-          if (data.s && Array.isArray(data.s)) {
-             const lists: SubscribedList[] = [];
-             for (const listId of data.s) {
-                 try {
-                     const details = await getListDetails(listId);
-                     lists.push({ id: listId, name: details.name, items: details.items, item_count: details.items.length });
-                 } catch (e) { }
-             }
-             setSubscribedLists(lists);
-          }
-
-          if (data.w && Array.isArray(data.w)) {
-              setLoading(true);
-              const restoredWatchlist: TVShow[] = [];
-              const batches: any[][] = [];
-              const BATCH = 5;
-              const watchItems = data.w;
-              for (let i = 0; i < watchItems.length; i += BATCH) batches.push(watchItems.slice(i, i + BATCH));
-              let current = 0;
-              setSyncProgress({ current: 0, total: watchItems.length });
-              for (const batch of batches) {
-                  const promises = batch.map((item: any) => {
-                      const id = item.i;
-                      const type = item.t === 1 ? 'movie' : 'tv';
-                      if (type === 'movie') return getMovieDetails(id).catch(() => null);
-                      else return getShowDetails(id).catch(() => null);
-                  });
-                  const results = await Promise.all(promises);
-                  results.forEach(r => { if (r) restoredWatchlist.push(r); });
-                  current += batch.length;
-                  setSyncProgress({ current, total: watchItems.length });
-              }
-              setWatchlist(restoredWatchlist);
-          }
-          setLoading(false);
-      } catch (e) {
-          console.error(e);
-          alert("Failed to sync. Data may be corrupted.");
-          setLoading(false);
+      if (suppressFuture) {
+          updateSettings({ suppressMobileAddWarning: true });
       }
   };
 
@@ -851,7 +789,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       importBackup, uploadBackupToCloud,
       getSyncPayload, processSyncPayload,
       isMobileWarningOpen, closeMobileWarning,
-      reminders, addReminder, removeReminder
+      reminders, addReminder, removeReminder,
+      reminderCandidate, setReminderCandidate
     }}>
       {children}
     </AppContext.Provider>

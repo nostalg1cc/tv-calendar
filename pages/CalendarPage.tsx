@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths, addDays, isSameDay
@@ -52,6 +52,19 @@ const CalendarPage: React.FC = () => {
 
   const activeDays = eachDayOfInterval({ start: monthStart, end: monthEnd }).filter(day => getEpisodesForDay(day).length > 0);
   const isGridView = settings.viewMode !== 'list';
+
+  // Auto-scroll to today in list view
+  useEffect(() => {
+      if (!isGridView) {
+          // Delay slightly to ensure render
+          setTimeout(() => {
+              const el = document.getElementById('today-list-item');
+              if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+          }, 100);
+      }
+  }, [isGridView, currentDate]); // Trigger on mode switch or month change
 
   // --- Components ---
 
@@ -296,7 +309,11 @@ const CalendarPage: React.FC = () => {
                                 const isDayToday = isToday(day);
 
                                 return (
-                                    <div key={day.toString()} className="flex gap-4">
+                                    <div 
+                                        key={day.toString()} 
+                                        id={isDayToday ? 'today-list-item' : undefined}
+                                        className="flex gap-4"
+                                    >
                                         <div className="w-12 md:w-14 flex flex-col items-center pt-1 shrink-0">
                                             <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider mb-0.5">{format(day, 'EEE')}</span>
                                             <div className={`

@@ -11,7 +11,7 @@ type SearchResult = TVShow & {
 };
 
 const SearchModal: React.FC = () => {
-  const { isSearchOpen, setIsSearchOpen, addToWatchlist, allTrackedShows, settings } = useAppContext();
+  const { isSearchOpen, setIsSearchOpen, addToWatchlist, allTrackedShows, settings, setReminderCandidate } = useAppContext();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,6 +64,7 @@ const SearchModal: React.FC = () => {
 
   const handleAdd = async (show: SearchResult) => {
       await addToWatchlist(show);
+      setReminderCandidate(show); // Prompt for reminder
       
       // If recommendations are disabled, stop here
       if (!settings.recommendationsEnabled) return;

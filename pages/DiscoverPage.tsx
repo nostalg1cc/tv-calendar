@@ -24,9 +24,20 @@ const DiscoverPage: React.FC = () => {
 
   const today = new Date().toISOString().split('T')[0];
   
-  // Params
-  const upcomingMovieParams = { 'primary_release_date.gte': today, 'sort_by': 'popularity.desc', 'with_release_type': '2|3', 'vote_count.gte': '5' };
-  const upcomingTVParams = { 'first_air_date.gte': today, 'sort_by': 'popularity.desc', 'vote_count.gte': '5', 'include_null_first_air_dates': 'false' };
+  // Params - Adjusted to remove vote count restrictions for upcoming content and enforce English for "blockbuster" feel
+  const upcomingMovieParams = { 
+      'primary_release_date.gte': today, 
+      'sort_by': 'popularity.desc', 
+      'with_release_type': '2|3',
+      'with_original_language': 'en' 
+  };
+  
+  const upcomingTVParams = { 
+      'first_air_date.gte': today, 
+      'sort_by': 'popularity.desc', 
+      'with_original_language': 'en',
+      'include_null_first_air_dates': 'false' 
+  };
   
   return (
     <div className="max-w-[1600px] mx-auto pb-24">
@@ -160,7 +171,7 @@ const DiscoverPage: React.FC = () => {
 const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, fetchParams, mediaType, onShowMore, variant = 'default' }) => {
     const [items, setItems] = useState<TVShow[]>([]);
     const [loading, setLoading] = useState(true);
-    const { allTrackedShows, addToWatchlist } = useAppContext();
+    const { allTrackedShows, addToWatchlist, setReminderCandidate } = useAppContext();
 
     useEffect(() => {
         setLoading(true);
@@ -169,6 +180,11 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
     }, [fetchEndpoint, mediaType, JSON.stringify(fetchParams)]);
+
+    const handleAdd = async (show: TVShow) => {
+        await addToWatchlist(show);
+        setReminderCandidate(show);
+    };
 
     if (loading) {
         return (
@@ -220,7 +236,7 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
                                          <p className="text-xs font-bold text-white mb-2">{show.vote_average.toFixed(1)} ★</p>
                                          <button 
-                                            onClick={() => addToWatchlist(show)}
+                                            onClick={() => handleAdd(show)}
                                             disabled={isAdded}
                                             className={`
                                                 w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5

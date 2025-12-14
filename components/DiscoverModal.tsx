@@ -19,7 +19,7 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { allTrackedShows, addToWatchlist } = useAppContext();
+  const { allTrackedShows, addToWatchlist, setReminderCandidate } = useAppContext();
 
   useEffect(() => {
     if (isOpen) {
@@ -63,6 +63,11 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
     }
   };
 
+  const handleAdd = async (show: TVShow) => {
+      await addToWatchlist(show);
+      setReminderCandidate(show);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -100,7 +105,7 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
                                     <p className="text-xs font-bold text-white mb-2">{show.vote_average.toFixed(1)} ★</p>
                                     <button 
-                                        onClick={() => addToWatchlist(show)}
+                                        onClick={() => handleAdd(show)}
                                         disabled={isAdded}
                                         className={`
                                             w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all
