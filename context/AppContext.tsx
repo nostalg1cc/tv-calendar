@@ -47,6 +47,7 @@ interface AppContextType {
   processSyncPayload: (payload: string) => void;
   isMobileWarningOpen: boolean;
   closeMobileWarning: (suppressFuture: boolean) => void;
+  reloadAccount: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -282,7 +283,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                   season_number: 1,
                                   still_path: item.backdrop_path, 
                                   poster_path: item.poster_path,
-                                  // Fix: safely handle null/undefined for strict types by using ternary
                                   season1_poster_path: item.poster_path ? item.poster_path : undefined, 
                                   show_id: item.id,
                                   show_name: item.name,
@@ -317,17 +317,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           const seasons = await Promise.all(seasonPromises);
                           
                           // --- ANTI-SPOILER ART LOGIC ---
-                          // 1. Try to find Season 1 from the fetched details
                           const season1 = seasons.find(s => s && s.season_number === 1);
                           let s1Poster = season1?.poster_path;
 
-                          // 2. If missing, check if the Item itself has cached season info
                           if (!s1Poster && item.seasons) {
                              const s1 = item.seasons.find(s => s.season_number === 1);
                              if (s1) s1Poster = s1.poster_path;
                           }
 
-                          // 3. STICKY CACHE: If still missing (API error/limit), try to find it in the *current* episodes state
                           if (!s1Poster && Object.keys(episodes).length > 0) {
                                for (const dateKey in episodes) {
                                    const found = episodes[dateKey].find(e => e.show_id === item.id);
@@ -338,7 +335,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                }
                           }
 
-                          // 4. Final Fallback: Use Show Poster
                           if (!s1Poster) s1Poster = item.poster_path;
 
                           seasons.forEach(season => {
@@ -352,8 +348,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                       ...ep,
                                       show_id: item.id,
                                       show_name: item.name,
-                                      poster_path: item.poster_path, // Default show/season poster (often current season)
-                                      // Fix: safely handle null/undefined for strict types by using ternary
+                                      poster_path: item.poster_path,
                                       season1_poster_path: s1Poster ? s1Poster : undefined, 
                                       is_movie: false
                                   });
@@ -372,13 +367,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           await set(DB_KEY_EPISODES, newEpisodes);
           await set(DB_KEY_META, Date.now());
 
-          // Persist metadata updates (season counts) if any
           if (metadataUpdated && !overrideWatchlist) {
               const newWatchlist = Array.from(updatedWatchlistMap.values());
               setWatchlist(newWatchlist);
               if (user?.isCloud && supabase) {
-                  // We don't need to await this, let it happen in background
-                  // Filter only updated items to save bandwidth? For now, re-upserting logic handles it.
                   const rows = newWatchlist.map(show => ({
                         user_id: user.id,
                         tmdb_id: show.id,
@@ -389,11 +381,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         overview: show.overview,
                         first_air_date: show.first_air_date,
                         vote_average: show.vote_average,
-                        // Not syncing number_of_seasons to DB yet as DB schema might not have it, 
-                        // but local state update ensures next refresh is fast.
                   }));
-                  // Ideally we should update the DB if we add a column for it, but for now 
-                  // just keeping local state consistent prevents re-fetching details during this session.
               }
           }
       } catch (e) {
@@ -404,7 +392,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   }, [user, watchlist, subscribedLists, episodes]);
 
-  // --- Initial Data Load (Corrected logic) ---
+  // --- Initial Data Load ---
   useEffect(() => {
       const init = async () => {
           if (!user) {
@@ -412,7 +400,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               return;
           }
           
-          // 1. Try Load from IndexDB immediately to unblock UI
           try {
               const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES);
               if (cached && Object.keys(cached).length > 0) {
@@ -423,16 +410,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               console.warn("Failed to load cache", e); 
           }
           
-          // 2. Trigger Sync (Background)
+          // Trigger Sync (Background)
           refreshEpisodes();
       };
       
       init();
-  }, [user?.username]); // Run once per user login
+  }, [user?.username]);
 
   // --- Auth Handlers ---
   
-  // Local Login
   const login = (username: string, apiKey: string) => {
     const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false };
     setUser(newUser);
@@ -440,7 +426,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('tv_calendar_user', JSON.stringify(newUser));
   };
 
-  // Cloud Login
   const loginCloud = async (session: any) => {
       if (!supabase) return;
 
@@ -518,6 +503,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // Trigger explicit refresh with loaded data
           refreshEpisodes(true, loadedWatchlist, loadedLists);
       }
+  };
+
+  // --- Account Reload ---
+  const reloadAccount = async () => {
+    if (isSyncing) return;
+    setLoading(true);
+    
+    try {
+        // Nuke Cache
+        await del(DB_KEY_EPISODES);
+        await del(DB_KEY_META);
+        setEpisodes({}); // Clear Visuals
+        
+        if (user?.isCloud && supabase) {
+            // Re-fetch User Data from Source
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                await loginCloud(session); 
+            } else {
+                logout();
+            }
+        } else {
+            // Local Mode: Just force refresh TMDB logic
+            await refreshEpisodes(true);
+        }
+    } catch (e) {
+        console.error("Reload failed", e);
+        setLoading(false);
+    }
   };
 
   const updateUserKey = async (apiKey: string) => {
@@ -839,8 +853,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
-  // --- Sync & Utility Functions ---
-
   const getSyncPayload = useCallback(() => {
       const simpleWatchlist = watchlist.map(item => ({ id: item.id, type: item.media_type }));
       const simpleLists = subscribedLists.map(list => list.id);
@@ -932,7 +944,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       getSyncPayload, processSyncPayload,
       isMobileWarningOpen, closeMobileWarning,
       reminders, addReminder, removeReminder,
-      reminderCandidate, setReminderCandidate
+      reminderCandidate, setReminderCandidate,
+      reloadAccount
     }}>
       {children}
     </AppContext.Provider>

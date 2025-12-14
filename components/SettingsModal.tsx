@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom } from 'lucide-react';
+import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom, Database } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -10,7 +10,7 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { settings, updateSettings, watchlist, subscribedLists, user, updateUserKey, importBackup, batchAddShows, batchSubscribe, syncProgress, loading, getSyncPayload, processSyncPayload } = useAppContext();
+  const { settings, updateSettings, watchlist, subscribedLists, user, updateUserKey, importBackup, batchAddShows, batchSubscribe, syncProgress, loading, getSyncPayload, processSyncPayload, reloadAccount } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Local state for key editing
@@ -199,6 +199,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
           setShowScanner(false);
           setIsProcessingImport(true);
           processSyncPayload(result[0].rawValue);
+      }
+  };
+  
+  const handleForceReload = async () => {
+      if (confirm('This will wipe the local cache and re-download all data from the server. This may take a moment. Continue?')) {
+          onClose();
+          await reloadAccount();
       }
   };
 
@@ -658,6 +665,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                  </div>
                  
                  <div className="space-y-4">
+                     {/* Force Reload Button */}
+                     <div className="bg-zinc-800/30 p-3 rounded-lg border border-zinc-800">
+                         <div className="flex justify-between items-center mb-2">
+                             <div className="flex items-center gap-2">
+                                 <Database className="w-4 h-4 text-emerald-400" />
+                                 <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Troubleshooting</span>
+                             </div>
+                         </div>
+                         <button 
+                            onClick={handleForceReload}
+                            className="w-full h-10 bg-zinc-800 hover:bg-emerald-600/20 hover:text-emerald-400 hover:border-emerald-500/30 rounded-lg font-medium text-xs text-zinc-300 flex items-center justify-center gap-2 border border-zinc-700/50 transition-all"
+                         >
+                             <RefreshCw className="w-3 h-3" /> Force Full Resync
+                         </button>
+                         <p className="text-[10px] text-zinc-500 mt-2 px-1">
+                             Use this if your calendar is empty or out of sync. It clears the cache and re-downloads everything from the server.
+                         </p>
+                     </div>
+
                      {/* Full Profile - HOLD 5 SECONDS */}
                      <div className="bg-zinc-800/30 p-3 rounded-lg border border-zinc-800">
                         <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-2">
