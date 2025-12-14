@@ -1,13 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User, Menu } from 'lucide-react';
+import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import SettingsModal from './SettingsModal';
 
 const Navbar: React.FC = () => {
   const { user, logout, setIsSearchOpen } = useAppContext();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const location = useLocation();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    if (isUserMenuOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isUserMenuOpen]);
 
   if (!user) return null;
 
@@ -92,49 +104,92 @@ const Navbar: React.FC = () => {
         </div>
       </nav>
 
-      {/* MOBILE HEADER & BOTTOM NAV (Visible < md) */}
-      
-      {/* Top Bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[var(--bg-main)]/90 backdrop-blur-xl border-b border-[var(--border-color)] z-40 flex items-center justify-between px-4">
-           <Link to="/" className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
-                    <Tv className="w-4 h-4" />
-                </div>
-                <span className="font-bold text-white text-lg">TV Calendar</span>
-           </Link>
-           <button 
-                onClick={() => setIsSettingsOpen(true)}
-                className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-slate-400"
-           >
-                <Settings className="w-4 h-4" />
-           </button>
-      </div>
-
-      {/* Bottom Tab Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-main)] border-t border-[var(--border-color)] z-50 safe-area-bottom">
-          <div className="flex items-center justify-around h-16">
+      {/* MOBILE BOTTOM NAV (Visible < md) - Fixed Bottom */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-main)]/95 backdrop-blur-xl border-t border-[var(--border-color)] z-50 safe-area-bottom pb-safe transition-transform duration-300">
+          <div className="flex items-center justify-between px-2 h-16">
             <MobileTab to="/" icon={Calendar} label="Calendar" active={isActive('/')} />
             <MobileTab to="/discover" icon={Compass} label="Discover" active={isActive('/discover')} />
             
             <button 
                 onClick={() => setIsSearchOpen(true)}
-                className="flex flex-col items-center justify-center w-full h-full gap-1"
+                className="flex flex-col items-center justify-center w-16 h-full"
             >
-                <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-900/50 mb-1">
+                <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-900/50 mb-1 active:scale-95 transition-transform">
                     <Search className="w-5 h-5" />
                 </div>
+                <span className="text-[9px] font-medium text-slate-400">Search</span>
             </button>
             
             <MobileTab to="/watchlist" icon={List} label="Library" active={isActive('/watchlist')} />
+            
             <button 
-                onClick={logout}
-                className="flex flex-col items-center justify-center w-full h-full gap-1 text-slate-500 active:text-slate-300"
+                onClick={() => setIsUserMenuOpen(true)}
+                className={`flex flex-col items-center justify-center w-full max-w-[4rem] h-full gap-1 ${isUserMenuOpen ? 'text-indigo-400' : 'text-slate-500'}`}
             >
-                <LogOut className="w-5 h-5" />
-                <span className="text-[10px] font-medium">Logout</span>
+                 <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${isUserMenuOpen ? 'border-indigo-500 bg-indigo-500/20' : 'border-slate-600 bg-slate-800'}`}>
+                    <span className="text-[10px] font-bold">{user.username.charAt(0).toUpperCase()}</span>
+                 </div>
+                 <span className="text-[10px] font-medium">Profile</span>
             </button>
           </div>
       </div>
+
+      {/* MOBILE USER MENU DRAWER */}
+      {isUserMenuOpen && (
+          <div className="md:hidden fixed inset-0 z-[60] flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
+              <div 
+                ref={menuRef}
+                className="bg-zinc-900 border-t border-zinc-800 rounded-t-3xl p-6 pb-24 shadow-2xl animate-enter"
+              >
+                  <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-900/30">
+                              <span className="text-lg font-bold">{user.username.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div>
+                              <h3 className="font-bold text-white text-lg">{user.username}</h3>
+                              <p className="text-zinc-500 text-xs flex items-center gap-1.5">
+                                  {user.isCloud ? <div className="w-2 h-2 rounded-full bg-emerald-500" /> : <div className="w-2 h-2 rounded-full bg-orange-500" />}
+                                  {user.isCloud ? 'Cloud Account' : 'Local Device'}
+                              </p>
+                          </div>
+                      </div>
+                      <button 
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="p-2 bg-zinc-800 rounded-full text-zinc-400 hover:text-white"
+                      >
+                          <X className="w-5 h-5" />
+                      </button>
+                  </div>
+
+                  <div className="space-y-3">
+                      <button 
+                        onClick={() => { setIsUserMenuOpen(false); setIsSettingsOpen(true); }}
+                        className="w-full bg-zinc-800/50 hover:bg-zinc-800 p-4 rounded-xl flex items-center gap-4 text-zinc-200 transition-colors border border-zinc-800"
+                      >
+                          <Settings className="w-5 h-5 text-indigo-400" />
+                          <div className="flex-1 text-left font-medium">Settings & Sync</div>
+                      </button>
+                      
+                      <button 
+                        onClick={() => { window.location.reload(); }}
+                        className="w-full bg-zinc-800/50 hover:bg-zinc-800 p-4 rounded-xl flex items-center gap-4 text-zinc-200 transition-colors border border-zinc-800"
+                      >
+                          <RefreshCw className="w-5 h-5 text-emerald-400" />
+                          <div className="flex-1 text-left font-medium">Force Refresh</div>
+                      </button>
+
+                      <button 
+                        onClick={logout}
+                        className="w-full bg-red-500/10 hover:bg-red-500/20 p-4 rounded-xl flex items-center gap-4 text-red-400 transition-colors border border-red-500/10"
+                      >
+                          <LogOut className="w-5 h-5" />
+                          <div className="flex-1 text-left font-medium">Log Out</div>
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
       
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </>
@@ -142,9 +197,9 @@ const Navbar: React.FC = () => {
 };
 
 const MobileTab = ({ to, icon: Icon, label, active }: { to: string, icon: any, label: string, active: boolean }) => (
-    <Link to={to} className={`flex flex-col items-center justify-center w-full h-full gap-1 ${active ? 'text-indigo-400' : 'text-slate-500'}`}>
+    <Link to={to} className={`flex flex-col items-center justify-center w-full max-w-[4rem] h-full gap-1 active:scale-95 transition-transform ${active ? 'text-indigo-400' : 'text-slate-500'}`}>
         <Icon className={`w-5 h-5 ${active ? 'fill-current opacity-20' : ''}`} strokeWidth={active ? 2.5 : 2} />
-        <span className="text-[10px] font-medium">{label}</span>
+        <span className="text-[9px] font-medium">{label}</span>
     </Link>
 );
 

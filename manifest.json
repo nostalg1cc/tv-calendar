@@ -1,7 +1,7 @@
 {
   "name": "TV Calendar",
   "short_name": "TVCal",
-  "start_url": "./",
+  "start_url": "https://tv-calendar-rose.vercel.app/",
   "display": "standalone",
   "background_color": "#0f1115",
   "theme_color": "#0f1115",
