@@ -68,18 +68,21 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div 
-        className="glass-panel w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]"
+        className="bg-zinc-900 border border-zinc-800 w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/5 shrink-0">
-          <h2 className="text-2xl font-bold text-white tracking-tight">{title}</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+        <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50 shrink-0">
+          <div>
+              <h2 className="text-2xl font-bold text-white tracking-tight">{title}</h2>
+              <p className="text-sm text-zinc-400">{mediaType === 'tv' ? 'TV Series' : 'Movies'}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
         
         <div 
-            className="flex-1 overflow-y-auto p-6 custom-scrollbar" 
+            className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-zinc-950" 
             ref={containerRef}
             onScroll={handleScroll}
         >
@@ -88,7 +91,7 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
                     const isAdded = allTrackedShows.some(s => s.id === show.id);
                     return (
                         <div key={`${show.id}-${show.media_type}`} className="flex flex-col gap-2 group relative">
-                            <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-white/5 bg-white/5 transition-all duration-300 group-hover:border-indigo-500/30">
+                            <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-zinc-800 bg-zinc-900 transition-all duration-300 group-hover:border-indigo-500/30 group-hover:-translate-y-1">
                                 <img 
                                     src={getImageUrl(show.poster_path)} 
                                     alt={show.name} 
@@ -102,7 +105,7 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
                                         className={`
                                             w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all
                                             ${isAdded 
-                                                ? 'bg-green-600/80 text-white cursor-default' 
+                                                ? 'bg-emerald-600/80 text-white cursor-default' 
                                                 : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30'}
                                         `}
                                     >
@@ -112,8 +115,8 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
                                 </div>
                             </div>
                             <div>
-                                <h3 className="font-bold text-white text-sm leading-tight truncate group-hover:text-indigo-400 transition-colors" title={show.name}>{show.name}</h3>
-                                <p className="text-xs text-slate-400">{show.first_air_date ? show.first_air_date.split('-')[0] : 'Unknown'}</p>
+                                <h3 className="font-bold text-zinc-200 text-sm leading-tight truncate group-hover:text-indigo-400 transition-colors" title={show.name}>{show.name}</h3>
+                                <p className="text-xs text-zinc-500">{show.first_air_date ? show.first_air_date.split('-')[0] : 'Unknown'}</p>
                             </div>
                         </div>
                     );
@@ -127,7 +130,7 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
             )}
             
             {!loading && !hasMore && items.length > 0 && (
-                 <div className="text-center py-8 text-slate-500 text-sm">
+                 <div className="text-center py-8 text-zinc-600 text-sm font-medium">
                     You've reached the end of the list.
                  </div>
             )}

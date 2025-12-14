@@ -57,10 +57,10 @@ const WatchlistPage: React.FC = () => {
   return (
     <div className="w-full">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 border-b border-white/5 pb-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 border-b border-zinc-800 pb-6">
         <div>
            <h1 className="text-3xl font-bold text-white mb-2">My Library</h1>
-           <p className="text-slate-400 text-sm flex items-center gap-4">
+           <p className="text-zinc-400 text-sm flex items-center gap-4">
              <span className="flex items-center gap-1"><Tv className="w-4 h-4" /> {showCount} Series</span>
              <span className="flex items-center gap-1"><Film className="w-4 h-4" /> {movieCount} Movies</span>
            </p>
@@ -68,32 +68,32 @@ const WatchlistPage: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-3">
              <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-indigo-400" />
                 <input 
                     type="text" 
                     value={localSearch}
                     onChange={(e) => setLocalSearch(e.target.value)}
                     placeholder="Filter..."
-                    className="bg-black/20 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none w-40 focus:w-60 transition-all"
+                    className="bg-black/20 border border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none w-40 focus:w-60 transition-all"
                 />
              </div>
              
-             <div className="h-6 w-px bg-white/10 mx-1 hidden md:block" />
+             <div className="h-6 w-px bg-zinc-800 mx-1 hidden md:block" />
 
              <button 
                 onClick={() => setFilterBy(filterBy === 'all' ? 'tv' : filterBy === 'tv' ? 'movie' : 'all')}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 transition-colors"
              >
-                <Filter className="w-4 h-4 text-slate-400" /> 
-                <span className="uppercase text-xs font-bold tracking-wide">{filterBy}</span>
+                <Filter className="w-4 h-4 text-zinc-400" /> 
+                <span className="uppercase text-xs font-bold tracking-wide text-zinc-300">{filterBy}</span>
              </button>
 
              <button 
                 onClick={() => setSortBy(sortBy === 'name' ? 'upcoming' : 'name')}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 transition-colors"
              >
-                <ArrowUpDown className="w-4 h-4 text-slate-400" />
-                <span className="uppercase text-xs font-bold tracking-wide">{sortBy === 'upcoming' ? 'Next Airing' : 'A-Z'}</span>
+                <ArrowUpDown className="w-4 h-4 text-zinc-400" />
+                <span className="uppercase text-xs font-bold tracking-wide text-zinc-300">{sortBy === 'upcoming' ? 'Next Airing' : 'A-Z'}</span>
              </button>
              
              <button 
@@ -107,10 +107,10 @@ const WatchlistPage: React.FC = () => {
 
       {/* Empty State */}
       {allTrackedShows.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-[50vh] surface-card rounded-3xl border-dashed">
-             <Tv className="w-16 h-16 text-slate-600 mb-4" />
+          <div className="flex flex-col items-center justify-center h-[50vh] surface-card rounded-3xl border-dashed border-zinc-800">
+             <Tv className="w-16 h-16 text-zinc-600 mb-4" />
              <h2 className="text-xl font-bold text-white">Your library is empty</h2>
-             <p className="text-slate-500 mb-6">Track shows to see them here.</p>
+             <p className="text-zinc-500 mb-6">Track shows to see them here.</p>
              <Link to="/discover" className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-500">
                 Discover Shows
              </Link>
@@ -125,7 +125,7 @@ const WatchlistPage: React.FC = () => {
           const foundList = subscribedLists.find(l => l.items.some(i => i.id === show.id));
           
           return (
-            <div key={show.id} className="surface-card rounded-xl overflow-hidden flex h-36 group relative">
+            <div key={show.id} className="surface-card rounded-xl overflow-hidden flex h-36 group relative bg-zinc-900 border border-zinc-800 hover:border-zinc-700">
                 {/* Poster */}
                 <div className="w-24 shrink-0 relative bg-black">
                     <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="" />
@@ -138,21 +138,22 @@ const WatchlistPage: React.FC = () => {
                         className="absolute inset-0 bg-cover bg-center opacity-0 group-hover:opacity-10 transition-all duration-500 pointer-events-none transform scale-125"
                         style={{ backgroundImage: `url(${getBackdropUrl(show.backdrop_path)})` }}
                     />
+                    <div className="absolute inset-0 bg-gradient-to-l from-zinc-900 via-zinc-900/90 to-transparent opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500" />
 
-                    <div>
+                    <div className="relative z-10">
                         <div className="flex justify-between items-start mb-1">
-                            <h3 className="font-bold text-slate-100 leading-tight line-clamp-1" title={show.name}>{show.name}</h3>
+                            <h3 className="font-bold text-zinc-100 leading-tight line-clamp-1 group-hover:text-indigo-300 transition-colors" title={show.name}>{show.name}</h3>
                             {(!foundList || isManual) && (
                                 <button 
                                     onClick={() => setDeleteId(show.id)} 
-                                    className="text-slate-600 hover:text-red-400 transition-colors p-1 -mr-1"
+                                    className="text-zinc-600 hover:text-red-400 transition-colors p-1 -mr-1"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             )}
                         </div>
                         
-                        <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                        <div className="flex items-center gap-2 text-xs text-zinc-500 mb-2">
                              {show.media_type === 'movie' ? <Film className="w-3 h-3" /> : <Tv className="w-3 h-3" />}
                              <span>{show.first_air_date?.substring(0, 4)}</span>
                              <span>•</span>
@@ -160,21 +161,21 @@ const WatchlistPage: React.FC = () => {
                         </div>
                         
                         {foundList && !isManual && (
-                             <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-[10px] text-slate-400 max-w-full truncate">
+                             <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-[10px] text-zinc-400 max-w-full truncate">
                                  <LinkIcon className="w-3 h-3" />
                                  <span className="truncate">{foundList.name}</span>
                              </div>
                         )}
                     </div>
 
-                    <div className="mt-auto pt-2 border-t border-white/5">
+                    <div className="relative z-10 mt-auto pt-2 border-t border-white/5">
                         {nextAirDate ? (
                             <div className="flex items-center gap-2 text-xs text-emerald-400 font-medium">
                                 <Clock className="w-3.5 h-3.5" />
                                 <span>Next: {format(parseISO(nextAirDate), 'MMM d')}</span>
                             </div>
                         ) : (
-                            <div className="text-[10px] text-slate-600 font-medium uppercase tracking-wide">
+                            <div className="text-[10px] text-zinc-600 font-medium uppercase tracking-wide">
                                 {show.media_type === 'movie' ? 'Released' : 'Ended / TBD'}
                             </div>
                         )}
@@ -187,17 +188,37 @@ const WatchlistPage: React.FC = () => {
 
       <ListManager isOpen={isListManagerOpen} onClose={() => setIsListManagerOpen(false)} />
 
-      {/* Simple Alert for Delete */}
+      {/* Confirm Delete Modal */}
       {deleteId && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setDeleteId(null)}>
-              <div className="surface-panel p-6 rounded-2xl max-w-sm w-full border border-red-500/20" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                      <AlertCircle className="text-red-500" /> Confirm Removal
-                  </h3>
-                  <p className="text-slate-400 text-sm mb-6">Remove this show from your library?</p>
+              <div 
+                className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl" 
+                onClick={e => e.stopPropagation()}
+              >
+                  <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                          <AlertCircle className="w-5 h-5" />
+                      </div>
+                      <h3 className="text-lg font-bold text-white">Confirm Removal</h3>
+                  </div>
+                  
+                  <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
+                      Are you sure you want to remove this from your library? This action cannot be undone.
+                  </p>
+                  
                   <div className="flex justify-end gap-3">
-                      <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
-                      <button onClick={confirmDelete} className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded-lg">Remove</button>
+                      <button 
+                        onClick={() => setDeleteId(null)} 
+                        className="px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                      >
+                          Cancel
+                      </button>
+                      <button 
+                        onClick={confirmDelete} 
+                        className="px-4 py-2.5 rounded-lg text-sm font-bold bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/20 transition-all"
+                      >
+                          Remove Item
+                      </button>
                   </div>
               </div>
           </div>
