@@ -3,7 +3,7 @@ import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths, addDays, isSameDay
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw, Filter, Tv, Film } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import EpisodeModal from '../components/EpisodeModal';
 import { getImageUrl } from '../services/tmdb';
@@ -13,6 +13,10 @@ const CalendarPage: React.FC = () => {
   const { episodes, loading, isSyncing, settings, updateSettings, refreshEpisodes } = useAppContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  
+  // Local Filter State
+  const [showTV, setShowTV] = useState(true);
+  const [showMovies, setShowMovies] = useState(true);
 
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
@@ -38,9 +42,14 @@ const CalendarPage: React.FC = () => {
   const filterEpisodes = (eps: Episode[]) => {
       if (!eps) return [];
       return eps.filter(ep => {
+          // Global Settings Filters
           if (settings.hideTheatrical && ep.is_movie && ep.release_type === 'theatrical') {
               return false;
           }
+          // Local Type Filters
+          if (!showTV && !ep.is_movie) return false;
+          if (!showMovies && ep.is_movie) return false;
+
           return true;
       });
   };
@@ -97,6 +106,7 @@ const CalendarPage: React.FC = () => {
                       src={imageUrl} 
                       className={`w-full h-full ${imgClass} ${isContain ? 'opacity-100 drop-shadow-xl' : 'opacity-80'}`}
                       alt=""
+                      loading="lazy"
                   />
                   
                   {/* Heavy Gradient for text readability - Only show if Clean Grid is OFF */}
@@ -140,7 +150,7 @@ const CalendarPage: React.FC = () => {
     <div className={`flex flex-col h-full gap-4 ${settings.compactCalendar ? 'overflow-hidden' : ''}`}>
       
       {/* Header Toolbar */}
-      <div className="flex items-center justify-between gap-2 pt-2 shrink-0 md:pb-0 pb-2">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2 shrink-0 md:pb-0 pb-2">
         <div className="flex items-center gap-4">
             <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
                 {format(currentDate, 'MMMM yyyy')}
@@ -161,27 +171,63 @@ const CalendarPage: React.FC = () => {
                     <List className="w-3.5 h-3.5" /> <span className="hidden md:inline">List</span>
                 </button>
             </div>
+            
+            {/* Filter Toggle */}
+            <div className="hidden md:flex items-center gap-1">
+                <button 
+                    onClick={() => setShowTV(!showTV)}
+                    className={`p-1.5 rounded-lg border transition-colors ${showTV ? 'bg-zinc-800 border-zinc-700 text-indigo-400' : 'border-transparent text-zinc-600 hover:text-zinc-400'}`}
+                    title="Toggle TV Shows"
+                >
+                    <Tv className="w-4 h-4" />
+                </button>
+                <button 
+                    onClick={() => setShowMovies(!showMovies)}
+                    className={`p-1.5 rounded-lg border transition-colors ${showMovies ? 'bg-zinc-800 border-zinc-700 text-pink-400' : 'border-transparent text-zinc-600 hover:text-zinc-400'}`}
+                    title="Toggle Movies"
+                >
+                    <Film className="w-4 h-4" />
+                </button>
+            </div>
         </div>
         
-        <div className="flex items-center gap-1 md:gap-2">
-           <button 
-                onClick={() => refreshEpisodes(true)}
-                disabled={loading || isSyncing}
-                className="p-2 text-zinc-400 hover:text-indigo-400 transition-colors"
-                title="Refresh"
-            >
-                <RefreshCw className={`w-4 h-4 ${loading || isSyncing ? 'animate-spin' : ''}`} />
-            </button>
-            <div className="h-6 w-px bg-zinc-800 mx-1" />
-            <button onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
-                <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button onClick={goToToday} className="text-xs font-bold text-zinc-400 hover:text-white px-2 uppercase tracking-wider hidden md:block">
-                Today
-            </button>
-            <button onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
-                <ChevronRight className="w-5 h-5" />
-            </button>
+        <div className="flex items-center justify-between md:justify-end gap-2 w-full md:w-auto">
+             {/* Mobile Filter Toggles */}
+             <div className="flex md:hidden items-center gap-1 bg-zinc-900 rounded-lg p-0.5 border border-zinc-800">
+                <button 
+                    onClick={() => setShowTV(!showTV)}
+                    className={`p-1.5 rounded-md transition-colors ${showTV ? 'bg-zinc-800 text-indigo-400' : 'text-zinc-600'}`}
+                >
+                    <Tv className="w-4 h-4" />
+                </button>
+                <button 
+                    onClick={() => setShowMovies(!showMovies)}
+                    className={`p-1.5 rounded-md transition-colors ${showMovies ? 'bg-zinc-800 text-pink-400' : 'text-zinc-600'}`}
+                >
+                    <Film className="w-4 h-4" />
+                </button>
+             </div>
+
+            <div className="flex items-center gap-1 md:gap-2">
+                <button 
+                        onClick={() => refreshEpisodes(true)}
+                        disabled={loading || isSyncing}
+                        className="p-2 text-zinc-400 hover:text-indigo-400 transition-colors"
+                        title="Refresh"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading || isSyncing ? 'animate-spin' : ''}`} />
+                    </button>
+                    <div className="h-6 w-px bg-zinc-800 mx-1" />
+                    <button onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button onClick={goToToday} className="text-xs font-bold text-zinc-400 hover:text-white px-2 uppercase tracking-wider hidden md:block">
+                        Today
+                    </button>
+                    <button onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
+            </div>
         </div>
       </div>
       
@@ -268,7 +314,12 @@ const CalendarPage: React.FC = () => {
                                                         return (
                                                             <div key={i} className="flex items-center gap-2 bg-zinc-900/90 p-1.5 rounded border border-zinc-800/50 truncate shrink-0">
                                                                 <div className="relative shrink-0 w-5 h-7">
-                                                                    <img src={getImageUrl(posterSrc)} className="w-full h-full object-cover rounded-[2px] opacity-90" alt="" />
+                                                                    <img 
+                                                                        src={getImageUrl(posterSrc)} 
+                                                                        className="w-full h-full object-cover rounded-[2px] opacity-90" 
+                                                                        alt=""
+                                                                        loading="lazy"
+                                                                    />
                                                                 </div>
                                                                 <div className="min-w-0 flex-1 flex flex-col justify-center">
                                                                     <div className="text-[9px] text-zinc-200 font-medium truncate leading-none mb-0.5">{ep.show_name}</div>
@@ -351,7 +402,12 @@ const CalendarPage: React.FC = () => {
                                                         className="surface-card rounded-xl p-3 flex gap-3 cursor-pointer group bg-zinc-900 border border-zinc-800 hover:border-indigo-500/30 transition-colors"
                                                     >
                                                         <div className="relative w-12 h-16 shrink-0 rounded-md overflow-hidden bg-black shadow-sm">
-                                                            <img src={getImageUrl(posterSrc)} className="w-full h-full object-cover" alt="" />
+                                                            <img 
+                                                                src={getImageUrl(posterSrc)} 
+                                                                className="w-full h-full object-cover" 
+                                                                alt=""
+                                                                loading="lazy"
+                                                            />
                                                         </div>
                                                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                                                             <h4 className="font-bold text-zinc-200 text-sm truncate group-hover:text-indigo-400 transition-colors">

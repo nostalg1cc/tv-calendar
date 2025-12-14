@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
-import { User, TVShow, Episode, AppSettings, SubscribedList, Reminder } from '../types';
+import { User, TVShow, Episode, AppSettings, SubscribedList, Reminder, Interaction } from '../types';
 import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails, setApiToken } from '../services/tmdb';
 import { get, set, del } from 'idb-keyval';
 import { format, subWeeks, addWeeks, parseISO, isSameDay, subMinutes } from 'date-fns';
@@ -33,6 +33,11 @@ interface AppContextType {
   addReminder: (reminder: Reminder) => Promise<void>;
   removeReminder: (id: string) => Promise<void>;
   
+  // Interactions (Watched / Rated)
+  interactions: Record<string, Interaction>; // Key: "{mediaType}-{id}"
+  toggleWatched: (id: number, mediaType: 'tv' | 'movie') => Promise<void>;
+  setRating: (id: number, mediaType: 'tv' | 'movie', rating: number) => Promise<void>;
+
   // Reminder UI State
   reminderCandidate: TVShow | Episode | null;
   setReminderCandidate: (item: TVShow | Episode | null) => void;
@@ -126,6 +131,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   });
 
+  const [interactions, setInteractions] = useState<Record<string, Interaction>>(() => {
+      try {
+          const saved = localStorage.getItem('tv_calendar_interactions');
+          return saved ? JSON.parse(saved) : {};
+      } catch {
+          return {};
+      }
+  });
+
   // Episodes State
   const [episodes, setEpisodes] = useState<Record<string, Episode[]>>({});
   const [loading, setLoading] = useState<boolean>(true);
@@ -180,8 +194,49 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         localStorage.setItem('tv_calendar_subscribed_lists', JSON.stringify(subscribedLists));
         localStorage.setItem('tv_calendar_settings', JSON.stringify(settings));
         localStorage.setItem('tv_calendar_reminders', JSON.stringify(reminders));
+        localStorage.setItem('tv_calendar_interactions', JSON.stringify(interactions));
     }
-  }, [watchlist, subscribedLists, settings, user, reminders]);
+  }, [watchlist, subscribedLists, settings, user, reminders, interactions]);
+
+  // --- Interaction Logic (Watched/Rate) ---
+  const toggleWatched = async (id: number, mediaType: 'tv' | 'movie') => {
+      const key = `${mediaType}-${id}`;
+      const current = interactions[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 };
+      const updated = { ...current, is_watched: !current.is_watched };
+      
+      setInteractions(prev => ({ ...prev, [key]: updated }));
+
+      if (user?.isCloud && supabase) {
+          await supabase.from('interactions').upsert({
+              user_id: user.id,
+              tmdb_id: id,
+              media_type: mediaType,
+              is_watched: updated.is_watched,
+              rating: updated.rating,
+              updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id, tmdb_id, media_type' });
+      }
+  };
+
+  const setRating = async (id: number, mediaType: 'tv' | 'movie', rating: number) => {
+      const key = `${mediaType}-${id}`;
+      const current = interactions[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 };
+      const updated = { ...current, rating: rating };
+      
+      setInteractions(prev => ({ ...prev, [key]: updated }));
+
+      if (user?.isCloud && supabase) {
+          await supabase.from('interactions').upsert({
+              user_id: user.id,
+              tmdb_id: id,
+              media_type: mediaType,
+              is_watched: updated.is_watched,
+              rating: updated.rating,
+              updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id, tmdb_id, media_type' });
+      }
+  };
+
 
   // --- Refresh Episodes Logic ---
   const refreshEpisodes = useCallback(async (
@@ -500,6 +555,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               })));
           }
 
+          const { data: remoteInteractions } = await supabase.from('interactions').select('*');
+          if (remoteInteractions) {
+              const intMap: Record<string, Interaction> = {};
+              remoteInteractions.forEach((i: any) => {
+                  intMap[`${i.media_type}-${i.tmdb_id}`] = {
+                      tmdb_id: i.tmdb_id,
+                      media_type: i.media_type,
+                      is_watched: i.is_watched,
+                      rating: i.rating
+                  };
+              });
+              setInteractions(intMap);
+          }
+
           // Trigger explicit refresh with loaded data
           refreshEpisodes(true, loadedWatchlist, loadedLists);
       }
@@ -570,6 +639,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSubscribedLists([]);
     setEpisodes({});
     setReminders([]);
+    setInteractions({});
+    localStorage.removeItem('tv_calendar_interactions');
   };
 
   // --- Reminders Logic ---
@@ -814,6 +885,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               setWatchlist(data.watchlist);
           }
           if (data.reminders) setReminders(data.reminders);
+          if (data.interactions) setInteractions(data.interactions);
       }
       refreshEpisodes(true, newWatchlist, newLists);
   };
@@ -865,10 +937,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           },
           watchlist: simpleWatchlist,
           lists: simpleLists,
-          settings
+          settings,
+          interactions // Include in sync
       };
       return LZString.compressToEncodedURIComponent(JSON.stringify(payload));
-  }, [user, watchlist, subscribedLists, settings]);
+  }, [user, watchlist, subscribedLists, settings, interactions]);
 
   const processSyncPayload = useCallback(async (encodedPayload: string) => {
       try {
@@ -890,6 +963,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
           if (data.settings) {
               updateSettings(data.settings);
+          }
+
+          if (data.interactions) {
+              setInteractions(data.interactions);
+              if (!data.user?.isCloud) {
+                  localStorage.setItem('tv_calendar_interactions', JSON.stringify(data.interactions));
+              }
           }
 
           if (data.watchlist && Array.isArray(data.watchlist)) {
@@ -945,7 +1025,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isMobileWarningOpen, closeMobileWarning,
       reminders, addReminder, removeReminder,
       reminderCandidate, setReminderCandidate,
-      reloadAccount
+      reloadAccount,
+      interactions, toggleWatched, setRating
     }}>
       {children}
     </AppContext.Provider>

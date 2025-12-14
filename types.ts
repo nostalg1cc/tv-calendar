@@ -84,3 +84,10 @@ export interface Reminder {
   episode_number?: number;
   offset_minutes: number; // 0 = On day, 1440 = 1 Day Before
 }
+
+export interface Interaction {
+    tmdb_id: number;
+    media_type: 'tv' | 'movie';
+    is_watched: boolean;
+    rating: number; // 0-5
+}

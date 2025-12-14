@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Trash2, Star, Tv, ArrowUpDown, Clock, AlertCircle, Film, Filter, Link as LinkIcon, ListPlus, Search } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Trash2, Star, Tv, ArrowUpDown, Clock, AlertCircle, Film, Filter, Link as LinkIcon, ListPlus, Search, Eye, EyeOff, Check, StarOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
@@ -8,15 +8,19 @@ import { Episode } from '../types';
 import ListManager from '../components/ListManager';
 
 type SortOption = 'name' | 'upcoming';
-type FilterOption = 'all' | 'tv' | 'movie';
+type FilterOption = 'all' | 'tv' | 'movie' | 'unwatched_movie';
 
 const WatchlistPage: React.FC = () => {
-  const { watchlist, subscribedLists, allTrackedShows, removeFromWatchlist, episodes } = useAppContext();
+  const { watchlist, subscribedLists, allTrackedShows, removeFromWatchlist, episodes, interactions, toggleWatched, setRating } = useAppContext();
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isListManagerOpen, setIsListManagerOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
+
+  // Infinite Scroll State
+  const [displayLimit, setDisplayLimit] = useState(20);
+  const loaderRef = useRef<HTMLDivElement>(null);
 
   // Counts
   const movieCount = allTrackedShows.filter(s => s.media_type === 'movie').length;
@@ -33,7 +37,18 @@ const WatchlistPage: React.FC = () => {
   const processedList = useMemo(() => {
     let list = [...allTrackedShows];
 
-    if (filterBy !== 'all') list = list.filter(item => item.media_type === filterBy);
+    if (filterBy === 'tv') {
+        list = list.filter(item => item.media_type === 'tv');
+    } else if (filterBy === 'movie') {
+        list = list.filter(item => item.media_type === 'movie');
+    } else if (filterBy === 'unwatched_movie') {
+        list = list.filter(item => {
+             if (item.media_type !== 'movie') return false;
+             const interact = interactions[`movie-${item.id}`];
+             return !interact?.is_watched;
+        });
+    }
+
     if (localSearch) list = list.filter(item => item.name.toLowerCase().includes(localSearch.toLowerCase()));
 
     return list.sort((a, b) => {
@@ -45,13 +60,55 @@ const WatchlistPage: React.FC = () => {
       if (!dateA && dateB) return 1;
       return a.name.localeCompare(b.name);
     });
-  }, [allTrackedShows, sortBy, filterBy, episodes, localSearch]);
+  }, [allTrackedShows, sortBy, filterBy, episodes, localSearch, interactions]);
+
+  // Handle Infinite Scroll
+  useEffect(() => {
+      const observer = new IntersectionObserver((entries) => {
+          if (entries[0].isIntersecting) {
+              setDisplayLimit(prev => Math.min(prev + 20, processedList.length));
+          }
+      }, { threshold: 0.1 });
+
+      if (loaderRef.current) {
+          observer.observe(loaderRef.current);
+      }
+
+      return () => observer.disconnect();
+  }, [processedList.length]);
+
+  // Reset limit on filter change
+  useEffect(() => {
+      setDisplayLimit(20);
+  }, [filterBy, sortBy, localSearch]);
 
   const confirmDelete = () => {
     if (deleteId) {
       removeFromWatchlist(deleteId);
       setDeleteId(null);
     }
+  };
+
+  const visibleItems = processedList.slice(0, displayLimit);
+
+  // Rating Stars Helper
+  const RatingStars = ({ item }: { item: any }) => {
+      const interact = interactions[`${item.media_type}-${item.id}`];
+      const currentRating = interact?.rating || 0;
+      
+      return (
+          <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+              {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    onClick={() => setRating(item.id, item.media_type, star === currentRating ? 0 : star)}
+                    className={`p-0.5 hover:scale-110 transition-transform ${star <= currentRating ? 'text-yellow-400' : 'text-zinc-700 hover:text-yellow-200'}`}
+                  >
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                  </button>
+              ))}
+          </div>
+      );
   };
 
   return (
@@ -80,13 +137,34 @@ const WatchlistPage: React.FC = () => {
              
              <div className="h-6 w-px bg-zinc-800 mx-1 hidden md:block" />
 
-             <button 
-                onClick={() => setFilterBy(filterBy === 'all' ? 'tv' : filterBy === 'tv' ? 'movie' : 'all')}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 transition-colors"
-             >
-                <Filter className="w-4 h-4 text-zinc-400" /> 
-                <span className="uppercase text-xs font-bold tracking-wide text-zinc-300">{filterBy}</span>
-             </button>
+             {/* Smart Filter Dropdown logic can be simple buttons for now */}
+             <div className="flex items-center bg-zinc-800 rounded-lg p-0.5 border border-zinc-700">
+                 <button 
+                    onClick={() => setFilterBy('all')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${filterBy === 'all' ? 'bg-zinc-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+                 >
+                     All
+                 </button>
+                 <button 
+                    onClick={() => setFilterBy('tv')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${filterBy === 'tv' ? 'bg-zinc-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+                 >
+                     TV
+                 </button>
+                 <button 
+                    onClick={() => setFilterBy('movie')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${filterBy === 'movie' ? 'bg-zinc-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+                 >
+                     Movie
+                 </button>
+                  <button 
+                    onClick={() => setFilterBy('unwatched_movie')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${filterBy === 'unwatched_movie' ? 'bg-zinc-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+                    title="Movies you haven't marked as watched"
+                 >
+                     <EyeOff className="w-3 h-3" /> Unwatched
+                 </button>
+             </div>
 
              <button 
                 onClick={() => setSortBy(sortBy === 'name' ? 'upcoming' : 'name')}
@@ -119,16 +197,28 @@ const WatchlistPage: React.FC = () => {
 
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
-        {processedList.map((show) => {
+        {visibleItems.map((show) => {
           const nextAirDate = getNextEpisodeDate(show.id);
           const isManual = watchlist.some(s => s.id === show.id);
           const foundList = subscribedLists.find(l => l.items.some(i => i.id === show.id));
+          const interact = interactions[`${show.media_type}-${show.id}`];
+          const isWatched = interact?.is_watched;
           
           return (
-            <div key={show.id} className="surface-card rounded-xl overflow-hidden flex h-36 group relative bg-zinc-900 border border-zinc-800 hover:border-zinc-700">
+            <div key={show.id} className="surface-card rounded-xl overflow-hidden flex h-40 group relative bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all">
                 {/* Poster */}
-                <div className="w-24 shrink-0 relative bg-black">
-                    <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="" />
+                <div className="w-28 shrink-0 relative bg-black">
+                    <img 
+                        src={getImageUrl(show.poster_path)} 
+                        loading="lazy"
+                        className={`w-full h-full object-cover transition-all ${isWatched ? 'grayscale opacity-50' : 'opacity-80 group-hover:opacity-100'}`} 
+                        alt="" 
+                    />
+                    {isWatched && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                            <Check className="w-8 h-8 text-emerald-500 drop-shadow-lg" />
+                        </div>
+                    )}
                 </div>
                 
                 {/* Content */}
@@ -140,15 +230,17 @@ const WatchlistPage: React.FC = () => {
                     />
                     <div className="absolute inset-0 bg-gradient-to-l from-zinc-900 via-zinc-900/90 to-transparent opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500" />
 
-                    <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-1">
-                            <h3 className="font-bold text-zinc-100 leading-tight line-clamp-1 group-hover:text-indigo-300 transition-colors" title={show.name}>{show.name}</h3>
+                    <div className="relative z-10 min-w-0">
+                        <div className="flex justify-between items-start mb-1 gap-2">
+                            <h3 className={`font-bold leading-tight line-clamp-1 group-hover:text-indigo-300 transition-colors ${isWatched ? 'text-zinc-500 line-through decoration-zinc-600' : 'text-zinc-100'}`} title={show.name}>
+                                {show.name}
+                            </h3>
                             {(!foundList || isManual) && (
                                 <button 
                                     onClick={() => setDeleteId(show.id)} 
-                                    className="text-zinc-600 hover:text-red-400 transition-colors p-1 -mr-1"
+                                    className="text-zinc-600 hover:text-red-400 transition-colors p-1 -mr-2 -mt-1"
                                 >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                             )}
                         </div>
@@ -156,9 +248,25 @@ const WatchlistPage: React.FC = () => {
                         <div className="flex items-center gap-2 text-xs text-zinc-500 mb-2">
                              {show.media_type === 'movie' ? <Film className="w-3 h-3" /> : <Tv className="w-3 h-3" />}
                              <span>{show.first_air_date?.substring(0, 4)}</span>
-                             <span>•</span>
-                             <span className="text-indigo-400 font-medium">{show.vote_average.toFixed(1)}</span>
+                             {show.media_type === 'movie' && (
+                                 <div className="flex items-center gap-1 ml-auto">
+                                     <button 
+                                        onClick={() => toggleWatched(show.id, show.media_type)}
+                                        className={`p-1 rounded hover:bg-white/10 ${isWatched ? 'text-emerald-500' : 'text-zinc-600 hover:text-zinc-300'}`}
+                                        title={isWatched ? "Mark Unwatched" : "Mark Watched"}
+                                     >
+                                         {isWatched ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                     </button>
+                                 </div>
+                             )}
                         </div>
+                        
+                        {/* Rating for Movies */}
+                        {show.media_type === 'movie' && (
+                            <div className="mb-2">
+                                <RatingStars item={show} />
+                            </div>
+                        )}
                         
                         {foundList && !isManual && (
                              <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-[10px] text-zinc-400 max-w-full truncate">
@@ -185,6 +293,17 @@ const WatchlistPage: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Load More Trigger */}
+      {visibleItems.length < processedList.length && (
+          <div ref={loaderRef} className="py-8 flex justify-center">
+              <div className="flex items-center gap-2 text-zinc-500 text-sm animate-pulse">
+                  <div className="w-2 h-2 rounded-full bg-zinc-600" />
+                  <div className="w-2 h-2 rounded-full bg-zinc-600" />
+                  <div className="w-2 h-2 rounded-full bg-zinc-600" />
+              </div>
+          </div>
+      )}
 
       <ListManager isOpen={isListManagerOpen} onClose={() => setIsListManagerOpen(false)} />
 
