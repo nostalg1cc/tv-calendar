@@ -65,8 +65,14 @@ const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {
         if (response.status === 429 && retries > 0) {
             console.warn(`Rate limit hit for ${endpoint}. Retrying...`);
             const retryAfter = response.headers.get('Retry-After');
-            // If header exists, use it (seconds to ms), else wait 2000ms
-            const delay = retryAfter ? parseInt(retryAfter) * 1000 : 2000; 
+            // Improved Exponential Backoff:
+            // If Retry-After exists, use it.
+            // If not, scale: 1.5s, 3s, 6s...
+            let delay = retryAfter ? parseInt(retryAfter) * 1000 : 1500 * (4 - retries); 
+            
+            // Add jitter
+            delay += Math.random() * 500;
+            
             await wait(delay);
             return fetchTMDB(endpoint, params, retries - 1);
         }

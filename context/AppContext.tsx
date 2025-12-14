@@ -257,10 +257,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // --- Cache Validation Strategy ---
       // If NOT forced, and cache is fresh, and we have data... skip fetch
       if (!force && lastUpdate && (now - lastUpdate < CACHE_DURATION)) {
-           // We might already have data in state or IDB, but if we are here, state might be empty.
-           // However, if we are here via an "update" effect (adding a show), we do want to process.
-           // BUT, if this is the INITIAL load, we want to trust IDB.
-           
            // Double check IDB if state is empty
            if (Object.keys(episodes).length === 0) {
                const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES);
@@ -291,6 +287,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsSyncing(true);
       
       try {
+          // Accumulator for new data
+          // We start empty to ensure we don't keep deleted shows, 
+          // BUT we will update the main state incrementally.
           const newEpisodes: Record<string, Episode[]> = {};
           const processedIds = new Set<number>();
           
@@ -310,11 +309,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const updatedWatchlistMap = new Map<number, TVShow>();
           watchlist.forEach(w => updatedWatchlistMap.set(w.id, w));
 
-          // Process in batches
-          // Optimization: Increased batch size for faster loading (5)
-          const BATCH_SIZE = 5; 
-          for (let i = 0; i < uniqueItems.length; i += BATCH_SIZE) {
-              const batch = uniqueItems.slice(i, i + BATCH_SIZE);
+          // Process loop
+          let processedCount = 0;
+          
+          // Variable Batch Size Strategy:
+          // Start small (2) to get *something* on screen immediately.
+          // Then increase to (5) for throughput.
+          while (processedCount < uniqueItems.length) {
+              const currentBatchSize = processedCount === 0 ? 2 : 5;
+              const batch = uniqueItems.slice(processedCount, processedCount + currentBatchSize);
               
               await Promise.all(batch.map(async (item) => {
                   try {
@@ -417,9 +420,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   }
               }));
               
-              setSyncProgress(prev => ({ ...prev, current: Math.min(prev.current + BATCH_SIZE, uniqueItems.length) }));
+              // --- INCREMENTAL RENDER & SAVE LOGIC ---
+              
+              // 1. Immediately update UI state so user sees data appearing
+              setEpisodes(prev => ({ ...newEpisodes }));
+              
+              // 2. Unblock the "Loading" screen as soon as we have ANY data
+              setLoading(prev => {
+                  if (prev) return false;
+                  return prev;
+              });
+              
+              processedCount += currentBatchSize;
+              setSyncProgress(prev => ({ ...prev, current: Math.min(processedCount, uniqueItems.length) }));
+
+              // 3. Intermediate Save to IDB (Every ~20 items to avoid IO thrashing)
+              // Saves progress in case of crash/refresh
+              if (processedCount % 20 === 0) {
+                   await set(DB_KEY_EPISODES, newEpisodes);
+              }
           }
           
+          // Final State Set & Save
           setEpisodes(newEpisodes);
           await set(DB_KEY_EPISODES, newEpisodes);
           await set(DB_KEY_META, Date.now());
@@ -442,7 +464,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         vote_average: show.vote_average,
                         number_of_seasons: show.number_of_seasons // Important to save this!
                   }));
-                  // Batch upsert might be too large, but typically okay for watchlist size
                   await supabase.from('watchlist').upsert(rows, { onConflict: 'user_id, tmdb_id' });
               }
           }
@@ -511,30 +532,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
       
       updateTimeoutRef.current = setTimeout(() => {
-          // Only trigger if we have items but they might be desynced from episodes
-          // A simple heuristic: if we have more tracked shows than what's in cache? 
-          // For now, just trigger refreshEpisodes, which has logic to skip if cache is fresh.
-          // BUT, we pass 'force=false' so it respects cache duration...
-          // Actually, if I just added a show, I WANT it to appear.
-          // refreshEpisodes needs to know "I just added something".
-          // The current logic in refreshEpisodes will skip if cache is fresh. 
-          // We need a specific "update" trigger or just rely on manual refresh for now to save API calls?
-          // User asked for "quicker load".
-          
-          // Ideally: We should force refresh if the item count changed significantly?
-          // Let's stick to: If cache is fresh, do nothing. User can manually refresh if needed.
-          // OR: We force it if we know we just added something. 
-          // For stability, let's let the user hit refresh if they added something and it didn't appear immediately,
-          // OR simpler: The `refreshEpisodes` logic I wrote above checks `itemsToProcess`.
-          // If I added a show, `itemsToProcess` has it. `episodes` state doesn't have it.
-          // My `refreshEpisodes` logic rebuilds `newEpisodes` from scratch. 
-          // So if I call it, it WILL fetch everything again. That is slow.
-          
-          // COMPROMISE: We will NOT auto-refresh on watchlist change to keep it fast.
-          // The `addToWatchlist` function should trigger a targeted refresh or we leave it to user.
-          // I will leave this effect largely empty or very conservative.
-          
-          // Actually, let's just ensure we save state.
+          // Only force refresh if we really need to.
+          // For now, let's trust manual refreshes or the "add" buttons triggering focused refreshes.
       }, 2000);
 
       return () => {
@@ -555,35 +554,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loginCloud = async (session: any) => {
       if (!supabase) return;
 
-      const { user } = session;
+      const { user: authUser } = session;
       
       const { data: profile } = await supabase
         .from('profiles')
         .select('username, tmdb_key, settings')
-        .eq('id', user.id)
+        .eq('id', authUser.id)
         .single();
       
       if (profile) {
           const newUser: User = { 
-              id: user.id,
-              username: profile.username || user.email,
-              email: user.email,
+              id: authUser.id,
+              username: profile.username || authUser.email,
+              email: authUser.email,
               tmdbKey: profile.tmdb_key || '',
               isAuthenticated: true,
               isCloud: true
           };
           
-          // Clear any local cache from previous user to prevent bleeding
-          await del(DB_KEY_EPISODES);
-          await del(DB_KEY_META);
-          setEpisodes({}); 
+          // CRITICAL FIX: Do NOT wipe cache here on reload.
+          // Only wipe if the user ID has changed (switching accounts).
+          // We rely on 'logout' to clear data when user explicitly signs out.
+          if (user && user.id && user.id !== authUser.id) {
+               await del(DB_KEY_EPISODES);
+               await del(DB_KEY_META);
+               setEpisodes({}); 
+          }
 
           setUser(newUser);
           setApiToken(newUser.tmdbKey);
           if (profile.settings) setSettings(profile.settings);
 
           // Fetch Data & Set State
-          setLoading(true);
+          // Note: We intentionally do NOT set loading(true) if we already have data in episodes state
+          // This prevents the "flash" of empty state on reload.
+          if (Object.keys(episodes).length === 0) {
+             setLoading(true);
+          }
           
           const { data: remoteWatchlist } = await supabase.from('watchlist').select('*');
           if (remoteWatchlist) {
@@ -643,6 +650,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   };
               });
               setInteractions(intMap);
+          }
+          
+          // If we had blocked UI, unblock it now if we aren't going to sync
+          // If initialize() determines we need sync, it will set loading/syncing
+          if (Object.keys(episodes).length > 0) {
+              setLoading(false);
           }
       }
   };
