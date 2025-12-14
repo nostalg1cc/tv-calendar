@@ -237,7 +237,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsSyncing(true);
       
       try {
-          // Clone existing episodes to avoid full wipe if we want to merge (though here we rebuild to be safe, but we use existing for S1 backup)
           const newEpisodes: Record<string, Episode[]> = {};
           const processedIds = new Set<number>();
           
@@ -256,8 +255,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
           setSyncProgress({ current: 0, total: uniqueItems.length });
           
-          // Process in chunks to prevent UI blocking and improve throughput
-          const BATCH_SIZE = 5;
+          // Process in smaller chunks to be safe with rate limits
+          const BATCH_SIZE = 3;
           for (let i = 0; i < uniqueItems.length; i += BATCH_SIZE) {
               const batch = uniqueItems.slice(i, i + BATCH_SIZE);
               
@@ -278,7 +277,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                   season_number: 1,
                                   still_path: item.backdrop_path, 
                                   poster_path: item.poster_path,
-                                  season1_poster_path: item.poster_path, // Movies only have one poster
+                                  // Fix: safely handle null for strict types
+                                  season1_poster_path: item.poster_path || undefined, 
                                   show_id: item.id,
                                   show_name: item.name,
                                   is_movie: true,
@@ -307,28 +307,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           const season1 = seasons.find(s => s && s.season_number === 1);
                           let s1Poster = season1?.poster_path;
 
-                          // 2. If missing, check if the Item itself has cached season info (from getShowDetails or watchlist)
+                          // 2. If missing, check if the Item itself has cached season info
                           if (!s1Poster && item.seasons) {
                              const s1 = item.seasons.find(s => s.season_number === 1);
                              if (s1) s1Poster = s1.poster_path;
                           }
 
-                          // 3. If still missing (API error?), try to find it in the *current* episodes state (Preserve Cache)
+                          // 3. STICKY CACHE: If still missing (API error/limit), try to find it in the *current* episodes state
                           // This fixes the "Flash and Disappear" issue where a failed refresh overwrites valid cached art
-                          if (!s1Poster) {
-                              // Scan current episodes state
-                              // Note: searching the whole episodes dict is expensive, but only done if API failed
-                              const todayKey = Object.keys(episodes)[0]; // Just need a starting point if optimization needed
-                              if (todayKey) {
-                                  // Find *any* episode from this show in current state
-                                   for (const key in episodes) {
-                                       const ep = episodes[key].find(e => e.show_id === item.id);
-                                       if (ep && ep.season1_poster_path) {
-                                           s1Poster = ep.season1_poster_path;
-                                           break;
-                                       }
+                          if (!s1Poster && Object.keys(episodes).length > 0) {
+                               // Iterate through current episodes to find the poster for this show
+                               for (const dateKey in episodes) {
+                                   const found = episodes[dateKey].find(e => e.show_id === item.id);
+                                   if (found?.season1_poster_path) {
+                                       s1Poster = found.season1_poster_path;
+                                       break;
                                    }
-                              }
+                               }
                           }
 
                           // 4. Final Fallback: Use Show Poster
@@ -346,7 +341,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                       show_id: item.id,
                                       show_name: item.name,
                                       poster_path: item.poster_path, // Default show/season poster (often current season)
-                                      season1_poster_path: s1Poster, // Specifically Season 1 (or show default)
+                                      // Fix: safely handle null for strict types
+                                      season1_poster_path: s1Poster || undefined, 
                                       is_movie: false
                                   });
                               });

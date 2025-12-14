@@ -61,11 +61,12 @@ const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {
       });
 
       if (!response.ok) {
-        // Rate Limiting Logic
+        // Rate Limiting Logic: 429 Too Many Requests
         if (response.status === 429 && retries > 0) {
             console.warn(`Rate limit hit for ${endpoint}. Retrying...`);
             const retryAfter = response.headers.get('Retry-After');
-            const delay = retryAfter ? parseInt(retryAfter) * 1000 : 2000; // Default 2s wait
+            // If header exists, use it (seconds to ms), else wait 2000ms
+            const delay = retryAfter ? parseInt(retryAfter) * 1000 : 2000; 
             await wait(delay);
             return fetchTMDB(endpoint, params, retries - 1);
         }
@@ -74,7 +75,7 @@ const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {
            throw new Error("Invalid API Key. Please check your credentials.");
         }
         
-        // General Retry for 5xx errors
+        // General Retry for 5xx server errors
         if (response.status >= 500 && retries > 0) {
              await wait(1000);
              return fetchTMDB(endpoint, params, retries - 1);
@@ -85,6 +86,7 @@ const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {
       return response.json();
 
   } catch (error: any) {
+      // Retry network errors (fetch throws on network failure)
       if (retries > 0 && !error.message?.includes("Invalid API Key")) {
           await wait(1500);
           return fetchTMDB(endpoint, params, retries - 1);
