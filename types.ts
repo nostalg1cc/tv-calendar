@@ -65,6 +65,9 @@ export interface AppSettings {
   calendarPosterFillMode: 'cover' | 'contain'; 
   useSeason1Art: boolean; // Anti-Spoiler
   cleanGrid: boolean; // No Text Labels
+  timezone?: string; // Region Preference
+  theme?: string; // Accent Color Theme
+  customThemeColor?: string; // Hex Code for Custom Theme
 }
 
 export interface SubscribedList {

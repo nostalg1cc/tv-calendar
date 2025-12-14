@@ -62,6 +62,30 @@ const CalendarPage: React.FC = () => {
   const activeDays = eachDayOfInterval({ start: monthStart, end: monthEnd }).filter(day => getEpisodesForDay(day).length > 0);
   const isGridView = settings.viewMode !== 'list';
 
+  // Helper to check if a calendar date matches "Today" in the user's selected timezone
+  const isTodayInZone = (date: Date) => {
+      try {
+          const tz = settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+          const now = new Date();
+          
+          // Get "Now" date string in target timezone
+          const options: Intl.DateTimeFormatOptions = { timeZone: tz, year: 'numeric', month: 'numeric', day: 'numeric' };
+          const formatter = new Intl.DateTimeFormat('en-US', options);
+          const parts = formatter.formatToParts(now);
+          const year = parts.find(p => p.type === 'year')?.value;
+          const month = parts.find(p => p.type === 'month')?.value;
+          const dayVal = parts.find(p => p.type === 'day')?.value;
+
+          if (!year || !month || !dayVal) return isToday(date); // Fallback
+
+          const targetDateStr = `${year}-${month.padStart(2,'0')}-${dayVal.padStart(2,'0')}`;
+          return format(date, 'yyyy-MM-dd') === targetDateStr;
+      } catch (e) {
+          // Fallback if timezone invalid
+          return isToday(date);
+      }
+  };
+
   // Auto-scroll to today in list view
   useEffect(() => {
       if (!isGridView) {
@@ -321,7 +345,7 @@ const CalendarPage: React.FC = () => {
                             const dateKey = format(day, 'yyyy-MM-dd');
                             const dayEpisodes = getEpisodesForDay(day);
                             const isCurrentMonth = isSameMonth(day, monthStart);
-                            const isDayToday = isToday(day);
+                            const isDayToday = isTodayInZone(day); // Changed to TZ aware check
                             const hasEpisodes = dayEpisodes.length > 0;
                             
                             // Borders logic
@@ -433,7 +457,7 @@ const CalendarPage: React.FC = () => {
                         <div className="flex flex-col gap-6 pb-20 max-w-3xl mx-auto">
                             {activeDays.map(day => {
                                 const eps = getEpisodesForDay(day);
-                                const isDayToday = isToday(day);
+                                const isDayToday = isTodayInZone(day); // Changed to TZ aware check
 
                                 return (
                                     <div 

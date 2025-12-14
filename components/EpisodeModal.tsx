@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar as CalendarIcon, Star, Bell, Eye, EyeOff, Film, Ticket, MonitorPlay } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Star, Bell, Eye, EyeOff, Film, Ticket, MonitorPlay, Globe } from 'lucide-react';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
 import { useAppContext } from '../context/AppContext';
@@ -14,10 +14,27 @@ interface EpisodeModalProps {
 
 const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, date }) => {
   const { settings, updateSettings } = useAppContext();
-  const { hideSpoilers } = settings;
+  const { hideSpoilers, timezone } = settings;
   const [reminderEp, setReminderEp] = useState<Episode | null>(null);
 
   if (!isOpen) return null;
+
+  // Format date relative to user timezone
+  const formatDate = (date: Date) => {
+      try {
+          return new Intl.DateTimeFormat('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              timeZone: timezone || undefined
+          }).format(date);
+      } catch {
+          return date.toDateString();
+      }
+  };
+
+  const formattedDate = formatDate(date);
 
   return (
     <>
@@ -29,9 +46,20 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
         <div className="p-4 border-b border-[var(--border-color)] flex justify-between items-center bg-black/20">
           <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                {date.toDateString()}
+                {formattedDate}
               </h2>
-              <p className="text-xs text-slate-400">{episodes.length} releases</p>
+              <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                  <span>{episodes.length} releases</span>
+                  {timezone && (
+                      <>
+                        <span className="w-1 h-1 rounded-full bg-slate-600" />
+                        <Globe className="w-3 h-3" />
+                        <span>{timezone.split('/')[1] || timezone}</span>
+                      </>
+                  )}
+                  <span className="w-1 h-1 rounded-full bg-slate-600" />
+                  <span className="italic opacity-70">Air time unknown</span>
+              </p>
           </div>
           
           <div className="flex items-center gap-2">

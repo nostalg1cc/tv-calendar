@@ -68,6 +68,157 @@ const DEFAULT_SETTINGS: AppSettings = {
   calendarPosterFillMode: 'cover',
   useSeason1Art: false,
   cleanGrid: false,
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  theme: 'default', // Indigo
+  customThemeColor: '#6366f1' // Default Indigo Hex
+};
+
+// Theme Presets (RGB Triplets for Tailwind 50-950)
+export const THEMES: Record<string, Record<string, string>> = {
+    default: { // Indigo
+        '50': '238 242 255',
+        '100': '224 231 255',
+        '200': '199 210 254',
+        '300': '165 180 252',
+        '400': '129 140 248',
+        '500': '99 102 241',
+        '600': '79 70 229',
+        '700': '67 56 202',
+        '800': '55 48 163',
+        '900': '49 46 129',
+        '950': '30 27 75'
+    },
+    emerald: {
+        '50': '236 253 245',
+        '100': '209 250 229',
+        '200': '167 243 208',
+        '300': '110 231 183',
+        '400': '52 211 153',
+        '500': '16 185 129',
+        '600': '5 150 105',
+        '700': '4 120 87',
+        '800': '6 95 70',
+        '900': '6 78 59',
+        '950': '2 44 34'
+    },
+    rose: {
+        '50': '255 241 242',
+        '100': '255 228 230',
+        '200': '254 205 211',
+        '300': '253 164 175',
+        '400': '251 113 133',
+        '500': '244 63 94',
+        '600': '225 29 72',
+        '700': '190 18 60',
+        '800': '159 18 57',
+        '900': '136 19 55',
+        '950': '76 5 25'
+    },
+    amber: {
+        '50': '255 251 235',
+        '100': '254 243 199',
+        '200': '253 230 138',
+        '300': '252 211 77',
+        '400': '251 191 36',
+        '500': '245 158 11',
+        '600': '217 119 6',
+        '700': '180 83 9',
+        '800': '146 64 14',
+        '900': '120 53 15',
+        '950': '69 26 3'
+    },
+    cyan: {
+        '50': '236 254 255',
+        '100': '207 250 254',
+        '200': '165 243 252',
+        '300': '103 232 249',
+        '400': '34 211 238',
+        '500': '6 182 212',
+        '600': '8 145 178',
+        '700': '14 116 144',
+        '800': '21 94 117',
+        '900': '22 78 99',
+        '950': '8 51 68'
+    },
+    violet: {
+        '50': '245 243 255',
+        '100': '237 233 254',
+        '200': '221 214 254',
+        '300': '196 181 253',
+        '400': '167 139 250',
+        '500': '139 92 246',
+        '600': '124 58 237',
+        '700': '109 40 217',
+        '800': '91 33 182',
+        '900': '76 29 149',
+        '950': '46 16 101'
+    }
+};
+
+// Color Utility Functions
+const hexToRgb = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : { r: 99, g: 102, b: 241 }; // Default Indigo
+};
+
+// Mix color with white (tint) or black (shade)
+const mixColor = (color: {r: number, g: number, b: number}, mixColor: {r: number, g: number, b: number}, weight: number) => {
+    const w = weight / 100;
+    const w2 = 1 - w;
+    return {
+        r: Math.round(color.r * w2 + mixColor.r * w),
+        g: Math.round(color.g * w2 + mixColor.g * w),
+        b: Math.round(color.b * w2 + mixColor.b * w)
+    };
+};
+
+const generatePaletteFromHex = (hex: string): Record<string, string> => {
+    const base = hexToRgb(hex);
+    const white = { r: 255, g: 255, b: 255 };
+    const black = { r: 0, g: 0, b: 0 };
+    const darkest = { r: 5, g: 5, b: 15 }; // Richer black for 950
+
+    const palette: Record<string, string> = {};
+    
+    // Tints (50-400) - Mix with White
+    const tints = [
+        { shade: '50', weight: 95 },
+        { shade: '100', weight: 90 },
+        { shade: '200', weight: 70 },
+        { shade: '300', weight: 50 },
+        { shade: '400', weight: 30 }
+    ];
+    
+    tints.forEach(t => {
+        const c = mixColor(base, white, t.weight);
+        palette[t.shade] = `${c.r} ${c.g} ${c.b}`;
+    });
+
+    // Base
+    palette['500'] = `${base.r} ${base.g} ${base.b}`;
+
+    // Shades (600-900) - Mix with Black
+    const shades = [
+        { shade: '600', weight: 10 },
+        { shade: '700', weight: 30 },
+        { shade: '800', weight: 50 },
+        { shade: '900', weight: 70 }
+    ];
+
+    shades.forEach(s => {
+        const c = mixColor(base, black, s.weight);
+        palette[s.shade] = `${c.r} ${c.g} ${c.b}`;
+    });
+
+    // 950 - Special mix for rich dark mode background
+    const c950 = mixColor(base, darkest, 80);
+    palette['950'] = `${c950.r} ${c950.g} ${c950.b}`;
+
+    return palette;
 };
 
 const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
@@ -102,6 +253,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return DEFAULT_SETTINGS;
     }
   });
+
+  // --- Theme Application ---
+  useEffect(() => {
+      const themeKey = settings.theme || 'default';
+      let themeColors: Record<string, string>;
+
+      if (themeKey === 'custom' && settings.customThemeColor) {
+          themeColors = generatePaletteFromHex(settings.customThemeColor);
+      } else {
+          themeColors = THEMES[themeKey] || THEMES.default;
+      }
+      
+      const root = document.documentElement;
+      Object.entries(themeColors).forEach(([shade, value]) => {
+          root.style.setProperty(`--theme-${shade}`, value);
+      });
+  }, [settings.theme, settings.customThemeColor]);
 
   // --- Data State ---
   const [watchlist, setWatchlist] = useState<TVShow[]>(() => {
