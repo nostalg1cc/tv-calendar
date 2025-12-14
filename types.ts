@@ -9,6 +9,7 @@ export interface TVShow {
   vote_average: number;
   number_of_seasons?: number;
   media_type: 'tv' | 'movie'; // distinct type
+  seasons?: { season_number: number; poster_path: string | null; episode_count: number }[]; // Added for metadata caching
 }
 
 export interface Episode {

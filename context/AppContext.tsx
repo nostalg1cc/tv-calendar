@@ -237,6 +237,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsSyncing(true);
       
       try {
+          // Clone existing episodes to avoid full wipe if we want to merge (though here we rebuild to be safe, but we use existing for S1 backup)
           const newEpisodes: Record<string, Episode[]> = {};
           const processedIds = new Set<number>();
           
@@ -301,9 +302,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           
                           const seasons = await Promise.all(seasonPromises);
                           
-                          // Find Season 1 Poster for Anti-Spoiler
+                          // --- ANTI-SPOILER ART LOGIC ---
+                          // 1. Try to find Season 1 from the fetched details
                           const season1 = seasons.find(s => s && s.season_number === 1);
-                          const s1Poster = season1?.poster_path || item.poster_path; // Fallback to show poster if S1 missing
+                          let s1Poster = season1?.poster_path;
+
+                          // 2. If missing, check if the Item itself has cached season info (from getShowDetails or watchlist)
+                          if (!s1Poster && item.seasons) {
+                             const s1 = item.seasons.find(s => s.season_number === 1);
+                             if (s1) s1Poster = s1.poster_path;
+                          }
+
+                          // 3. If still missing (API error?), try to find it in the *current* episodes state (Preserve Cache)
+                          // This fixes the "Flash and Disappear" issue where a failed refresh overwrites valid cached art
+                          if (!s1Poster) {
+                              // Scan current episodes state
+                              // Note: searching the whole episodes dict is expensive, but only done if API failed
+                              const todayKey = Object.keys(episodes)[0]; // Just need a starting point if optimization needed
+                              if (todayKey) {
+                                  // Find *any* episode from this show in current state
+                                   for (const key in episodes) {
+                                       const ep = episodes[key].find(e => e.show_id === item.id);
+                                       if (ep && ep.season1_poster_path) {
+                                           s1Poster = ep.season1_poster_path;
+                                           break;
+                                       }
+                                   }
+                              }
+                          }
+
+                          // 4. Final Fallback: Use Show Poster
+                          if (!s1Poster) s1Poster = item.poster_path;
 
                           seasons.forEach(season => {
                               if (!season || !season.episodes) return;

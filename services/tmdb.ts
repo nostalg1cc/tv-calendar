@@ -32,7 +32,10 @@ const getAccessToken = (): string => {
   return '';
 };
 
-const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {}): Promise<T> => {
+// Retry helper
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {}, retries = 3): Promise<T> => {
   const token = getAccessToken();
   if (!token) {
     throw new Error("Missing TMDB API Key. Please update it in Settings.");
@@ -48,21 +51,46 @@ const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {
   const url = new URL(urlString);
   Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      'accept': 'application/json',
-      'Authorization': `Bearer ${token}`
-    }
-  });
+  try {
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-  if (!response.ok) {
-    if (response.status === 401) {
-       throw new Error("Invalid API Key. Please check your credentials.");
-    }
-    throw new Error(`TMDB API Error: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        // Rate Limiting Logic
+        if (response.status === 429 && retries > 0) {
+            console.warn(`Rate limit hit for ${endpoint}. Retrying...`);
+            const retryAfter = response.headers.get('Retry-After');
+            const delay = retryAfter ? parseInt(retryAfter) * 1000 : 2000; // Default 2s wait
+            await wait(delay);
+            return fetchTMDB(endpoint, params, retries - 1);
+        }
+
+        if (response.status === 401) {
+           throw new Error("Invalid API Key. Please check your credentials.");
+        }
+        
+        // General Retry for 5xx errors
+        if (response.status >= 500 && retries > 0) {
+             await wait(1000);
+             return fetchTMDB(endpoint, params, retries - 1);
+        }
+
+        throw new Error(`TMDB API Error: ${response.status} ${response.statusText}`);
+      }
+      return response.json();
+
+  } catch (error: any) {
+      if (retries > 0 && !error.message?.includes("Invalid API Key")) {
+          await wait(1500);
+          return fetchTMDB(endpoint, params, retries - 1);
+      }
+      throw error;
   }
-  return response.json();
 };
 
 export const getShowDetails = async (id: number): Promise<TVShow> => {
