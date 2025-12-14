@@ -22,7 +22,8 @@ interface AppContextType {
   subscribeToList: (listId: string) => Promise<void>;
   unsubscribeFromList: (listId: string) => void;
   episodes: Record<string, Episode[]>; 
-  loading: boolean;
+  loading: boolean; // Blocking load (no data)
+  isSyncing: boolean; // Background sync (has data, updating)
   syncProgress: { current: number; total: number }; 
   refreshEpisodes: (force?: boolean, overrideWatchlist?: TVShow[], overrideLists?: SubscribedList[]) => Promise<void>;
   requestNotificationPermission: () => Promise<boolean>;
@@ -125,6 +126,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Episodes State
   const [episodes, setEpisodes] = useState<Record<string, Episode[]>>({});
   const [loading, setLoading] = useState<boolean>(true);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileWarningOpen, setIsMobileWarningOpen] = useState(false);
@@ -192,122 +194,174 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const lastUpdate = await get<number>(DB_KEY_META);
       const now = Date.now();
       
-      // Cache check (skip if force=true)
+      // Determine items to process
+      const currentWatchlist = overrideWatchlist || watchlist;
+      const currentLists = overrideLists || subscribedLists;
+      let totalItemsCount = currentWatchlist.length;
+      currentLists.forEach(l => totalItemsCount += l.items.length);
+
+      // --- Cache Validation Strategy ---
+      // If NOT forced, and cache is fresh...
       if (!force && lastUpdate && (now - lastUpdate < CACHE_DURATION)) {
+           // We might already have data in state.
+           if (Object.keys(episodes).length > 0) {
+               setLoading(false);
+               return; 
+           }
+           
+           // If state is empty, check IDB.
            const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES);
-           if (cachedEps) {
+           if (cachedEps && Object.keys(cachedEps).length > 0) {
                setEpisodes(cachedEps);
+               setLoading(false);
+               return;
+           }
+           // If IDB is empty but we have tracked items, fall through to fetch.
+           if (totalItemsCount > 0 && (!cachedEps || Object.keys(cachedEps).length === 0)) {
+               // Fallthrough to fetch
+           } else {
+               // Valid empty cache (no tracked items)
                setLoading(false);
                return;
            }
       }
 
-      setLoading(true);
-      const newEpisodes: Record<string, Episode[]> = {};
-      const processedIds = new Set<number>();
+      // --- Fetching Strategy ---
+      // If we have data in state, do NOT block UI. Use isSyncing.
+      // If we have NO data in state, block UI with Loading.
+      if (Object.keys(episodes).length === 0 && !force) {
+          setLoading(true);
+      }
+      setIsSyncing(true);
       
-      // Use overrides if provided (fixing stale closure issues in async flows)
-      const currentWatchlist = overrideWatchlist || watchlist;
-      const currentLists = overrideLists || subscribedLists;
-
-      // Combine watchlist and lists
-      let itemsToProcess: TVShow[] = [...currentWatchlist];
-      currentLists.forEach(list => itemsToProcess.push(...list.items));
-      
-      // Deduplicate
-      const uniqueItems: TVShow[] = [];
-      itemsToProcess.forEach(item => {
-          if (!processedIds.has(item.id)) {
-              processedIds.add(item.id);
-              uniqueItems.push(item);
-          }
-      });
-      
-      setSyncProgress({ current: 0, total: uniqueItems.length });
-      
-      let count = 0;
-      for (const item of uniqueItems) {
-          count++;
-          setSyncProgress({ current: count, total: uniqueItems.length });
+      try {
+          const newEpisodes: Record<string, Episode[]> = {};
+          const processedIds = new Set<number>();
           
-          try {
-              if (item.media_type === 'movie') {
-                  const releaseDates = await getMovieReleaseDates(item.id);
-                  releaseDates.forEach(rel => {
-                       const dateKey = rel.date;
-                       if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
-                       newEpisodes[dateKey].push({
-                           id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), 
-                           name: item.name,
-                           overview: item.overview,
-                           vote_average: item.vote_average,
-                           air_date: rel.date,
-                           episode_number: 1,
-                           season_number: 1,
-                           still_path: item.backdrop_path, 
-                           poster_path: item.poster_path,
-                           show_id: item.id,
-                           show_name: item.name,
-                           is_movie: true,
-                           release_type: rel.type
-                       });
-                  });
-              } else {
-                  // TV Show
-                  // First ensure we know season count
-                  let seasonCount = item.number_of_seasons;
-                  if (!seasonCount) {
-                       try {
-                           const details = await getShowDetails(item.id);
-                           seasonCount = details.number_of_seasons;
-                       } catch { seasonCount = 1; }
-                  }
-                  
-                  const seasonPromises = [];
-                  for (let i = 1; i <= (seasonCount || 1); i++) {
-                       seasonPromises.push(getSeasonDetails(item.id, i).catch(() => null));
-                  }
-                  
-                  const seasons = await Promise.all(seasonPromises);
-                  
-                  seasons.forEach(season => {
-                      if (!season || !season.episodes) return;
-                      season.episodes.forEach(ep => {
-                          if (!ep.air_date) return;
-                          
-                          const dateKey = ep.air_date;
-                          if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
-                          newEpisodes[dateKey].push({
-                              ...ep,
-                              show_id: item.id,
-                              show_name: item.name,
-                              poster_path: item.poster_path,
-                              is_movie: false
-                          });
-                      });
-                  });
+          // Combine watchlist and lists
+          let itemsToProcess: TVShow[] = [...currentWatchlist];
+          currentLists.forEach(list => itemsToProcess.push(...list.items));
+          
+          // Deduplicate
+          const uniqueItems: TVShow[] = [];
+          itemsToProcess.forEach(item => {
+              if (!processedIds.has(item.id)) {
+                  processedIds.add(item.id);
+                  uniqueItems.push(item);
               }
-          } catch (error) {
-              console.error(`Error processing ${item.name}`, error);
+          });
+          
+          setSyncProgress({ current: 0, total: uniqueItems.length });
+          
+          // Process in chunks to prevent UI blocking and improve throughput
+          const BATCH_SIZE = 5;
+          for (let i = 0; i < uniqueItems.length; i += BATCH_SIZE) {
+              const batch = uniqueItems.slice(i, i + BATCH_SIZE);
+              
+              await Promise.all(batch.map(async (item) => {
+                  try {
+                      if (item.media_type === 'movie') {
+                          const releaseDates = await getMovieReleaseDates(item.id);
+                          releaseDates.forEach(rel => {
+                              const dateKey = rel.date;
+                              if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
+                              newEpisodes[dateKey].push({
+                                  id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), 
+                                  name: item.name,
+                                  overview: item.overview,
+                                  vote_average: item.vote_average,
+                                  air_date: rel.date,
+                                  episode_number: 1,
+                                  season_number: 1,
+                                  still_path: item.backdrop_path, 
+                                  poster_path: item.poster_path,
+                                  show_id: item.id,
+                                  show_name: item.name,
+                                  is_movie: true,
+                                  release_type: rel.type
+                              });
+                          });
+                      } else {
+                          // TV Show
+                          let seasonCount = item.number_of_seasons;
+                          if (!seasonCount) {
+                              try {
+                                  const details = await getShowDetails(item.id);
+                                  seasonCount = details.number_of_seasons;
+                              } catch { seasonCount = 1; }
+                          }
+                          
+                          const seasonPromises = [];
+                          for (let s = 1; s <= (seasonCount || 1); s++) {
+                              seasonPromises.push(getSeasonDetails(item.id, s).catch(() => null));
+                          }
+                          
+                          const seasons = await Promise.all(seasonPromises);
+                          
+                          seasons.forEach(season => {
+                              if (!season || !season.episodes) return;
+                              season.episodes.forEach(ep => {
+                                  if (!ep.air_date) return;
+                                  
+                                  const dateKey = ep.air_date;
+                                  if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
+                                  newEpisodes[dateKey].push({
+                                      ...ep,
+                                      show_id: item.id,
+                                      show_name: item.name,
+                                      poster_path: item.poster_path,
+                                      is_movie: false
+                                  });
+                              });
+                          });
+                      }
+                  } catch (error) {
+                      console.error(`Error processing ${item.name}`, error);
+                  }
+              }));
+              
+              setSyncProgress(prev => ({ ...prev, current: Math.min(prev.current + BATCH_SIZE, uniqueItems.length) }));
           }
-      }
-      
-      setEpisodes(newEpisodes);
-      await set(DB_KEY_EPISODES, newEpisodes);
-      await set(DB_KEY_META, Date.now());
-      setLoading(false);
-  }, [user, watchlist, subscribedLists]);
-
-  // --- Initial Data Load ---
-  useEffect(() => {
-      if (user) {
-          // If we have local data loaded synchronously, this will work.
-          // If we are waiting for Cloud login, this effect runs on mount (with user null) then user updates.
-          refreshEpisodes();
-      } else {
+          
+          setEpisodes(newEpisodes);
+          await set(DB_KEY_EPISODES, newEpisodes);
+          await set(DB_KEY_META, Date.now());
+      } catch (e) {
+          console.error("Refresh failed", e);
+      } finally {
           setLoading(false);
+          setIsSyncing(false);
       }
-  }, [user?.tmdbKey, user?.username]);
+  }, [user, watchlist, subscribedLists, episodes]);
+
+  // --- Initial Data Load (Corrected logic) ---
+  useEffect(() => {
+      const init = async () => {
+          if (!user) {
+              setLoading(false);
+              return;
+          }
+          
+          // 1. Try Load from IndexDB immediately to unblock UI
+          try {
+              const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES);
+              if (cached && Object.keys(cached).length > 0) {
+                  setEpisodes(cached);
+                  setLoading(false); // Unblock immediately
+              }
+          } catch (e) { 
+              console.warn("Failed to load cache", e); 
+          }
+          
+          // 2. Trigger Sync (Background)
+          // We pass current state to ensure overrides work if called during init, 
+          // though refreshEpisodes uses refs/closures so it picks up latest state mostly.
+          // But relying on dependency array of useCallback is safer.
+          refreshEpisodes();
+      };
+      
+      init();
+  }, [user?.username]); // Run once per user login
 
   // --- Auth Handlers ---
   
@@ -381,7 +435,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                setSubscribedLists(loadedLists);
           }
 
-          // Fetch Reminders
           const { data: remoteReminders } = await supabase.from('reminders').select('*');
           if (remoteReminders) {
               setReminders(remoteReminders.map((r: any) => ({
@@ -395,7 +448,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               })));
           }
 
-          // Explicitly pass the loaded data to ensure refreshEpisodes uses the new data immediately
+          // Trigger explicit refresh with loaded data
           refreshEpisodes(true, loadedWatchlist, loadedLists);
       }
   };
@@ -411,9 +464,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           } else {
               localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser));
           }
-          // Use effect to trigger refresh, or if needed immediately:
-          // refreshEpisodes(true) will be called by effect on user change, but user object change might not trigger if deep check? 
-          // Effect uses user.tmdbKey, so it will trigger.
       }
   };
 
@@ -442,7 +492,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // --- Reminders Logic ---
-  // ... (No changes to reminders logic itself) ...
   const addReminder = async (reminder: Reminder) => {
       const newReminder = { ...reminder, id: reminder.id || crypto.randomUUID() };
       setReminders(prev => [...prev, newReminder]);
@@ -808,7 +857,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       user, login, loginCloud, logout, updateUserKey,
       watchlist, addToWatchlist, removeFromWatchlist, batchAddShows, batchSubscribe,
       subscribedLists, subscribeToList, unsubscribeFromList, allTrackedShows,
-      episodes, loading, syncProgress, refreshEpisodes,
+      episodes, loading, isSyncing, syncProgress, refreshEpisodes,
       requestNotificationPermission,
       isSearchOpen, setIsSearchOpen,
       settings, updateSettings,

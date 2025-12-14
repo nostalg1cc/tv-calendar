@@ -10,7 +10,7 @@ import { getImageUrl } from '../services/tmdb';
 import { Episode } from '../types';
 
 const CalendarPage: React.FC = () => {
-  const { episodes, loading, settings, updateSettings, refreshEpisodes } = useAppContext();
+  const { episodes, loading, isSyncing, settings, updateSettings, refreshEpisodes } = useAppContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -154,11 +154,11 @@ const CalendarPage: React.FC = () => {
         <div className="flex items-center gap-1 md:gap-2">
            <button 
                 onClick={() => refreshEpisodes(true)}
-                disabled={loading}
+                disabled={loading || isSyncing}
                 className="p-2 text-zinc-400 hover:text-indigo-400 transition-colors"
                 title="Refresh"
             >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${loading || isSyncing ? 'animate-spin' : ''}`} />
             </button>
             <div className="h-6 w-px bg-zinc-800 mx-1" />
             <button onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
@@ -173,7 +173,7 @@ const CalendarPage: React.FC = () => {
         </div>
       </div>
       
-      {/* Loading State */}
+      {/* Loading State: Only show full block if we have NO data. If we have cache but are syncing, show spinner in header. */}
       {loading && activeDays.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800">
              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
