@@ -331,7 +331,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
                   newEpisodes[dateKey].push(mapDbToEpisode(row));
               });
-              setEpisodes(newEpisodes);
+              
+              // MERGE WITH EXISTING (Hot Load support) AND SAVE TO CACHE
+              setEpisodes(prev => {
+                  const merged = { ...prev, ...newEpisodes };
+                  set(DB_KEY_EPISODES, merged); // Update IDB with fresh data
+                  return merged;
+              });
           }
       } catch (e) {
           console.error("Failed to load cloud calendar", e);
@@ -423,6 +429,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
           let processedCount = 0;
           const batchSize = 3; 
+          
+          // Local accumulator for IDB
+          let fullEpisodeList: Episode[] = [];
 
           for (let i = 0; i < uniqueItems.length; i += batchSize) {
               const batch = uniqueItems.slice(i, i + batchSize);
@@ -456,6 +465,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               }));
 
               if (batchEpisodes.length > 0) {
+                  fullEpisodeList = [...fullEpisodeList, ...batchEpisodes];
                   await saveToCloudCalendar(batchEpisodes, user.id);
               }
               
@@ -468,9 +478,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               full_sync_completed: true,
               last_full_sync: new Date().toISOString()
           }).eq('id', user.id);
+          
+          // 5. Update Local Cache (Hot Load Prep)
+          const newEpisodesMap: Record<string, Episode[]> = {};
+          fullEpisodeList.forEach(ep => {
+              if(!ep.air_date) return;
+              if(!newEpisodesMap[ep.air_date]) newEpisodesMap[ep.air_date] = [];
+              newEpisodesMap[ep.air_date].push(ep);
+          });
+          await set(DB_KEY_EPISODES, newEpisodesMap);
+          setEpisodes(newEpisodesMap);
 
           setFullSyncRequired(false);
-          await loadCloudCalendar(user.id); // Reload UI
 
       } catch (e) {
           console.error("Full Sync Failed", e);
@@ -490,7 +509,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const lastUpdate = await get<number>(DB_KEY_META); 
       const now = Date.now(); 
       
-      // Cache Check (Local Mode Only)
+      // Cache Check (Local Mode Only - Cloud uses loadCloudCalendar)
       if (!user.isCloud && !force && lastUpdate && (now - lastUpdate < CACHE_DURATION)) { 
           const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); 
           if (cachedEps && Object.keys(cachedEps).length > 0) { 
@@ -568,7 +587,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               processedCount += currentBatchSize;
               setSyncProgress(prev => ({ ...prev, current: Math.min(processedCount, uniqueItems.length) }));
           }
-          if (!user.isCloud) { setEpisodes(current => { set(DB_KEY_EPISODES, current); return current; }); await set(DB_KEY_META, Date.now()); }
+          // Save Cache locally as well for cloud users
+          setEpisodes(current => { 
+              set(DB_KEY_EPISODES, current); 
+              return current; 
+          }); 
+          await set(DB_KEY_META, Date.now());
       } catch (e) { console.error(e); } finally { setLoading(false); setIsSyncing(false); }
   }, [user, allTrackedShows, watchlist, episodes, fullSyncRequired]);
 
@@ -604,6 +628,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               fullSyncCompleted: profile.full_sync_completed
           }; 
           
+          // Clear cache ONLY if switching users
           if (user && user.id && user.id !== authUser.id) { 
               await del(DB_KEY_EPISODES); 
               await del(DB_KEY_META); 
@@ -651,6 +676,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           } else {
               setLoading(true);
               if (newUser.id) {
+                  // HOT LOADING STRATEGY:
+                  // 1. Load from IndexedDB (Instant)
+                  const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES);
+                  if (cached) setEpisodes(cached);
+
+                  // 2. Fetch fresh from Supabase (Async)
                   await loadCloudCalendar(newUser.id);
               }
               setLoading(false); 
