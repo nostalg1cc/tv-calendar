@@ -6,7 +6,7 @@ import {
 import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw, Filter, Tv, Film, Check, History, GalleryVertical, Layers } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import EpisodeModal from '../components/EpisodeModal';
-import { getImageUrl, getBackdropUrl } from '../services/tmdb';
+import { getImageUrl } from '../services/tmdb';
 import { Episode } from '../types';
 
 const CalendarPage: React.FC = () => {
