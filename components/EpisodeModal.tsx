@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, Calendar as CalendarIcon, Star, Bell, Eye, EyeOff, Film, Ticket, MonitorPlay, Globe, Check, CheckCheck, Loader2 } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Star, Bell, Eye, EyeOff, Film, Ticket, MonitorPlay, Globe, Check, CheckCheck, Loader2, PlayCircle } from 'lucide-react';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
 import { useAppContext } from '../context/AppContext';
 import ReminderConfigModal from './ReminderConfigModal';
+import TrailerModal from './TrailerModal';
 
 interface EpisodeModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
   const { settings, updateSettings, toggleEpisodeWatched, markHistoryWatched, interactions } = useAppContext();
   const { hideSpoilers, timezone } = settings;
   const [reminderEp, setReminderEp] = useState<Episode | null>(null);
+  const [trailerEp, setTrailerEp] = useState<Episode | null>(null);
   const [markingHistoryId, setMarkingHistoryId] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -95,7 +97,7 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
               return (
                 <div key={`${ep.show_id}-${ep.id}`} className={`surface-card rounded-xl p-3 flex gap-4 group transition-all ${isWatched ? 'opacity-70 bg-zinc-900/30' : ''}`}>
                   {/* Image */}
-                  <div className="shrink-0 w-32 hidden sm:block relative overflow-hidden rounded-lg bg-black/50 aspect-video">
+                  <div className="shrink-0 w-32 hidden sm:block relative overflow-hidden rounded-lg bg-black/50 aspect-video group/image cursor-pointer" onClick={() => setTrailerEp(ep)}>
                     <img 
                       src={getImageUrl(ep.still_path || ep.poster_path)} 
                       alt={ep.name} 
@@ -113,6 +115,15 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
                     {isWatched && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
                             <Check className="w-8 h-8 text-emerald-500 drop-shadow-lg" />
+                        </div>
+                    )}
+                    
+                    {/* Play Overlay */}
+                    {!isWatched && !hideSpoilers && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/image:opacity-100 transition-opacity">
+                            <div className="bg-black/50 p-2 rounded-full backdrop-blur-sm border border-white/20">
+                                <PlayCircle className="w-6 h-6 text-white" />
+                            </div>
                         </div>
                     )}
                   </div>
@@ -142,7 +153,7 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
                       {ep.overview || "No overview available."}
                     </p>
   
-                    <div className="mt-2 flex justify-end gap-3">
+                    <div className="mt-2 flex justify-end gap-2 sm:gap-3 flex-wrap">
                       {!ep.is_movie && (
                           <div className="flex bg-zinc-800/50 rounded-lg p-0.5 border border-zinc-700/50">
                               <button
@@ -167,13 +178,24 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
                           </div>
                       )}
 
-                      <button 
-                          onClick={() => setReminderEp(ep)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
-                      >
-                          <Bell className="w-3.5 h-3.5" />
-                          Remind
-                      </button>
+                      <div className="flex gap-2">
+                          <button 
+                              onClick={() => setTrailerEp(ep)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition-colors border border-white/5"
+                              title="Watch Trailer"
+                          >
+                              <PlayCircle className="w-3.5 h-3.5" />
+                              Trailer
+                          </button>
+
+                          <button 
+                              onClick={() => setReminderEp(ep)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+                          >
+                              <Bell className="w-3.5 h-3.5" />
+                              Remind
+                          </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -188,6 +210,14 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
             isOpen={!!reminderEp} 
             onClose={() => setReminderEp(null)} 
             item={reminderEp} 
+        />
+    )}
+
+    {trailerEp && (
+        <TrailerModal 
+            isOpen={!!trailerEp}
+            onClose={() => setTrailerEp(null)}
+            item={trailerEp}
         />
     )}
     </>

@@ -38,6 +38,19 @@ export interface Season {
   episodes: Episode[];
 }
 
+export interface Video {
+  id: string;
+  iso_639_1: string;
+  iso_3166_1: string;
+  key: string;
+  name: string;
+  site: string; // "YouTube"
+  size: number;
+  type: string; // "Trailer", "Teaser", "Clip", "Featurette", "Behind the Scenes"
+  official: boolean;
+  published_at: string;
+}
+
 export interface TraktProfile {
     username: string;
     name: string;

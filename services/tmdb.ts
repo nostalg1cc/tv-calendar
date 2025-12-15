@@ -1,4 +1,4 @@
-import { TVShow, Season } from '../types';
+import { TVShow, Season, Video } from '../types';
 
 const BASE_URL = 'https://api.themoviedb.org/3';
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
@@ -350,6 +350,42 @@ export const getMovieReleaseDates = async (id: number): Promise<{ date: string, 
         return releases;
     } catch (e) {
         console.warn("Failed to fetch release dates", e);
+        return [];
+    }
+};
+
+// Fetch videos for various scopes
+export const getVideos = async (
+    mediaType: 'movie' | 'tv', 
+    id: number, 
+    season?: number, 
+    episode?: number
+): Promise<Video[]> => {
+    try {
+        let endpoint = `/${mediaType}/${id}`;
+        
+        if (mediaType === 'tv') {
+            if (season !== undefined) endpoint += `/season/${season}`;
+            if (episode !== undefined) endpoint += `/episode/${episode}`;
+        }
+        
+        endpoint += '/videos';
+        
+        const data = await fetchTMDB<{ results: Video[] }>(endpoint);
+        
+        // Filter for YouTube only and sort by official status + type
+        // Prioritize: Trailer > Teaser > Clip
+        const typeOrder = { 'Trailer': 3, 'Teaser': 2, 'Clip': 1, 'Featurette': 0, 'Behind the Scenes': 0 };
+        
+        return data.results
+            .filter(v => v.site === 'YouTube')
+            .sort((a, b) => {
+                const scoreA = (typeOrder[a.type as keyof typeof typeOrder] || 0);
+                const scoreB = (typeOrder[b.type as keyof typeof typeOrder] || 0);
+                return scoreB - scoreA;
+            });
+    } catch (e) {
+        console.warn(`Failed to fetch videos for ${mediaType}/${id}`, e);
         return [];
     }
 };
