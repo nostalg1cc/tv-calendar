@@ -43,6 +43,7 @@ interface AppContextType {
   interactions: Record<string, Interaction>; 
   toggleWatched: (id: number, mediaType: 'tv' | 'movie') => Promise<void>;
   toggleEpisodeWatched: (showId: number, season: number, episode: number) => Promise<void>;
+  markHistoryWatched: (showId: number, season: number, episode: number) => Promise<void>;
   setRating: (id: number, mediaType: 'tv' | 'movie', rating: number) => Promise<void>;
 
   // Reminder UI State
@@ -214,6 +215,83 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
   const setRating = async (id: number, mediaType: 'tv' | 'movie', rating: number) => { const key = `${mediaType}-${id}`; const current = interactions[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 }; const updated = { ...current, rating: rating }; setInteractions(prev => ({ ...prev, [key]: updated })); if (user?.isCloud && supabase) { await supabase.from('interactions').upsert({ user_id: user.id, tmdb_id: id, media_type: mediaType, is_watched: updated.is_watched, rating: updated.rating, updated_at: new Date().toISOString() }, { onConflict: 'user_id, tmdb_id, media_type' }); } };
 
+  // New Helper: Mark all episodes up to X as watched
+  const markHistoryWatched = async (showId: number, targetSeason: number, targetEpisode: number) => {
+      setIsSyncing(true);
+      try {
+          // 1. Fetch Show Details to get all seasons
+          const show = await getShowDetails(showId);
+          const seasons = show.seasons || [];
+          
+          const epsToMark: any[] = [];
+          
+          // 2. Identify relevant seasons (<= targetSeason)
+          const sortedSeasons = seasons.filter(s => {
+              if (targetSeason === 0) return s.season_number === 0;
+              return s.season_number > 0 && s.season_number <= targetSeason;
+          });
+
+          // 3. Fetch episodes for each season
+          const batchSize = 3;
+          for (let i = 0; i < sortedSeasons.length; i += batchSize) {
+              const batch = sortedSeasons.slice(i, i + batchSize);
+              const results = await Promise.all(batch.map(s => getSeasonDetails(showId, s.season_number)));
+              
+              results.forEach(seasonData => {
+                  seasonData.episodes.forEach((ep: any) => {
+                      if (
+                          ep.season_number < targetSeason || 
+                          (ep.season_number === targetSeason && ep.episode_number <= targetEpisode)
+                      ) {
+                          epsToMark.push({
+                              tmdb_id: showId,
+                              media_type: 'episode',
+                              season_number: ep.season_number,
+                              episode_number: ep.episode_number,
+                              is_watched: true,
+                              rating: 0,
+                              watched_at: new Date().toISOString()
+                          });
+                      }
+                  });
+              });
+          }
+
+          // 4. Update State Optimistically
+          const newInteractions = { ...interactions };
+          epsToMark.forEach(item => {
+              const key = `episode-${showId}-${item.season_number}-${item.episode_number}`;
+              if (!newInteractions[key]?.is_watched) {
+                  newInteractions[key] = item;
+              }
+          });
+          setInteractions(newInteractions);
+
+          // 5. Persist to Cloud/Local
+          if (user?.isCloud && supabase) {
+                // Upsert in batches
+                const dbBatchSize = 100;
+                for (let i = 0; i < epsToMark.length; i += dbBatchSize) {
+                    const batch = epsToMark.slice(i, i + dbBatchSize).map(item => ({
+                        user_id: user.id,
+                        ...item
+                    }));
+                    await supabase.from('interactions').upsert(batch, { 
+                        onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' 
+                    });
+                }
+          } else {
+              localStorage.setItem('tv_calendar_interactions', JSON.stringify(newInteractions));
+          }
+
+      } catch (e) {
+          console.error("Failed to mark history", e);
+          alert("Failed to mark history. Please check your connection.");
+      } finally {
+          setIsSyncing(false);
+      }
+  };
+
   // --- CLOUD CALENDAR HELPERS ---
   const mapDbToEpisode = (row: any): Episode => ({
       id: row.id,
@@ -303,25 +381,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           user_id: userId,
           tmdb_id: ep.show_id || ep.id,
           media_type: ep.is_movie ? 'movie' : 'tv',
-          season_number: ep.season_number || -1,
-          episode_number: ep.episode_number || -1,
-          title: ep.show_name || ep.name,
-          episode_name: ep.name,
-          overview: ep.overview, 
+          // Ensure no undefined values which Supabase might reject or treat weirdly
+          season_number: ep.season_number ?? -1,
+          episode_number: ep.episode_number ?? -1,
+          title: ep.show_name || ep.name || '',
+          episode_name: ep.name || '',
+          overview: ep.overview || '', 
           air_date: ep.air_date,
-          poster_path: ep.poster_path,
-          backdrop_path: ep.still_path, 
-          vote_average: ep.vote_average,
-          release_type: ep.release_type
+          poster_path: ep.poster_path || null,
+          backdrop_path: ep.still_path || null, 
+          vote_average: ep.vote_average || 0,
+          release_type: ep.release_type || null
       }));
 
       // Upsert in batches
       const batchSize = 100;
       for (let i = 0; i < rows.length; i += batchSize) {
           const batch = rows.slice(i, i + batchSize);
-          await supabase.from('user_calendar_events').upsert(batch, { 
+          const { error } = await supabase.from('user_calendar_events').upsert(batch, { 
               onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' 
           });
+          if (error) {
+              console.error('Supabase Upsert Failed:', error.message, error.details);
+          }
       }
   };
 
@@ -333,17 +415,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setLoading(true);
       
       try {
-          // 1. Identify all unique shows from Watchlist and Subscribed Lists
-          // Note: allTrackedShows is derived from state which is loaded in loginCloud
           const uniqueItems = [...allTrackedShows];
           setSyncProgress({ current: 0, total: uniqueItems.length });
 
-          // 2. Clear old events to ensure clean state
+          // Clear old events to ensure clean state
           await supabase.from('user_calendar_events').delete().eq('user_id', user.id);
 
-          // 3. Loop and fetch
           let processedCount = 0;
-          const batchSize = 3; // Concurrent fetches
+          const batchSize = 3; 
 
           for (let i = 0; i < uniqueItems.length; i += batchSize) {
               const batch = uniqueItems.slice(i, i + batchSize);
@@ -357,11 +436,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                               batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type });
                           });
                       } else {
-                          // Fetch ALL seasons for full sync
                           const details = await getShowDetails(item.id);
                           const seasonsMeta = details.seasons || [];
                           
-                          // No limit on years for full sync, fetch everything
                           for (const sMeta of seasonsMeta) {
                               try {
                                   const sData = await getSeasonDetails(item.id, sMeta.season_number);
@@ -397,7 +474,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       } catch (e) {
           console.error("Full Sync Failed", e);
-          alert("Sync failed. Please try again.");
+          alert("Sync failed. Please check console for details.");
       } finally {
           setIsSyncing(false);
           setLoading(false);
@@ -423,12 +500,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           } 
       } 
       
-      // For Cloud, we assume loadCloudCalendar ran on login. 
-      // This refresh is just for new/updated items if user forces it or adds items.
-      // Logic mostly same as before but respecting fullSync flag.
-      // ... (Existing optimized logic logic)
-      
-      // Standard Smart Sync Logic (Same as before)
       const itemsToProcess = [...allTrackedShows];
       if (itemsToProcess.length === 0) { setEpisodes({}); setLoading(false); return; }
       if (Object.keys(episodes).length === 0) setLoading(true);
@@ -623,7 +694,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       reminders, addReminder, removeReminder,
       reminderCandidate, setReminderCandidate,
       reloadAccount,
-      interactions, toggleWatched, toggleEpisodeWatched, setRating,
+      interactions, toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
       traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData,
       fullSyncRequired, performFullSync
     }}>

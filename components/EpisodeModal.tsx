@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar as CalendarIcon, Star, Bell, Eye, EyeOff, Film, Ticket, MonitorPlay, Globe, Check } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Star, Bell, Eye, EyeOff, Film, Ticket, MonitorPlay, Globe, Check, CheckCheck, Loader2 } from 'lucide-react';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
 import { useAppContext } from '../context/AppContext';
@@ -13,9 +13,10 @@ interface EpisodeModalProps {
 }
 
 const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, date }) => {
-  const { settings, updateSettings, toggleEpisodeWatched, interactions } = useAppContext();
+  const { settings, updateSettings, toggleEpisodeWatched, markHistoryWatched, interactions } = useAppContext();
   const { hideSpoilers, timezone } = settings;
   const [reminderEp, setReminderEp] = useState<Episode | null>(null);
+  const [markingHistoryId, setMarkingHistoryId] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -32,6 +33,14 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
       } catch {
           return date.toDateString();
       }
+  };
+
+  const handleMarkHistory = async (ep: Episode) => {
+      if (!ep.show_id) return;
+      const key = `${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+      setMarkingHistoryId(key);
+      await markHistoryWatched(ep.show_id, ep.season_number, ep.episode_number);
+      setMarkingHistoryId(null);
   };
 
   const formattedDate = formatDate(date);
@@ -81,6 +90,7 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
             {episodes.map((ep) => {
               const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
               const isWatched = interactions[watchedKey]?.is_watched;
+              const isMarking = markingHistoryId === `${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
 
               return (
                 <div key={`${ep.show_id}-${ep.id}`} className={`surface-card rounded-xl p-3 flex gap-4 group transition-all ${isWatched ? 'opacity-70 bg-zinc-900/30' : ''}`}>
@@ -134,18 +144,32 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
   
                     <div className="mt-2 flex justify-end gap-3">
                       {!ep.is_movie && (
-                          <button
-                              onClick={() => ep.show_id && toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number)}
-                              className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${isWatched ? 'text-emerald-500 hover:text-emerald-400' : 'text-zinc-500 hover:text-white'}`}
-                          >
-                              {isWatched ? <Check className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                              {isWatched ? 'Watched' : 'Mark Watched'}
-                          </button>
+                          <div className="flex bg-zinc-800/50 rounded-lg p-0.5 border border-zinc-700/50">
+                              <button
+                                  onClick={() => ep.show_id && toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number)}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${isWatched ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/10'}`}
+                                  title={isWatched ? "Unmark Watched" : "Mark Watched"}
+                              >
+                                  {isWatched ? <Check className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                  {isWatched ? 'Watched' : 'Mark'}
+                              </button>
+                              
+                              <div className="w-px bg-zinc-700/50 my-1" />
+
+                              <button 
+                                  onClick={() => handleMarkHistory(ep)}
+                                  disabled={isMarking}
+                                  className="px-2 py-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                                  title="Mark all previous episodes as watched"
+                              >
+                                  {isMarking ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" /> : <CheckCheck className="w-3.5 h-3.5" />}
+                              </button>
+                          </div>
                       )}
 
                       <button 
                           onClick={() => setReminderEp(ep)}
-                          className="flex items-center gap-1.5 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
                       >
                           <Bell className="w-3.5 h-3.5" />
                           Remind
