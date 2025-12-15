@@ -107,13 +107,32 @@ const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
 const DB_KEY_EPISODES = 'tv_calendar_episodes_v2'; 
 const DB_KEY_META = 'tv_calendar_meta_v2';
 
+// Helper for local-only preferences
+const getLocalPrefs = (): Partial<AppSettings> => {
+  try {
+    return JSON.parse(localStorage.getItem('tv_calendar_local_prefs') || '{}');
+  } catch {
+    return {};
+  }
+};
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // --- Auth State ---
   const [user, setUser] = useState<User | null>(() => { try { return localStorage.getItem('tv_calendar_user') ? JSON.parse(localStorage.getItem('tv_calendar_user')!) : null; } catch { return null; } });
   useEffect(() => { if (user?.tmdbKey) setApiToken(user.tmdbKey); }, [user]);
   
   // --- Settings State ---
-  const [settings, setSettings] = useState<AppSettings>(() => { try { const saved = localStorage.getItem('tv_calendar_settings'); const loaded = saved ? JSON.parse(saved) : DEFAULT_SETTINGS; return { ...DEFAULT_SETTINGS, ...loaded, compactCalendar: true }; } catch { return DEFAULT_SETTINGS; } });
+  const [settings, setSettings] = useState<AppSettings>(() => { 
+      try { 
+          const savedSynced = localStorage.getItem('tv_calendar_settings');
+          const synced = savedSynced ? JSON.parse(savedSynced) : DEFAULT_SETTINGS;
+          const local = getLocalPrefs();
+          // Priority: Local Prefs > Synced Settings > Default
+          return { ...DEFAULT_SETTINGS, ...synced, ...local, compactCalendar: true }; 
+      } catch { 
+          return DEFAULT_SETTINGS; 
+      } 
+  });
   
   // --- Theme Application ---
   useEffect(() => { const themeKey = settings.theme || 'default'; let themeColors: Record<string, string>; if (themeKey === 'custom' && settings.customThemeColor) { themeColors = generatePaletteFromHex(settings.customThemeColor); } else { themeColors = THEMES[themeKey] || THEMES.default; } const root = document.documentElement; Object.entries(themeColors).forEach(([shade, value]) => { root.style.setProperty(`--theme-${shade}`, value); }); }, [settings.theme, settings.customThemeColor]);
@@ -157,7 +176,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (user && !user.isCloud) {
         localStorage.setItem('tv_calendar_watchlist', JSON.stringify(watchlist));
         localStorage.setItem('tv_calendar_subscribed_lists', JSON.stringify(subscribedLists));
-        localStorage.setItem('tv_calendar_settings', JSON.stringify(settings));
+        localStorage.setItem('tv_calendar_settings', JSON.stringify(settings)); // This will save merged state, but updateSettings logic handles separation for cloud users
         localStorage.setItem('tv_calendar_reminders', JSON.stringify(reminders));
         localStorage.setItem('tv_calendar_interactions', JSON.stringify(interactions));
         localStorage.setItem('tv_calendar_user', JSON.stringify(user)); // Save Trakt tokens etc
@@ -171,6 +190,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const disconnectTrakt = async () => { if (!user) return; const updatedUser = { ...user, traktToken: undefined, traktProfile: undefined }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: null, trakt_profile: null }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } };
   
   const syncTraktData = async () => {
+      // ... (Implementation unchanged)
       if (!user?.traktToken) return;
       setLoading(true);
       setIsSyncing(true);
@@ -195,7 +215,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   media_type: interaction.media_type,
                   is_watched: interaction.is_watched,
                   rating: interaction.rating,
-                  // Use -1 fallback for persistence compatibility
                   season_number: interaction.season_number ?? -1,
                   episode_number: interaction.episode_number ?? -1,
                   watched_at: interaction.watched_at || new Date().toISOString()
@@ -216,6 +235,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const toggleWatched = async (id: number, mediaType: 'tv' | 'movie') => {
+    // ... (Implementation unchanged)
     const key = `${mediaType}-${id}`;
     const current = interactions[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 };
     const updated = { ...current, is_watched: !current.is_watched, watched_at: !current.is_watched ? new Date().toISOString() : undefined };
@@ -223,7 +243,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setInteractions(prev => ({ ...prev, [key]: updated }));
 
     if (user?.isCloud && supabase) {
-        // Use consistent composite key values (-1) for nulls to ensure uniqueness works with standard constraints
         await supabase.from('interactions').upsert({ 
             user_id: user.id, 
             tmdb_id: id, 
@@ -238,6 +257,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const toggleEpisodeWatched = async (showId: number, season: number, episode: number) => { 
+      // ... (Implementation unchanged)
       const key = `episode-${showId}-${season}-${episode}`; 
       const current = interactions[key] || { tmdb_id: showId, media_type: 'episode', is_watched: false, rating: 0, season_number: season, episode_number: episode }; 
       const updated = { ...current, is_watched: !current.is_watched, watched_at: !current.is_watched ? new Date().toISOString() : undefined }; 
@@ -259,6 +279,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const setRating = async (id: number, mediaType: 'tv' | 'movie', rating: number) => { 
+      // ... (Implementation unchanged)
       const key = `${mediaType}-${id}`; 
       const current = interactions[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 }; 
       const updated = { ...current, rating: rating }; 
@@ -278,8 +299,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } 
   };
 
-  // New Helper: Mark all episodes up to X as watched
   const markHistoryWatched = async (showId: number, targetSeason: number, targetEpisode: number) => {
+      // ... (Implementation unchanged)
       setIsSyncing(true);
       try {
           const show = await getShowDetails(showId);
@@ -344,7 +365,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
-  // --- CLOUD CALENDAR HELPERS ---
+  // ... (Cloud Calendar Helpers Unchanged) ...
   const mapDbToEpisode = (row: any): Episode => ({
       id: row.id,
       show_id: row.tmdb_id,
@@ -365,8 +386,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!supabase) return;
       try {
           const oneYearAgo = subYears(new Date(), 1).toISOString();
-          
-          // Load Future + Recent Past (1 Year Cap)
           const { data, error } = await supabase
             .from('user_calendar_events')
             .select('*')
@@ -384,10 +403,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   newEpisodes[dateKey].push(mapDbToEpisode(row));
               });
               
-              // MERGE WITH EXISTING (Hot Load support) AND SAVE TO CACHE
               setEpisodes(prev => {
                   const merged = { ...prev, ...newEpisodes };
-                  set(DB_KEY_EPISODES, merged); // Update IDB with fresh data
+                  set(DB_KEY_EPISODES, merged); 
                   return merged;
               });
           }
@@ -397,11 +415,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const loadArchivedEvents = async () => {
+      // ... (Unchanged)
       if (!user?.isCloud || !supabase || !user.id) return;
       setLoading(true);
       try {
           const oneYearAgo = subYears(new Date(), 1).toISOString();
-          
           const { data, error } = await supabase
             .from('user_calendar_events')
             .select('*')
@@ -439,7 +457,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           user_id: userId,
           tmdb_id: ep.show_id || ep.id,
           media_type: ep.is_movie ? 'movie' : 'tv',
-          // Ensure no undefined values which Supabase might reject or treat weirdly
           season_number: ep.season_number ?? -1,
           episode_number: ep.episode_number ?? -1,
           title: ep.show_name || ep.name || '',
@@ -452,7 +469,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           release_type: ep.release_type || null
       }));
 
-      // Upsert in batches
       const batchSize = 100;
       for (let i = 0; i < rows.length; i += batchSize) {
           const batch = rows.slice(i, i + batchSize);
@@ -465,8 +481,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
-  // --- FULL SYNC LOGIC ---
   const performFullSync = async () => {
+      // ... (Unchanged)
       if (!user?.isCloud || !supabase || !user.id) return;
       
       setIsSyncing(true);
@@ -476,13 +492,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const uniqueItems = [...allTrackedShows];
           setSyncProgress({ current: 0, total: uniqueItems.length });
 
-          // Clear old events to ensure clean state
           await supabase.from('user_calendar_events').delete().eq('user_id', user.id);
 
           let processedCount = 0;
           const batchSize = 3; 
-          
-          // Local accumulator for IDB
           let fullEpisodeList: Episode[] = [];
 
           for (let i = 0; i < uniqueItems.length; i += batchSize) {
@@ -525,13 +538,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               setSyncProgress(prev => ({ ...prev, current: processedCount }));
           }
 
-          // 4. Update Profile State
           await supabase.from('profiles').update({ 
               full_sync_completed: true,
               last_full_sync: new Date().toISOString()
           }).eq('id', user.id);
           
-          // 5. Update Local Cache (Hot Load Prep)
           const newEpisodesMap: Record<string, Episode[]> = {};
           fullEpisodeList.forEach(ep => {
               if(!ep.air_date) return;
@@ -553,7 +564,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const refreshEpisodes = useCallback(async (force = false) => { 
-      // If Full Sync is pending, skip auto-refresh
+      // ... (Unchanged)
       if (fullSyncRequired) return;
 
       if (!user || (!user.tmdbKey && !user.isCloud)) { setLoading(false); return; } 
@@ -561,7 +572,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const lastUpdate = await get<number>(DB_KEY_META); 
       const now = Date.now(); 
       
-      // Cache Check (Local Mode Only - Cloud uses loadCloudCalendar)
       if (!user.isCloud && !force && lastUpdate && (now - lastUpdate < CACHE_DURATION)) { 
           const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); 
           if (cachedEps && Object.keys(cachedEps).length > 0) { 
@@ -612,7 +622,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                               batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type });
                           });
                       } else {
-                          // Smart Sync: Stop if old
                           const details = await getShowDetails(item.id);
                           const seasonsMeta = details.seasons || [];
                           const sortedSeasons = [...seasonsMeta].sort((a, b) => b.season_number - a.season_number);
@@ -639,7 +648,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               processedCount += currentBatchSize;
               setSyncProgress(prev => ({ ...prev, current: Math.min(processedCount, uniqueItems.length) }));
           }
-          // Save Cache locally as well for cloud users
           setEpisodes(current => { 
               set(DB_KEY_EPISODES, current); 
               return current; 
@@ -680,7 +688,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               fullSyncCompleted: profile.full_sync_completed
           }; 
           
-          // Clear cache ONLY if switching users
           if (user && user.id && user.id !== authUser.id) { 
               await del(DB_KEY_EPISODES); 
               await del(DB_KEY_META); 
@@ -689,9 +696,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
           setUser(newUser); 
           setApiToken(newUser.tmdbKey); 
-          if (profile.settings) setSettings(profile.settings); 
           
-          // Load Watchlist & Subs first so they are ready for sync
+          // Apply Cloud Settings but Respect Local Overrides (e.g. Layout)
+          if (profile.settings) {
+              const local = getLocalPrefs();
+              setSettings({ ...DEFAULT_SETTINGS, ...profile.settings, ...local });
+          } 
+          
+          // ... (Rest of sync logic unchanged) ...
           const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); 
           if (remoteWatchlist) { 
               const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; 
@@ -703,7 +715,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) { console.error(e); } } 
               setSubscribedLists(loadedLists); 
           } 
-          // Load Interactions
           const { data: remoteInteractions } = await supabase.from('interactions').select('*'); 
           if (remoteInteractions) { 
               const intMap: Record<string, Interaction> = {}; 
@@ -721,19 +732,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               setReminders(remoteReminders.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes }))); 
           } 
 
-          // Logic for Full Sync
           if (!profile.full_sync_completed) {
               setFullSyncRequired(true);
-              setLoading(false); // Stop main loading so modal can show
+              setLoading(false); 
           } else {
               setLoading(true);
               if (newUser.id) {
-                  // HOT LOADING STRATEGY:
-                  // 1. Load from IndexedDB (Instant)
                   const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES);
                   if (cached) setEpisodes(cached);
-
-                  // 2. Fetch fresh from Supabase (Async)
                   await loadCloudCalendar(newUser.id);
               }
               setLoading(false); 
@@ -743,7 +749,44 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const reloadAccount = async () => { if (isSyncing) return; setLoading(true); try { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); if (user?.isCloud && supabase) { const { data: { session } } = await supabase.auth.getSession(); if (session) { await loginCloud(session); } else { logout(); } } else { await refreshEpisodes(true); } } catch (e) { console.error("Reload failed", e); setLoading(false); } };
   const updateUserKey = async (apiKey: string) => { if (user) { const updatedUser = { ...user, tmdbKey: apiKey }; setUser(updatedUser); setApiToken(apiKey); if (user.isCloud && supabase) { await supabase.from('profiles').update({ tmdb_key: apiKey }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } };
-  const updateSettings = async (newSettings: Partial<AppSettings>) => { setSettings(prev => { const updated = { ...prev, ...newSettings, compactCalendar: true }; if (user?.isCloud && supabase) { supabase.from('profiles').update({ settings: updated }).eq('id', user.id).then(); } return updated; }); };
+  
+  // MODIFIED SETTINGS UPDATE (SPLIT SYNC/LOCAL)
+  const updateSettings = async (newSettings: Partial<AppSettings>) => { 
+      setSettings(prev => { 
+          const updated = { ...prev, ...newSettings, compactCalendar: true }; 
+          
+          // Split Local Only Prefs (e.g. viewMode)
+          const localKeys = ['viewMode']; 
+          const localPrefs = getLocalPrefs();
+          const prefsToSaveLocally: any = { ...localPrefs };
+          
+          let hasLocalChanges = false;
+          localKeys.forEach(k => {
+              if (k in newSettings) {
+                  prefsToSaveLocally[k] = newSettings[k as keyof AppSettings];
+                  hasLocalChanges = true;
+              }
+          });
+          
+          if (hasLocalChanges) {
+              localStorage.setItem('tv_calendar_local_prefs', JSON.stringify(prefsToSaveLocally));
+          }
+
+          // Filter out local keys for Sync
+          const settingsToSync = { ...updated };
+          localKeys.forEach(k => delete (settingsToSync as any)[k]);
+
+          if (user?.isCloud && supabase) { 
+              supabase.from('profiles').update({ settings: settingsToSync }).eq('id', user.id).then(); 
+          } 
+          
+          // Keep synced version in local storage too for consistency/offline
+          localStorage.setItem('tv_calendar_settings', JSON.stringify(settingsToSync));
+
+          return updated; 
+      }); 
+  };
+
   const logout = async () => { if (user?.isCloud && supabase) { await supabase.auth.signOut(); } setUser(null); localStorage.removeItem('tv_calendar_user'); del(DB_KEY_EPISODES); del(DB_KEY_META); setWatchlist([]); setSubscribedLists([]); setEpisodes({}); setReminders([]); setInteractions({}); localStorage.removeItem('tv_calendar_interactions'); };
   const addReminder = async (reminder: Reminder) => { const newReminder = { ...reminder, id: reminder.id || crypto.randomUUID() }; setReminders(prev => [...prev, newReminder]); if (user?.isCloud && supabase) { await supabase.from('reminders').insert({ user_id: user.id, tmdb_id: reminder.tmdb_id, media_type: reminder.media_type, scope: reminder.scope, episode_season: reminder.episode_season, episode_number: reminder.episode_number, offset_minutes: reminder.offset_minutes }); } await requestNotificationPermission(); };
   const removeReminder = async (id: string) => { setReminders(prev => prev.filter(r => r.id !== id)); if (user?.isCloud && supabase) { await supabase.from('reminders').delete().eq('id', id); } };
@@ -758,7 +801,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const batchSubscribe = async (lists: SubscribedList[]) => { const currentIds = new Set(subscribedLists.map(l => l.id)); const freshLists = lists.filter(l => !currentIds.has(l.id)); if (freshLists.length === 0) return; const newLists = [...subscribedLists, ...freshLists]; setSubscribedLists(newLists); if (user?.isCloud && supabase) { const rows = freshLists.map(l => ({ user_id: user.id, list_id: l.id, name: l.name, item_count: l.item_count })); if (rows.length > 0) { await supabase.from('subscriptions').upsert(rows, { onConflict: 'user_id, list_id' }); } } if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current); updateTimeoutRef.current = setTimeout(() => { refreshEpisodes(true); }, 2000); };
   const importBackup = (data: any) => { if (user?.isCloud) { uploadBackupToCloud(data); return; } if (Array.isArray(data)) { setWatchlist(data); } else if (typeof data === 'object' && data !== null) { if (data.user && data.user.username && data.user.tmdbKey) { setUser({ ...data.user, isAuthenticated: true, isCloud: false }); } if (data.settings) updateSettings(data.settings); if (data.subscribedLists) { setSubscribedLists(data.subscribedLists); } if (data.watchlist) { setWatchlist(data.watchlist); } if (data.reminders) setReminders(data.reminders); if (data.interactions) setInteractions(data.interactions); } };
   const uploadBackupToCloud = async (data: any) => { if (!user?.isCloud || !supabase) return; setLoading(true); try { let keyToSet = user.tmdbKey; let settingsToSet = settings; if (data.user?.tmdbKey) keyToSet = data.user.tmdbKey; if (data.settings) settingsToSet = { ...settings, ...data.settings }; await supabase.from('profiles').update({ tmdb_key: keyToSet, settings: settingsToSet }).eq('id', user.id); setUser(prev => prev ? ({ ...prev, tmdbKey: keyToSet }) : null); setApiToken(keyToSet); setSettings(settingsToSet); let items: TVShow[] = []; if (Array.isArray(data)) items = data; else if (data.watchlist) items = data.watchlist; if (items.length > 0) await batchAddShows(items); if (data.subscribedLists) await batchSubscribe(data.subscribedLists); } catch (e) { console.error("Cloud upload failed", e); alert("Failed to upload backup to cloud."); } finally { setLoading(false); } };
-  const getSyncPayload = useCallback(() => { const simpleWatchlist = watchlist.map(item => ({ id: item.id, type: item.media_type })); const simpleLists = subscribedLists.map(list => list.id); const payload = { user: { username: user?.username, tmdbKey: user?.tmdbKey, isCloud: user?.isCloud }, watchlist: simpleWatchlist, lists: simpleLists, settings, interactions }; return LZString.compressToEncodedURIComponent(JSON.stringify(payload)); }, [user, watchlist, subscribedLists, settings, interactions]);
+  
+  // MODIFIED QR SYNC TO EXCLUDE LOCAL SETTINGS
+  const getSyncPayload = useCallback(() => { 
+      const simpleWatchlist = watchlist.map(item => ({ id: item.id, type: item.media_type })); 
+      const simpleLists = subscribedLists.map(list => list.id); 
+      
+      const settingsToExport = { ...settings };
+      delete (settingsToExport as any).viewMode; // Exclude device-specific layout
+
+      const payload = { 
+          user: { username: user?.username, tmdbKey: user?.tmdbKey, isCloud: user?.isCloud }, 
+          watchlist: simpleWatchlist, 
+          lists: simpleLists, 
+          settings: settingsToExport, // Send clean settings
+          interactions 
+      }; 
+      return LZString.compressToEncodedURIComponent(JSON.stringify(payload)); 
+  }, [user, watchlist, subscribedLists, settings, interactions]);
+  
   const processSyncPayload = useCallback(async (encodedPayload: string) => { try { const json = LZString.decompressFromEncodedURIComponent(encodedPayload); if (!json) throw new Error("Invalid payload"); const data = JSON.parse(json); if (data.user) { const newUser: User = { ...data.user, isAuthenticated: true }; setUser(newUser); setApiToken(newUser.tmdbKey); if (!newUser.isCloud) { localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); } } if (data.settings) { updateSettings(data.settings); } if (data.interactions) { setInteractions(data.interactions); if (!data.user?.isCloud) { localStorage.setItem('tv_calendar_interactions', JSON.stringify(data.interactions)); } } if (data.watchlist && Array.isArray(data.watchlist)) { setLoading(true); const shows: TVShow[] = []; for (const item of data.watchlist) { try { if (item.type === 'movie') { const details = await getMovieDetails(item.id); shows.push(details); } else { const details = await getShowDetails(item.id); shows.push(details); } } catch (e) { console.error(e); } } await batchAddShows(shows); } if (data.lists && Array.isArray(data.lists)) { for (const listId of data.lists) { await subscribeToList(listId); } } setTimeout(() => window.location.reload(), 500); } catch (e) { console.error("Sync failed", e); alert("Failed to process sync data."); setLoading(false); } }, [batchAddShows, subscribeToList, updateSettings]);
   const closeMobileWarning = (suppressFuture: boolean) => { setIsMobileWarningOpen(false); if (suppressFuture) { updateSettings({ suppressMobileAddWarning: true }); } };
 
