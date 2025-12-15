@@ -5,7 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import SettingsModal from './SettingsModal';
 
 const Navbar: React.FC = () => {
-  const { user, logout, setIsSearchOpen } = useAppContext();
+  const { user, logout, setIsSearchOpen, settings } = useAppContext();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const location = useLocation();
@@ -24,6 +24,7 @@ const Navbar: React.FC = () => {
   if (!user) return null;
 
   const isActive = (path: string) => location.pathname === path;
+  const isPillLayout = settings.mobileNavLayout === 'pill';
   
   // Desktop Sidebar Item
   const DesktopNavItem = ({ to, icon: Icon, label, onClick }: { to?: string, icon: any, label: string, onClick?: () => void }) => {
@@ -92,38 +93,62 @@ const Navbar: React.FC = () => {
         </div>
       </nav>
 
-      {/* MOBILE BOTTOM NAV (Visible < md) - Fixed Bottom */}
-      <div 
-        className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-main)]/95 backdrop-blur-xl border-t border-[var(--border-color)] z-50 transition-transform duration-300"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 10px)' }}
-      >
-          <div className="flex items-center justify-between px-2 h-16">
-            <MobileTab to="/" icon={Calendar} label="Calendar" active={isActive('/')} />
-            <MobileTab to="/discover" icon={Compass} label="Discover" active={isActive('/discover')} />
-            
-            <button 
-                onClick={() => setIsSearchOpen(true)}
-                className="flex flex-col items-center justify-center w-16 h-full"
-            >
-                <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-900/50 mb-1 active:scale-95 transition-transform">
-                    <Search className="w-5 h-5" />
-                </div>
-                <span className="text-[9px] font-medium text-slate-400">Search</span>
-            </button>
-            
-            <MobileTab to="/watchlist" icon={List} label="Library" active={isActive('/watchlist')} />
-            
-            <button 
-                onClick={() => setIsUserMenuOpen(true)}
-                className={`flex flex-col items-center justify-center w-full max-w-[4rem] h-full gap-1 ${isUserMenuOpen ? 'text-indigo-400' : 'text-slate-500'}`}
-            >
-                 <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${isUserMenuOpen ? 'border-indigo-500 bg-indigo-500/20' : 'border-slate-600 bg-slate-800'}`}>
-                    <span className="text-[10px] font-bold">{user.username.charAt(0).toUpperCase()}</span>
-                 </div>
-                 <span className="text-[10px] font-medium">Profile</span>
-            </button>
+      {/* MOBILE BOTTOM NAV (Visible < md) */}
+      
+      {!isPillLayout ? (
+          // --- V1: STANDARD FIXED BAR ---
+          <div 
+            className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-main)]/95 backdrop-blur-xl border-t border-[var(--border-color)] z-50 transition-transform duration-300 safe-area-bottom"
+          >
+              <div className="flex items-center justify-between px-2 h-16">
+                <MobileTab to="/" icon={Calendar} label="Calendar" active={isActive('/')} />
+                <MobileTab to="/discover" icon={Compass} label="Discover" active={isActive('/discover')} />
+                
+                <button 
+                    onClick={() => setIsSearchOpen(true)}
+                    className="flex flex-col items-center justify-center w-16 h-full"
+                >
+                    <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-900/50 mb-1 active:scale-95 transition-transform">
+                        <Search className="w-5 h-5" />
+                    </div>
+                    <span className="text-[9px] font-medium text-slate-400">Search</span>
+                </button>
+                
+                <MobileTab to="/watchlist" icon={List} label="Library" active={isActive('/watchlist')} />
+                
+                <button 
+                    onClick={() => setIsUserMenuOpen(true)}
+                    className={`flex flex-col items-center justify-center w-full max-w-[4rem] h-full gap-1 ${isUserMenuOpen ? 'text-indigo-400' : 'text-slate-500'}`}
+                >
+                     <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${isUserMenuOpen ? 'border-indigo-500 bg-indigo-500/20' : 'border-slate-600 bg-slate-800'}`}>
+                        <span className="text-[10px] font-bold">{user.username.charAt(0).toUpperCase()}</span>
+                     </div>
+                     <span className="text-[10px] font-medium">Profile</span>
+                </button>
+              </div>
           </div>
-      </div>
+      ) : (
+          // --- V2: FLOATING PILL ---
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none flex justify-center px-4 mb-2 pb-[env(safe-area-inset-bottom,20px)]">
+              <div className="pointer-events-auto bg-black/80 backdrop-blur-xl border border-white/10 rounded-full px-6 py-4 flex items-center gap-8 shadow-2xl safe-area-bottom">
+                  <Link to="/" className={`active:scale-95 transition-transform ${isActive('/') ? 'text-white' : 'text-zinc-500'}`}>
+                      <Calendar className="w-6 h-6" />
+                  </Link>
+                  <Link to="/discover" className={`active:scale-95 transition-transform ${isActive('/discover') ? 'text-white' : 'text-zinc-500'}`}>
+                      <Compass className="w-6 h-6" />
+                  </Link>
+                  <button onClick={() => setIsSearchOpen(true)} className="active:scale-95 transition-transform text-zinc-500 hover:text-white">
+                      <Search className="w-6 h-6" />
+                  </button>
+                  <Link to="/watchlist" className={`active:scale-95 transition-transform ${isActive('/watchlist') ? 'text-white' : 'text-zinc-500'}`}>
+                      <List className="w-6 h-6" />
+                  </Link>
+                  <button onClick={() => setIsUserMenuOpen(true)} className={`active:scale-95 transition-transform ${isUserMenuOpen ? 'text-white' : 'text-zinc-500'}`}>
+                      <UserIcon className="w-6 h-6" />
+                  </button>
+              </div>
+          </div>
+      )}
 
       {/* MOBILE USER MENU DRAWER */}
       {isUserMenuOpen && (

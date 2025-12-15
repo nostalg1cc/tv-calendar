@@ -89,6 +89,7 @@ export interface AppSettings {
   recommendationMethod: 'banner' | 'inline';
   compactCalendar: boolean;
   viewMode: 'grid' | 'list' | 'stack'; 
+  mobileNavLayout: 'standard' | 'pill'; // New Layout Option
   suppressMobileAddWarning: boolean; 
   calendarPosterFillMode: 'cover' | 'contain'; 
   useSeason1Art: boolean; // Anti-Spoiler

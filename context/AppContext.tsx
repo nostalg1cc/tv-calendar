@@ -80,6 +80,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   recommendationMethod: 'banner',
   compactCalendar: true, 
   viewMode: 'grid', 
+  mobileNavLayout: 'standard',
   suppressMobileAddWarning: false,
   calendarPosterFillMode: 'cover',
   useSeason1Art: false,
@@ -755,8 +756,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setSettings(prev => { 
           const updated = { ...prev, ...newSettings, compactCalendar: true }; 
           
-          // Split Local Only Prefs (e.g. viewMode)
-          const localKeys = ['viewMode']; 
+          // Split Local Only Prefs (e.g. viewMode, mobileNavLayout)
+          const localKeys = ['viewMode', 'mobileNavLayout']; 
           const localPrefs = getLocalPrefs();
           const prefsToSaveLocally: any = { ...localPrefs };
           
@@ -809,6 +810,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       
       const settingsToExport = { ...settings };
       delete (settingsToExport as any).viewMode; // Exclude device-specific layout
+      delete (settingsToExport as any).mobileNavLayout; // Exclude device-specific layout
 
       const payload = { 
           user: { username: user?.username, tmdbKey: user?.tmdbKey, isCloud: user?.isCloud }, 

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom, Database, Globe, Palette, User as UserIcon, Monitor, Pipette, Link as LinkIcon, ExternalLink, Copy, LogOut, LayoutGrid, List, Layers } from 'lucide-react';
+import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom, Database, Globe, Palette, User as UserIcon, Monitor, Pipette, Link as LinkIcon, ExternalLink, Copy, LogOut, LayoutGrid, List, Layers, PanelBottom, Pill } from 'lucide-react';
 import { useAppContext, THEMES } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -132,6 +132,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
             {activeTab === 'general' && (<div className="space-y-6 animate-fade-in"><section><div className="flex items-center gap-3 mb-3"><div className="p-2.5 rounded-xl bg-zinc-800 text-zinc-300 h-fit"><Key className="w-6 h-6" /></div><div><h3 className="text-white font-medium">TMDB Access Token</h3><p className="text-zinc-400 text-sm">Required for API access.</p></div></div><div className="bg-zinc-900 border border-zinc-800 p-3 rounded-lg">{isEditingKey ? (<div className="flex gap-2"><input type="password" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} className="flex-1 bg-black/50 border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="TMDB Token" /><button onClick={saveKey} className="bg-emerald-600 hover:bg-emerald-500 text-white p-2 rounded transition-colors"><Check className="w-4 h-4" /></button></div>) : (<div className="flex justify-between items-center"><div className="text-zinc-400 text-sm font-mono truncate max-w-[200px]">{user?.tmdbKey ? '••••••••••••••••' : 'Not Set'}</div><button onClick={() => { setKeyInput(user?.tmdbKey || ''); setIsEditingKey(true); }} className="text-xs text-indigo-400 hover:text-white underline">Change</button></div>)}</div></section><div className="h-px bg-zinc-800/50" /><section><div className="flex items-center gap-3 mb-3"><div className="p-2.5 rounded-xl bg-zinc-800 text-zinc-300 h-fit"><Globe className="w-6 h-6" /></div><div><h3 className="text-white font-medium">Region & Time</h3><p className="text-zinc-400 text-sm">Localize air dates.</p></div></div>{timezones.length > 0 ? (<div className="relative"><select value={settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone} onChange={(e) => updateSettings({ timezone: e.target.value })} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none focus:border-indigo-500 appearance-none cursor-pointer">{timezones.map((tz: string) => (<option key={tz} value={tz}>{tz}</option>))}</select><div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500"><ArrowDownToLine className="w-4 h-4" /></div></div>) : (<p className="text-xs text-zinc-500 italic">Not supported in this browser.</p>)}</section><div className="h-px bg-zinc-800/50" /><section><div className="flex items-center gap-3 mb-3"><div className="p-2.5 rounded-xl bg-zinc-800 text-zinc-300 h-fit"><Smartphone className="w-6 h-6" /></div><div><h3 className="text-white font-medium">Device Sync</h3><p className="text-zinc-400 text-sm">Transfer data instantly.</p></div></div><div className="grid grid-cols-2 gap-3"><button onClick={() => setShowQr(true)} className="bg-zinc-200 hover:bg-white text-zinc-900 font-bold py-3 px-2 rounded-lg flex flex-col items-center justify-center gap-2 transition-all text-xs text-center border border-transparent"><QrCode className="w-5 h-5" /> <span>Show QR Code</span></button><button onClick={() => setShowScanner(true)} className="bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-3 px-2 rounded-lg flex flex-col items-center justify-center gap-2 transition-all text-xs text-center border border-zinc-800"><Scan className="w-5 h-5" /> <span>Scan to Sync</span></button></div></section></div>)}
             {activeTab === 'appearance' && (
                 <div className="space-y-6 animate-fade-in">
+                    <section>
+                        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Mobile Navigation</h3>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button 
+                                onClick={() => updateSettings({ mobileNavLayout: 'standard' })}
+                                className={`p-3 rounded-xl border flex items-center justify-center gap-2 transition-all ${!settings.mobileNavLayout || settings.mobileNavLayout === 'standard' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}
+                            >
+                                <PanelBottom className="w-5 h-5" />
+                                <span className="text-xs font-bold">Standard Bar</span>
+                            </button>
+                            <button 
+                                onClick={() => updateSettings({ mobileNavLayout: 'pill' })}
+                                className={`p-3 rounded-xl border flex items-center justify-center gap-2 transition-all ${settings.mobileNavLayout === 'pill' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}
+                            >
+                                <Pill className="w-5 h-5" />
+                                <span className="text-xs font-bold">Floating Pill</span>
+                            </button>
+                        </div>
+                    </section>
+                    <div className="h-px bg-zinc-800/50" />
                     <section>
                         <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Calendar View</h3>
                         <div className="grid grid-cols-3 gap-2">
