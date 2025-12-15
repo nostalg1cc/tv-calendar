@@ -1,16 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
-  eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths, addDays, isSameDay
+  eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths, addDays, isSameDay, subYears
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw, Filter, Tv, Film, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw, Filter, Tv, Film, Check, History } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import EpisodeModal from '../components/EpisodeModal';
 import { getImageUrl } from '../services/tmdb';
 import { Episode } from '../types';
 
 const CalendarPage: React.FC = () => {
-  const { episodes, loading, isSyncing, settings, updateSettings, refreshEpisodes, interactions } = useAppContext();
+  const { episodes, loading, isSyncing, settings, updateSettings, refreshEpisodes, loadArchivedEvents, interactions } = useAppContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   
@@ -21,6 +21,9 @@ const CalendarPage: React.FC = () => {
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const goToToday = () => setCurrentDate(new Date());
+
+  // Check if we are in "Archived" territory (more than 1 year ago)
+  const isArchivedDate = currentDate < subYears(new Date(), 1);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -240,13 +243,31 @@ const CalendarPage: React.FC = () => {
           </div>
       </div>
       
+      {/* Archive Warning / Load Button */}
+      {isArchivedDate && activeDays.length === 0 && !loading && (
+          <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800 p-8 text-center">
+             <History className="w-12 h-12 text-zinc-600 mb-4" />
+             <h3 className="text-lg font-bold text-white mb-2">Archived History</h3>
+             <p className="text-sm text-zinc-500 mb-6 max-w-sm">
+                 To improve performance, older history is archived. Load it manually to view this month.
+             </p>
+             <button 
+                onClick={loadArchivedEvents}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
+             >
+                 <RefreshCw className="w-4 h-4" /> Load Archive
+             </button>
+          </div>
+      )}
+
       {/* Loading State: Only show full block if we have NO data. If we have cache but are syncing, show spinner in header. */}
-      {loading && activeDays.length === 0 ? (
+      {loading && activeDays.length === 0 && !isArchivedDate ? (
           <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800">
              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
              <p className="text-sm text-zinc-500">Syncing your calendar...</p>
           </div>
       ) : (
+          !isArchivedDate || activeDays.length > 0 ? (
           <>
             {/* GRID VIEW */}
             {isGridView && (
@@ -458,6 +479,7 @@ const CalendarPage: React.FC = () => {
                 </div>
             )}
           </>
+          ) : null
       )}
 
       {selectedDate && (

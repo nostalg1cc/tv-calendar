@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, ReactNo
 import { User, TVShow, Episode, AppSettings, SubscribedList, Reminder, Interaction, TraktProfile } from '../types';
 import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails, setApiToken } from '../services/tmdb';
 import { get, set, del } from 'idb-keyval';
-import { format, subWeeks, addWeeks, parseISO, isSameDay, subMinutes } from 'date-fns';
+import { format, subYears, parseISO, isSameDay, subMinutes } from 'date-fns';
 import LZString from 'lz-string';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { getDeviceCode, pollToken, getWatchedHistory, getTraktProfile, getShowProgress } from '../services/trakt';
@@ -23,10 +23,11 @@ interface AppContextType {
   subscribeToList: (listId: string) => Promise<void>;
   unsubscribeFromList: (listId: string) => void;
   episodes: Record<string, Episode[]>; 
-  loading: boolean; // Blocking load (no data)
-  isSyncing: boolean; // Background sync (has data, updating)
+  loading: boolean; 
+  isSyncing: boolean; 
   syncProgress: { current: number; total: number }; 
   refreshEpisodes: (force?: boolean) => Promise<void>;
+  loadArchivedEvents: () => Promise<void>;
   requestNotificationPermission: () => Promise<boolean>;
   
   // Reminders
@@ -34,7 +35,7 @@ interface AppContextType {
   addReminder: (reminder: Reminder) => Promise<void>;
   removeReminder: (id: string) => Promise<void>;
   
-  // Interactions (Watched / Rated)
+  // Interactions
   interactions: Record<string, Interaction>; 
   toggleWatched: (id: number, mediaType: 'tv' | 'movie') => Promise<void>;
   toggleEpisodeWatched: (showId: number, season: number, episode: number) => Promise<void>;
@@ -158,151 +159,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [watchlist, subscribedLists, settings, user, reminders, interactions]);
 
   // --- TRAKT METHODS ---
+  // ... (Existing Trakt Methods) ...
   const traktAuth = async (clientId: string, clientSecret: string) => { return await getDeviceCode(clientId); };
   const traktPoll = async (deviceCode: string, clientId: string, clientSecret: string) => { return await pollToken(deviceCode, clientId, clientSecret); };
-  
-  const saveTraktToken = async (tokenData: any) => {
-      if (!user) return;
-      try {
-          const profile = await getTraktProfile(tokenData.access_token);
-          const updatedUser: User = { 
-              ...user, 
-              traktToken: { 
-                  ...tokenData, 
-                  created_at: Date.now() / 1000 
-              },
-              traktProfile: profile
-          };
-          setUser(updatedUser);
-          if (user.isCloud && supabase) {
-              await supabase.from('profiles').update({ trakt_token: updatedUser.traktToken, trakt_profile: profile }).eq('id', user.id);
-          } else {
-              localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser));
-          }
-      } catch (e) {
-          console.error("Failed to fetch Trakt profile", e);
-      }
-  };
-
-  const disconnectTrakt = async () => {
-      if (!user) return;
-      const updatedUser = { ...user, traktToken: undefined, traktProfile: undefined };
-      setUser(updatedUser);
-      if (user.isCloud && supabase) {
-          await supabase.from('profiles').update({ trakt_token: null, trakt_profile: null }).eq('id', user.id);
-      } else {
-          localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser));
-      }
-  };
-
-  const syncTraktData = async () => {
+  const saveTraktToken = async (tokenData: any) => { if (!user) return; try { const profile = await getTraktProfile(tokenData.access_token); const updatedUser: User = { ...user, traktToken: { ...tokenData, created_at: Date.now() / 1000 }, traktProfile: profile }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: updatedUser.traktToken, trakt_profile: profile }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } catch (e) { console.error("Failed to fetch Trakt profile", e); } };
+  const disconnectTrakt = async () => { if (!user) return; const updatedUser = { ...user, traktToken: undefined, traktProfile: undefined }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: null, trakt_profile: null }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } };
+  const syncTraktData = async () => { /* ... existing logic ... */
       if (!user?.traktToken) return;
       setLoading(true);
       setIsSyncing(true);
       try {
           const token = user.traktToken.access_token;
-          const [movieHistory, showHistory] = await Promise.all([
-              getWatchedHistory(token, 'movies'),
-              getWatchedHistory(token, 'shows')
-          ]);
-
+          const [movieHistory, showHistory] = await Promise.all([getWatchedHistory(token, 'movies'), getWatchedHistory(token, 'shows')]);
           let newInteractions = { ...interactions };
           let newShowsToAdd: TVShow[] = [];
           const currentShowIds = new Set(allTrackedShows.map(s => s.id));
-
-          // Process Movies
-          for (const item of movieHistory) {
-              const tmdbId = item.movie.ids.tmdb;
-              if (!tmdbId) continue;
-              newInteractions[`movie-${tmdbId}`] = {
-                  tmdb_id: tmdbId,
-                  media_type: 'movie',
-                  is_watched: true,
-                  rating: 0, 
-                  watched_at: item.last_watched_at
-              };
-              if (!currentShowIds.has(tmdbId)) {
-                  try {
-                      const details = await getMovieDetails(tmdbId);
-                      newShowsToAdd.push(details);
-                      currentShowIds.add(tmdbId); 
-                  } catch (e) {}
-              }
-          }
-
-          // Process Shows
-          for (const item of showHistory) {
-              const tmdbId = item.show.ids.tmdb;
-              if (!tmdbId) continue;
-              if (!currentShowIds.has(tmdbId)) {
-                  try {
-                      const details = await getShowDetails(tmdbId);
-                      newShowsToAdd.push(details);
-                      currentShowIds.add(tmdbId);
-                  } catch (e) {}
-              }
-          }
-
-          // Process Show Progress 
+          for (const item of movieHistory) { const tmdbId = item.movie.ids.tmdb; if (!tmdbId) continue; newInteractions[`movie-${tmdbId}`] = { tmdb_id: tmdbId, media_type: 'movie', is_watched: true, rating: 0, watched_at: item.last_watched_at }; if (!currentShowIds.has(tmdbId)) { try { const details = await getMovieDetails(tmdbId); newShowsToAdd.push(details); currentShowIds.add(tmdbId); } catch (e) {} } }
+          for (const item of showHistory) { const tmdbId = item.show.ids.tmdb; if (!tmdbId) continue; if (!currentShowIds.has(tmdbId)) { try { const details = await getShowDetails(tmdbId); newShowsToAdd.push(details); currentShowIds.add(tmdbId); } catch (e) {} } }
           const recentShows = showHistory.slice(0, 5); 
-          for (const item of recentShows) {
-               const tmdbId = item.show.ids.tmdb;
-               if (!tmdbId) continue;
-               try {
-                   const progress = await getShowProgress(token, item.show.ids.trakt);
-                   if (progress && progress.seasons) {
-                       progress.seasons.forEach((season: any) => {
-                           season.episodes.forEach((ep: any) => {
-                               if (ep.completed) {
-                                   const key = `episode-${tmdbId}-${season.number}-${ep.number}`;
-                                   newInteractions[key] = {
-                                       tmdb_id: tmdbId,
-                                       media_type: 'episode',
-                                       is_watched: true,
-                                       season_number: season.number,
-                                       episode_number: ep.number,
-                                       rating: 0,
-                                       watched_at: ep.last_watched_at
-                                   };
-                               }
-                           });
-                       });
-                   }
-               } catch (e) {}
-          }
-
+          for (const item of recentShows) { const tmdbId = item.show.ids.tmdb; if (!tmdbId) continue; try { const progress = await getShowProgress(token, item.show.ids.trakt); if (progress && progress.seasons) { progress.seasons.forEach((season: any) => { season.episodes.forEach((ep: any) => { if (ep.completed) { const key = `episode-${tmdbId}-${season.number}-${ep.number}`; newInteractions[key] = { tmdb_id: tmdbId, media_type: 'episode', is_watched: true, season_number: season.number, episode_number: ep.number, rating: 0, watched_at: ep.last_watched_at }; } }); }); } } catch (e) {} }
           setInteractions(newInteractions);
-          
           if (user.isCloud && supabase) {
-              const updates = Object.values(newInteractions).map(interaction => ({
-                  user_id: user.id,
-                  tmdb_id: interaction.tmdb_id,
-                  media_type: interaction.media_type,
-                  is_watched: interaction.is_watched,
-                  rating: interaction.rating,
-                  season_number: interaction.season_number,
-                  episode_number: interaction.episode_number,
-                  watched_at: interaction.watched_at || new Date().toISOString()
-              }));
-              if (updates.length > 0) {
-                  for (let i = 0; i < updates.length; i += 100) {
-                      const batch = updates.slice(i, i + 100);
-                      await supabase.from('interactions').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' });
-                  }
-              }
+              const updates = Object.values(newInteractions).map(interaction => ({ user_id: user.id, tmdb_id: interaction.tmdb_id, media_type: interaction.media_type, is_watched: interaction.is_watched, rating: interaction.rating, season_number: interaction.season_number, episode_number: interaction.episode_number, watched_at: interaction.watched_at || new Date().toISOString() }));
+              if (updates.length > 0) { for (let i = 0; i < updates.length; i += 100) { const batch = updates.slice(i, i + 100); await supabase.from('interactions').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); } }
           }
-
-          if (newShowsToAdd.length > 0) {
-              await batchAddShows(newShowsToAdd);
-          }
+          if (newShowsToAdd.length > 0) { await batchAddShows(newShowsToAdd); }
           alert(`Sync Complete! Added ${newShowsToAdd.length} new items and updated watched status.`);
-      } catch (e) {
-          console.error("Trakt Sync Error", e);
-          alert("Trakt sync encountered an error. Check console.");
-      } finally {
-          setLoading(false);
-          setIsSyncing(false);
-      }
+      } catch (e) { console.error("Trakt Sync Error", e); alert("Trakt sync encountered an error. Check console."); } finally { setLoading(false); setIsSyncing(false); }
   };
 
   const toggleWatched = async (id: number, mediaType: 'tv' | 'movie') => { const key = `${mediaType}-${id}`; const current = interactions[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 }; const updated = { ...current, is_watched: !current.is_watched, watched_at: !current.is_watched ? new Date().toISOString() : undefined }; setInteractions(prev => ({ ...prev, [key]: updated })); if (user?.isCloud && supabase) { await supabase.from('interactions').upsert({ user_id: user.id, tmdb_id: id, media_type: mediaType, is_watched: updated.is_watched, rating: updated.rating, updated_at: new Date().toISOString() }, { onConflict: 'user_id, tmdb_id, media_type' }); } };
@@ -326,7 +209,120 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
   const setRating = async (id: number, mediaType: 'tv' | 'movie', rating: number) => { const key = `${mediaType}-${id}`; const current = interactions[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 }; const updated = { ...current, rating: rating }; setInteractions(prev => ({ ...prev, [key]: updated })); if (user?.isCloud && supabase) { await supabase.from('interactions').upsert({ user_id: user.id, tmdb_id: id, media_type: mediaType, is_watched: updated.is_watched, rating: updated.rating, updated_at: new Date().toISOString() }, { onConflict: 'user_id, tmdb_id, media_type' }); } };
 
-  // --- Optimized RefreshEpisodes ---
+  // --- CLOUD CALENDAR HELPERS ---
+  const mapDbToEpisode = (row: any): Episode => ({
+      id: row.id,
+      show_id: row.tmdb_id,
+      show_name: row.title,
+      name: row.episode_name || row.title, 
+      overview: row.overview || '',
+      vote_average: row.vote_average || 0,
+      air_date: row.air_date,
+      episode_number: row.episode_number,
+      season_number: row.season_number,
+      still_path: row.backdrop_path, 
+      poster_path: row.poster_path,
+      is_movie: row.media_type === 'movie',
+      release_type: row.release_type as any
+  });
+
+  const loadCloudCalendar = async (userId: string) => {
+      if (!supabase) return;
+      try {
+          const oneYearAgo = subYears(new Date(), 1).toISOString();
+          
+          // Load Future + Recent Past (1 Year Cap)
+          const { data, error } = await supabase
+            .from('user_calendar_events')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('air_date', oneYearAgo);
+
+          if (error) throw error;
+          
+          if (data && data.length > 0) {
+              const newEpisodes: Record<string, Episode[]> = {};
+              data.forEach((row: any) => {
+                  const dateKey = row.air_date;
+                  if (!dateKey) return;
+                  if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
+                  newEpisodes[dateKey].push(mapDbToEpisode(row));
+              });
+              setEpisodes(newEpisodes);
+          }
+      } catch (e) {
+          console.error("Failed to load cloud calendar", e);
+      }
+  };
+
+  // Manual trigger to load older data
+  const loadArchivedEvents = async () => {
+      if (!user?.isCloud || !supabase) return;
+      setLoading(true);
+      try {
+          const oneYearAgo = subYears(new Date(), 1).toISOString();
+          
+          const { data, error } = await supabase
+            .from('user_calendar_events')
+            .select('*')
+            .eq('user_id', user.id)
+            .lt('air_date', oneYearAgo);
+
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+              setEpisodes(prev => {
+                  const next = { ...prev };
+                  data.forEach((row: any) => {
+                      const dateKey = row.air_date;
+                      if (!dateKey) return;
+                      // Avoid dupes if already loaded
+                      if (!next[dateKey]) next[dateKey] = [];
+                      const exists = next[dateKey].some(e => e.show_id === row.tmdb_id && e.season_number === row.season_number && e.episode_number === row.episode_number);
+                      if (!exists) {
+                          next[dateKey].push(mapDbToEpisode(row));
+                      }
+                  });
+                  return next;
+              });
+          }
+      } catch (e) {
+          console.error("Archive load failed", e);
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const saveToCloudCalendar = async (episodesList: Episode[], userId: string) => {
+      if (!supabase || episodesList.length === 0) return;
+      
+      const rows = episodesList.map(ep => ({
+          user_id: userId,
+          tmdb_id: ep.show_id || ep.id,
+          media_type: ep.is_movie ? 'movie' : 'tv',
+          season_number: ep.season_number || -1,
+          episode_number: ep.episode_number || -1,
+          title: ep.show_name || ep.name, // Show Name
+          episode_name: ep.name, // Episode Name
+          overview: ep.overview, 
+          air_date: ep.air_date,
+          poster_path: ep.poster_path,
+          backdrop_path: ep.still_path, 
+          vote_average: ep.vote_average,
+          release_type: ep.release_type
+      }));
+
+      // Upsert in batches
+      const batchSize = 100;
+      for (let i = 0; i < rows.length; i += batchSize) {
+          const batch = rows.slice(i, i + batchSize);
+          await supabase.from('user_calendar_events').upsert(batch, { 
+              onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' 
+          });
+      }
+  };
+
+  // --- Optimized RefreshEpisodes (Cloud & Local) ---
   const refreshEpisodes = useCallback(async (force = false) => { 
       if (!user || (!user.tmdbKey && !user.isCloud)) { setLoading(false); return; } 
       
@@ -334,29 +330,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const now = Date.now(); 
       const itemsToProcess = [...allTrackedShows]; 
       
-      // If no items, clear and exit
       if (itemsToProcess.length === 0) { 
           setEpisodes({}); 
           setLoading(false); 
           return; 
       } 
       
-      // Cache Check
-      if (!force && lastUpdate && (now - lastUpdate < CACHE_DURATION)) { 
-          if (Object.keys(episodes).length === 0) { 
-              const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); 
-              if (cachedEps && Object.keys(cachedEps).length > 0) { 
-                  setEpisodes(cachedEps); 
-                  setLoading(false); 
-                  return; 
-              } 
-          } else { 
+      // Cache Check (Local Mode Only)
+      if (!user.isCloud && !force && lastUpdate && (now - lastUpdate < CACHE_DURATION)) { 
+          const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); 
+          if (cachedEps && Object.keys(cachedEps).length > 0) { 
+              setEpisodes(cachedEps); 
               setLoading(false); 
               return; 
           } 
       } 
       
-      // Force Loading state if we are about to fetch and have no data (empty calendar)
+      // Force Loading state for empty calendar
       if (Object.keys(episodes).length === 0) { setLoading(true); } 
       setIsSyncing(true); 
       
@@ -379,7 +369,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                        if (!ep.air_date) return;
                        const dateKey = ep.air_date;
                        const existing = next[dateKey] || [];
-                       // Remove existing entry for this specific episode/show to avoid duplicates
                        const others = existing.filter(e => !(e.show_id === ep.show_id && e.episode_number === ep.episode_number && e.season_number === ep.season_number));
                        next[dateKey] = [...others, ep];
                    });
@@ -388,12 +377,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           };
 
           let processedCount = 0; 
-          
-          // Safety Timeout to unblock loading spinner if fetch stalls
           const safetyTimeout = setTimeout(() => setLoading(false), 8000);
+          const oneYearAgo = subYears(new Date(), 1);
 
           while (processedCount < uniqueItems.length) { 
-              const currentBatchSize = processedCount === 0 ? 3 : 5; // Start with small batch to paint UI fast
+              const currentBatchSize = processedCount === 0 ? 3 : 5; 
               const batch = uniqueItems.slice(processedCount, processedCount + currentBatchSize); 
               
               const batchEpisodes: Episode[] = [];
@@ -406,11 +394,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                               batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); 
                           }); 
                       } else { 
-                          // TV SHOW LOGIC: Prioritize current seasons
                           let seasonCount = item.number_of_seasons; 
                           let details = item;
                           
-                          // Always try to fetch fresh details to get latest seasons metadata
                           try { 
                               details = await getShowDetails(item.id); 
                               seasonCount = details.number_of_seasons; 
@@ -421,7 +407,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                               } 
                           } catch { /* use cached */ } 
                           
-                          // Season 1 Poster Logic
                           let s1Poster = details.poster_path;
                           if (settings.useSeason1Art) {
                              const s1 = details.seasons?.find(s => s.season_number === 1);
@@ -429,41 +414,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           }
 
                           const seasonsMeta = details.seasons || [];
-                          // Sort descending to get latest seasons first
+                          // Sort descending (Latest First)
                           const sortedSeasons = [...seasonsMeta].sort((a, b) => b.season_number - a.season_number);
                           
-                          // Split into Priority (Latest 2) and Rest
-                          const prioritySeasons = sortedSeasons.slice(0, 2);
-                          const restSeasons = sortedSeasons.slice(2);
+                          // Smart Fetch Logic: Fetch Latest Seasons first.
+                          // Stop fetching when we hit a season entirely in the deep past (> 1 year ago)
+                          for (const sMeta of sortedSeasons) {
+                              try {
+                                  const sData = await getSeasonDetails(item.id, sMeta.season_number);
+                                  if (sData.episodes && sData.episodes.length > 0) {
+                                      // Check if this season is too old to care about for the sync
+                                      // We check the LAST episode of the season. If it aired > 1 year ago, we stop traversing back.
+                                      // NOTE: We still add it if it's the *only* season, or if we haven't hit the limit yet.
+                                      const lastEpDate = sData.episodes[sData.episodes.length - 1].air_date;
+                                      
+                                      // Add episodes to batch
+                                      sData.episodes.forEach(ep => {
+                                          if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: s1Poster, is_movie: false }); 
+                                      });
 
-                          // 1. Fetch Priority Seasons Immediately
-                          await Promise.all(prioritySeasons.map(async (sMeta) => {
-                               try {
-                                   const sData = await getSeasonDetails(item.id, sMeta.season_number);
-                                   if (sData.episodes) {
-                                       sData.episodes.forEach(ep => {
-                                           if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: s1Poster, is_movie: false }); 
-                                       });
-                                   }
-                               } catch (e) {}
-                          }));
-                          
-                          // Note: We are accumulating into batchEpisodes which is processed after the map.
-                          // However, we want to update UI faster? 
-                          // Actually, for the first batch, waiting for priority seasons of 3 shows is fast enough.
-                          
-                          // 2. Fetch Rest of Seasons (We still await them to ensure data consistency before saving to cache)
-                          // Optimization: If we have > 20 seasons, maybe we skip very old ones? For now, fetch all but they come later.
-                          await Promise.all(restSeasons.map(async (sMeta) => {
-                               try {
-                                   const sData = await getSeasonDetails(item.id, sMeta.season_number);
-                                   if (sData.episodes) {
-                                       sData.episodes.forEach(ep => {
-                                           if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: s1Poster, is_movie: false }); 
-                                       });
-                                   }
-                               } catch (e) {}
-                          }));
+                                      // Optimization: Stop fetching older seasons if this season finished airing over a year ago.
+                                      // Exception: If user manually requested "archive", we wouldn't be here (this is sync).
+                                      if (lastEpDate && parseISO(lastEpDate) < oneYearAgo) {
+                                          break; // Stop fetching earlier seasons for this show
+                                      }
+                                  }
+                              } catch (e) {}
+                          }
                       } 
                   } catch (error) { console.error(`Error processing ${item.name}`, error); } 
               })); 
@@ -471,7 +448,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               // Push this batch to UI immediately
               mergeNewEpisodes(batchEpisodes);
               
-              // Unblock loading spinner after first batch (priority content)
+              // CLOUD SYNC: Save batch to Supabase
+              if (user.isCloud && supabase) {
+                  await saveToCloudCalendar(batchEpisodes, user.id);
+              }
+
               if (processedCount === 0) {
                   setLoading(false);
                   clearTimeout(safetyTimeout);
@@ -479,20 +460,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               
               processedCount += currentBatchSize; 
               setSyncProgress(prev => ({ ...prev, current: Math.min(processedCount, uniqueItems.length) })); 
-              
-              // Periodic IDB Save
-              if (processedCount % 10 === 0) { 
-                  // Note: we can't easily save partial 'newEpisodes' unless we accumulate locally.
-                  // For simplicity, we just rely on state. We will do a full save at the end.
-              } 
           } 
           
-          // Save full state to IDB at the end
-          setEpisodes(current => {
-              set(DB_KEY_EPISODES, current); // Side effect inside setter is safe here as it's fire-and-forget
-              return current;
-          });
-          await set(DB_KEY_META, Date.now()); 
+          if (!user.isCloud) {
+              setEpisodes(current => {
+                  set(DB_KEY_EPISODES, current); 
+                  return current;
+              });
+              await set(DB_KEY_META, Date.now()); 
+          }
           
           if (metadataUpdated) { 
               const newWatchlist = Array.from(updatedWatchlistMap.values()); 
@@ -510,10 +486,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } 
   }, [user, allTrackedShows, watchlist, episodes, settings.useSeason1Art]);
 
-  // --- Auto-Refresh Effect (Fix for empty calendar on mount) ---
+  // --- Auto-Refresh Effect ---
   useEffect(() => {
       if (user?.isAuthenticated) {
-          // Debounce slightly to allow local storage to settle if needed
           const timer = setTimeout(() => {
               refreshEpisodes();
           }, 100);
@@ -522,19 +497,63 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [user?.isAuthenticated, user?.tmdbKey, user?.isCloud]);
 
   const login = (username: string, apiKey: string) => { const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false }; setUser(newUser); setApiToken(apiKey); localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); };
-  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) setSettings(profile.settings); if (Object.keys(episodes).length === 0) { setLoading(true); } const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); if (remoteWatchlist) { const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; setWatchlist(loadedWatchlist); } const { data: remoteSubs } = await supabase.from('subscriptions').select('*'); if (remoteSubs) { const loadedLists: SubscribedList[] = []; for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) { console.error(e); } } setSubscribedLists(loadedLists); } const { data: remoteReminders } = await supabase.from('reminders').select('*'); if (remoteReminders) { setReminders(remoteReminders.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes }))); } const { data: remoteInteractions } = await supabase.from('interactions').select('*'); if (remoteInteractions) { const intMap: Record<string, Interaction> = {}; (remoteInteractions as any[]).forEach((i) => { 
-      // If it's an episode, use the complex key
-      if (i.media_type === 'episode') {
-          intMap[`episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}`] = { 
-              tmdb_id: i.tmdb_id, media_type: 'episode', is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at 
-          };
-      } else {
-          intMap[`${i.media_type}-${i.tmdb_id}`] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, watched_at: i.watched_at }; 
-      }
-  }); setInteractions(intMap); } 
-  // IMPORTANT: Ensure refresh logic runs after login loading completes to populate calendar
-  if (Object.keys(episodes).length > 0) { setLoading(false); } 
-  } };
+  
+  // MODIFIED LOGIN CLOUD
+  const loginCloud = async (session: any) => { 
+      if (!supabase) return; 
+      const { user: authUser } = session; 
+      
+      const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile').eq('id', authUser.id).single(); 
+      
+      if (profile) { 
+          const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile }; 
+          
+          if (user && user.id && user.id !== authUser.id) { 
+              await del(DB_KEY_EPISODES); 
+              await del(DB_KEY_META); 
+              setEpisodes({}); 
+          } 
+          
+          setUser(newUser); 
+          setApiToken(newUser.tmdbKey); 
+          if (profile.settings) setSettings(profile.settings); 
+          
+          // 2. IMMEDIATE LOAD: Load Cached Calendar Events from DB
+          setLoading(true);
+          await loadCloudCalendar(newUser.id!);
+
+          // 3. Load other data in background
+          const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); 
+          if (remoteWatchlist) { 
+              const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; 
+              setWatchlist(loadedWatchlist); 
+          } 
+          const { data: remoteSubs } = await supabase.from('subscriptions').select('*'); 
+          if (remoteSubs) { 
+              const loadedLists: SubscribedList[] = []; 
+              for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) { console.error(e); } } 
+              setSubscribedLists(loadedLists); 
+          } 
+          const { data: remoteReminders } = await supabase.from('reminders').select('*'); 
+          if (remoteReminders) { 
+              setReminders(remoteReminders.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes }))); 
+          } 
+          const { data: remoteInteractions } = await supabase.from('interactions').select('*'); 
+          if (remoteInteractions) { 
+              const intMap: Record<string, Interaction> = {}; 
+              (remoteInteractions as any[]).forEach((i) => { 
+                  if (i.media_type === 'episode') {
+                      intMap[`episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}`] = { tmdb_id: i.tmdb_id, media_type: 'episode', is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at };
+                  } else {
+                      intMap[`${i.media_type}-${i.tmdb_id}`] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, watched_at: i.watched_at }; 
+                  }
+              }); 
+              setInteractions(intMap); 
+          } 
+          
+          setLoading(false); 
+      } 
+  };
 
   const reloadAccount = async () => { if (isSyncing) return; setLoading(true); try { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); if (user?.isCloud && supabase) { const { data: { session } } = await supabase.auth.getSession(); if (session) { await loginCloud(session); } else { logout(); } } else { await refreshEpisodes(true); } } catch (e) { console.error("Reload failed", e); setLoading(false); } };
   const updateUserKey = async (apiKey: string) => { if (user) { const updatedUser = { ...user, tmdbKey: apiKey }; setUser(updatedUser); setApiToken(apiKey); if (user.isCloud && supabase) { await supabase.from('profiles').update({ tmdb_key: apiKey }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } };
@@ -562,7 +581,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       user, login, loginCloud, logout, updateUserKey,
       watchlist, addToWatchlist, removeFromWatchlist, batchAddShows, batchSubscribe,
       subscribedLists, subscribeToList, unsubscribeFromList, allTrackedShows,
-      episodes, loading, isSyncing, syncProgress, refreshEpisodes,
+      episodes, loading, isSyncing, syncProgress, refreshEpisodes, loadArchivedEvents,
       requestNotificationPermission,
       isSearchOpen, setIsSearchOpen,
       settings, updateSettings,
