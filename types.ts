@@ -52,6 +52,7 @@ export interface User {
   isAuthenticated: boolean;
   isCloud?: boolean; // Flag to determine storage strategy
   email?: string;
+  fullSyncCompleted?: boolean; // New Flag for migration state
   traktToken?: {
       access_token: string;
       refresh_token: string;

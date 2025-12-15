@@ -12,6 +12,7 @@ import SearchModal from './components/SearchModal';
 import MobileAddWarning from './components/MobileAddWarning';
 import AskReminderModal from './components/AskReminderModal';
 import ReminderConfigModal from './components/ReminderConfigModal';
+import FullSyncModal from './components/FullSyncModal';
 import { TVShow, Episode } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -65,6 +66,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             {/* Global Overlays */}
             <SearchModal />
             <MobileAddWarning />
+            <FullSyncModal />
             
             {/* Global Reminder Flow */}
             <AskReminderModal 
