@@ -506,6 +506,7 @@ const CalendarPage: React.FC = () => {
                                         <div className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar pr-4">
                                             {eps.map(ep => {
                                                 const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
+                                                const backdropSrc = ep.still_path;
                                                 const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
 
                                                 return (
