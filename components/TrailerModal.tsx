@@ -126,11 +126,11 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
                     ) : selectedVideo ? (
                         <>
                             <iframe 
-                                src={`https://www.youtube-nocookie.com/embed/${selectedVideo.key}?autoplay=1&rel=0&modestbranding=1&origin=${window.location.origin}`}
+                                src={`https://www.youtube.com/embed/${selectedVideo.key}?autoplay=1&rel=0&modestbranding=1&origin=${window.location.origin}`}
                                 className="w-full h-full aspect-video"
-                                allow="autoplay; encrypted-media; fullscreen"
-                                referrerPolicy="strict-origin-when-cross-origin"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowFullScreen
+                                referrerPolicy="strict-origin-when-cross-origin"
                                 title={selectedVideo.name}
                             />
                             {/* Fallback Link Overlay (Hidden unless needed, but accessible) */}
