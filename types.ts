@@ -38,6 +38,13 @@ export interface Season {
   episodes: Episode[];
 }
 
+export interface TraktProfile {
+    username: string;
+    name: string;
+    ids: { slug: string };
+    images?: { avatar?: { full?: string } };
+}
+
 export interface User {
   id?: string; // Supabase UUID if cloud user
   username: string;
@@ -45,6 +52,13 @@ export interface User {
   isAuthenticated: boolean;
   isCloud?: boolean; // Flag to determine storage strategy
   email?: string;
+  traktToken?: {
+      access_token: string;
+      refresh_token: string;
+      expires: number;
+      created_at: number;
+  };
+  traktProfile?: TraktProfile;
 }
 
 export interface CalendarDay {
@@ -90,7 +104,10 @@ export interface Reminder {
 
 export interface Interaction {
     tmdb_id: number;
-    media_type: 'tv' | 'movie';
+    media_type: 'tv' | 'movie' | 'episode';
     is_watched: boolean;
     rating: number; // 0-5
+    watched_at?: string; // ISO date
+    season_number?: number; // For episodes
+    episode_number?: number; // For episodes
 }
