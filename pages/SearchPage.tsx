@@ -48,7 +48,7 @@ const SearchPage: React.FC = () => {
   }, [watchlist]);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto p-4 md:p-8">
       <div className="text-center mb-10">
         <h1 className="text-3xl font-bold text-white mb-2">Find Your Favorite Shows</h1>
         <p className="text-slate-400">Search TMDB's massive database to add shows to your calendar.</p>

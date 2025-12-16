@@ -799,10 +799,93 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // (Reminder Effect) ...
   useEffect(() => { if (!user) return; const checkReminders = () => { if (Notification.permission !== 'granted') return; const now = new Date(); const notifiedKey = 'tv_calendar_notified_events'; const notifiedEvents = JSON.parse(localStorage.getItem(notifiedKey) || '{}'); const allEpisodes = Object.values(episodes).flat() as Episode[]; reminders.forEach(rule => { let candidates: Episode[] = []; if (rule.scope === 'all') { candidates = allEpisodes.filter(e => e.show_id === rule.tmdb_id && e.air_date); } else if (rule.scope === 'episode') { candidates = allEpisodes.filter(e => e.show_id === rule.tmdb_id && e.season_number === rule.episode_season && e.episode_number === rule.episode_number); } else if (rule.scope.startsWith('movie')) { candidates = allEpisodes.filter(e => e.show_id === rule.tmdb_id && e.is_movie); if (rule.scope === 'movie_theatrical') candidates = candidates.filter(e => e.release_type === 'theatrical'); else if (rule.scope === 'movie_digital') candidates = candidates.filter(e => e.release_type === 'digital'); } candidates.forEach(ep => { if (!ep.air_date) return; const releaseDate = parseISO(ep.air_date); if (rule.offset_minutes === 0) { if (isSameDay(now, releaseDate)) triggerNotification(ep, rule, notifiedEvents); } else { const triggerDate = subMinutes(releaseDate, rule.offset_minutes); if (isSameDay(now, triggerDate)) triggerNotification(ep, rule, notifiedEvents); } }); }); localStorage.setItem(notifiedKey, JSON.stringify(notifiedEvents)); }; const triggerNotification = (ep: Episode, rule: Reminder, history: any) => { const key = `${rule.id}-${ep.id}-${new Date().toDateString()}`; if (history[key]) return; const title = ep.is_movie ? ep.name : ep.show_name; const body = ep.is_movie ? `${ep.release_type === 'theatrical' ? 'In Theaters' : 'Digital Release'} today!` : `S${ep.season_number}E${ep.episode_number} "${ep.name}" is airing!`; new Notification(title || 'TV Calendar', { body, icon: '/vite.svg', tag: key }); history[key] = Date.now(); }; const interval = setInterval(checkReminders, 60000); checkReminders(); return () => clearInterval(interval); }, [reminders, episodes, user]);
   const addToWatchlist = async (show: TVShow) => { if (watchlist.find(s => s.id === show.id)) return; const newWatchlist = [...watchlist, show]; setWatchlist(newWatchlist); if (user?.isCloud && supabase) { await supabase.from('watchlist').upsert({ user_id: user.id, tmdb_id: show.id, media_type: show.media_type, name: show.name, poster_path: show.poster_path, backdrop_path: show.backdrop_path, overview: show.overview, first_air_date: show.first_air_date, vote_average: show.vote_average }, { onConflict: 'user_id, tmdb_id' }); } if (window.innerWidth < 768 && !settings.suppressMobileAddWarning) { setIsMobileWarningOpen(true); } if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current); updateTimeoutRef.current = setTimeout(() => { refreshEpisodes(true); }, 2000); };
-  const removeFromWatchlist = async (showId: number) => { const newWatchlist = watchlist.filter(s => s.id !== showId); setWatchlist(newWatchlist); if (user?.isCloud && supabase) { await supabase.from('watchlist').delete().match({ user_id: user.id, tmdb_id: showId }); } if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current); updateTimeoutRef.current = setTimeout(() => { refreshEpisodes(true); }, 2000); };
+  
+  const removeFromWatchlist = async (showId: number) => {
+    // Check if show is still tracked via a subscribed list
+    const isTrackedInLists = subscribedLists.some(list => list.items.some(i => i.id === showId));
+    
+    const newWatchlist = watchlist.filter(s => s.id !== showId);
+    setWatchlist(newWatchlist);
+
+    // If NOT tracked elsewhere, we can safely remove from calendar immediately
+    if (!isTrackedInLists) {
+        setEpisodes(prev => {
+            const next = { ...prev };
+            Object.keys(next).forEach(dateKey => {
+                next[dateKey] = next[dateKey].filter(ep => ep.show_id !== showId);
+                if (next[dateKey].length === 0) delete next[dateKey];
+            });
+            set(DB_KEY_EPISODES, next);
+            return next;
+        });
+        
+        if (user?.isCloud && supabase) {
+             // Parallelize cloud deletes for speed
+             Promise.all([
+                 supabase.from('watchlist').delete().match({ user_id: user.id, tmdb_id: showId }),
+                 supabase.from('user_calendar_events').delete().match({ user_id: user.id, tmdb_id: showId })
+             ]).catch(console.error);
+        }
+    } else {
+        // Just remove from watchlist DB if still tracked elsewhere
+        if (user?.isCloud && supabase) {
+            await supabase.from('watchlist').delete().match({ user_id: user.id, tmdb_id: showId });
+        }
+    }
+
+    if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+    updateTimeoutRef.current = setTimeout(() => {
+      refreshEpisodes(true);
+    }, 2000);
+  };
+
   const batchAddShows = async (shows: TVShow[]) => { const currentIds = new Set(watchlist.map(s => s.id)); const newShows = shows.filter(s => !currentIds.has(s.id)); if (newShows.length === 0) return; const newWatchlist = [...watchlist, ...newShows]; setWatchlist(newWatchlist); if (user?.isCloud && supabase) { const rows = newShows.map(show => ({ user_id: user.id, tmdb_id: show.id, media_type: show.media_type, name: show.name, poster_path: show.poster_path, backdrop_path: show.backdrop_path, overview: show.overview, first_air_date: show.first_air_date, vote_average: show.vote_average })); if (rows.length > 0) { await supabase.from('watchlist').upsert(rows, { onConflict: 'user_id, tmdb_id' }); } } if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current); updateTimeoutRef.current = setTimeout(() => { refreshEpisodes(true); }, 2000); };
   const subscribeToList = async (listId: string) => { if (subscribedLists.some(l => l.id === listId)) return; try { const listDetails = await getListDetails(listId); const newList: SubscribedList = { id: listId, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }; const newLists = [...subscribedLists, newList]; setSubscribedLists(newLists); if (user?.isCloud && supabase) { await supabase.from('subscriptions').upsert({ user_id: user.id, list_id: listId, name: listDetails.name, item_count: listDetails.items.length }, { onConflict: 'user_id, list_id' }); } if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current); updateTimeoutRef.current = setTimeout(() => { refreshEpisodes(true); }, 2000); } catch (error) { throw error; } };
-  const unsubscribeFromList = async (listId: string) => { const newLists = subscribedLists.filter(l => l.id !== listId); setSubscribedLists(newLists); if (user?.isCloud && supabase) { await supabase.from('subscriptions').delete().match({ user_id: user.id, list_id: listId }); } if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current); updateTimeoutRef.current = setTimeout(() => { refreshEpisodes(true); }, 2000); };
+  
+  const unsubscribeFromList = async (listId: string) => {
+      const listToRemove = subscribedLists.find(l => l.id === listId);
+      const newLists = subscribedLists.filter(l => l.id !== listId);
+      setSubscribedLists(newLists);
+
+      if (listToRemove) {
+          const showsToPurge: number[] = [];
+          
+          // Calculate items that are now fully untracked
+          listToRemove.items.forEach(show => {
+              const inWatchlist = watchlist.some(w => w.id === show.id);
+              const inOtherLists = newLists.some(l => l.items.some(i => i.id === show.id));
+              if (!inWatchlist && !inOtherLists) {
+                  showsToPurge.push(show.id);
+              }
+          });
+
+          if (showsToPurge.length > 0) {
+              setEpisodes(prev => {
+                  const next = { ...prev };
+                  Object.keys(next).forEach(dateKey => {
+                      // Filter based on show_id existence and inclusion in purge list
+                      next[dateKey] = next[dateKey].filter(ep => !ep.show_id || !showsToPurge.includes(ep.show_id));
+                      if (next[dateKey].length === 0) delete next[dateKey];
+                  });
+                  set(DB_KEY_EPISODES, next);
+                  return next;
+              });
+
+              if (user?.isCloud && supabase) {
+                  // Clean up cloud calendar events for these shows
+                  supabase.from('user_calendar_events').delete().in('tmdb_id', showsToPurge).eq('user_id', user.id).then();
+              }
+          }
+      }
+
+      if (user?.isCloud && supabase) {
+          await supabase.from('subscriptions').delete().match({ user_id: user.id, list_id: listId });
+      }
+      
+      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+      updateTimeoutRef.current = setTimeout(() => { refreshEpisodes(true); }, 2000);
+  };
+
   const batchSubscribe = async (lists: SubscribedList[]) => { const currentIds = new Set(subscribedLists.map(l => l.id)); const freshLists = lists.filter(l => !currentIds.has(l.id)); if (freshLists.length === 0) return; const newLists = [...subscribedLists, ...freshLists]; setSubscribedLists(newLists); if (user?.isCloud && supabase) { const rows = freshLists.map(l => ({ user_id: user.id, list_id: l.id, name: l.name, item_count: l.item_count })); if (rows.length > 0) { await supabase.from('subscriptions').upsert(rows, { onConflict: 'user_id, list_id' }); } } if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current); updateTimeoutRef.current = setTimeout(() => { refreshEpisodes(true); }, 2000); };
   const importBackup = (data: any) => { if (user?.isCloud) { uploadBackupToCloud(data); return; } if (Array.isArray(data)) { setWatchlist(data); } else if (typeof data === 'object' && data !== null) { if (data.user && data.user.username && data.user.tmdbKey) { setUser({ ...data.user, isAuthenticated: true, isCloud: false }); } if (data.settings) updateSettings(data.settings); if (data.subscribedLists) { setSubscribedLists(data.subscribedLists); } if (data.watchlist) { setWatchlist(data.watchlist); } if (data.reminders) setReminders(data.reminders); if (data.interactions) setInteractions(data.interactions); } };
   const uploadBackupToCloud = async (data: any) => { if (!user?.isCloud || !supabase) return; setLoading(true); try { let keyToSet = user.tmdbKey; let settingsToSet = settings; if (data.user?.tmdbKey) keyToSet = data.user.tmdbKey; if (data.settings) settingsToSet = { ...settings, ...data.settings }; await supabase.from('profiles').update({ tmdb_key: keyToSet, settings: settingsToSet }).eq('id', user.id); setUser(prev => prev ? ({ ...prev, tmdbKey: keyToSet }) : null); setApiToken(keyToSet); setSettings(settingsToSet); let items: TVShow[] = []; if (Array.isArray(data)) items = data; else if (data.watchlist) items = data.watchlist; if (items.length > 0) await batchAddShows(items); if (data.subscribedLists) await batchSubscribe(data.subscribedLists); } catch (e) { console.error("Cloud upload failed", e); alert("Failed to upload backup to cloud."); } finally { setLoading(false); } };

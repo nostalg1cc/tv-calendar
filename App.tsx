@@ -60,7 +60,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                     flex-1 w-full mx-auto transition-all duration-300
                     ${isCompactMode 
                         ? `h-full p-0 md:p-4 md:pb-4 ${isPill ? 'pb-2' : 'pb-28'}` 
-                        : `max-w-[1920px] p-0 md:p-8 md:pb-12 ${isPill ? 'pb-24' : 'pb-28'}`
+                        : `max-w-[1920px] p-0 ${isPill ? 'pb-24' : 'pb-28'}`
                     }
                 `}>
                     {children}
