@@ -216,7 +216,7 @@ const CalendarPage: React.FC = () => {
   };
 
   return (
-    <div className={`flex flex-col h-full gap-2 p-4 md:p-0 ${settings.compactCalendar ? 'overflow-hidden' : ''}`}>
+    <div className={`flex flex-col h-full gap-0 md:gap-2 md:p-0 ${settings.compactCalendar ? 'overflow-hidden' : ''}`}>
       
       {/* Header Toolbar */}
       <div className="shrink-0 pb-2">
@@ -250,7 +250,7 @@ const CalendarPage: React.FC = () => {
           </div>
 
           {/* MOBILE HEADER */}
-          <div className="md:hidden flex flex-col gap-2 pt-2">
+          <div className="md:hidden flex flex-col gap-2 px-4 pt-4 pb-2">
               <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-white tracking-tight">
                       {format(currentDate, 'MMMM yyyy')}
@@ -280,23 +280,27 @@ const CalendarPage: React.FC = () => {
       
       {/* Archive Warning */}
       {isArchivedDate && activeDays.length === 0 && !loading && (
-          <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800 p-8 text-center">
-             <History className="w-12 h-12 text-zinc-600 mb-4" />
-             <h3 className="text-lg font-bold text-white mb-2">Archived History</h3>
-             <p className="text-sm text-zinc-500 mb-6 max-w-sm">
-                 To improve performance, older history is archived. Load it manually to view this month.
-             </p>
-             <button onClick={loadArchivedEvents} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2">
-                 <RefreshCw className="w-4 h-4" /> Load Archive
-             </button>
+          <div className="flex-1 p-4 flex flex-col">
+              <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800 p-8 text-center">
+                <History className="w-12 h-12 text-zinc-600 mb-4" />
+                <h3 className="text-lg font-bold text-white mb-2">Archived History</h3>
+                <p className="text-sm text-zinc-500 mb-6 max-w-sm">
+                    To improve performance, older history is archived. Load it manually to view this month.
+                </p>
+                <button onClick={loadArchivedEvents} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4" /> Load Archive
+                </button>
+              </div>
           </div>
       )}
 
       {/* Loading State */}
       {loading && activeDays.length === 0 && !isArchivedDate ? (
-          <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800">
-             <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
-             <p className="text-sm text-zinc-500">Syncing your calendar...</p>
+          <div className="flex-1 p-4 flex flex-col">
+              <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800">
+                <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
+                <p className="text-sm text-zinc-500">Syncing your calendar...</p>
+              </div>
           </div>
       ) : (
           !isArchivedDate || activeDays.length > 0 ? (
@@ -304,7 +308,7 @@ const CalendarPage: React.FC = () => {
             {/* --- GRID VIEW --- */}
             {viewMode === 'grid' && (
                 <div className={`
-                    flex flex-col bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl
+                    flex flex-col bg-zinc-900/50 md:border md:border-zinc-800 md:rounded-2xl overflow-hidden md:shadow-2xl
                     ${settings.compactCalendar ? 'flex-1 h-full min-h-0' : 'aspect-[16/10]'}
                 `}>
                     <div className="grid grid-cols-7 border-b border-zinc-800 bg-zinc-900/80">
@@ -316,7 +320,7 @@ const CalendarPage: React.FC = () => {
                     </div>
 
                     <div 
-                        className="grid grid-cols-7 flex-1 bg-zinc-950 overflow-y-auto"
+                        className="grid grid-cols-7 flex-1 bg-zinc-950 overflow-y-auto pb-24 md:pb-0"
                         ref={scrollContainerRef}
                     >
                         {calendarDays.map((day, idx) => {
@@ -422,7 +426,7 @@ const CalendarPage: React.FC = () => {
             {/* --- LIST VIEW --- */}
             {viewMode === 'list' && (
                 <div 
-                    className="flex-1 overflow-y-auto px-1 custom-scrollbar"
+                    className="flex-1 overflow-y-auto px-0 md:px-1 custom-scrollbar"
                     ref={scrollContainerRef}
                 >
                     {activeDays.length === 0 ? (
@@ -431,7 +435,7 @@ const CalendarPage: React.FC = () => {
                             <p>No episodes this month</p>
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-6 pb-20 max-w-3xl mx-auto">
+                        <div className="flex flex-col gap-6 pb-24 md:pb-20 max-w-3xl mx-auto">
                             {activeDays.map(day => {
                                 const eps = getEpisodesForDay(day);
                                 const isDayToday = isTodayInZone(day); 
@@ -440,7 +444,7 @@ const CalendarPage: React.FC = () => {
                                     <div 
                                         key={day.toString()} 
                                         id={isDayToday ? 'today-anchor' : undefined}
-                                        className="flex gap-4 scroll-mt-4"
+                                        className="flex gap-4 scroll-mt-4 pl-4 md:pl-0"
                                     >
                                         <div className="w-12 md:w-14 flex flex-col items-center pt-1 shrink-0">
                                             <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider mb-0.5">{format(day, 'EEE')}</span>
@@ -454,7 +458,7 @@ const CalendarPage: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        <div className="flex-1 space-y-3 pb-4 border-b border-zinc-800 min-w-0">
+                                        <div className="flex-1 space-y-3 pb-4 border-b border-zinc-800 min-w-0 pr-4 md:pr-0">
                                             {eps.map(ep => {
                                                 const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
                                                 const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
@@ -463,7 +467,7 @@ const CalendarPage: React.FC = () => {
                                                     <div 
                                                         key={`${ep.show_id}-${ep.id}`}
                                                         onClick={() => setSelectedDate(day)}
-                                                        className={`surface-card rounded-xl p-3 flex gap-3 cursor-pointer group border transition-colors ${isWatched ? 'bg-zinc-900/50 border-zinc-800/50 opacity-60 hover:opacity-100' : 'bg-zinc-900 border-zinc-800 hover:border-indigo-500/30'}`}
+                                                        className={`surface-card rounded-none md:rounded-xl p-3 flex gap-3 cursor-pointer group border-b border-zinc-800 md:border transition-colors ${isWatched ? 'bg-zinc-900/50 opacity-60 hover:opacity-100' : 'bg-zinc-900 hover:border-indigo-500/30'}`}
                                                     >
                                                         <div className="relative w-12 h-16 shrink-0 rounded-md overflow-hidden bg-black shadow-sm">
                                                             <img 
@@ -508,7 +512,7 @@ const CalendarPage: React.FC = () => {
             {/* --- STACK VIEW (Feed & Carousel) --- */}
             {viewMode === 'stack' && (
                 <div 
-                    className="flex-1 overflow-y-auto px-2 pb-24 custom-scrollbar snap-y snap-mandatory"
+                    className="flex-1 overflow-y-auto px-0 md:px-2 pb-24 custom-scrollbar snap-y snap-mandatory"
                     ref={scrollContainerRef}
                 >
                     {activeDays.length === 0 ? (
@@ -528,7 +532,7 @@ const CalendarPage: React.FC = () => {
                                         id={isDayToday ? 'today-anchor' : undefined}
                                         className="snap-start scroll-mt-4"
                                     >
-                                        <div className="flex items-center gap-3 mb-3 px-2">
+                                        <div className="flex items-center gap-3 mb-3 px-4 md:px-2">
                                             <div className={`
                                                 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
                                                 ${isDayToday ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400'}
@@ -546,7 +550,7 @@ const CalendarPage: React.FC = () => {
                                         </div>
 
                                         {/* Horizontal Swipe Container if > 1, else Single Card */}
-                                        <div className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar pr-4">
+                                        <div className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar px-4 md:px-0 md:pr-4">
                                             {eps.map(ep => {
                                                 const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
                                                 const backdropSrc = ep.still_path;

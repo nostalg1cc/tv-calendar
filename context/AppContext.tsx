@@ -330,7 +330,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setInteractions(newInteractions);
           
           if (user.isCloud && supabase) {
-              const updates = Object.values(newInteractions).map(interaction => ({
+              const updates = Object.values(newInteractions).map((interaction: Interaction) => ({
                   user_id: user.id,
                   tmdb_id: interaction.tmdb_id,
                   media_type: interaction.media_type,

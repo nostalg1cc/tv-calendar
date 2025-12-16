@@ -43,9 +43,9 @@ const DiscoverPage: React.FC = () => {
   };
   
   return (
-    <div className="max-w-[1600px] mx-auto p-4 pb-20 md:pb-24">
+    <div className="max-w-[1600px] mx-auto p-0 md:p-4 pb-20 md:pb-24">
         {/* Header Area */}
-        <div className="mb-6">
+        <div className="mb-6 px-4 pt-4 md:px-0 md:pt-0">
              <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 tracking-tight">Discover</h1>
              <p className="text-zinc-400 text-sm md:text-base">Explore trending hits, new premieres, and cinema releases.</p>
         </div>
@@ -63,7 +63,7 @@ const DiscoverPage: React.FC = () => {
             
             {/* GROUP 1: Trending Now */}
             <div className="space-y-6">
-                <div className="flex items-center gap-3 border-b border-zinc-800 pb-4">
+                <div className="flex items-center gap-3 border-b border-zinc-800 pb-4 px-4 md:px-0">
                     <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
                         <TrendingUp className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
@@ -93,7 +93,7 @@ const DiscoverPage: React.FC = () => {
 
             {/* GROUP 2: Coming Soon */}
             <div className="space-y-6">
-                <div className="flex items-center gap-3 border-b border-zinc-800 pb-4">
+                <div className="flex items-center gap-3 border-b border-zinc-800 pb-4 px-4 md:px-0">
                     <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
                         <CalendarClock className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
@@ -125,7 +125,7 @@ const DiscoverPage: React.FC = () => {
 
             {/* GROUP 3: Top Rated */}
             <div className="space-y-6">
-                 <div className="flex items-center gap-3 border-b border-zinc-800 pb-4">
+                 <div className="flex items-center gap-3 border-b border-zinc-800 pb-4 px-4 md:px-0">
                     <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-400">
                         <Trophy className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
@@ -242,7 +242,7 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
     };
 
     if (loading) {
-        return <div className="w-full aspect-[2/3] md:aspect-[21/9] bg-zinc-900 rounded-3xl animate-pulse" />;
+        return <div className="w-full aspect-[2/3] md:aspect-[21/9] bg-zinc-900 rounded-none md:rounded-3xl animate-pulse" />;
     }
 
     if (items.length === 0) return null;
@@ -252,7 +252,7 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
 
     return (
         <>
-        <div className="relative w-full aspect-[2/3] md:aspect-[21/9] rounded-3xl overflow-hidden group shadow-2xl bg-zinc-950">
+        <div className="relative w-full aspect-[2/3] md:aspect-[21/9] rounded-none md:rounded-3xl overflow-hidden group shadow-2xl bg-zinc-950">
             {/* Mobile Poster (Portrait) */}
             <div className="absolute inset-0 md:hidden">
                 <img 
@@ -405,7 +405,7 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
 
     return (
         <div className="space-y-4">
-             <div className="flex items-center justify-between">
+             <div className="flex items-center justify-between px-4 md:px-0">
                  <div className="flex items-center gap-2">
                     {icon}
                     <h3 className={`${variant === 'default' ? 'text-lg text-white' : 'text-base text-zinc-200'} font-bold tracking-tight`}>
@@ -421,7 +421,7 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
              </div>
              
              <div className="relative group/container">
-                 <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 scroll-smooth hide-scrollbar snap-x">
+                 <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 scroll-smooth hide-scrollbar snap-x px-4 md:px-0">
                      {items.slice(0, 10).map(show => {
                          const isAdded = allTrackedShows.some(s => s.id === show.id);
                          return (
@@ -430,7 +430,7 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                                 className={`snap-start shrink-0 ${cardWidth} flex flex-col gap-2 group relative cursor-pointer`}
                                 onClick={() => setSelectedShow(show)}
                              >
-                                 <div className={`relative ${aspectRatio} rounded-xl overflow-hidden shadow-lg border border-zinc-800 bg-zinc-900 transition-all duration-300 group-hover:scale-[1.03] group-hover:border-indigo-500/30 group-hover:shadow-indigo-500/10`}>
+                                 <div className={`relative ${aspectRatio} rounded-none md:rounded-xl overflow-hidden shadow-lg border border-zinc-800 bg-zinc-900 transition-all duration-300 group-hover:scale-[1.03] group-hover:border-indigo-500/30 group-hover:shadow-indigo-500/10`}>
                                      <img 
                                         src={getImageUrl(show.poster_path)} 
                                         alt={show.name} 
@@ -454,7 +454,7 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                                          </button>
                                      </div>
                                  </div>
-                                 <div>
+                                 <div className="px-1 md:px-0">
                                      <h3 className="font-bold text-zinc-200 text-sm leading-tight truncate group-hover:text-indigo-400 transition-colors" title={show.name}>{show.name}</h3>
                                      <p className="text-xs text-zinc-500">{show.first_air_date ? show.first_air_date.split('-')[0] : 'Unknown'}</p>
                                  </div>
@@ -465,7 +465,7 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                         onClick={onShowMore}
                         className={`snap-start shrink-0 w-[25vw] md:w-[160px] flex items-center justify-center cursor-pointer group`}
                      >
-                        <div className={`w-full ${aspectRatio} rounded-xl border-2 border-dashed border-zinc-800 bg-transparent hover:bg-zinc-800/50 hover:border-indigo-500/30 flex flex-col items-center justify-center gap-3 transition-all`}>
+                        <div className={`w-full ${aspectRatio} rounded-none md:rounded-xl border-2 border-dashed border-zinc-800 bg-transparent hover:bg-zinc-800/50 hover:border-indigo-500/30 flex flex-col items-center justify-center gap-3 transition-all`}>
                              <div className="p-3 rounded-full bg-zinc-800 group-hover:bg-indigo-600 transition-colors">
                                  <ChevronRight className="w-6 h-6 text-zinc-400 group-hover:text-white" />
                              </div>

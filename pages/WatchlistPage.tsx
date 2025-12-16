@@ -112,9 +112,9 @@ const WatchlistPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full p-4">
+    <div className="w-full p-0 md:p-4">
       {/* Page Header (Minimal Design) */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-2">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-2 px-4 pt-4 md:px-0 md:pt-0">
         {/* Left: Title & Stats */}
         <div className="flex items-baseline gap-4">
            <h1 className="text-3xl font-bold text-white tracking-tighter">My Library</h1>
@@ -196,7 +196,7 @@ const WatchlistPage: React.FC = () => {
 
       {/* Empty State */}
       {allTrackedShows.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-[50vh] surface-card rounded-3xl border-dashed border-zinc-800">
+          <div className="flex flex-col items-center justify-center h-[50vh] surface-card rounded-3xl border-dashed border-zinc-800 m-4 md:m-0">
              <Tv className="w-16 h-16 text-zinc-600 mb-4" />
              <h2 className="text-xl font-bold text-white">Your library is empty</h2>
              <p className="text-zinc-500 mb-6">Track shows to see them here.</p>
@@ -207,7 +207,7 @@ const WatchlistPage: React.FC = () => {
       )}
 
       {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-0 md:gap-4">
         {visibleItems.map((show) => {
           const nextAirDate = getNextEpisodeDate(show.id);
           const isManual = watchlist.some(s => s.id === show.id);
@@ -216,9 +216,9 @@ const WatchlistPage: React.FC = () => {
           const isWatched = interact?.is_watched;
           
           return (
-            <div key={show.id} className="surface-card rounded-xl overflow-hidden flex h-40 group relative bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all">
+            <div key={show.id} className="surface-card rounded-none md:rounded-xl overflow-hidden flex h-32 md:h-40 group relative bg-zinc-900 border-b border-zinc-800 md:border md:hover:border-zinc-700 transition-all">
                 {/* Poster */}
-                <div className="w-28 shrink-0 relative bg-black">
+                <div className="w-24 md:w-28 shrink-0 relative bg-black">
                     <img 
                         src={getImageUrl(show.poster_path)} 
                         loading="lazy"
