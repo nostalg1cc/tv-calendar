@@ -426,7 +426,7 @@ const CalendarPage: React.FC = () => {
             {/* --- LIST VIEW --- */}
             {viewMode === 'list' && (
                 <div 
-                    className="flex-1 overflow-y-auto px-0 md:px-1 custom-scrollbar"
+                    className="flex-1 overflow-y-auto px-4 md:px-1 custom-scrollbar"
                     ref={scrollContainerRef}
                 >
                     {activeDays.length === 0 ? (
@@ -444,7 +444,7 @@ const CalendarPage: React.FC = () => {
                                     <div 
                                         key={day.toString()} 
                                         id={isDayToday ? 'today-anchor' : undefined}
-                                        className="flex gap-4 scroll-mt-4 pl-4 md:pl-0"
+                                        className="flex gap-4 scroll-mt-4"
                                     >
                                         <div className="w-12 md:w-14 flex flex-col items-center pt-1 shrink-0">
                                             <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider mb-0.5">{format(day, 'EEE')}</span>
@@ -458,7 +458,7 @@ const CalendarPage: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        <div className="flex-1 space-y-3 pb-4 border-b border-zinc-800 min-w-0 pr-4 md:pr-0">
+                                        <div className="flex-1 space-y-3 pb-4 border-b border-zinc-800 min-w-0">
                                             {eps.map(ep => {
                                                 const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
                                                 const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
@@ -467,7 +467,7 @@ const CalendarPage: React.FC = () => {
                                                     <div 
                                                         key={`${ep.show_id}-${ep.id}`}
                                                         onClick={() => setSelectedDate(day)}
-                                                        className={`surface-card rounded-none md:rounded-xl p-3 flex gap-3 cursor-pointer group border-b border-zinc-800 md:border transition-colors ${isWatched ? 'bg-zinc-900/50 opacity-60 hover:opacity-100' : 'bg-zinc-900 hover:border-indigo-500/30'}`}
+                                                        className={`surface-card rounded-xl p-3 flex gap-3 cursor-pointer group border transition-colors ${isWatched ? 'bg-zinc-900/50 border-zinc-800/50 opacity-60 hover:opacity-100' : 'bg-zinc-900 border-zinc-800 hover:border-indigo-500/30'}`}
                                                     >
                                                         <div className="relative w-12 h-16 shrink-0 rounded-md overflow-hidden bg-black shadow-sm">
                                                             <img 
