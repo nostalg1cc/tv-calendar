@@ -16,7 +16,6 @@ const CalendarPage: React.FC = () => {
   
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isFirstMount = useRef(true);
 
   // Local Filter State
   const [showTV, setShowTV] = useState(true);
@@ -216,64 +215,57 @@ const CalendarPage: React.FC = () => {
   };
 
   return (
-    <div className={`flex flex-col h-full gap-2 p-4 md:p-0 ${settings.compactCalendar ? 'overflow-hidden' : ''}`}>
+    <div className={`flex flex-col h-full gap-2 p-4 md:p-6 ${settings.compactCalendar ? 'overflow-hidden' : ''}`}>
       
-      {/* Header Toolbar */}
-      <div className="shrink-0 pb-2">
-      
-          {/* DESKTOP HEADER */}
-          <div className="hidden md:flex items-center justify-between">
-              <h2 className="text-3xl font-bold text-white tracking-tighter">
-                  {format(currentDate, 'MMMM yyyy')}
-              </h2>
-
-              <div className="flex items-center gap-4">
-                   <button onClick={() => refreshEpisodes(true)} disabled={loading || isSyncing} className="p-1 text-zinc-500 hover:text-indigo-400 transition-colors group" title="Force Refresh">
-                      <RefreshCw className={`w-5 h-5 ${loading || isSyncing ? 'animate-spin text-indigo-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
-                  </button>
-                  <div className="w-px h-5 bg-zinc-800" />
-                  <div className="flex items-center gap-6">
-                      <button onClick={() => setShowTV(!showTV)} className={`transition-colors ${showTV ? 'text-white' : 'text-zinc-700 hover:text-zinc-500'}`} title="Toggle TV Shows"><Tv className="w-5 h-5" /></button>
-                      <button onClick={() => setShowMovies(!showMovies)} className={`transition-colors ${showMovies ? 'text-white' : 'text-zinc-700 hover:text-zinc-500'}`} title="Toggle Movies"><Film className="w-5 h-5" /></button>
-                  </div>
-                  <div className="w-px h-5 bg-zinc-800" />
-                  <button onClick={cycleViewMode} className="p-1 text-zinc-500 hover:text-white transition-colors" title="Toggle View">
-                      <ViewIcon className="w-5 h-5" />
-                  </button>
-                   <div className="w-px h-5 bg-zinc-800" />
-                   <div className="flex items-center gap-1">
-                      <button onClick={prevMonth} className="p-2 text-zinc-500 hover:text-white transition-colors" title="Previous Month"><ChevronLeft className="w-5 h-5" /></button>
-                      <button onClick={goToToday} className="px-2 text-sm font-bold text-zinc-500 hover:text-white transition-colors uppercase tracking-wider">This Week</button>
-                      <button onClick={nextMonth} className="p-2 text-zinc-500 hover:text-white transition-colors" title="Next Month"><ChevronRight className="w-5 h-5" /></button>
-                  </div>
-              </div>
-          </div>
-
-          {/* MOBILE HEADER */}
-          <div className="md:hidden flex flex-col gap-2 pt-2">
-              <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-white tracking-tight">
+      {/* Unified Header */}
+      <div className="shrink-0 mb-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+              {/* Title Left */}
+              <div>
+                  <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
                       {format(currentDate, 'MMMM yyyy')}
-                  </h2>
-                  <div className="flex items-center gap-6">
-                      <button onClick={() => setShowTV(!showTV)} className={`transition-colors ${showTV ? 'text-white' : 'text-zinc-700'}`}><Tv className="w-5 h-5" /></button>
-                      <button onClick={() => setShowMovies(!showMovies)} className={`transition-colors ${showMovies ? 'text-white' : 'text-zinc-700'}`}><Film className="w-5 h-5" /></button>
-                  </div>
+                  </h1>
+                  <p className="text-zinc-400 text-sm hidden md:block mt-1">
+                      Tracking {activeDays.length} active dates this month.
+                  </p>
               </div>
-              <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-1">
-                        <button onClick={prevMonth} className="p-1 text-zinc-500 hover:text-white"><ChevronLeft className="w-5 h-5" /></button>
-                        <button onClick={goToToday} className="px-2 text-xs font-bold text-zinc-500 hover:text-white uppercase tracking-wider">This Week</button>
-                        <button onClick={nextMonth} className="p-1 text-zinc-500 hover:text-white"><ChevronRight className="w-5 h-5" /></button>
-                   </div>
-                   <div className="flex items-center gap-3">
-                        <div className="w-px h-4 bg-zinc-800" />
-                        <button onClick={() => refreshEpisodes(true)} className={`text-zinc-500 ${loading || isSyncing ? 'animate-spin text-indigo-400' : ''}`}><RefreshCw className="w-5 h-5" /></button>
-                        <div className="w-px h-4 bg-zinc-800" />
-                        <button onClick={cycleViewMode} className="text-zinc-500 hover:text-white">
-                            <ViewIcon className="w-5 h-5" />
-                        </button>
-                   </div>
+
+              {/* Controls Right */}
+              <div className="flex flex-wrap items-center gap-4">
+                  {/* Type Toggles */}
+                  <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+                      <button 
+                          onClick={() => setShowTV(!showTV)} 
+                          className={`p-2 rounded-md transition-all ${showTV ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`} 
+                          title="Toggle TV Shows"
+                      >
+                          <Tv className="w-4 h-4" />
+                      </button>
+                      <button 
+                          onClick={() => setShowMovies(!showMovies)} 
+                          className={`p-2 rounded-md transition-all ${showMovies ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`} 
+                          title="Toggle Movies"
+                      >
+                          <Film className="w-4 h-4" />
+                      </button>
+                  </div>
+
+                  {/* Navigation */}
+                  <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+                      <button onClick={prevMonth} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+                      <button onClick={goToToday} className="px-3 text-xs font-bold text-zinc-400 hover:text-white uppercase tracking-wider">Today</button>
+                      <button onClick={nextMonth} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"><ChevronRight className="w-4 h-4" /></button>
+                  </div>
+
+                  {/* Tools */}
+                  <div className="flex items-center gap-2">
+                       <button onClick={() => refreshEpisodes(true)} disabled={loading || isSyncing} className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-indigo-400 transition-colors group">
+                          <RefreshCw className={`w-4 h-4 ${loading || isSyncing ? 'animate-spin text-indigo-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                      </button>
+                      <button onClick={cycleViewMode} className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
+                          <ViewIcon className="w-4 h-4" />
+                      </button>
+                  </div>
               </div>
           </div>
       </div>
