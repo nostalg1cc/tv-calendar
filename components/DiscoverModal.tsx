@@ -3,6 +3,7 @@ import { X, Loader2, Plus, Check } from 'lucide-react';
 import { TVShow } from '../types';
 import { getCollection, getImageUrl } from '../services/tmdb';
 import { useAppContext } from '../context/AppContext';
+import ShowDetailsModal from './ShowDetailsModal';
 
 interface DiscoverModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [selectedItem, setSelectedItem] = useState<TVShow | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { allTrackedShows, addToWatchlist, setReminderCandidate } = useAppContext();
 
@@ -63,7 +65,8 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
     }
   };
 
-  const handleAdd = async (show: TVShow) => {
+  const handleAdd = async (e: React.MouseEvent, show: TVShow) => {
+      e.stopPropagation();
       await addToWatchlist(show);
       setReminderCandidate(show);
   };
@@ -71,6 +74,7 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
   if (!isOpen) return null;
 
   return (
+    <>
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div 
         className="bg-zinc-900 border border-zinc-800 w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]"
@@ -95,7 +99,11 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
                 {items.map((show) => {
                     const isAdded = allTrackedShows.some(s => s.id === show.id);
                     return (
-                        <div key={`${show.id}-${show.media_type}`} className="flex flex-col gap-2 group relative">
+                        <div 
+                            key={`${show.id}-${show.media_type}`} 
+                            className="flex flex-col gap-2 group relative cursor-pointer"
+                            onClick={() => setSelectedItem(show)}
+                        >
                             <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-zinc-800 bg-zinc-900 transition-all duration-300 group-hover:border-indigo-500/30 group-hover:-translate-y-1">
                                 <img 
                                     src={getImageUrl(show.poster_path)} 
@@ -105,7 +113,7 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
                                     <p className="text-xs font-bold text-white mb-2">{show.vote_average.toFixed(1)} ★</p>
                                     <button 
-                                        onClick={() => handleAdd(show)}
+                                        onClick={(e) => handleAdd(e, show)}
                                         disabled={isAdded}
                                         className={`
                                             w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all
@@ -142,6 +150,16 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
         </div>
       </div>
     </div>
+
+    {selectedItem && (
+        <ShowDetailsModal 
+            isOpen={!!selectedItem} 
+            onClose={() => setSelectedItem(null)} 
+            showId={selectedItem.id} 
+            mediaType={mediaType} 
+        />
+    )}
+    </>
   );
 };
 

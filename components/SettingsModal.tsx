@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom, Database, Globe, Palette, User as UserIcon, Monitor, Pipette, Link as LinkIcon, ExternalLink, Copy, LogOut, LayoutGrid, List, Layers, PanelBottom, Pill, Filter, Ban } from 'lucide-react';
+import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom, Database, Globe, Palette, User as UserIcon, Monitor, Pipette, Link as LinkIcon, ExternalLink, Copy, LogOut, LayoutGrid, List, Layers, PanelBottom, Pill, Filter, Ban, FileText, Lock, Type } from 'lucide-react';
 import { useAppContext, THEMES } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -55,8 +55,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   // Apply custom color debounced
   const handleCustomColorChange = (hex: string) => { setCustomColor(hex); updateSettings({ customThemeColor: hex, theme: 'custom' }); };
   
+  const toggleSpoiler = (key: 'images' | 'overview' | 'title') => {
+      const newConfig = { ...settings.spoilerConfig, [key]: !settings.spoilerConfig[key] };
+      updateSettings({ spoilerConfig: newConfig });
+  };
+
   if (!isOpen && !isProcessingImport) return null;
-  
+  // ... (Helpers: handleExportProfile, handleExportWatchlist, downloadJson, handleImportClick, handleFileChange, confirmMerge, saveKey, handleScan, handleForceReload) ...
   const handleExportProfile = () => { const data = { version: '2.0', exportDate: new Date().toISOString(), user, watchlist, subscribedLists, settings, reminders, interactions }; downloadJson(data, `tv-calendar-profile-${user?.username || 'backup'}-${new Date().toISOString().split('T')[0]}`); setShowExportWarning(false); setHasAcknowledgedRisk(false); };
   const handleExportWatchlist = () => { const data = { watchlist }; downloadJson(data, `tv-calendar-watchlist-${new Date().toISOString().split('T')[0]}`); };
   const downloadJson = (data: any, filename: string) => { const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${filename}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); };
@@ -125,6 +130,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
         </div>
         
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1 bg-zinc-950/30">
+            {/* ... (ActiveTab === 'general' logic unchanged) ... */}
             {activeTab === 'general' && (
                 <div className="space-y-6 animate-fade-in">
                     <section>
@@ -136,7 +142,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         <div className="flex items-center gap-3 mb-3"><div className="p-2.5 rounded-xl bg-zinc-800 text-zinc-300 h-fit"><Globe className="w-6 h-6" /></div><div><h3 className="text-white font-medium">Region & Time</h3><p className="text-zinc-400 text-sm">Localize air dates.</p></div></div>
                         {timezones.length > 0 ? (<div className="relative"><select value={settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone} onChange={(e) => updateSettings({ timezone: e.target.value })} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none focus:border-indigo-500 appearance-none cursor-pointer">{timezones.map((tz: string) => (<option key={tz} value={tz}>{tz}</option>))}</select><div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500"><ArrowDownToLine className="w-4 h-4" /></div></div>) : (<p className="text-xs text-zinc-500 italic">Not supported in this browser.</p>)}
                     </section>
-                    
                     {!user?.isCloud && (
                         <>
                             <div className="h-px bg-zinc-800/50" />
@@ -163,26 +168,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                                 </button>
                                 <input type="color" value={customColor} onChange={(e) => handleCustomColorChange(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
                             </div>
-                        </div>
-                    </section>
-
-                    <div className="h-px bg-zinc-800/50" />
-
-                    <section>
-                        <h3 className="text-white font-bold mb-3">View Options</h3>
-                        <div className="grid grid-cols-3 gap-2 mb-4">
-                            {[ { id: 'grid', icon: LayoutGrid, label: 'Grid' }, { id: 'list', icon: List, label: 'List' }, { id: 'stack', icon: Layers, label: 'Stack' } ].map(mode => (
-                                <button key={mode.id} onClick={() => updateSettings({ viewMode: mode.id as any })} className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-colors ${settings.viewMode === mode.id ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800'}`}>
-                                    <mode.icon className="w-5 h-5" /> <span className="text-xs font-bold">{mode.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                             {[ { id: 'standard', icon: PanelBottom, label: 'Bar' }, { id: 'pill', icon: Pill, label: 'Pill' } ].map(layout => (
-                                <button key={layout.id} onClick={() => updateSettings({ mobileNavLayout: layout.id as any })} className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-colors ${settings.mobileNavLayout === layout.id ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800'}`}>
-                                    <layout.icon className="w-4 h-4" /> <span className="text-xs font-bold">{layout.label} (Mobile)</span>
-                                </button>
-                             ))}
                         </div>
                     </section>
 
@@ -218,14 +203,37 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     <section>
                         <h3 className="text-white font-bold mb-3">Content & Behavior</h3>
                         <div className="space-y-2">
+                            {/* Spoiler Protection Granular Controls */}
+                            <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><EyeOff className="w-4 h-4" /></div>
+                                    <div>
+                                        <h4 className="text-sm font-medium text-white">Spoiler Protection</h4>
+                                        <p className="text-[10px] text-zinc-500">Block content on unwatched episodes.</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-zinc-300 flex items-center gap-2"><ImageIcon className="w-3 h-3 text-zinc-500" /> Blur Thumbnails</label>
+                                        <button onClick={() => toggleSpoiler('images')} className={`w-8 h-5 rounded-full transition-colors relative ${settings.spoilerConfig.images ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${settings.spoilerConfig.images ? 'translate-x-3' : ''}`} /></button>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-zinc-300 flex items-center gap-2"><FileText className="w-3 h-3 text-zinc-500" /> Hide Description</label>
+                                        <button onClick={() => toggleSpoiler('overview')} className={`w-8 h-5 rounded-full transition-colors relative ${settings.spoilerConfig.overview ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${settings.spoilerConfig.overview ? 'translate-x-3' : ''}`} /></button>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-zinc-300 flex items-center gap-2"><Type className="w-3 h-3 text-zinc-500" /> Hide Episode Titles</label>
+                                        <button onClick={() => toggleSpoiler('title')} className={`w-8 h-5 rounded-full transition-colors relative ${settings.spoilerConfig.title ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${settings.spoilerConfig.title ? 'translate-x-3' : ''}`} /></button>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800">
                                 <div className="flex items-center gap-3"><div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><Ban className="w-4 h-4" /></div><span className="text-sm font-medium text-zinc-200">Ignore Specials (S0)</span></div>
                                 <button onClick={() => updateSettings({ ignoreSpecials: !settings.ignoreSpecials })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.ignoreSpecials ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.ignoreSpecials ? 'translate-x-4' : ''}`} /></button>
                             </div>
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800">
-                                <div className="flex items-center gap-3"><div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><EyeOff className="w-4 h-4" /></div><span className="text-sm font-medium text-zinc-200">Hide Spoilers</span></div>
-                                <button onClick={() => updateSettings({ hideSpoilers: !settings.hideSpoilers })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.hideSpoilers ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.hideSpoilers ? 'translate-x-4' : ''}`} /></button>
-                            </div>
+                            
                             <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800">
                                 <div className="flex items-center gap-3"><div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><Sparkles className="w-4 h-4" /></div><span className="text-sm font-medium text-zinc-200">Recommendations</span></div>
                                 <button onClick={() => updateSettings({ recommendationsEnabled: !settings.recommendationsEnabled })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.recommendationsEnabled ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.recommendationsEnabled ? 'translate-x-4' : ''}`} /></button>
@@ -235,6 +243,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 </div>
             )}
             
+            {/* ... (Other tabs unchanged) ... */}
             {activeTab === 'integrations' && (
                 <div className="space-y-6 animate-fade-in">
                     <section className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 text-center">

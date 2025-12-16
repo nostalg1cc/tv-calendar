@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { getCollection, getImageUrl, getBackdropUrl, getMovieReleaseDates } from '../services/tmdb';
 import { TVShow } from '../types';
-import { Star, Plus, Check, Loader2, ChevronRight, ChevronLeft, Film, Tv, Flame, CalendarClock, MoveRight, Sparkles, Trophy, TrendingUp, Ticket, MonitorPlay } from 'lucide-react';
+import { Star, Plus, Check, Loader2, ChevronRight, ChevronLeft, CalendarClock, MoveRight, Trophy, TrendingUp, Ticket, MonitorPlay, Info } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import DiscoverModal from '../components/DiscoverModal';
+import ShowDetailsModal from '../components/ShowDetailsModal';
 import { format, parseISO } from 'date-fns';
 
 interface SectionProps {
@@ -18,6 +19,7 @@ interface SectionProps {
 
 const DiscoverPage: React.FC = () => {
   const [modalConfig, setModalConfig] = useState<{title: string, endpoint: string, mediaType: 'tv' | 'movie', params?: Record<string, string>} | null>(null);
+  const [selectedShow, setSelectedShow] = useState<{id: number, mediaType: 'tv' | 'movie'} | null>(null);
 
   const openModal = (title: string, endpoint: string, mediaType: 'tv' | 'movie', params?: Record<string, string>) => {
       setModalConfig({ title, endpoint, mediaType, params });
@@ -173,6 +175,8 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
     const [loading, setLoading] = useState(true);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [digitalDate, setDigitalDate] = useState<string | null>(null);
+    const [showDetails, setShowDetails] = useState(false);
+    
     const { allTrackedShows, addToWatchlist, setReminderCandidate } = useAppContext();
     const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -231,7 +235,8 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
         resetTimer(); // Reset timer on interaction
     };
 
-    const handleAdd = async (show: TVShow) => {
+    const handleAdd = async (e: React.MouseEvent, show: TVShow) => {
+        e.stopPropagation();
         await addToWatchlist(show);
         setReminderCandidate(show);
     };
@@ -246,6 +251,7 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
     const isAdded = allTrackedShows.some(s => s.id === currentItem.id);
 
     return (
+        <>
         <div className="relative w-full aspect-[2/3] md:aspect-[21/9] rounded-3xl overflow-hidden group shadow-2xl bg-zinc-950">
             {/* Mobile Poster (Portrait) */}
             <div className="absolute inset-0 md:hidden">
@@ -264,12 +270,12 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
             />
             
             {/* Overlays */}
-            {/* Desktop Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/60 to-transparent hidden md:block" />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent hidden md:block" />
+            {/* Desktop Overlay - Darker gradient for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/80 to-transparent hidden md:block" />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/30 to-transparent hidden md:block" />
             
-            {/* Mobile Overlay - Stronger bottom gradient for text readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent md:hidden" />
+            {/* Mobile Overlay - Stronger bottom gradient */}
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent md:hidden" />
 
             {/* Content Container */}
             <div className="absolute inset-0 p-6 md:p-12 flex flex-col justify-end items-start max-w-3xl">
@@ -291,7 +297,7 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
                 </div>
 
                 {/* Title */}
-                <h2 className="text-2xl md:text-5xl font-bold text-white mb-2 md:mb-4 leading-tight drop-shadow-lg animate-fade-in-up line-clamp-2" style={{ animationDelay: '0.1s' }}>
+                <h2 className="text-3xl md:text-6xl font-bold text-white mb-2 md:mb-4 leading-tight drop-shadow-xl animate-fade-in-up line-clamp-2 tracking-tight" style={{ animationDelay: '0.1s' }}>
                     {currentItem.name}
                 </h2>
 
@@ -303,17 +309,25 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
                 {/* Actions */}
                 <div className="flex items-center w-full md:w-auto gap-3 md:gap-4 animate-fade-in-up pb-2 md:pb-0" style={{ animationDelay: '0.3s' }}>
                     <button 
-                        onClick={() => handleAdd(currentItem)}
+                        onClick={() => setShowDetails(true)}
+                        className="flex-1 md:flex-none justify-center px-6 md:px-8 h-12 md:h-14 rounded-xl font-bold flex items-center gap-2 text-sm md:text-base transition-all bg-white text-black hover:bg-zinc-200 hover:scale-105 shadow-xl shadow-white/10"
+                    >
+                        <Info className="w-4 h-4 md:w-5 md:h-5" />
+                        Info & Trailer
+                    </button>
+
+                    <button 
+                        onClick={(e) => handleAdd(e, currentItem)}
                         disabled={isAdded}
                         className={`
-                            flex-1 md:flex-none justify-center px-6 md:px-8 h-12 md:h-14 rounded-xl font-bold flex items-center gap-2 text-sm md:text-base transition-all border
+                            justify-center px-4 h-12 md:h-14 rounded-xl font-bold flex items-center gap-2 transition-all border
                             ${isAdded 
                                 ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30 cursor-default' 
-                                : 'bg-white text-black border-transparent hover:bg-zinc-200 hover:scale-105 shadow-xl shadow-white/10'}
+                                : 'bg-white/10 text-white border-white/10 hover:bg-white/20 backdrop-blur-md'}
                         `}
+                        title={isAdded ? "In Library" : "Add to Library"}
                     >
-                        {isAdded ? <Check className="w-4 h-4 md:w-5 md:h-5" /> : <Plus className="w-4 h-4 md:w-5 md:h-5" />}
-                        {isAdded ? 'In Library' : 'Add to Calendar'}
+                        {isAdded ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                     </button>
                     
                     {/* Dots Indicator (Hidden on mobile generally, but could be useful. Kept desktop only for now for cleaner look) */}
@@ -342,12 +356,23 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
                 <ChevronRight className="w-8 h-8" />
             </button>
         </div>
+
+        {showDetails && (
+            <ShowDetailsModal 
+                isOpen={showDetails} 
+                onClose={() => setShowDetails(false)} 
+                showId={currentItem.id} 
+                mediaType={mediaType} 
+            />
+        )}
+        </>
     );
 }
 
 const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, fetchParams, mediaType, onShowMore, variant = 'default' }) => {
     const [items, setItems] = useState<TVShow[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedShow, setSelectedShow] = useState<TVShow | null>(null);
     const { allTrackedShows, addToWatchlist, setReminderCandidate } = useAppContext();
 
     useEffect(() => {
@@ -358,7 +383,8 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
             .finally(() => setLoading(false));
     }, [fetchEndpoint, mediaType, JSON.stringify(fetchParams)]);
 
-    const handleAdd = async (show: TVShow) => {
+    const handleAdd = async (e: React.MouseEvent, show: TVShow) => {
+        e.stopPropagation();
         await addToWatchlist(show);
         setReminderCandidate(show);
     };
@@ -401,7 +427,8 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                          return (
                              <div 
                                 key={show.id} 
-                                className={`snap-start shrink-0 ${cardWidth} flex flex-col gap-2 group relative`}
+                                className={`snap-start shrink-0 ${cardWidth} flex flex-col gap-2 group relative cursor-pointer`}
+                                onClick={() => setSelectedShow(show)}
                              >
                                  <div className={`relative ${aspectRatio} rounded-xl overflow-hidden shadow-lg border border-zinc-800 bg-zinc-900 transition-all duration-300 group-hover:scale-[1.03] group-hover:border-indigo-500/30 group-hover:shadow-indigo-500/10`}>
                                      <img 
@@ -413,7 +440,7 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
                                          <p className="text-xs font-bold text-white mb-2">{show.vote_average.toFixed(1)} ★</p>
                                          <button 
-                                            onClick={() => handleAdd(show)}
+                                            onClick={(e) => handleAdd(e, show)}
                                             disabled={isAdded}
                                             className={`
                                                 w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all
@@ -449,6 +476,15 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                  {/* Gradient Fade for Desktop */}
                  <div className="absolute top-0 bottom-0 right-0 w-24 bg-gradient-to-l from-[var(--bg-main)] to-transparent pointer-events-none hidden md:block"></div>
              </div>
+
+             {selectedShow && (
+                 <ShowDetailsModal 
+                    isOpen={!!selectedShow} 
+                    onClose={() => setSelectedShow(null)} 
+                    showId={selectedShow.id} 
+                    mediaType={mediaType} 
+                 />
+             )}
         </div>
     );
 };

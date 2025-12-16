@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, Calendar as CalendarIcon, Star, Bell, Eye, EyeOff, Film, Ticket, MonitorPlay, Globe, Check, CheckCheck, Loader2, PlayCircle } from 'lucide-react';
-import { Episode } from '../types';
-import { getImageUrl } from '../services/tmdb';
+import { X, Calendar as CalendarIcon, Star, Bell, Eye, EyeOff, Film, Ticket, MonitorPlay, Globe, Check, CheckCheck, Loader2, PlayCircle, Lock, AlertTriangle } from 'lucide-react';
+import { Episode, AppSettings, Interaction } from '../types';
+import { getImageUrl, getBackdropUrl } from '../services/tmdb';
 import { useAppContext } from '../context/AppContext';
 import ReminderConfigModal from './ReminderConfigModal';
 import TrailerModal from './TrailerModal';
@@ -13,9 +13,164 @@ interface EpisodeModalProps {
   date: Date;
 }
 
+// Sub-component to handle local state for spoiler revealing
+const EpisodeRow: React.FC<{
+    ep: Episode;
+    settings: AppSettings;
+    interactions: Record<string, Interaction>;
+    onTrailer: (ep: Episode) => void;
+    onReminder: (ep: Episode) => void;
+    onMarkHistory: (ep: Episode) => void;
+    onToggleWatched: (ep: Episode) => void;
+    isMarkingHistory: boolean;
+}> = ({ ep, settings, interactions, onTrailer, onReminder, onMarkHistory, onToggleWatched, isMarkingHistory }) => {
+    const [revealed, setRevealed] = useState({ image: false, title: false, overview: false });
+    const { spoilerConfig } = settings;
+
+    const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+    const isWatched = interactions[watchedKey]?.is_watched;
+
+    // Spoiler Logic: Block if not watched, specific flag is active, and not locally revealed
+    const isImageBlocked = !isWatched && spoilerConfig.images && !revealed.image;
+    const isTextBlocked = !isWatched && spoilerConfig.overview && !revealed.overview;
+    const isNameBlocked = !isWatched && spoilerConfig.title && !revealed.title;
+
+    // Reveal handlers
+    const revealImage = (e: React.MouseEvent) => { e.stopPropagation(); setRevealed(p => ({ ...p, image: true })); };
+    const revealTitle = (e: React.MouseEvent) => { e.stopPropagation(); setRevealed(p => ({ ...p, title: true })); };
+    const revealText = (e: React.MouseEvent) => { e.stopPropagation(); setRevealed(p => ({ ...p, overview: true })); };
+
+    return (
+        <div className={`flex gap-4 p-3 rounded-2xl transition-all border border-zinc-800/50 bg-zinc-900/40 hover:bg-zinc-900 group ${isWatched ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+            {/* Thumbnail Column */}
+            <div 
+                className="relative w-28 sm:w-36 aspect-video shrink-0 rounded-xl overflow-hidden bg-black shadow-lg cursor-pointer group/image"
+                onClick={isImageBlocked ? revealImage : () => onTrailer(ep)}
+            >
+                <img 
+                    src={getImageUrl(ep.still_path || ep.poster_path)} 
+                    alt="" 
+                    className={`w-full h-full object-cover transition-all duration-500 ${isImageBlocked ? 'blur-xl scale-110 opacity-50' : ''}`}
+                />
+                
+                {isImageBlocked ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 group-hover/image:scale-105 transition-transform">
+                        <EyeOff className="w-6 h-6 text-zinc-400" />
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 bg-black/50 px-2 py-0.5 rounded opacity-0 group-hover/image:opacity-100 transition-opacity">Click to Reveal</span>
+                    </div>
+                ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity">
+                        <PlayCircle className="w-10 h-10 text-white drop-shadow-lg" />
+                    </div>
+                )}
+            </div>
+
+            {/* Content Column */}
+            <div className="flex-1 min-w-0 flex flex-col">
+                <div className="flex items-start justify-between gap-3 mb-1">
+                    <div className="min-w-0 flex-1">
+                        {isNameBlocked ? (
+                            <h3 
+                                onClick={revealTitle}
+                                className="text-base font-bold text-zinc-500 cursor-pointer hover:text-zinc-300 transition-colors flex items-center gap-2 select-none"
+                                title="Click to reveal title"
+                            >
+                                <span className="font-mono">Episode {ep.episode_number}</span>
+                                <EyeOff className="w-3.5 h-3.5 opacity-50" />
+                            </h3>
+                        ) : (
+                            <h3 className="text-base font-bold text-white truncate leading-tight mb-0.5">
+                                {ep.show_name}
+                            </h3>
+                        )}
+                        
+                        <div className="flex items-center gap-2 text-xs font-medium text-zinc-400 mt-0.5">
+                            {ep.is_movie ? (
+                                <span className={`px-1.5 py-0.5 rounded border flex items-center gap-1 ${ep.release_type === 'theatrical' ? 'text-pink-400 border-pink-500/20 bg-pink-500/5' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5'}`}>
+                                    {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                                </span>
+                            ) : (
+                                <span className="font-mono text-zinc-500">S{ep.season_number} E{ep.episode_number}</span>
+                            )}
+                            
+                            {!isNameBlocked && (
+                                <span className="truncate text-zinc-300">• {ep.name}</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex-1 mt-2 text-xs leading-relaxed">
+                    {isTextBlocked ? (
+                        <div 
+                            onClick={revealText}
+                            className="bg-zinc-950/50 border border-zinc-800/50 rounded-lg p-3 cursor-pointer group/spoiler hover:bg-zinc-900 transition-colors flex items-center justify-between"
+                        >
+                            <div className="flex items-center gap-2 text-zinc-500 italic group-hover/spoiler:text-zinc-400">
+                                <Lock className="w-3 h-3" /> 
+                                <span>Description hidden</span>
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500/0 group-hover/spoiler:text-indigo-400 transition-colors">Reveal</span>
+                        </div>
+                    ) : (
+                        <p className="text-zinc-400 line-clamp-3">
+                            {ep.overview || "No overview available."}
+                        </p>
+                    )}
+                </div>
+
+                {/* Action Bar */}
+                <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-white/5">
+                    <button 
+                        onClick={() => onTrailer(ep)}
+                        className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
+                        title="Watch Trailer"
+                    >
+                        <PlayCircle className="w-4 h-4" />
+                    </button>
+                    
+                    <button 
+                        onClick={() => onReminder(ep)}
+                        className="p-2 rounded-lg text-zinc-400 hover:text-indigo-400 hover:bg-white/5 transition-colors"
+                        title="Set Reminder"
+                    >
+                        <Bell className="w-4 h-4" />
+                    </button>
+
+                    <div className="w-px h-4 bg-white/10 mx-1" />
+
+                    {!ep.is_movie && (
+                        <button 
+                            onClick={() => onMarkHistory(ep)}
+                            disabled={isMarkingHistory || isWatched}
+                            className="p-2 rounded-lg text-zinc-400 hover:text-emerald-400 hover:bg-white/5 transition-colors disabled:opacity-30"
+                            title="Mark Previous Watched"
+                        >
+                            {isMarkingHistory ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />}
+                        </button>
+                    )}
+
+                    <button
+                        onClick={() => onToggleWatched(ep)}
+                        className={`
+                            flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ml-1
+                            ${isWatched 
+                                ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' 
+                                : 'bg-white text-black hover:bg-zinc-200 shadow-lg shadow-white/5'}
+                        `}
+                    >
+                        {isWatched ? <Check className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                        {isWatched ? 'Watched' : 'Mark Watched'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, date }) => {
-  const { settings, updateSettings, toggleEpisodeWatched, markHistoryWatched, interactions } = useAppContext();
-  const { hideSpoilers, timezone } = settings;
+  const { settings, toggleEpisodeWatched, toggleWatched, markHistoryWatched, interactions } = useAppContext();
+  const { timezone, useSeason1Art } = settings;
   const [reminderEp, setReminderEp] = useState<Episode | null>(null);
   const [trailerEp, setTrailerEp] = useState<Episode | null>(null);
   const [markingHistoryId, setMarkingHistoryId] = useState<string | null>(null);
@@ -27,7 +182,6 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
       try {
           return new Intl.DateTimeFormat('en-US', {
               weekday: 'long',
-              year: 'numeric',
               month: 'long',
               day: 'numeric',
               timeZone: timezone || undefined
@@ -45,162 +199,94 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
       setMarkingHistoryId(null);
   };
 
+  const handleToggleWatched = (ep: Episode) => {
+      if (!ep.show_id) return;
+      if (ep.is_movie) {
+          toggleWatched(ep.show_id, 'movie');
+      } else {
+          toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
+      }
+  };
+
   const formattedDate = formatDate(date);
+  
+  // Header Logic:
+  // 1. Prefer Movie (horizontal backdrops are native)
+  // 2. Fallback to first item.
+  // 3. Image Source:
+  //    - If useSeason1Art is ON: Use show_backdrop_path (if available) or season1_poster_path (if backdrop missing, unlikely for cached items)
+  //    - If OFF: Use show_backdrop_path if available (standard horizontal art).
+  //    - Avoid using 'still_path' (Episode Image) for the header to prevent spoilers, unless it's a movie where still_path IS the backdrop.
+  
+  const headerItem = episodes.find(e => e.is_movie) || episodes[0];
+  
+  let headerImage = '';
+  
+  if (headerItem) {
+      if (headerItem.is_movie) {
+          // For movies, still_path is the backdrop
+          headerImage = headerItem.still_path || headerItem.poster_path || '';
+      } else {
+          // For TV
+          if (useSeason1Art) {
+              headerImage = headerItem.show_backdrop_path || headerItem.season1_poster_path || '';
+          } else {
+              // Prefer show backdrop over episode still to avoid spoilers in header
+              headerImage = headerItem.show_backdrop_path || headerItem.still_path || ''; 
+          }
+      }
+  }
+
+  // Fallback if empty (though getBackdropUrl handles nulls)
+  const headerBackdropUrl = getBackdropUrl(headerImage);
 
   return (
     <>
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" onClick={onClose}>
       <div 
-        className="surface-panel rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-[var(--border-color)] animate-enter" 
+        className="bg-zinc-950 border border-zinc-800 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col relative" 
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-4 border-b border-[var(--border-color)] flex justify-between items-center bg-black/20">
-          <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                {formattedDate}
-              </h2>
-              <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                  <span>{episodes.length} releases</span>
-                  {timezone && (
-                      <>
-                        <span className="w-1 h-1 rounded-full bg-slate-600" />
-                        <Globe className="w-3 h-3" />
-                        <span>{timezone.split('/')[1] || timezone}</span>
-                      </>
-                  )}
-                  <span className="w-1 h-1 rounded-full bg-slate-600" />
-                  <span className="italic opacity-70">Air time unknown</span>
-              </p>
-          </div>
-          
-          <div className="flex items-center gap-2">
-             <button 
-                onClick={() => updateSettings({ hideSpoilers: !hideSpoilers })}
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
-                title="Toggle Spoilers"
-             >
-                {hideSpoilers ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-             </button>
-
-             <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors">
+        {/* Cinematic Header */}
+        <div className="relative h-40 shrink-0">
+            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${headerBackdropUrl})` }} />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
+            
+            <button 
+                onClick={onClose} 
+                className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-white/10 backdrop-blur-md rounded-full text-white transition-colors border border-white/5 z-20"
+            >
                <X className="w-5 h-5" />
-             </button>
-          </div>
+            </button>
+
+            <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between items-end">
+                <div>
+                    <h2 className="text-2xl font-bold text-white tracking-tight drop-shadow-md">
+                        {formattedDate}
+                    </h2>
+                    <p className="text-sm text-zinc-300 font-medium drop-shadow-md flex items-center gap-2">
+                        <span>{episodes.length} Releases</span>
+                    </p>
+                </div>
+            </div>
         </div>
         
-        <div className="overflow-y-auto p-4 space-y-3 custom-scrollbar">
-            {episodes.map((ep) => {
-              const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
-              const isWatched = interactions[watchedKey]?.is_watched;
-              const isMarking = markingHistoryId === `${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
-
-              return (
-                <div key={`${ep.show_id}-${ep.id}`} className={`surface-card rounded-xl p-3 flex gap-4 group transition-all ${isWatched ? 'opacity-70 bg-zinc-900/30' : ''}`}>
-                  {/* Image */}
-                  <div className="shrink-0 w-32 hidden sm:block relative overflow-hidden rounded-lg bg-black/50 aspect-video group/image cursor-pointer" onClick={() => setTrailerEp(ep)}>
-                    <img 
-                      src={getImageUrl(ep.still_path || ep.poster_path)} 
-                      alt={ep.name} 
-                      className={`
-                          w-full h-full object-cover transition-all duration-500
-                          ${hideSpoilers ? 'blur-md opacity-30 grayscale' : 'opacity-100 group-hover:scale-105'}
-                          ${isWatched ? 'grayscale' : ''}
-                      `}
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-zinc-950">
+            <div className="flex flex-col gap-4">
+                {episodes.map((ep) => (
+                    <EpisodeRow 
+                        key={`${ep.show_id}-${ep.id}`}
+                        ep={ep}
+                        settings={settings}
+                        interactions={interactions}
+                        onTrailer={setTrailerEp}
+                        onReminder={setReminderEp}
+                        onMarkHistory={handleMarkHistory}
+                        onToggleWatched={handleToggleWatched}
+                        isMarkingHistory={markingHistoryId === `${ep.show_id}-${ep.season_number}-${ep.episode_number}`}
                     />
-                    {hideSpoilers && !isWatched && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <EyeOff className="w-6 h-6 text-slate-600" />
-                        </div>
-                    )}
-                    {isWatched && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
-                            <Check className="w-8 h-8 text-emerald-500 drop-shadow-lg" />
-                        </div>
-                    )}
-                    
-                    {/* Play Overlay */}
-                    {!isWatched && !hideSpoilers && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/image:opacity-100 transition-opacity">
-                            <div className="bg-black/50 p-2 rounded-full backdrop-blur-sm border border-white/20">
-                                <PlayCircle className="w-6 h-6 text-white" />
-                            </div>
-                        </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0 flex flex-col">
-                    <div className="flex justify-between items-start gap-2 mb-1">
-                      <div className="min-w-0">
-                        <h3 className={`text-base font-bold leading-tight truncate ${isWatched ? 'text-zinc-500 line-through' : 'text-indigo-200'}`}>{ep.show_name}</h3>
-                        <p className="text-white font-medium text-sm truncate mt-0.5">
-                          {ep.is_movie ? ep.name : `${ep.episode_number}. ${ep.name}`}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 mt-1 mb-2 text-xs text-slate-500">
-                       {ep.is_movie ? (
-                           <span className={`px-1.5 py-0.5 rounded border flex items-center gap-1 ${ep.release_type === 'theatrical' ? 'text-pink-400 border-pink-500/20' : 'text-emerald-400 border-emerald-500/20'}`}>
-                               {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
-                           </span>
-                       ) : (
-                           <span className="font-mono text-slate-400">S{ep.season_number} E{ep.episode_number}</span>
-                       )}
-                       <span className="flex items-center gap-1"><Star className="w-3 h-3 text-yellow-600" /> {ep.vote_average.toFixed(1)}</span>
-                    </div>
-                    
-                    <p className="text-slate-400 text-xs line-clamp-2 leading-relaxed flex-1">
-                      {ep.overview || "No overview available."}
-                    </p>
-  
-                    <div className="mt-2 flex justify-end gap-2 sm:gap-3 flex-wrap">
-                      {!ep.is_movie && (
-                          <div className="flex bg-zinc-800/50 rounded-lg p-0.5 border border-zinc-700/50">
-                              <button
-                                  onClick={() => ep.show_id && toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number)}
-                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${isWatched ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/10'}`}
-                                  title={isWatched ? "Unmark Watched" : "Mark Watched"}
-                              >
-                                  {isWatched ? <Check className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                  {isWatched ? 'Watched' : 'Mark'}
-                              </button>
-                              
-                              <div className="w-px bg-zinc-700/50 my-1" />
-
-                              <button 
-                                  onClick={() => handleMarkHistory(ep)}
-                                  disabled={isMarking}
-                                  className="px-2 py-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
-                                  title="Mark all previous episodes as watched"
-                              >
-                                  {isMarking ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" /> : <CheckCheck className="w-3.5 h-3.5" />}
-                              </button>
-                          </div>
-                      )}
-
-                      <div className="flex gap-2">
-                          <button 
-                              onClick={() => setTrailerEp(ep)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition-colors border border-white/5"
-                              title="Watch Trailer"
-                          >
-                              <PlayCircle className="w-3.5 h-3.5" />
-                              Trailer
-                          </button>
-
-                          <button 
-                              onClick={() => setReminderEp(ep)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
-                          >
-                              <Bell className="w-3.5 h-3.5" />
-                              Remind
-                          </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                ))}
+            </div>
         </div>
       </div>
     </div>
@@ -216,7 +302,7 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
     {trailerEp && (
         <TrailerModal 
             isOpen={!!trailerEp}
-            onClose={() => setTrailerEp(null)}
+            onClose={() => setTrailerEp(null)} 
             item={trailerEp}
         />
     )}

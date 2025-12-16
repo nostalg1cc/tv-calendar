@@ -23,10 +23,12 @@ export interface Episode {
   still_path: string | null;
   show_id?: number; // Added for internal reference
   show_name?: string; // Added for internal reference
+  show_backdrop_path?: string | null; // Added for Header UI (Horizontal Show Art)
   poster_path?: string | null; // Added for Calendar UI (Vertical image)
   season1_poster_path?: string | null; // Anti-Spoiler Art
   is_movie?: boolean; // Flag to identify movies in mixed lists
   release_type?: 'theatrical' | 'digital'; // Specific release type for movies
+  backdrop_path?: string | null; // For movies or specific episode styling
 }
 
 export interface Season {
@@ -83,14 +85,18 @@ export interface CalendarDay {
 }
 
 export interface AppSettings {
-  hideSpoilers: boolean;
+  spoilerConfig: {
+      images: boolean;
+      overview: boolean;
+      title: boolean;
+  };
   hideTheatrical: boolean;
-  ignoreSpecials: boolean; // New Setting
+  ignoreSpecials: boolean; 
   recommendationsEnabled: boolean;
   recommendationMethod: 'banner' | 'inline';
   compactCalendar: boolean;
   viewMode: 'grid' | 'list' | 'stack'; 
-  mobileNavLayout: 'standard' | 'pill'; // New Layout Option
+  mobileNavLayout: 'standard' | 'pill'; 
   suppressMobileAddWarning: boolean; 
   calendarPosterFillMode: 'cover' | 'contain'; 
   useSeason1Art: boolean; // Anti-Spoiler
@@ -101,7 +107,7 @@ export interface AppSettings {
 }
 
 export interface SubscribedList {
-  id: string; // List ID can sometimes be string or number in TMDB v4, safe to use string
+  id: string; 
   name: string;
   item_count: number;
   items: TVShow[];
