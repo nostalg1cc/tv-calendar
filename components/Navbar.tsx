@@ -129,22 +129,62 @@ const Navbar: React.FC = () => {
           </div>
       ) : (
           // --- V2: FLOATING PILL ---
-          <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none flex justify-center px-4 mb-2 pb-[env(safe-area-inset-bottom,20px)]">
-              <div className="pointer-events-auto bg-black/80 backdrop-blur-xl border border-white/10 rounded-full px-6 py-4 flex items-center gap-8 shadow-2xl safe-area-bottom">
-                  <Link to="/" className={`active:scale-95 transition-transform ${isActive('/') ? 'text-white' : 'text-zinc-500'}`}>
-                      <Calendar className="w-6 h-6" />
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none flex justify-center px-4 mb-3 pb-[env(safe-area-inset-bottom,12px)]">
+              <div className="pointer-events-auto bg-zinc-950/70 backdrop-blur-3xl border border-white/10 rounded-full px-7 py-3.5 flex items-center gap-7 shadow-2xl shadow-black/50 safe-area-bottom ring-1 ring-white/5">
+                  <Link 
+                    to="/" 
+                    className={`
+                        relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
+                        ${isActive('/') ? 'text-indigo-500 scale-110 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 'text-zinc-500 hover:text-zinc-300'}
+                    `}
+                  >
+                      <Calendar className={`w-6 h-6 ${isActive('/') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                      {isActive('/') && <div className="absolute -bottom-1 w-1 h-1 bg-indigo-500 rounded-full shadow-[0_0_5px_1px_rgba(99,102,241,0.8)]" />}
                   </Link>
-                  <Link to="/discover" className={`active:scale-95 transition-transform ${isActive('/discover') ? 'text-white' : 'text-zinc-500'}`}>
-                      <Compass className="w-6 h-6" />
+                  
+                  <Link 
+                    to="/discover" 
+                    className={`
+                        relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
+                        ${isActive('/discover') ? 'text-indigo-500 scale-110 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 'text-zinc-500 hover:text-zinc-300'}
+                    `}
+                  >
+                      <Compass className={`w-6 h-6 ${isActive('/discover') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                      {isActive('/discover') && <div className="absolute -bottom-1 w-1 h-1 bg-indigo-500 rounded-full shadow-[0_0_5px_1px_rgba(99,102,241,0.8)]" />}
                   </Link>
-                  <button onClick={() => setIsSearchOpen(true)} className="active:scale-95 transition-transform text-zinc-500 hover:text-white">
-                      <Search className="w-6 h-6" />
+
+                  {/* Search Button (Center Highlight) */}
+                  <button 
+                    onClick={() => setIsSearchOpen(true)} 
+                    className={`
+                        relative flex items-center justify-center w-12 h-12 -my-2 rounded-full active:scale-90 transition-all duration-300 
+                        bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shadow-[0_0_15px_-3px_rgba(99,102,241,0.3)]
+                        hover:bg-indigo-500/20 hover:scale-105 hover:shadow-[0_0_20px_-3px_rgba(99,102,241,0.5)]
+                    `}
+                  >
+                      <Search className="w-6 h-6 stroke-[2.5px]" />
                   </button>
-                  <Link to="/watchlist" className={`active:scale-95 transition-transform ${isActive('/watchlist') ? 'text-white' : 'text-zinc-500'}`}>
-                      <List className="w-6 h-6" />
+
+                  <Link 
+                    to="/watchlist" 
+                    className={`
+                        relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
+                        ${isActive('/watchlist') ? 'text-indigo-500 scale-110 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 'text-zinc-500 hover:text-zinc-300'}
+                    `}
+                  >
+                      <List className={`w-6 h-6 ${isActive('/watchlist') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                      {isActive('/watchlist') && <div className="absolute -bottom-1 w-1 h-1 bg-indigo-500 rounded-full shadow-[0_0_5px_1px_rgba(99,102,241,0.8)]" />}
                   </Link>
-                  <button onClick={() => setIsUserMenuOpen(true)} className={`active:scale-95 transition-transform ${isUserMenuOpen ? 'text-white' : 'text-zinc-500'}`}>
-                      <UserIcon className="w-6 h-6" />
+
+                  <button 
+                    onClick={() => setIsUserMenuOpen(true)} 
+                    className={`
+                        relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
+                        ${isUserMenuOpen ? 'text-indigo-500 scale-110 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 'text-zinc-500 hover:text-zinc-300'}
+                    `}
+                  >
+                      <UserIcon className={`w-6 h-6 ${isUserMenuOpen ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                      {isUserMenuOpen && <div className="absolute -bottom-1 w-1 h-1 bg-indigo-500 rounded-full shadow-[0_0_5px_1px_rgba(99,102,241,0.8)]" />}
                   </button>
               </div>
           </div>
@@ -155,7 +195,7 @@ const Navbar: React.FC = () => {
           <div className="md:hidden fixed inset-0 z-[60] flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
               <div 
                 ref={menuRef}
-                className="bg-zinc-900 border-t border-zinc-800 rounded-t-3xl p-6 pb-24 shadow-2xl animate-enter"
+                className="bg-zinc-900 border-t border-zinc-800 rounded-t-3xl p-6 pb-28 shadow-2xl animate-enter"
               >
                   <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-3">

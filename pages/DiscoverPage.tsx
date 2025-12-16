@@ -41,15 +41,15 @@ const DiscoverPage: React.FC = () => {
   };
   
   return (
-    <div className="max-w-[1600px] mx-auto pb-24">
+    <div className="max-w-[1600px] mx-auto pb-10 md:pb-24">
         {/* Header Area */}
-        <div className="mb-6 px-4 md:px-0">
-             <h1 className="text-3xl font-bold text-white mb-2">Discover</h1>
-             <p className="text-zinc-400">Explore trending hits, new premieres, and cinema releases.</p>
+        <div className="mb-6 px-6 md:px-0 pt-4 md:pt-0">
+             <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 tracking-tight">Discover</h1>
+             <p className="text-zinc-400 text-sm md:text-base">Explore trending hits, new premieres, and cinema releases.</p>
         </div>
 
         {/* HERO: Cinema Spotlight Carousel */}
-        <div className="mb-16">
+        <div className="mb-10 md:mb-16 px-4 md:px-0">
             <HeroCarousel 
                 fetchEndpoint="/movie/now_playing"
                 mediaType="movie"
@@ -57,17 +57,17 @@ const DiscoverPage: React.FC = () => {
             />
         </div>
 
-        <div className="space-y-16">
+        <div className="space-y-12 md:space-y-16">
             
             {/* GROUP 1: Trending Now */}
             <div className="space-y-6">
-                <div className="flex items-center gap-3 px-4 md:px-0 border-b border-zinc-800 pb-4">
+                <div className="flex items-center gap-3 px-6 md:px-0 border-b border-zinc-800 pb-4">
                     <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
-                        <TrendingUp className="w-6 h-6" />
+                        <TrendingUp className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-white">Hot Right Now</h2>
-                        <p className="text-xs text-zinc-500 font-medium uppercase tracking-wide">Global Trends</p>
+                        <h2 className="text-lg md:text-xl font-bold text-white">Hot Right Now</h2>
+                        <p className="text-[10px] md:text-xs text-zinc-500 font-medium uppercase tracking-wide">Global Trends</p>
                     </div>
                 </div>
                 
@@ -91,13 +91,13 @@ const DiscoverPage: React.FC = () => {
 
             {/* GROUP 2: Coming Soon */}
             <div className="space-y-6">
-                <div className="flex items-center gap-3 px-4 md:px-0 border-b border-zinc-800 pb-4">
+                <div className="flex items-center gap-3 px-6 md:px-0 border-b border-zinc-800 pb-4">
                     <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-                        <CalendarClock className="w-6 h-6" />
+                        <CalendarClock className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-white">Coming Soon</h2>
-                        <p className="text-xs text-zinc-500 font-medium uppercase tracking-wide">Premieres & Releases</p>
+                        <h2 className="text-lg md:text-xl font-bold text-white">Coming Soon</h2>
+                        <p className="text-[10px] md:text-xs text-zinc-500 font-medium uppercase tracking-wide">Premieres & Releases</p>
                     </div>
                 </div>
 
@@ -123,13 +123,13 @@ const DiscoverPage: React.FC = () => {
 
             {/* GROUP 3: Top Rated */}
             <div className="space-y-6">
-                 <div className="flex items-center gap-3 px-4 md:px-0 border-b border-zinc-800 pb-4">
+                 <div className="flex items-center gap-3 px-6 md:px-0 border-b border-zinc-800 pb-4">
                     <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-400">
-                        <Trophy className="w-6 h-6" />
+                        <Trophy className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-white">All-Time Greats</h2>
-                        <p className="text-xs text-zinc-500 font-medium uppercase tracking-wide">Critically Acclaimed</p>
+                        <h2 className="text-lg md:text-xl font-bold text-white">All-Time Greats</h2>
+                        <p className="text-[10px] md:text-xs text-zinc-500 font-medium uppercase tracking-wide">Critically Acclaimed</p>
                     </div>
                 </div>
 
@@ -237,7 +237,7 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
     };
 
     if (loading) {
-        return <div className="w-full aspect-[21/9] bg-zinc-900 rounded-3xl animate-pulse" />;
+        return <div className="w-full aspect-[2/3] md:aspect-[21/9] bg-zinc-900 rounded-3xl animate-pulse" />;
     }
 
     if (items.length === 0) return null;
@@ -246,64 +246,77 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
     const isAdded = allTrackedShows.some(s => s.id === currentItem.id);
 
     return (
-        <div className="relative w-full aspect-[16/9] md:aspect-[21/9] rounded-3xl overflow-hidden group shadow-2xl bg-zinc-950">
-            {/* Background Images - Using stacking context to crossfade could be done, simpler version for now */}
+        <div className="relative w-full aspect-[2/3] md:aspect-[21/9] rounded-3xl overflow-hidden group shadow-2xl bg-zinc-950">
+            {/* Mobile Poster (Portrait) */}
+            <div className="absolute inset-0 md:hidden">
+                <img 
+                    src={getImageUrl(currentItem.poster_path)} 
+                    alt={currentItem.name}
+                    className="w-full h-full object-cover animate-fade-in"
+                />
+            </div>
+
+            {/* Desktop Backdrop (Landscape) */}
             <div 
                 key={currentItem.id}
-                className="absolute inset-0 bg-cover bg-center transition-opacity duration-700 animate-fade-in"
+                className="absolute inset-0 bg-cover bg-center transition-opacity duration-700 animate-fade-in hidden md:block"
                 style={{ backgroundImage: `url(${getBackdropUrl(currentItem.backdrop_path)})` }}
             />
             
             {/* Overlays */}
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/40 to-transparent" />
+            {/* Desktop Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/60 to-transparent hidden md:block" />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent hidden md:block" />
+            
+            {/* Mobile Overlay - Stronger bottom gradient for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent md:hidden" />
 
             {/* Content Container */}
             <div className="absolute inset-0 p-6 md:p-12 flex flex-col justify-end items-start max-w-3xl">
                 {/* Category Badge */}
-                <div className="flex flex-wrap items-center gap-2 mb-4 animate-fade-in-up">
-                    <div className="bg-pink-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-pink-500/30">
-                        <Ticket className="w-3.5 h-3.5" /> In Theaters
+                <div className="flex flex-wrap items-center gap-2 mb-3 md:mb-4 animate-fade-in-up">
+                    <div className="bg-pink-500 text-white px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-pink-500/30">
+                        <Ticket className="w-3 h-3 md:w-3.5 md:h-3.5" /> <span className="hidden md:inline">In Theaters</span><span className="md:hidden">Cinema</span>
                     </div>
                     
                     {digitalDate && (
-                         <div className="bg-emerald-500/80 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
-                             <MonitorPlay className="w-3.5 h-3.5" /> Home Release {format(parseISO(digitalDate), 'MMM d')}
+                         <div className="bg-emerald-500/80 backdrop-blur-md text-white px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
+                             <MonitorPlay className="w-3 h-3 md:w-3.5 md:h-3.5" /> Home <span className="hidden md:inline">Release</span> {format(parseISO(digitalDate), 'MMM d')}
                          </div>
                     )}
 
-                    <div className="bg-black/40 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-white/10">
-                        <Star className="w-3.5 h-3.5 text-yellow-400 fill-current" /> {currentItem.vote_average.toFixed(1)}
+                    <div className="bg-black/40 backdrop-blur-md text-white px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 border border-white/10">
+                        <Star className="w-3 h-3 md:w-3.5 md:h-3.5 text-yellow-400 fill-current" /> {currentItem.vote_average.toFixed(1)}
                     </div>
                 </div>
 
                 {/* Title */}
-                <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight drop-shadow-lg animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+                <h2 className="text-2xl md:text-5xl font-bold text-white mb-2 md:mb-4 leading-tight drop-shadow-lg animate-fade-in-up line-clamp-2" style={{ animationDelay: '0.1s' }}>
                     {currentItem.name}
                 </h2>
 
                 {/* Overview */}
-                <p className="text-zinc-300 text-sm md:text-base line-clamp-3 md:line-clamp-2 mb-8 max-w-2xl leading-relaxed drop-shadow-md animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+                <p className="text-zinc-300 text-xs md:text-base line-clamp-3 md:line-clamp-2 mb-6 md:mb-8 max-w-2xl leading-relaxed drop-shadow-md animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
                     {currentItem.overview}
                 </p>
 
                 {/* Actions */}
-                <div className="flex items-center gap-4 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+                <div className="flex items-center w-full md:w-auto gap-3 md:gap-4 animate-fade-in-up pb-2 md:pb-0" style={{ animationDelay: '0.3s' }}>
                     <button 
                         onClick={() => handleAdd(currentItem)}
                         disabled={isAdded}
                         className={`
-                            px-8 h-14 rounded-xl font-bold flex items-center gap-2 text-sm md:text-base transition-all border
+                            flex-1 md:flex-none justify-center px-6 md:px-8 h-12 md:h-14 rounded-xl font-bold flex items-center gap-2 text-sm md:text-base transition-all border
                             ${isAdded 
                                 ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30 cursor-default' 
                                 : 'bg-white text-black border-transparent hover:bg-zinc-200 hover:scale-105 shadow-xl shadow-white/10'}
                         `}
                     >
-                        {isAdded ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                        {isAdded ? <Check className="w-4 h-4 md:w-5 md:h-5" /> : <Plus className="w-4 h-4 md:w-5 md:h-5" />}
                         {isAdded ? 'In Library' : 'Add to Calendar'}
                     </button>
                     
-                    {/* Dots Indicator */}
+                    {/* Dots Indicator (Hidden on mobile generally, but could be useful. Kept desktop only for now for cleaner look) */}
                     <div className="hidden md:flex gap-2 ml-4">
                         {items.map((_, idx) => (
                             <div 
@@ -315,16 +328,16 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
                 </div>
             </div>
 
-            {/* Navigation Arrows */}
+            {/* Navigation Arrows (Desktop Only) */}
             <button 
                 onClick={handlePrev}
-                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/20 hover:bg-black/50 text-white/50 hover:text-white backdrop-blur-sm border border-white/5 transition-all opacity-0 group-hover:opacity-100"
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/20 hover:bg-black/50 text-white/50 hover:text-white backdrop-blur-sm border border-white/5 transition-all opacity-0 group-hover:opacity-100 hidden md:block"
             >
                 <ChevronLeft className="w-8 h-8" />
             </button>
             <button 
                 onClick={handleNext}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/20 hover:bg-black/50 text-white/50 hover:text-white backdrop-blur-sm border border-white/5 transition-all opacity-0 group-hover:opacity-100"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/20 hover:bg-black/50 text-white/50 hover:text-white backdrop-blur-sm border border-white/5 transition-all opacity-0 group-hover:opacity-100 hidden md:block"
             >
                 <ChevronRight className="w-8 h-8" />
             </button>
@@ -360,13 +373,13 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
 
     if (items.length === 0) return null;
 
-    // Default vs Compact styles
-    const cardWidth = variant === 'default' ? 'w-[160px] md:w-[220px]' : 'w-[140px] md:w-[180px]';
+    // Responsive widths: Wider on mobile to show detail, standard on desktop
+    const cardWidth = 'w-[38vw] sm:w-[160px] md:w-[200px]';
     const aspectRatio = 'aspect-[2/3]';
 
     return (
         <div className="space-y-4">
-             <div className="flex items-center justify-between px-4 md:px-0">
+             <div className="flex items-center justify-between px-6 md:px-0">
                  <div className="flex items-center gap-2">
                     {icon}
                     <h3 className={`${variant === 'default' ? 'text-lg text-white' : 'text-base text-zinc-200'} font-bold tracking-tight`}>
@@ -375,14 +388,14 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                  </div>
                  <button 
                     onClick={onShowMore}
-                    className="flex items-center gap-1 text-xs font-bold text-zinc-500 hover:text-white transition-colors group uppercase tracking-wider"
+                    className="flex items-center gap-1 text-[10px] md:text-xs font-bold text-zinc-500 hover:text-white transition-colors group uppercase tracking-wider"
                  >
                      View All <MoveRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
                  </button>
              </div>
              
              <div className="relative group/container">
-                 <div className="flex gap-4 overflow-x-auto pb-4 px-4 md:px-0 scroll-smooth hide-scrollbar snap-x">
+                 <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 px-6 md:px-0 scroll-smooth hide-scrollbar snap-x">
                      {items.slice(0, 10).map(show => {
                          const isAdded = allTrackedShows.some(s => s.id === show.id);
                          return (
@@ -403,9 +416,9 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                                             onClick={() => handleAdd(show)}
                                             disabled={isAdded}
                                             className={`
-                                                w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5
+                                                w-full py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all
                                                 ${isAdded 
-                                                    ? 'bg-emerald-600/90 text-white cursor-default' 
+                                                    ? 'bg-emerald-600/80 text-white cursor-default' 
                                                     : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30'}
                                             `}
                                          >
@@ -423,13 +436,13 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
                      })}
                      <div 
                         onClick={onShowMore}
-                        className={`snap-start shrink-0 ${cardWidth} flex items-center justify-center cursor-pointer group`}
+                        className={`snap-start shrink-0 w-[25vw] md:w-[160px] flex items-center justify-center cursor-pointer group`}
                      >
                         <div className={`w-full ${aspectRatio} rounded-xl border-2 border-dashed border-zinc-800 bg-transparent hover:bg-zinc-800/50 hover:border-indigo-500/30 flex flex-col items-center justify-center gap-3 transition-all`}>
                              <div className="p-3 rounded-full bg-zinc-800 group-hover:bg-indigo-600 transition-colors">
                                  <ChevronRight className="w-6 h-6 text-zinc-400 group-hover:text-white" />
                              </div>
-                             <span className="font-bold text-xs text-zinc-500 group-hover:text-white uppercase tracking-wider">See More</span>
+                             <span className="font-bold text-[10px] md:text-xs text-zinc-500 group-hover:text-white uppercase tracking-wider text-center">See More</span>
                         </div>
                      </div>
                  </div>
