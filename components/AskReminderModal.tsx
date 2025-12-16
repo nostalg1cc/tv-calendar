@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Bell, X, CheckCircle, CalendarClock } from 'lucide-react';
+import { Bell, X, CheckCircle, CalendarClock, Ban, CheckCheck } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { TVShow, Episode } from '../types';
 
@@ -11,19 +12,29 @@ interface AskReminderModalProps {
 }
 
 const AskReminderModal: React.FC<AskReminderModalProps> = ({ isOpen, item, onClose, onConfirm }) => {
+    const { updateSettings } = useAppContext();
+
     if (!isOpen || !item) return null;
 
     const name = 'show_name' in item ? item.show_name : 'name' in item ? item.name : 'this item';
     const isMovie = 'media_type' in item ? item.media_type === 'movie' : item.is_movie;
 
+    const handleAlways = () => {
+        updateSettings({ reminderStrategy: 'always' });
+        onConfirm(); // Proceed to set the current one
+    };
+
+    const handleNever = () => {
+        updateSettings({ reminderStrategy: 'never' });
+        onClose();
+    };
+
     return (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
             <div 
-                className="bg-zinc-950 border border-zinc-800 w-full max-w-sm rounded-3xl shadow-2xl p-8 relative overflow-hidden"
+                className="bg-zinc-950 border border-zinc-800 w-full max-w-sm rounded-3xl shadow-2xl p-6 relative overflow-hidden"
                 onClick={e => e.stopPropagation()}
             >
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-indigo-500" />
-                
                 <div className="flex flex-col items-center text-center mb-6">
                     <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-400 mb-4 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/20">
                         <CheckCircle className="w-8 h-8" />
@@ -43,28 +54,41 @@ const AskReminderModal: React.FC<AskReminderModalProps> = ({ isOpen, item, onClo
                             <h4 className="text-sm font-bold text-white">Enable Notifications?</h4>
                             <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
                                 {isMovie 
-                                    ? "We can notify you when this movie releases in theaters or on digital platforms." 
-                                    : "Get push notifications on your device when new episodes air."}
+                                    ? "Notify me when released." 
+                                    : "Notify me when new episodes air."}
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="space-y-3">
+                    <button 
+                        onClick={() => { onClose(); onConfirm(); }}
+                        className="w-full py-3.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20 text-sm"
+                    >
+                        Configure Reminder
+                    </button>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                        <button 
+                            onClick={handleAlways}
+                            className="py-3 rounded-xl bg-zinc-800 text-zinc-300 font-medium hover:bg-zinc-700 transition-colors text-xs flex items-center justify-center gap-2"
+                        >
+                            <CheckCheck className="w-3.5 h-3.5" /> Always Add
+                        </button>
+                        <button 
+                            onClick={handleNever}
+                            className="py-3 rounded-xl bg-zinc-800 text-zinc-300 font-medium hover:bg-zinc-700 transition-colors text-xs flex items-center justify-center gap-2"
+                        >
+                            <Ban className="w-3.5 h-3.5" /> Never Ask
+                        </button>
+                    </div>
+
                     <button 
                         onClick={onClose} 
-                        className="flex-1 py-3.5 rounded-xl font-bold text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors text-sm"
+                        className="w-full py-2 text-zinc-500 hover:text-white text-xs font-medium transition-colors"
                     >
-                        Skip
-                    </button>
-                    <button 
-                        onClick={() => {
-                            onClose();
-                            onConfirm();
-                        }}
-                        className="flex-1 py-3.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20 text-sm"
-                    >
-                        Set Reminder
+                        Skip for now
                     </button>
                 </div>
             </div>
