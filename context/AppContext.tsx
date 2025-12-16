@@ -71,7 +71,7 @@ interface AppContextType {
   traktPoll: (deviceCode: string, clientId: string, clientSecret: string) => Promise<any>;
   saveTraktToken: (tokenData: any) => Promise<void>;
   disconnectTrakt: () => Promise<void>;
-  syncTraktData: () => Promise<void>;
+  syncTraktData: (background?: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -214,17 +214,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [watchlist, subscribedLists, settings, user, reminders, interactions]);
 
-  // ... (Rest of sync/trakt/auth logic remains identical)
-  // To save space in response, not repeating the lengthy sync/auth functions unless changed.
-  // Assuming they are preserved as they were in the previous version.
-  
+  // Trakt Auto-Sync Effect
+  useEffect(() => {
+      if (user?.traktToken && !isSyncing && !loading) {
+          // Silent sync on mount if connected
+          syncTraktData(true); 
+      }
+  }, [user?.traktToken]);
+
   const traktAuth = async (clientId: string, clientSecret: string) => { return await getDeviceCode(clientId); };
   const traktPoll = async (deviceCode: string, clientId: string, clientSecret: string) => { return await pollToken(deviceCode, clientId, clientSecret); };
   const saveTraktToken = async (tokenData: any) => { if (!user) return; try { const profile = await getTraktProfile(tokenData.access_token); const updatedUser: User = { ...user, traktToken: { ...tokenData, created_at: Date.now() / 1000 }, traktProfile: profile }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: updatedUser.traktToken, trakt_profile: profile }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } catch (e) { console.error("Failed to fetch Trakt profile", e); } };
   const disconnectTrakt = async () => { if (!user) return; const updatedUser = { ...user, traktToken: undefined, traktProfile: undefined }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: null, trakt_profile: null }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } };
-  const syncTraktData = async () => {
+  
+  const syncTraktData = async (background = false) => {
       if (!user?.traktToken) return;
-      setLoading(true);
+      if (!background) setLoading(true);
       setIsSyncing(true);
       try {
           const token = user.traktToken.access_token;
@@ -262,8 +267,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               }
           }
           if (newShowsToAdd.length > 0) { await batchAddShows(newShowsToAdd); }
-          alert(`Sync Complete! Added ${newShowsToAdd.length} new items and updated watched status.`);
-      } catch (e) { console.error("Trakt Sync Error", e); alert("Trakt sync encountered an error. Check console."); } finally { setLoading(false); setIsSyncing(false); }
+          if (!background) alert(`Sync Complete! Added ${newShowsToAdd.length} new items and updated watched status.`);
+      } catch (e) { 
+          console.error("Trakt Sync Error", e); 
+          if (!background) alert("Trakt sync encountered an error. Check console."); 
+      } finally { 
+          if (!background) setLoading(false); 
+          setIsSyncing(false); 
+      }
   };
 
   const toggleWatched = async (id: number, mediaType: 'tv' | 'movie') => {
@@ -324,8 +335,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               media_type: mediaType, 
               is_watched: updated.is_watched, 
               rating: updated.rating, 
-              season_number: -1,
-              episode_number: -1,
+              season_number: -1, 
+              episode_number: -1, 
               updated_at: new Date().toISOString() 
           }, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); 
       } 
