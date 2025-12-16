@@ -91,7 +91,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   cleanGrid: false,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   theme: 'default',
-  customThemeColor: '#6366f1'
+  customThemeColor: '#6366f1',
+  appDesign: 'default'
 };
 
 export const THEMES: Record<string, Record<string, string>> = {
@@ -142,6 +143,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
           if (!synced.spoilerConfig) synced.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig;
           if (synced.spoilerConfig.includeMovies === undefined) synced.spoilerConfig.includeMovies = false;
+          if (!synced.appDesign) synced.appDesign = 'default';
 
           const local = getLocalPrefs();
           return { ...DEFAULT_SETTINGS, ...synced, ...local, compactCalendar: true }; 
@@ -150,7 +152,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } 
   });
   
-  useEffect(() => { const themeKey = settings.theme || 'default'; let themeColors: Record<string, string>; if (themeKey === 'custom' && settings.customThemeColor) { themeColors = generatePaletteFromHex(settings.customThemeColor); } else { themeColors = THEMES[themeKey] || THEMES.default; } const root = document.documentElement; Object.entries(themeColors).forEach(([shade, value]) => { root.style.setProperty(`--theme-${shade}`, value); }); }, [settings.theme, settings.customThemeColor]);
+  useEffect(() => { 
+      // Theme Color
+      const themeKey = settings.theme || 'default'; 
+      let themeColors: Record<string, string>; 
+      if (themeKey === 'custom' && settings.customThemeColor) { 
+          themeColors = generatePaletteFromHex(settings.customThemeColor); 
+      } else { 
+          themeColors = THEMES[themeKey] || THEMES.default; 
+      } 
+      const root = document.documentElement; 
+      Object.entries(themeColors).forEach(([shade, value]) => { 
+          root.style.setProperty(`--theme-${shade}`, value); 
+      }); 
+
+      // App Design
+      document.body.setAttribute('data-design', settings.appDesign || 'default');
+
+  }, [settings.theme, settings.customThemeColor, settings.appDesign]);
 
   const [watchlist, setWatchlist] = useState<TVShow[]>(() => { try { return JSON.parse(localStorage.getItem('tv_calendar_watchlist') || '[]'); } catch { return []; } });
   const [subscribedLists, setSubscribedLists] = useState<SubscribedList[]>(() => { try { return JSON.parse(localStorage.getItem('tv_calendar_subscribed_lists') || '[]'); } catch { return []; } });
@@ -195,7 +214,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [watchlist, subscribedLists, settings, user, reminders, interactions]);
 
-  // ... (Trakt methods unchanged)
+  // ... (Rest of sync/trakt/auth logic remains identical)
+  // To save space in response, not repeating the lengthy sync/auth functions unless changed.
+  // Assuming they are preserved as they were in the previous version.
+  
   const traktAuth = async (clientId: string, clientSecret: string) => { return await getDeviceCode(clientId); };
   const traktPoll = async (deviceCode: string, clientId: string, clientSecret: string) => { return await pollToken(deviceCode, clientId, clientSecret); };
   const saveTraktToken = async (tokenData: any) => { if (!user) return; try { const profile = await getTraktProfile(tokenData.access_token); const updatedUser: User = { ...user, traktToken: { ...tokenData, created_at: Date.now() / 1000 }, traktProfile: profile }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: updatedUser.traktToken, trakt_profile: profile }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } catch (e) { console.error("Failed to fetch Trakt profile", e); } };
@@ -665,7 +687,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } catch (e) { console.error(e); } finally { setLoading(false); setIsSyncing(false); }
   }, [user, allTrackedShows, watchlist, episodes, fullSyncRequired]);
 
-  // ... (Rest of component unchanged)
+  // ... (Rest of context implementation unchanged)
   // ...
   const login = (username: string, apiKey: string) => { const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false }; setUser(newUser); setApiToken(apiKey); localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); };
   // MODIFIED LOGIN CLOUD
@@ -704,6 +726,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               // Ensure structure
               if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig;
               if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false;
+              if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default';
               
               setSettings(mergedSettings);
           } 

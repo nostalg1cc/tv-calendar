@@ -43,7 +43,7 @@ const DiscoverPage: React.FC = () => {
   };
   
   return (
-    <div className="max-w-[1600px] mx-auto p-4 md:p-8 pb-20 md:pb-24">
+    <div className="max-w-[1600px] mx-auto p-4 pb-20 md:pb-24">
         {/* Header Area */}
         <div className="mb-6">
              <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 tracking-tight">Discover</h1>

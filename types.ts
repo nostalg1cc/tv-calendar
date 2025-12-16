@@ -89,7 +89,7 @@ export interface AppSettings {
       images: boolean;
       overview: boolean;
       title: boolean;
-      includeMovies: boolean; // New Setting
+      includeMovies: boolean; 
   };
   hideTheatrical: boolean;
   ignoreSpecials: boolean; 
@@ -105,6 +105,7 @@ export interface AppSettings {
   timezone?: string; // Region Preference
   theme?: string; // Accent Color Theme
   customThemeColor?: string; // Hex Code for Custom Theme
+  appDesign: 'default' | 'blackout'; // New App Design Setting
 }
 
 export interface SubscribedList {

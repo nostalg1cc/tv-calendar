@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom, Database, Globe, Palette, User as UserIcon, Monitor, Pipette, Link as LinkIcon, ExternalLink, Copy, LogOut, LayoutGrid, List, Layers, PanelBottom, Pill, Filter, Ban, FileText, Lock, Type, Film } from 'lucide-react';
+import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom, Database, Globe, Palette, User as UserIcon, Monitor, Pipette, Link as LinkIcon, ExternalLink, Copy, LogOut, LayoutGrid, List, Layers, PanelBottom, Pill, Filter, Ban, FileText, Lock, Type, Film, Moon } from 'lucide-react';
 import { useAppContext, THEMES } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -156,6 +156,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
             
             {activeTab === 'design' && (
                 <div className="space-y-6 animate-fade-in">
+                    <section>
+                        <h3 className="text-white font-bold mb-3">App Design</h3>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button onClick={() => updateSettings({ appDesign: 'default' })} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${settings.appDesign === 'default' ? 'bg-zinc-800 border-indigo-500' : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800'}`}>
+                                <LayoutList className="w-6 h-6 text-zinc-400" />
+                                <span className="text-xs font-bold text-zinc-300">Standard</span>
+                            </button>
+                            <button onClick={() => updateSettings({ appDesign: 'blackout' })} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all overflow-hidden relative ${settings.appDesign === 'blackout' ? 'bg-black border-indigo-500' : 'bg-black border-zinc-800 hover:border-zinc-700'}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 to-pink-900/20 opacity-50" />
+                                <Moon className="w-6 h-6 text-indigo-400 relative z-10" />
+                                <span className="text-xs font-bold text-white relative z-10">Blackout</span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <div className="h-px bg-zinc-800/50" />
+
                     <section>
                         <h3 className="text-white font-bold mb-3">Accent Color</h3>
                         <div className="grid grid-cols-7 gap-2">

@@ -112,7 +112,7 @@ const WatchlistPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full p-4 md:p-8">
+    <div className="w-full p-4">
       {/* Page Header (Minimal Design) */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-2">
         {/* Left: Title & Stats */}

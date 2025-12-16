@@ -10,7 +10,7 @@ const RemindersPage: React.FC = () => {
   const getShow = (tmdbId: number) => allTrackedShows.find(s => s.id === tmdbId);
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8">
+    <div className="max-w-4xl mx-auto p-4">
       <div className="mb-8">
          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
              <Bell className="w-8 h-8 text-amber-400" /> Reminders
