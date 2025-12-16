@@ -46,9 +46,9 @@ const CalendarPage: React.FC = () => {
       if (!eps) return [];
       return eps.filter(ep => {
           // Global Settings Filters
-          if (settings.hideTheatrical && ep.is_movie && ep.release_type === 'theatrical') {
-              return false;
-          }
+          if (settings.hideTheatrical && ep.is_movie && ep.release_type === 'theatrical') return false;
+          if (settings.ignoreSpecials && ep.season_number === 0) return false;
+
           // Local Type Filters
           if (!showTV && !ep.is_movie) return false;
           if (!showMovies && ep.is_movie) return false;
@@ -346,7 +346,9 @@ const CalendarPage: React.FC = () => {
                                                                     {isWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/30"><Check className="w-3 h-3 text-emerald-500" /></div>}
                                                                 </div>
                                                                 <div className="min-w-0 flex-1 flex flex-col justify-center">
-                                                                    <div className={`text-[9px] font-medium truncate leading-none mb-0.5 ${isWatched ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>{ep.show_name}</div>
+                                                                    {!settings.cleanGrid && (
+                                                                        <div className={`text-[9px] font-medium truncate leading-none mb-0.5 ${isWatched ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>{ep.show_name}</div>
+                                                                    )}
                                                                     <div className="flex items-center gap-1.5">
                                                                         <span className="text-[8px] text-zinc-500 truncate leading-none">
                                                                             {ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema' : 'Digital') : `S${ep.season_number}E${ep.episode_number}`}

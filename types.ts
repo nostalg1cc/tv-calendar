@@ -85,6 +85,7 @@ export interface CalendarDay {
 export interface AppSettings {
   hideSpoilers: boolean;
   hideTheatrical: boolean;
+  ignoreSpecials: boolean; // New Setting
   recommendationsEnabled: boolean;
   recommendationMethod: 'banner' | 'inline';
   compactCalendar: boolean;

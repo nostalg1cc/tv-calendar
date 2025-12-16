@@ -76,6 +76,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const DEFAULT_SETTINGS: AppSettings = {
   hideSpoilers: false,
   hideTheatrical: false,
+  ignoreSpecials: false,
   recommendationsEnabled: true,
   recommendationMethod: 'banner',
   compactCalendar: true, 
