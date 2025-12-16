@@ -3,7 +3,7 @@ import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths, addDays, isSameDay, subYears
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw, Filter, Tv, Film, Check, History, GalleryVertical, Layers } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw, Filter, Tv, Film, Check, History, Layers } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import EpisodeModal from '../components/EpisodeModal';
 import { getImageUrl } from '../services/tmdb';
@@ -107,12 +107,9 @@ const CalendarPage: React.FC = () => {
       const container = scrollContainerRef.current;
       if (!container) return;
 
-      // 1. If we have a saved position, restore it
       if (calendarScrollPos > 0) {
           container.scrollTop = calendarScrollPos;
       } else {
-          // 2. If no saved position (first load or manually cleared), scroll to Today
-          // Only for List/Stack views where scrolling is primary interaction
           if (viewMode !== 'grid') {
               const el = document.getElementById('today-anchor');
               if (el) {
@@ -120,9 +117,8 @@ const CalendarPage: React.FC = () => {
               }
           }
       }
-  }, [viewMode, currentDate]); // Re-run on view change or month change
+  }, [viewMode, currentDate]);
 
-  // Save Scroll Position on Unmount
   useEffect(() => {
       const container = scrollContainerRef.current;
       const handleScroll = () => {
@@ -130,11 +126,9 @@ const CalendarPage: React.FC = () => {
               setCalendarScrollPos(container.scrollTop);
           }
       };
-
       if (container) {
           container.addEventListener('scroll', handleScroll, { passive: true });
       }
-
       return () => {
           if (container) {
               container.removeEventListener('scroll', handleScroll);
@@ -146,7 +140,6 @@ const CalendarPage: React.FC = () => {
   // --- Components ---
 
   const CellContent = ({ ep, isMobile = false }: { ep: Episode, isMobile?: boolean }) => {
-      // Determine image style based on settings. 
       const isContain = settings.calendarPosterFillMode === 'contain';
       const imgClass = isContain ? 'object-contain' : 'object-cover';
       
@@ -158,53 +151,53 @@ const CalendarPage: React.FC = () => {
       const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
 
       return (
-          <div className="absolute inset-0 flex flex-col justify-end p-2 sm:p-3 overflow-hidden">
-              <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 flex flex-col justify-end p-1.5 overflow-hidden">
+              <div className="absolute inset-0 z-0 bg-zinc-900">
                    {isContain && (
                        <div 
-                         className="absolute inset-0 bg-cover bg-center blur-md opacity-40 scale-110" 
+                         className="absolute inset-0 bg-cover bg-center blur-md opacity-30 scale-110" 
                          style={{ backgroundImage: `url(${imageUrl})` }}
                        />
                    )}
                   <img 
                       src={imageUrl} 
-                      className={`w-full h-full ${imgClass} ${isContain ? 'opacity-100 drop-shadow-xl' : 'opacity-80'} ${isWatched ? 'grayscale opacity-50' : ''}`}
+                      className={`w-full h-full ${imgClass} ${isContain ? 'opacity-100' : 'opacity-80'} ${isWatched ? 'grayscale opacity-50' : ''}`}
                       alt=""
                       loading="lazy"
                   />
                   {!settings.cleanGrid && (
-                       <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-main)] via-[var(--bg-main)]/50 to-transparent" />
+                       <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90" />
                   )}
               </div>
 
               {isWatched && (
-                  <div className="absolute top-2 right-2 z-20">
-                      <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
-                          <Check className="w-3 h-3 text-white" />
+                  <div className="absolute top-1 right-1 z-20">
+                      <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm">
+                          <Check className="w-2.5 h-2.5 text-white" />
                       </div>
                   </div>
               )}
 
               <div className="relative z-10 w-full pointer-events-none">
                   {!isMobile && !settings.cleanGrid && (
-                      <h4 className={`text-[11px] sm:text-xs font-bold leading-tight line-clamp-2 mb-1 drop-shadow-md ${isWatched ? 'text-zinc-400 line-through decoration-zinc-500' : 'text-white'}`}>
+                      <h4 className={`text-[10px] font-bold leading-tight line-clamp-2 mb-0.5 drop-shadow-md text-white`}>
                           {ep.show_name}
                       </h4>
                   )}
                   
-                  <div className={`flex items-center gap-2 ${settings.cleanGrid ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' : ''}`}>
+                  <div className={`flex items-center gap-1 ${settings.cleanGrid ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' : ''}`}>
                       {ep.is_movie ? (
                           <div className={`
-                              flex items-center gap-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold border backdrop-blur-md
+                              flex items-center gap-1 px-1 py-0.5 rounded text-[8px] font-bold border backdrop-blur-md
                               ${ep.release_type === 'theatrical' 
-                                  ? 'bg-pink-500/30 text-pink-200 border-pink-500/20' 
-                                  : 'bg-emerald-500/30 text-emerald-200 border-emerald-500/20'}
+                                  ? 'bg-pink-500/30 text-pink-100 border-pink-500/20' 
+                                  : 'bg-emerald-500/30 text-emerald-100 border-emerald-500/20'}
                           `}>
-                              {ep.release_type === 'theatrical' ? <Ticket className="w-3 h-3" /> : <MonitorPlay className="w-3 h-3" />}
+                              {ep.release_type === 'theatrical' ? <Ticket className="w-2.5 h-2.5" /> : <MonitorPlay className="w-2.5 h-2.5" />}
                               {!isMobile && !settings.cleanGrid && <span className="hidden sm:inline">{ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}</span>}
                           </div>
                       ) : (
-                          <div className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-medium border border-white/10 shadow-sm ${isWatched ? 'text-zinc-500' : 'text-slate-200'}`}>
+                          <div className={`flex items-center gap-1 px-1 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-medium border border-white/10 ${isWatched ? 'text-zinc-400' : 'text-zinc-200'}`}>
                               <span>S{ep.season_number} E{ep.episode_number}</span>
                           </div>
                       )}
@@ -215,54 +208,48 @@ const CalendarPage: React.FC = () => {
   };
 
   return (
-    <div className={`flex flex-col h-full gap-2 p-4 md:p-6 ${settings.compactCalendar ? 'overflow-hidden' : ''}`}>
+    <div className={`flex flex-col h-full ${settings.compactCalendar ? 'overflow-hidden' : ''}`}>
       
-      {/* Unified Header */}
-      <div className="shrink-0 mb-6">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              {/* Title Left */}
-              <div>
-                  <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+      {/* Calendar Toolbar */}
+      <div className="shrink-0 p-4 md:p-6 pb-2">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              
+              {/* Month Nav */}
+              <div className="flex items-center gap-3 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 shadow-sm w-full md:w-auto justify-between md:justify-start">
+                  <button onClick={prevMonth} className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
+                      <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <h1 className="text-lg font-bold text-white min-w-[140px] text-center select-none">
                       {format(currentDate, 'MMMM yyyy')}
                   </h1>
-                  <p className="text-zinc-400 text-sm hidden md:block mt-1">
-                      Tracking {activeDays.length} active dates this month.
-                  </p>
+                  <button onClick={nextMonth} className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
+                      <ChevronRight className="w-5 h-5" />
+                  </button>
               </div>
 
-              {/* Controls Right */}
-              <div className="flex flex-wrap items-center gap-4">
-                  {/* Type Toggles */}
-                  <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1">
-                      <button 
-                          onClick={() => setShowTV(!showTV)} 
-                          className={`p-2 rounded-md transition-all ${showTV ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`} 
-                          title="Toggle TV Shows"
-                      >
+              {/* Tools */}
+              <div className="flex items-center gap-3 w-full md:w-auto justify-center">
+                  <button onClick={goToToday} className="px-4 py-2 text-xs font-bold bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-colors text-white uppercase tracking-wider">
+                      Today
+                  </button>
+                  
+                  {/* Filters */}
+                  <div className="flex bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+                      <button onClick={() => setShowTV(!showTV)} className={`p-2 rounded-md transition-all ${showTV ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`} title="Toggle TV">
                           <Tv className="w-4 h-4" />
                       </button>
-                      <button 
-                          onClick={() => setShowMovies(!showMovies)} 
-                          className={`p-2 rounded-md transition-all ${showMovies ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`} 
-                          title="Toggle Movies"
-                      >
+                      <button onClick={() => setShowMovies(!showMovies)} className={`p-2 rounded-md transition-all ${showMovies ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`} title="Toggle Movies">
                           <Film className="w-4 h-4" />
                       </button>
                   </div>
 
-                  {/* Navigation */}
-                  <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1">
-                      <button onClick={prevMonth} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-                      <button onClick={goToToday} className="px-3 text-xs font-bold text-zinc-400 hover:text-white uppercase tracking-wider">Today</button>
-                      <button onClick={nextMonth} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"><ChevronRight className="w-4 h-4" /></button>
-                  </div>
-
-                  {/* Tools */}
-                  <div className="flex items-center gap-2">
-                       <button onClick={() => refreshEpisodes(true)} disabled={loading || isSyncing} className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-indigo-400 transition-colors group">
-                          <RefreshCw className={`w-4 h-4 ${loading || isSyncing ? 'animate-spin text-indigo-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                  {/* Actions */}
+                  <div className="flex bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+                      <button onClick={() => refreshEpisodes(true)} disabled={loading || isSyncing} className="p-2 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 rounded-md transition-colors">
+                          <RefreshCw className={`w-4 h-4 ${loading || isSyncing ? 'animate-spin' : ''}`} />
                       </button>
-                      <button onClick={cycleViewMode} className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
+                      <div className="w-px bg-zinc-800 my-1 mx-1" />
+                      <button onClick={cycleViewMode} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors">
                           <ViewIcon className="w-4 h-4" />
                       </button>
                   </div>
@@ -272,382 +259,348 @@ const CalendarPage: React.FC = () => {
       
       {/* Archive Warning */}
       {isArchivedDate && activeDays.length === 0 && !loading && (
-          <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800 p-8 text-center">
+          <div className="m-4 md:m-6 flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800 p-8 text-center">
              <History className="w-12 h-12 text-zinc-600 mb-4" />
              <h3 className="text-lg font-bold text-white mb-2">Archived History</h3>
-             <p className="text-sm text-zinc-500 mb-6 max-w-sm">
-                 To improve performance, older history is archived. Load it manually to view this month.
-             </p>
-             <button onClick={loadArchivedEvents} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2">
+             <button onClick={loadArchivedEvents} className="mt-4 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center gap-2">
                  <RefreshCw className="w-4 h-4" /> Load Archive
              </button>
           </div>
       )}
 
-      {/* Loading State */}
-      {loading && activeDays.length === 0 && !isArchivedDate ? (
-          <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800">
-             <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
-             <p className="text-sm text-zinc-500">Syncing your calendar...</p>
-          </div>
-      ) : (
-          !isArchivedDate || activeDays.length > 0 ? (
-          <>
-            {/* --- GRID VIEW --- */}
-            {viewMode === 'grid' && (
-                <div className={`
-                    flex flex-col bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl
-                    ${settings.compactCalendar ? 'flex-1 h-full min-h-0' : 'aspect-[16/10]'}
-                `}>
-                    <div className="grid grid-cols-7 border-b border-zinc-800 bg-zinc-900/80">
-                        {weekDays.map(day => (
-                            <div key={day} className="py-2 text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                                {day.charAt(0)}
-                            </div>
-                        ))}
-                    </div>
+      {/* Main Content Area */}
+      <div className="flex-1 min-h-0 px-4 md:px-6 pb-4 md:pb-6 flex flex-col">
+          {loading && activeDays.length === 0 && !isArchivedDate ? (
+              <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800">
+                 <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
+                 <p className="text-sm text-zinc-500">Syncing calendar...</p>
+              </div>
+          ) : (
+              !isArchivedDate || activeDays.length > 0 ? (
+              <>
+                {/* --- GRID VIEW --- */}
+                {viewMode === 'grid' && (
+                    <div className="flex flex-col h-full bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+                        {/* Days Header */}
+                        <div className="grid grid-cols-7 border-b border-zinc-800 bg-zinc-950/50">
+                            {weekDays.map(day => (
+                                <div key={day} className="py-2.5 text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                                    {day.substring(0, 3)}
+                                </div>
+                            ))}
+                        </div>
 
-                    <div 
-                        className="grid grid-cols-7 flex-1 bg-zinc-950 overflow-y-auto"
-                        ref={scrollContainerRef}
-                    >
-                        {calendarDays.map((day, idx) => {
-                            const dateKey = format(day, 'yyyy-MM-dd');
-                            const dayEpisodes = getEpisodesForDay(day);
-                            const isCurrentMonth = isSameMonth(day, monthStart);
-                            const isDayToday = isTodayInZone(day);
-                            const hasEpisodes = dayEpisodes.length > 0;
-                            
-                            const isLastCol = (idx + 1) % 7 === 0;
-                            const isLastRow = idx >= 35;
-                            const borderClasses = `
-                                ${!isLastCol ? 'border-r border-zinc-800/50' : ''}
-                                ${!isLastRow ? 'border-b border-zinc-800/50' : ''}
-                            `;
-
-                            return (
-                                <div
-                                    key={dateKey}
-                                    onClick={() => hasEpisodes && setSelectedDate(day)}
-                                    className={`
-                                        relative group flex flex-col transition-colors
-                                        min-h-[60px] md:min-h-0
-                                        ${borderClasses}
-                                        ${!isCurrentMonth ? 'bg-black/40 opacity-50' : ''}
-                                        ${hasEpisodes ? 'cursor-pointer hover:bg-zinc-900/30' : ''}
-                                    `}
-                                >
-                                    <div className={`
-                                        absolute top-1 md:top-2 right-1 md:right-2 text-[10px] md:text-xs font-medium z-20 px-1.5 py-0.5 rounded
-                                        ${isDayToday ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-zinc-500'}
-                                    `}>
-                                        {format(day, 'd')}
-                                    </div>
-
-                                    {hasEpisodes && (
-                                        dayEpisodes.length === 1 ? (
-                                            <>
-                                                <div className="hidden md:block h-full">
-                                                    <CellContent ep={dayEpisodes[0]} />
+                        {/* Calendar Grid */}
+                        <div className="flex-1 overflow-y-auto bg-zinc-950 relative" ref={scrollContainerRef}>
+                            <div className="grid grid-cols-7 auto-rows-fr min-h-full">
+                                {calendarDays.map((day, idx) => {
+                                    const dateKey = format(day, 'yyyy-MM-dd');
+                                    const dayEpisodes = getEpisodesForDay(day);
+                                    const isCurrentMonth = isSameMonth(day, monthStart);
+                                    const isDayToday = isTodayInZone(day);
+                                    const hasEpisodes = dayEpisodes.length > 0;
+                                    
+                                    // Borders calculation
+                                    const borderClass = `border-b border-r border-zinc-800`;
+                                    
+                                    return (
+                                        <div
+                                            key={dateKey}
+                                            onClick={() => hasEpisodes && setSelectedDate(day)}
+                                            className={`
+                                                relative flex flex-col min-h-[80px] md:min-h-[110px] transition-colors
+                                                ${borderClass}
+                                                ${!isCurrentMonth ? 'bg-black/40' : 'bg-zinc-900/20'}
+                                                ${hasEpisodes ? 'cursor-pointer hover:bg-zinc-900/50' : ''}
+                                                ${isDayToday ? 'bg-indigo-900/10' : ''}
+                                            `}
+                                        >
+                                            {/* Date Number */}
+                                            <div className="absolute top-1.5 right-1.5 z-20 pointer-events-none">
+                                                <div className={`
+                                                    w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold
+                                                    ${isDayToday 
+                                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
+                                                        : (!isCurrentMonth ? 'text-zinc-600' : 'text-zinc-400')}
+                                                `}>
+                                                    {format(day, 'd')}
                                                 </div>
-                                                <div className="md:hidden h-full">
-                                                    <CellContent ep={dayEpisodes[0]} isMobile={true} />
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div className="absolute inset-0 p-1 flex flex-col gap-1 overflow-hidden z-10 pt-6 md:pt-8">
-                                                <div className="flex flex-col gap-1 flex-1 min-h-0 overflow-hidden">
-                                                    {dayEpisodes.slice(0, 3).map((ep, i) => {
-                                                        const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
-                                                        const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
-                                                        
-                                                        return (
-                                                            <div key={i} className={`flex items-center gap-2 p-1.5 rounded border border-zinc-800/50 truncate shrink-0 ${isWatched ? 'bg-zinc-900/50 opacity-60' : 'bg-zinc-900/90'}`}>
-                                                                <div className="relative shrink-0 w-5 h-7">
-                                                                    <img 
-                                                                        src={getImageUrl(posterSrc)} 
-                                                                        className={`w-full h-full object-cover rounded-[2px] opacity-90 ${isWatched ? 'grayscale' : ''}`}
-                                                                        alt=""
-                                                                        loading="lazy"
-                                                                    />
-                                                                    {isWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/30"><Check className="w-3 h-3 text-emerald-500" /></div>}
-                                                                </div>
-                                                                <div className="min-w-0 flex-1 flex flex-col justify-center">
-                                                                    {!settings.cleanGrid && (
-                                                                        <div className={`text-[9px] font-medium truncate leading-none mb-0.5 ${isWatched ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>{ep.show_name}</div>
-                                                                    )}
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <span className="text-[8px] text-zinc-500 truncate leading-none">
-                                                                            {ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema' : 'Digital') : `S${ep.season_number}E${ep.episode_number}`}
-                                                                        </span>
-                                                                        {ep.is_movie && (
-                                                                            ep.release_type === 'theatrical' 
-                                                                            ? <Ticket className="w-2.5 h-2.5 text-pink-400" />
-                                                                            : <MonitorPlay className="w-2.5 h-2.5 text-emerald-400" />
-                                                                        )}
+                                            </div>
+
+                                            {/* Grid Cell Content */}
+                                            <div className="flex-1 relative w-full h-full">
+                                                {hasEpisodes && (
+                                                    dayEpisodes.length === 1 ? (
+                                                        <CellContent ep={dayEpisodes[0]} isMobile={false} />
+                                                    ) : (
+                                                        <div className="absolute inset-0 p-1 flex flex-col gap-1 pt-7">
+                                                            {dayEpisodes.slice(0, 2).map((ep, i) => (
+                                                                <div key={i} className="flex items-center gap-1.5 p-1 rounded bg-zinc-800/80 border border-zinc-700/50 overflow-hidden">
+                                                                    <div className="w-1 h-4 bg-indigo-500 rounded-full shrink-0" />
+                                                                    <div className="min-w-0">
+                                                                        <div className="text-[8px] font-bold text-zinc-300 truncate leading-none">{ep.show_name}</div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                                
-                                                {dayEpisodes.length > 3 && (
-                                                    <div className="mt-auto text-[9px] text-center text-zinc-500 font-medium bg-zinc-900/50 py-0.5 shrink-0">
-                                                        +{dayEpisodes.length - 3} more
-                                                    </div>
+                                                            ))}
+                                                            {dayEpisodes.length > 2 && (
+                                                                <div className="mt-auto text-[9px] text-center font-bold text-zinc-500 bg-zinc-900/80 py-0.5 rounded border border-zinc-800">
+                                                                    +{dayEpisodes.length - 2} more
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )
                                                 )}
                                             </div>
-                                        )
-                                    )}
-                                    
-                                    {isDayToday && (
-                                        <div className="absolute inset-0 border-[2px] border-indigo-500 pointer-events-none z-30 shadow-[inset_0_0_10px_rgba(99,102,241,0.2)]" />
-                                    )}
-                                </div>
-                            );
-                        })}
+                                            
+                                            {/* Today Border */}
+                                            {isDayToday && (
+                                                <div className="absolute inset-0 border-[2px] border-indigo-500 pointer-events-none z-30" />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* --- LIST VIEW --- */}
-            {viewMode === 'list' && (
-                <div 
-                    className="flex-1 overflow-y-auto px-1 custom-scrollbar"
-                    ref={scrollContainerRef}
-                >
-                    {activeDays.length === 0 ? (
-                        <div className="text-center py-20 opacity-50">
-                            <CalendarIcon className="w-12 h-12 mx-auto mb-2" />
-                            <p>No episodes this month</p>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-6 pb-20 max-w-3xl mx-auto">
-                            {activeDays.map(day => {
-                                const eps = getEpisodesForDay(day);
-                                const isDayToday = isTodayInZone(day); 
+                {/* --- LIST VIEW --- */}
+                {viewMode === 'list' && (
+                    <div 
+                        className="flex-1 overflow-y-auto px-1 custom-scrollbar"
+                        ref={scrollContainerRef}
+                    >
+                        {activeDays.length === 0 ? (
+                            <div className="text-center py-20 opacity-50">
+                                <CalendarIcon className="w-12 h-12 mx-auto mb-2" />
+                                <p>No episodes this month</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-6 pb-20 max-w-3xl mx-auto">
+                                {activeDays.map(day => {
+                                    const eps = getEpisodesForDay(day);
+                                    const isDayToday = isTodayInZone(day); 
 
-                                return (
-                                    <div 
-                                        key={day.toString()} 
-                                        id={isDayToday ? 'today-anchor' : undefined}
-                                        className="flex gap-4 scroll-mt-4"
-                                    >
-                                        <div className="w-12 md:w-14 flex flex-col items-center pt-1 shrink-0">
-                                            <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider mb-0.5">{format(day, 'EEE')}</span>
-                                            <div className={`
-                                                w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center text-base md:text-lg font-bold border
-                                                ${isDayToday 
-                                                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/50' 
-                                                    : 'bg-zinc-800 border-zinc-700 text-zinc-300'}
-                                            `}>
-                                                {format(day, 'd')}
+                                    return (
+                                        <div 
+                                            key={day.toString()} 
+                                            id={isDayToday ? 'today-anchor' : undefined}
+                                            className="flex gap-4 scroll-mt-4"
+                                        >
+                                            <div className="w-12 md:w-14 flex flex-col items-center pt-1 shrink-0">
+                                                <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider mb-0.5">{format(day, 'EEE')}</span>
+                                                <div className={`
+                                                    w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center text-base md:text-lg font-bold border
+                                                    ${isDayToday 
+                                                        ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/50' 
+                                                        : 'bg-zinc-800 border-zinc-700 text-zinc-300'}
+                                                `}>
+                                                    {format(day, 'd')}
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        <div className="flex-1 space-y-3 pb-4 border-b border-zinc-800 min-w-0">
-                                            {eps.map(ep => {
-                                                const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
-                                                const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
+                                            <div className="flex-1 space-y-3 pb-4 border-b border-zinc-800 min-w-0">
+                                                {eps.map(ep => {
+                                                    const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
+                                                    const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
 
-                                                return (
-                                                    <div 
-                                                        key={`${ep.show_id}-${ep.id}`}
-                                                        onClick={() => setSelectedDate(day)}
-                                                        className={`surface-card rounded-xl p-3 flex gap-3 cursor-pointer group border transition-colors ${isWatched ? 'bg-zinc-900/50 border-zinc-800/50 opacity-60 hover:opacity-100' : 'bg-zinc-900 border-zinc-800 hover:border-indigo-500/30'}`}
-                                                    >
-                                                        <div className="relative w-12 h-16 shrink-0 rounded-md overflow-hidden bg-black shadow-sm">
-                                                            <img 
-                                                                src={getImageUrl(posterSrc)} 
-                                                                className={`w-full h-full object-cover ${isWatched ? 'grayscale' : ''}`}
-                                                                alt=""
-                                                                loading="lazy"
-                                                            />
-                                                            {isWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-5 h-5 text-emerald-500" /></div>}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                            <h4 className={`font-bold text-sm truncate group-hover:text-indigo-400 transition-colors ${isWatched ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>
-                                                                {ep.show_name}
-                                                            </h4>
-                                                            
-                                                            <div className="flex items-center gap-2 mt-1">
-                                                                {ep.is_movie ? (
-                                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-1 ${ep.release_type === 'theatrical' ? 'text-pink-300 border-pink-500/20 bg-pink-500/5' : 'text-emerald-300 border-emerald-500/20 bg-emerald-500/5'}`}>
-                                                                        {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-[10px] font-mono text-zinc-400">
-                                                                        S{ep.season_number} E{ep.episode_number}
-                                                                    </span>
-                                                                )}
-                                                                <span className="text-[10px] text-zinc-500 truncate hidden sm:inline">• {ep.name}</span>
+                                                    return (
+                                                        <div 
+                                                            key={`${ep.show_id}-${ep.id}`}
+                                                            onClick={() => setSelectedDate(day)}
+                                                            className={`surface-card rounded-xl p-3 flex gap-3 cursor-pointer group border transition-colors ${isWatched ? 'bg-zinc-900/50 border-zinc-800/50 opacity-60 hover:opacity-100' : 'bg-zinc-900 border-zinc-800 hover:border-indigo-500/30'}`}
+                                                        >
+                                                            <div className="relative w-12 h-16 shrink-0 rounded-md overflow-hidden bg-black shadow-sm">
+                                                                <img 
+                                                                    src={getImageUrl(posterSrc)} 
+                                                                    className={`w-full h-full object-cover ${isWatched ? 'grayscale' : ''}`}
+                                                                    alt=""
+                                                                    loading="lazy"
+                                                                />
+                                                                {isWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-5 h-5 text-emerald-500" /></div>}
                                                             </div>
-                                                            <span className="text-[10px] text-zinc-500 truncate sm:hidden mt-0.5">{ep.name}</span>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* --- STACK VIEW (Feed & Carousel) --- */}
-            {viewMode === 'stack' && (
-                <div 
-                    className="flex-1 overflow-y-auto px-2 pb-24 custom-scrollbar snap-y snap-mandatory"
-                    ref={scrollContainerRef}
-                >
-                    {activeDays.length === 0 ? (
-                        <div className="text-center py-20 opacity-50">
-                            <Layers className="w-12 h-12 mx-auto mb-2" />
-                            <p>No episodes to stack</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-8 max-w-md mx-auto py-4">
-                            {activeDays.map(day => {
-                                const eps = getEpisodesForDay(day);
-                                const isDayToday = isTodayInZone(day);
-
-                                return (
-                                    <div 
-                                        key={day.toString()} 
-                                        id={isDayToday ? 'today-anchor' : undefined}
-                                        className="snap-start scroll-mt-4"
-                                    >
-                                        <div className="flex items-center gap-3 mb-3 px-2">
-                                            <div className={`
-                                                w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
-                                                ${isDayToday ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400'}
-                                            `}>
-                                                {format(day, 'd')}
-                                            </div>
-                                            <div className="flex flex-col leading-none">
-                                                <span className={`text-xs font-bold uppercase tracking-wider ${isDayToday ? 'text-indigo-400' : 'text-zinc-500'}`}>
-                                                    {format(day, 'EEEE')}
-                                                </span>
-                                                <span className="text-xs text-zinc-600 font-medium">
-                                                    {format(day, 'MMMM yyyy')}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Horizontal Swipe Container if > 1, else Single Card */}
-                                        <div className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar pr-4">
-                                            {eps.map(ep => {
-                                                const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
-                                                const backdropSrc = ep.still_path;
-                                                const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
-
-                                                return (
-                                                    <div 
-                                                        key={`${ep.show_id}-${ep.id}`}
-                                                        className={`
-                                                            relative w-[85vw] max-w-sm aspect-[4/5] sm:aspect-video shrink-0 snap-center rounded-2xl overflow-hidden shadow-2xl border border-zinc-800
-                                                            group transition-all
-                                                        `}
-                                                    >
-                                                        {/* Background Art */}
-                                                        <div className="absolute inset-0">
-                                                            <img 
-                                                                src={getImageUrl(posterSrc)} 
-                                                                className={`w-full h-full object-cover transition-all duration-700 ${isWatched ? 'grayscale opacity-30' : 'opacity-80'}`}
-                                                                alt=""
-                                                            />
-                                                            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
-                                                        </div>
-
-                                                        {/* Content Overlay */}
-                                                        <div className="absolute inset-0 flex flex-col justify-end p-5">
-                                                            <div className="flex justify-between items-start mb-2">
-                                                                <div className="flex flex-wrap gap-2">
+                                                            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                                <h4 className={`font-bold text-sm truncate group-hover:text-indigo-400 transition-colors ${isWatched ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>
+                                                                    {ep.show_name}
+                                                                </h4>
+                                                                
+                                                                <div className="flex items-center gap-2 mt-1">
                                                                     {ep.is_movie ? (
-                                                                        <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border ${ep.release_type === 'theatrical' ? 'bg-pink-500/20 text-pink-200 border-pink-500/30' : 'bg-emerald-500/20 text-emerald-200 border-emerald-500/30'}`}>
+                                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-1 ${ep.release_type === 'theatrical' ? 'text-pink-300 border-pink-500/20 bg-pink-500/5' : 'text-emerald-300 border-emerald-500/20 bg-emerald-500/5'}`}>
                                                                             {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
                                                                         </span>
                                                                     ) : (
-                                                                        <span className="px-2 py-1 rounded-md bg-white/10 text-white text-[10px] font-bold backdrop-blur-md border border-white/10">
+                                                                        <span className="text-[10px] font-mono text-zinc-400">
                                                                             S{ep.season_number} E{ep.episode_number}
                                                                         </span>
                                                                     )}
+                                                                    <span className="text-[10px] text-zinc-500 truncate hidden sm:inline">• {ep.name}</span>
                                                                 </div>
-                                                                
-                                                                {isWatched && (
-                                                                    <div className="bg-emerald-500/20 p-1.5 rounded-full backdrop-blur-md border border-emerald-500/30">
-                                                                        <Check className="w-4 h-4 text-emerald-400" />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-
-                                                            <h3 className={`text-2xl font-bold leading-tight mb-1 ${isWatched ? 'text-zinc-500 line-through' : 'text-white'}`}>
-                                                                {ep.show_name}
-                                                            </h3>
-                                                            <p className="text-sm text-zinc-300 font-medium line-clamp-1 mb-4">
-                                                                {ep.name}
-                                                            </p>
-
-                                                            {/* Action Bar */}
-                                                            <div className="grid grid-cols-2 gap-2 mt-auto">
-                                                                <button 
-                                                                    onClick={() => setSelectedDate(day)}
-                                                                    className="py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center"
-                                                                >
-                                                                    Details
-                                                                </button>
-                                                                {!ep.is_movie && (
-                                                                    <button 
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            if(ep.show_id) toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
-                                                                        }}
-                                                                        className={`py-2.5 rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center ${isWatched ? 'bg-zinc-800 text-zinc-400' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
-                                                                    >
-                                                                        {isWatched ? 'Unwatch' : 'Mark Watched'}
-                                                                    </button>
-                                                                )}
-                                                                {ep.is_movie && (
-                                                                     <button 
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            if(ep.show_id) toggleWatched(ep.show_id, 'movie');
-                                                                        }}
-                                                                        className={`py-2.5 rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center ${isWatched ? 'bg-zinc-800 text-zinc-400' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
-                                                                    >
-                                                                        {isWatched ? 'Unwatch' : 'Mark Watched'}
-                                                                    </button>
-                                                                )}
+                                                                <span className="text-[10px] text-zinc-500 truncate sm:hidden mt-0.5">{ep.name}</span>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
-                                            {/* Spacer for right padding */}
-                                            <div className="w-2 shrink-0" />
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            )}
-          </>
-          ) : null
-      )}
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
 
-      {selectedDate && (
-        <EpisodeModal 
-          isOpen={!!selectedDate} 
-          onClose={() => setSelectedDate(null)} 
-          episodes={getEpisodesForDay(selectedDate)}
-          date={selectedDate}
-        />
-      )}
+                {/* --- STACK VIEW (Feed & Carousel) --- */}
+                {viewMode === 'stack' && (
+                    <div 
+                        className="flex-1 overflow-y-auto px-2 pb-24 custom-scrollbar snap-y snap-mandatory"
+                        ref={scrollContainerRef}
+                    >
+                        {activeDays.length === 0 ? (
+                            <div className="text-center py-20 opacity-50">
+                                <Layers className="w-12 h-12 mx-auto mb-2" />
+                                <p>No episodes to stack</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-8 max-w-md mx-auto py-4">
+                                {activeDays.map(day => {
+                                    const eps = getEpisodesForDay(day);
+                                    const isDayToday = isTodayInZone(day);
+
+                                    return (
+                                        <div 
+                                            key={day.toString()} 
+                                            id={isDayToday ? 'today-anchor' : undefined}
+                                            className="snap-start scroll-mt-4"
+                                        >
+                                            <div className="flex items-center gap-3 mb-3 px-2">
+                                                <div className={`
+                                                    w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
+                                                    ${isDayToday ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400'}
+                                                `}>
+                                                    {format(day, 'd')}
+                                                </div>
+                                                <div className="flex flex-col leading-none">
+                                                    <span className={`text-xs font-bold uppercase tracking-wider ${isDayToday ? 'text-indigo-400' : 'text-zinc-500'}`}>
+                                                        {format(day, 'EEEE')}
+                                                    </span>
+                                                    <span className="text-xs text-zinc-600 font-medium">
+                                                        {format(day, 'MMMM yyyy')}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Horizontal Swipe Container if > 1, else Single Card */}
+                                            <div className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar pr-4">
+                                                {eps.map(ep => {
+                                                    const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
+                                                    const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
+
+                                                    return (
+                                                        <div 
+                                                            key={`${ep.show_id}-${ep.id}`}
+                                                            className={`
+                                                                relative w-[85vw] max-w-sm aspect-[4/5] sm:aspect-video shrink-0 snap-center rounded-2xl overflow-hidden shadow-2xl border border-zinc-800
+                                                                group transition-all
+                                                            `}
+                                                        >
+                                                            {/* Background Art */}
+                                                            <div className="absolute inset-0">
+                                                                <img 
+                                                                    src={getImageUrl(posterSrc)} 
+                                                                    className={`w-full h-full object-cover transition-all duration-700 ${isWatched ? 'grayscale opacity-30' : 'opacity-80'}`}
+                                                                    alt=""
+                                                                />
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
+                                                            </div>
+
+                                                            {/* Content Overlay */}
+                                                            <div className="absolute inset-0 flex flex-col justify-end p-5">
+                                                                <div className="flex justify-between items-start mb-2">
+                                                                    <div className="flex flex-wrap gap-2">
+                                                                        {ep.is_movie ? (
+                                                                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border ${ep.release_type === 'theatrical' ? 'bg-pink-500/20 text-pink-200 border-pink-500/30' : 'bg-emerald-500/20 text-emerald-200 border-emerald-500/30'}`}>
+                                                                                {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="px-2 py-1 rounded-md bg-white/10 text-white text-[10px] font-bold backdrop-blur-md border border-white/10">
+                                                                                S{ep.season_number} E{ep.episode_number}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    
+                                                                    {isWatched && (
+                                                                        <div className="bg-emerald-500/20 p-1.5 rounded-full backdrop-blur-md border border-emerald-500/30">
+                                                                            <Check className="w-4 h-4 text-emerald-400" />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                <h3 className={`text-2xl font-bold leading-tight mb-1 ${isWatched ? 'text-zinc-500 line-through' : 'text-white'}`}>
+                                                                    {ep.show_name}
+                                                                </h3>
+                                                                <p className="text-sm text-zinc-300 font-medium line-clamp-1 mb-4">
+                                                                    {ep.name}
+                                                                </p>
+
+                                                                {/* Action Bar */}
+                                                                <div className="grid grid-cols-2 gap-2 mt-auto">
+                                                                    <button 
+                                                                        onClick={() => setSelectedDate(day)}
+                                                                        className="py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center"
+                                                                    >
+                                                                        Details
+                                                                    </button>
+                                                                    {!ep.is_movie && (
+                                                                        <button 
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if(ep.show_id) toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
+                                                                            }}
+                                                                            className={`py-2.5 rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center ${isWatched ? 'bg-zinc-800 text-zinc-400' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
+                                                                        >
+                                                                            {isWatched ? 'Unwatch' : 'Mark Watched'}
+                                                                        </button>
+                                                                    )}
+                                                                    {ep.is_movie && (
+                                                                         <button 
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if(ep.show_id) toggleWatched(ep.show_id, 'movie');
+                                                                            }}
+                                                                            className={`py-2.5 rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center ${isWatched ? 'bg-zinc-800 text-zinc-400' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
+                                                                        >
+                                                                            {isWatched ? 'Unwatch' : 'Mark Watched'}
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                                {/* Spacer for right padding */}
+                                                <div className="w-2 shrink-0" />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+              </>
+              ) : null
+          )}
+
+          {selectedDate && (
+            <EpisodeModal 
+              isOpen={!!selectedDate} 
+              onClose={() => setSelectedDate(null)} 
+              episodes={getEpisodesForDay(selectedDate)}
+              date={selectedDate}
+            />
+          )}
+      </div>
     </div>
   );
 };
