@@ -30,6 +30,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // Determine if we need specialized layout logic
     const isCalendar = location.pathname === '/';
     const isCompactMode = settings.compactCalendar && isCalendar;
+    const isPill = settings.mobileNavLayout === 'pill';
 
     const [isConfigOpen, setIsConfigOpen] = useState(false);
 
@@ -56,11 +57,19 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 ${isCompactMode ? 'h-full' : 'h-full overflow-y-auto overflow-x-hidden'}
             `}>
                 <div className={`
-                    flex-1 w-full mx-auto
-                    ${isCompactMode ? 'h-full p-2 pb-28 md:p-4 md:pb-4' : 'max-w-[1920px] p-4 md:p-8 md:pb-12 pb-28'}
+                    flex-1 w-full mx-auto transition-all duration-300
+                    ${isCompactMode 
+                        ? `h-full p-2 md:p-4 md:pb-4 ${isPill ? 'pb-2' : 'pb-28'}` 
+                        : `max-w-[1920px] p-4 md:p-8 md:pb-12 ${isPill ? 'pb-24' : 'pb-28'}`
+                    }
                 `}>
                     {children}
                 </div>
+
+                {/* Bottom Gradient Fade for Pill Mode */}
+                {isPill && (
+                    <div className="md:hidden fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[var(--bg-main)] via-[var(--bg-main)]/80 to-transparent pointer-events-none z-40" />
+                )}
             </div>
 
             {/* Global Overlays */}
