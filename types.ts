@@ -95,7 +95,6 @@ export interface AppSettings {
   ignoreSpecials: boolean; 
   recommendationsEnabled: boolean;
   recommendationMethod: 'banner' | 'inline';
-  reminderStrategy: 'ask' | 'always' | 'never'; // New Setting
   compactCalendar: boolean;
   viewMode: 'grid' | 'list' | 'stack'; 
   mobileNavLayout: 'standard' | 'pill'; 
