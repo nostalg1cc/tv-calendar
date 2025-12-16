@@ -5,7 +5,7 @@ import { get, set, del } from 'idb-keyval';
 import { format, subYears, parseISO, isSameDay, subMinutes } from 'date-fns';
 import LZString from 'lz-string';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
-import { getDeviceCode, pollToken, getWatchedHistory, getTraktProfile, getShowProgress } from '../services/trakt';
+import { getDeviceCode, pollToken, getWatchedHistory, getTraktProfile, getShowProgress, syncHistory } from '../services/trakt';
 
 interface AppContextType {
   user: User | null;
@@ -285,6 +285,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     setInteractions(prev => ({ ...prev, [key]: updated }));
 
+    // Sync to Trakt (Background)
+    if (user?.traktToken) {
+        const action = updated.is_watched ? 'add' : 'remove';
+        const payload = mediaType === 'movie' 
+            ? { movies: [{ ids: { tmdb: id } }] }
+            : { shows: [{ ids: { tmdb: id } }] }; // Note: Toggle entire show watched status is rare, usually episode. Assuming movie for simple toggle or basic show watch.
+        
+        syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
+    }
+
     if (user?.isCloud && supabase) {
         await supabase.from('interactions').upsert({ 
             user_id: user.id, 
@@ -307,6 +317,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       
       setInteractions(prev => ({ ...prev, [key]: updated })); 
       
+      // Sync to Trakt (Background)
+      if (user?.traktToken) {
+          const action = updated.is_watched ? 'add' : 'remove';
+          const payload = { 
+              shows: [{ 
+                  ids: { tmdb: showId }, 
+                  seasons: [{ number: season, episodes: [{ number: episode }] }] 
+              }] 
+          };
+          syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
+      }
+
       if (user?.isCloud && supabase) {
           await supabase.from('interactions').upsert({
               user_id: user.id,
@@ -349,6 +371,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const show = await getShowDetails(showId);
           const seasons = show.seasons || [];
           const epsToMark: any[] = [];
+          const traktEpisodesPayload: any[] = []; // For Trakt Sync
+
           const sortedSeasons = seasons.filter(s => {
               if (targetSeason === 0) return s.season_number === 0;
               return s.season_number > 0 && s.season_number <= targetSeason;
@@ -371,6 +395,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                               rating: 0,
                               watched_at: new Date().toISOString()
                           });
+                          // Collect specific episode IDs for precise Trakt sync
+                          if (ep.id) {
+                              traktEpisodesPayload.push({ ids: { tmdb: ep.id } });
+                          }
                       }
                   });
               });
@@ -384,6 +412,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               }
           });
           setInteractions(newInteractions);
+
+          // Sync to Trakt
+          if (user?.traktToken && traktEpisodesPayload.length > 0) {
+              // Send explicit episode list
+              syncHistory(user.traktToken.access_token, { episodes: traktEpisodesPayload }, 'add').catch(console.error);
+          }
 
           if (user?.isCloud && supabase) {
                 const dbBatchSize = 100;

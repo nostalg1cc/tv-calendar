@@ -61,3 +61,14 @@ export const getShowProgress = async (token: string, traktShowId: number) => {
     if (!res.ok) return null;
     return res.json();
 };
+
+export const syncHistory = async (token: string, items: any, action: 'add' | 'remove') => {
+    const endpoint = action === 'add' ? 'sync/history' : 'sync/history/remove';
+    const res = await fetch(`${TRAKT_API_URL}/${endpoint}`, {
+        method: 'POST',
+        headers: getHeaders(token),
+        body: JSON.stringify(items)
+    });
+    if (!res.ok) throw new Error('Failed to sync history');
+    return res.json();
+};
