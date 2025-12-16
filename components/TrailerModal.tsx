@@ -89,36 +89,27 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
   if (!isOpen || !item) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-fade-in" onClick={onClose}>
         <div 
-            className="bg-zinc-950 border border-zinc-800 w-full max-w-5xl rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
+            className="bg-zinc-950 border border-zinc-800 w-full max-w-6xl rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh] relative"
             onClick={e => e.stopPropagation()}
         >
-            {/* Header */}
-            <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-500/10 rounded-full text-indigo-400">
-                        {item.is_movie ? <Film className="w-5 h-5" /> : <Tv className="w-5 h-5" />}
-                    </div>
-                    <div>
-                        <h2 className="text-lg font-bold text-white leading-tight">
-                            {item.show_name || item.name}
-                        </h2>
-                        {!item.is_movie && (
-                            <p className="text-xs text-zinc-400">
-                                S{item.season_number} E{item.episode_number} • {item.name}
-                            </p>
-                        )}
-                    </div>
+            {/* Minimal Header */}
+            <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-20 pointer-events-none">
+                <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 pointer-events-auto">
+                    <h2 className="text-sm font-bold text-white leading-tight flex items-center gap-2">
+                        {item.is_movie ? <Film className="w-4 h-4 text-zinc-400" /> : <Tv className="w-4 h-4 text-zinc-400" />}
+                        {item.show_name || item.name}
+                    </h2>
                 </div>
-                <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
-                    <X className="w-6 h-6" />
+                <button onClick={onClose} className="p-2 bg-black/60 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors pointer-events-auto border border-white/10">
+                    <X className="w-5 h-5" />
                 </button>
             </div>
 
-            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
                 {/* Main Player Area */}
-                <div className="flex-1 bg-black flex flex-col justify-center relative min-h-[300px] md:min-h-0">
+                <div className="flex-1 bg-black flex flex-col justify-center relative min-h-[300px] lg:min-h-0">
                     {loading ? (
                         <div className="absolute inset-0 flex items-center justify-center">
                             <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
@@ -133,63 +124,65 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
                                 referrerPolicy="strict-origin-when-cross-origin"
                                 title={selectedVideo.name}
                             />
-                            {/* Fallback Link Overlay (Hidden unless needed, but accessible) */}
+                            {/* Fallback Link Overlay */}
                             <a 
                                 href={`https://www.youtube.com/watch?v=${selectedVideo.key}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-red-600/80 backdrop-blur-md rounded-lg text-white opacity-0 hover:opacity-100 transition-opacity flex items-center gap-2 text-xs font-bold"
+                                className="absolute bottom-6 right-6 px-4 py-2 bg-red-600 hover:bg-red-500 backdrop-blur-md rounded-xl text-white shadow-lg shadow-red-900/50 flex items-center gap-2 text-xs font-bold transition-all opacity-0 hover:opacity-100 group-hover:opacity-100"
                                 title="Open in YouTube"
                             >
-                                <ExternalLink className="w-4 h-4" /> Watch on YouTube
+                                <ExternalLink className="w-3 h-3" /> YouTube
                             </a>
                         </>
                     ) : (
                         <div className="text-zinc-500 flex flex-col items-center">
-                            <VideoIcon className="w-12 h-12 mb-2 opacity-50" />
-                            <p>No videos available</p>
+                            <VideoIcon className="w-16 h-16 mb-4 opacity-20" />
+                            <p className="text-zinc-600">No videos available</p>
                         </div>
                     )}
                 </div>
 
                 {/* Sidebar Playlist */}
-                <div className="w-full md:w-80 bg-zinc-900 border-l border-zinc-800 flex flex-col overflow-y-auto custom-scrollbar shrink-0">
-                    <div className="p-4 border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
+                <div className="w-full lg:w-80 bg-zinc-950 border-l border-zinc-800 flex flex-col overflow-y-auto custom-scrollbar shrink-0">
+                    <div className="p-6 pb-2 sticky top-0 z-10 bg-zinc-950/95 backdrop-blur">
                         <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                            Available Clips
+                            Queue
                         </h3>
                     </div>
                     
-                    <div className="p-2 space-y-6">
+                    <div className="p-4 space-y-6">
                         {videoGroups.map((group, idx) => (
-                            <div key={idx} className="space-y-1">
-                                <h4 className="px-2 text-xs font-bold text-indigo-400 mb-2 mt-2">{group.title}</h4>
+                            <div key={idx} className="space-y-2">
+                                <h4 className="px-2 text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-2">{group.title}</h4>
                                 {group.videos.map(video => (
                                     <button
                                         key={video.id}
                                         onClick={() => setSelectedVideo(video)}
                                         className={`
-                                            w-full p-2 rounded-lg flex items-start gap-3 text-left transition-all group
-                                            ${selectedVideo?.id === video.id ? 'bg-zinc-800 ring-1 ring-zinc-700' : 'hover:bg-zinc-800/50'}
+                                            w-full p-2 rounded-xl flex items-start gap-3 text-left transition-all group border
+                                            ${selectedVideo?.id === video.id 
+                                                ? 'bg-zinc-900 border-zinc-700 shadow-lg' 
+                                                : 'bg-transparent border-transparent hover:bg-zinc-900 hover:border-zinc-800'}
                                         `}
                                     >
-                                        <div className="relative w-24 aspect-video bg-black rounded overflow-hidden shrink-0 mt-0.5">
+                                        <div className="relative w-24 aspect-video bg-zinc-900 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-white/5">
                                             <img 
                                                 src={`https://img.youtube.com/vi/${video.key}/mqdefault.jpg`} 
-                                                className={`w-full h-full object-cover transition-opacity ${selectedVideo?.id === video.id ? 'opacity-50' : 'opacity-80 group-hover:opacity-100'}`}
+                                                className={`w-full h-full object-cover transition-opacity ${selectedVideo?.id === video.id ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}
                                                 alt=""
                                             />
                                             {selectedVideo?.id === video.id && (
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className={`text-xs font-medium leading-snug line-clamp-2 ${selectedVideo?.id === video.id ? 'text-white' : 'text-zinc-300 group-hover:text-white'}`}>
+                                        <div className="min-w-0 py-0.5">
+                                            <p className={`text-xs font-medium leading-snug line-clamp-2 ${selectedVideo?.id === video.id ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
                                                 {video.name}
                                             </p>
-                                            <span className="text-[10px] text-zinc-500 block mt-1">{video.type}</span>
+                                            <span className="text-[9px] text-zinc-600 block mt-1.5 uppercase font-bold tracking-wide">{video.type}</span>
                                         </div>
                                     </button>
                                 ))}

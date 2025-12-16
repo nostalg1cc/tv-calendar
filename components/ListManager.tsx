@@ -42,30 +42,37 @@ const ListManager: React.FC<ListManagerProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
         <div 
-        className="bg-zinc-900 border border-zinc-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" 
+        className="bg-zinc-950 border border-zinc-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] relative" 
         onClick={e => e.stopPropagation()}
         >
-        <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
-            <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <ListPlus className="w-5 h-5 text-indigo-400" />
-                    List Subscriptions
+        {/* Header */}
+        <div className="relative h-28 shrink-0 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-900/40 to-teal-900/40" />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent" />
+            
+            <div className="absolute bottom-4 left-6 z-10">
+                <h2 className="text-2xl font-bold text-white tracking-tight drop-shadow-md flex items-center gap-2">
+                    <ListPlus className="w-6 h-6 text-emerald-400" /> Lists
                 </h2>
-                <p className="text-xs text-zinc-400 mt-1">Sync your calendar with curated TMDB lists.</p>
+                <p className="text-emerald-200/80 text-sm font-medium">Sync curated collections</p>
             </div>
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
-            <X className="w-5 h-5" />
+
+            <button 
+                onClick={onClose} 
+                className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-white/10 backdrop-blur-md rounded-full text-white transition-colors border border-white/5 z-20"
+            >
+               <X className="w-5 h-5" />
             </button>
         </div>
         
-        <div className="p-6 overflow-y-auto custom-scrollbar bg-zinc-950/30">
+        <div className="p-6 overflow-y-auto custom-scrollbar bg-zinc-950 flex-1">
             
             {/* Input Form */}
             <form onSubmit={handleSubscribe} className="mb-8">
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">
-                    Add New List (ID or URL)
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 ml-1">
+                    Subscribe to TMDB List
                 </label>
                 <div className="flex gap-2">
                     <div className="relative flex-1">
@@ -73,20 +80,20 @@ const ListManager: React.FC<ListManagerProps> = ({ isOpen, onClose }) => {
                             type="text"
                             value={inputVal}
                             onChange={(e) => setInputVal(e.target.value)}
-                            placeholder="e.g. 8254729"
-                            className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder:text-zinc-600"
+                            placeholder="List ID or URL..."
+                            className="w-full bg-black/40 border border-zinc-800 rounded-xl pl-10 pr-4 py-4 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all placeholder:text-zinc-600 shadow-inner"
                         />
-                        <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                        <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
                     </div>
                     <button 
                         type="submit"
                         disabled={loading || !inputVal.trim()}
-                        className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
+                        className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-4 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
                     >
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Subscribe'}
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Add'}
                     </button>
                 </div>
-                {error && <p className="text-red-400 text-xs mt-2 ml-1 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-red-400 inline-block" /> {error}</p>}
+                {error && <p className="text-red-400 text-xs mt-3 ml-1 flex items-center gap-1 bg-red-500/10 p-2 rounded-lg border border-red-500/20"><span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" /> {error}</p>}
             </form>
 
             <div className="h-px bg-zinc-800 mb-6" />
@@ -100,28 +107,28 @@ const ListManager: React.FC<ListManagerProps> = ({ isOpen, onClose }) => {
                         <div className="w-12 h-12 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-3">
                              <ListPlus className="w-6 h-6 text-zinc-600" />
                         </div>
-                        <p className="text-zinc-400 text-sm font-medium">No lists subscribed yet.</p>
-                        <p className="text-zinc-600 text-xs mt-1">Add a TMDB List ID to start syncing.</p>
+                        <p className="text-zinc-400 text-sm font-medium">No lists synced.</p>
+                        <p className="text-zinc-600 text-xs mt-1">Paste a List ID above to start.</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
                         {subscribedLists.map(list => (
-                            <div key={list.id} className="bg-zinc-900 rounded-xl p-3 flex items-center justify-between border border-zinc-800 hover:border-zinc-700 transition-colors group">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/20">
-                                        <span className="font-bold text-xs">#{list.id}</span>
+                            <div key={list.id} className="bg-zinc-900/80 rounded-2xl p-4 flex items-center justify-between border border-zinc-800 hover:border-emerald-500/30 transition-colors group">
+                                <div className="flex items-center gap-4 overflow-hidden">
+                                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 font-mono text-xs font-bold">
+                                        LIST
                                     </div>
                                     <div className="min-w-0">
-                                        <h4 className="font-bold text-white text-sm truncate group-hover:text-indigo-300 transition-colors">{list.name}</h4>
-                                        <p className="text-xs text-zinc-500">{list.item_count} items synced</p>
+                                        <h4 className="font-bold text-white text-base truncate group-hover:text-emerald-400 transition-colors">{list.name}</h4>
+                                        <p className="text-xs text-zinc-500 font-mono">ID: {list.id} • {list.item_count} items</p>
                                     </div>
                                 </div>
                                 <button 
                                     onClick={() => unsubscribeFromList(list.id)}
-                                    className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                    className="p-3 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
                                     title="Unsubscribe"
                                 >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-5 h-5" />
                                 </button>
                             </div>
                         ))}

@@ -256,7 +256,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
           const token = user.traktToken.access_token;
           const [movieHistory, showHistory] = await Promise.all([getWatchedHistory(token, 'movies'), getWatchedHistory(token, 'shows')]);
-          let newInteractions = { ...interactions };
+          let newInteractions: Record<string, Interaction> = { ...interactions };
           let newShowsToAdd: TVShow[] = [];
           const currentShowIds = new Set(allTrackedShows.map(s => s.id));
           
@@ -330,7 +330,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setInteractions(newInteractions);
           
           if (user.isCloud && supabase) {
-              const updates = Object.values(newInteractions).map((interaction: Interaction) => ({
+              const updates = Object.values(newInteractions).map(interaction => ({
                   user_id: user.id,
                   tmdb_id: interaction.tmdb_id,
                   media_type: interaction.media_type,
