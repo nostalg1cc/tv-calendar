@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths, addDays, isSameDay, subYears
@@ -10,10 +10,14 @@ import { getImageUrl } from '../services/tmdb';
 import { Episode } from '../types';
 
 const CalendarPage: React.FC = () => {
-  const { episodes, loading, isSyncing, settings, updateSettings, refreshEpisodes, loadArchivedEvents, interactions, toggleEpisodeWatched, toggleWatched } = useAppContext();
+  const { episodes, loading, isSyncing, settings, updateSettings, refreshEpisodes, loadArchivedEvents, interactions, toggleEpisodeWatched, toggleWatched, calendarScrollPos, setCalendarScrollPos } = useAppContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   
+  // Ref for scroll container
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isFirstMount = useRef(true);
+
   // Local Filter State
   const [showTV, setShowTV] = useState(true);
   const [showMovies, setShowMovies] = useState(true);
@@ -99,18 +103,46 @@ const CalendarPage: React.FC = () => {
       }
   };
 
-  // Auto-scroll to today in list/stack view
-  useEffect(() => {
-      if (viewMode !== 'grid') {
-          // Delay slightly to ensure render
-          setTimeout(() => {
+  // Scroll Persistence Logic
+  useLayoutEffect(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+
+      // 1. If we have a saved position, restore it
+      if (calendarScrollPos > 0) {
+          container.scrollTop = calendarScrollPos;
+      } else {
+          // 2. If no saved position (first load or manually cleared), scroll to Today
+          // Only for List/Stack views where scrolling is primary interaction
+          if (viewMode !== 'grid') {
               const el = document.getElementById('today-anchor');
               if (el) {
-                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  el.scrollIntoView({ behavior: 'auto', block: 'center' });
               }
-          }, 200);
+          }
       }
-  }, [viewMode, currentDate]); // Trigger on mode switch or month change
+  }, [viewMode, currentDate]); // Re-run on view change or month change
+
+  // Save Scroll Position on Unmount
+  useEffect(() => {
+      const container = scrollContainerRef.current;
+      const handleScroll = () => {
+          if (container) {
+              setCalendarScrollPos(container.scrollTop);
+          }
+      };
+
+      if (container) {
+          container.addEventListener('scroll', handleScroll, { passive: true });
+      }
+
+      return () => {
+          if (container) {
+              container.removeEventListener('scroll', handleScroll);
+          }
+      };
+  }, [viewMode, setCalendarScrollPos]);
+
 
   // --- Components ---
 
@@ -184,7 +216,7 @@ const CalendarPage: React.FC = () => {
   };
 
   return (
-    <div className={`flex flex-col h-full gap-2 ${settings.compactCalendar ? 'overflow-hidden' : ''}`}>
+    <div className={`flex flex-col h-full gap-2 p-4 md:p-0 ${settings.compactCalendar ? 'overflow-hidden' : ''}`}>
       
       {/* Header Toolbar */}
       <div className="shrink-0 pb-2">
@@ -283,7 +315,10 @@ const CalendarPage: React.FC = () => {
                         ))}
                     </div>
 
-                    <div className="grid grid-cols-7 flex-1 bg-zinc-950 overflow-y-auto">
+                    <div 
+                        className="grid grid-cols-7 flex-1 bg-zinc-950 overflow-y-auto"
+                        ref={scrollContainerRef}
+                    >
                         {calendarDays.map((day, idx) => {
                             const dateKey = format(day, 'yyyy-MM-dd');
                             const dayEpisodes = getEpisodesForDay(day);
@@ -386,7 +421,10 @@ const CalendarPage: React.FC = () => {
 
             {/* --- LIST VIEW --- */}
             {viewMode === 'list' && (
-                <div className="flex-1 overflow-y-auto px-1 custom-scrollbar">
+                <div 
+                    className="flex-1 overflow-y-auto px-1 custom-scrollbar"
+                    ref={scrollContainerRef}
+                >
                     {activeDays.length === 0 ? (
                         <div className="text-center py-20 opacity-50">
                             <CalendarIcon className="w-12 h-12 mx-auto mb-2" />
@@ -402,7 +440,7 @@ const CalendarPage: React.FC = () => {
                                     <div 
                                         key={day.toString()} 
                                         id={isDayToday ? 'today-anchor' : undefined}
-                                        className="flex gap-4"
+                                        className="flex gap-4 scroll-mt-4"
                                     >
                                         <div className="w-12 md:w-14 flex flex-col items-center pt-1 shrink-0">
                                             <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider mb-0.5">{format(day, 'EEE')}</span>
@@ -469,7 +507,10 @@ const CalendarPage: React.FC = () => {
 
             {/* --- STACK VIEW (Feed & Carousel) --- */}
             {viewMode === 'stack' && (
-                <div className="flex-1 overflow-y-auto px-2 pb-24 custom-scrollbar snap-y snap-mandatory">
+                <div 
+                    className="flex-1 overflow-y-auto px-2 pb-24 custom-scrollbar snap-y snap-mandatory"
+                    ref={scrollContainerRef}
+                >
                     {activeDays.length === 0 ? (
                         <div className="text-center py-20 opacity-50">
                             <Layers className="w-12 h-12 mx-auto mb-2" />
@@ -485,7 +526,7 @@ const CalendarPage: React.FC = () => {
                                     <div 
                                         key={day.toString()} 
                                         id={isDayToday ? 'today-anchor' : undefined}
-                                        className="snap-start scroll-mt-20"
+                                        className="snap-start scroll-mt-4"
                                     >
                                         <div className="flex items-center gap-3 mb-3 px-2">
                                             <div className={`

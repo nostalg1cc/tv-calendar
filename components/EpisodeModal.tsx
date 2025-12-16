@@ -30,10 +30,13 @@ const EpisodeRow: React.FC<{
     const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
     const isWatched = interactions[watchedKey]?.is_watched;
 
-    // Spoiler Logic: Block if not watched, specific flag is active, and not locally revealed
-    const isImageBlocked = !isWatched && spoilerConfig.images && !revealed.image;
-    const isTextBlocked = !isWatched && spoilerConfig.overview && !revealed.overview;
-    const isNameBlocked = !isWatched && spoilerConfig.title && !revealed.title;
+    // Spoiler Logic
+    // If it's a movie and includeMovies is false, skip blocking.
+    const shouldBlock = !isWatched && (!ep.is_movie || spoilerConfig.includeMovies);
+
+    const isImageBlocked = shouldBlock && spoilerConfig.images && !revealed.image;
+    const isTextBlocked = shouldBlock && spoilerConfig.overview && !revealed.overview;
+    const isNameBlocked = shouldBlock && spoilerConfig.title && !revealed.title;
 
     // Reveal handlers
     const revealImage = (e: React.MouseEvent) => { e.stopPropagation(); setRevealed(p => ({ ...p, image: true })); };
@@ -170,7 +173,7 @@ const EpisodeRow: React.FC<{
 
 const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, date }) => {
   const { settings, toggleEpisodeWatched, toggleWatched, markHistoryWatched, interactions } = useAppContext();
-  const { timezone, useSeason1Art } = settings;
+  const { timezone, useSeason1Art, spoilerConfig } = settings;
   const [reminderEp, setReminderEp] = useState<Episode | null>(null);
   const [trailerEp, setTrailerEp] = useState<Episode | null>(null);
   const [markingHistoryId, setMarkingHistoryId] = useState<string | null>(null);
@@ -209,14 +212,6 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
   };
 
   const formattedDate = formatDate(date);
-  
-  // Header Logic:
-  // 1. Prefer Movie (horizontal backdrops are native)
-  // 2. Fallback to first item.
-  // 3. Image Source:
-  //    - If useSeason1Art is ON: Use show_backdrop_path (if available) or season1_poster_path (if backdrop missing, unlikely for cached items)
-  //    - If OFF: Use show_backdrop_path if available (standard horizontal art).
-  //    - Avoid using 'still_path' (Episode Image) for the header to prevent spoilers, unless it's a movie where still_path IS the backdrop.
   
   const headerItem = episodes.find(e => e.is_movie) || episodes[0];
   

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom, Database, Globe, Palette, User as UserIcon, Monitor, Pipette, Link as LinkIcon, ExternalLink, Copy, LogOut, LayoutGrid, List, Layers, PanelBottom, Pill, Filter, Ban, FileText, Lock, Type } from 'lucide-react';
+import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom, Database, Globe, Palette, User as UserIcon, Monitor, Pipette, Link as LinkIcon, ExternalLink, Copy, LogOut, LayoutGrid, List, Layers, PanelBottom, Pill, Filter, Ban, FileText, Lock, Type, Film } from 'lucide-react';
 import { useAppContext, THEMES } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -55,7 +55,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   // Apply custom color debounced
   const handleCustomColorChange = (hex: string) => { setCustomColor(hex); updateSettings({ customThemeColor: hex, theme: 'custom' }); };
   
-  const toggleSpoiler = (key: 'images' | 'overview' | 'title') => {
+  const toggleSpoiler = (key: 'images' | 'overview' | 'title' | 'includeMovies') => {
       const newConfig = { ...settings.spoilerConfig, [key]: !settings.spoilerConfig[key] };
       updateSettings({ spoilerConfig: newConfig });
   };
@@ -225,6 +225,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                                     <div className="flex items-center justify-between">
                                         <label className="text-xs text-zinc-300 flex items-center gap-2"><Type className="w-3 h-3 text-zinc-500" /> Hide Episode Titles</label>
                                         <button onClick={() => toggleSpoiler('title')} className={`w-8 h-5 rounded-full transition-colors relative ${settings.spoilerConfig.title ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${settings.spoilerConfig.title ? 'translate-x-3' : ''}`} /></button>
+                                    </div>
+                                    
+                                    <div className="h-px bg-zinc-800 my-2" />
+                                    
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-zinc-300 flex items-center gap-2"><Film className="w-3 h-3 text-zinc-500" /> Include Movies</label>
+                                        <button onClick={() => toggleSpoiler('includeMovies')} className={`w-8 h-5 rounded-full transition-colors relative ${settings.spoilerConfig.includeMovies ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${settings.spoilerConfig.includeMovies ? 'translate-x-3' : ''}`} /></button>
                                     </div>
                                 </div>
                             </div>

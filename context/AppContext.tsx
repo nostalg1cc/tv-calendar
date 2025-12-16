@@ -62,6 +62,10 @@ interface AppContextType {
   closeMobileWarning: (suppressFuture: boolean) => void;
   reloadAccount: () => Promise<void>;
 
+  // Calendar Scroll Persistence
+  calendarScrollPos: number;
+  setCalendarScrollPos: (pos: number) => void;
+
   // Trakt
   traktAuth: (clientId: string, clientSecret: string) => Promise<any>;
   traktPoll: (deviceCode: string, clientId: string, clientSecret: string) => Promise<any>;
@@ -73,7 +77,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const DEFAULT_SETTINGS: AppSettings = {
-  spoilerConfig: { images: false, overview: false, title: false },
+  spoilerConfig: { images: false, overview: false, title: false, includeMovies: false },
   hideTheatrical: false,
   ignoreSpecials: false,
   recommendationsEnabled: true,
@@ -119,12 +123,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [user, setUser] = useState<User | null>(() => { try { return localStorage.getItem('tv_calendar_user') ? JSON.parse(localStorage.getItem('tv_calendar_user')!) : null; } catch { return null; } });
   useEffect(() => { if (user?.tmdbKey) setApiToken(user.tmdbKey); }, [user]);
   
+  // Navigation State
+  const [calendarScrollPos, setCalendarScrollPos] = useState(0);
+
   const [settings, setSettings] = useState<AppSettings>(() => { 
       try { 
           const savedSynced = localStorage.getItem('tv_calendar_settings');
           const synced = savedSynced ? JSON.parse(savedSynced) : DEFAULT_SETTINGS;
           
-          // Legacy migration for spoilerMode to spoilerConfig
+          // Legacy migration
           if ('spoilerMode' in synced) {
               const oldMode = synced.spoilerMode;
               if (oldMode === 'images') synced.spoilerConfig = { images: true, overview: false, title: false };
@@ -134,6 +141,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               delete synced.spoilerMode;
           }
           if (!synced.spoilerConfig) synced.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig;
+          if (synced.spoilerConfig.includeMovies === undefined) synced.spoilerConfig.includeMovies = false;
 
           const local = getLocalPrefs();
           return { ...DEFAULT_SETTINGS, ...synced, ...local, compactCalendar: true }; 
@@ -692,7 +700,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // Apply Cloud Settings but Respect Local Overrides (e.g. Layout)
           if (profile.settings) {
               const local = getLocalPrefs();
-              setSettings({ ...DEFAULT_SETTINGS, ...profile.settings, ...local });
+              const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local };
+              // Ensure structure
+              if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig;
+              if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false;
+              
+              setSettings(mergedSettings);
           } 
           
           // ... (Rest of sync logic unchanged) ...
@@ -831,6 +844,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       reminders, addReminder, removeReminder,
       reminderCandidate, setReminderCandidate,
       reloadAccount,
+      calendarScrollPos, setCalendarScrollPos,
       interactions, toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
       traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData,
       fullSyncRequired, performFullSync

@@ -45,7 +45,7 @@ const DiscoverPage: React.FC = () => {
   return (
     <div className="max-w-[1600px] mx-auto pb-10 md:pb-24">
         {/* Header Area */}
-        <div className="mb-6 px-6 md:px-0 pt-4 md:pt-0">
+        <div className="mb-6 px-4 md:px-0 pt-4 md:pt-0">
              <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 tracking-tight">Discover</h1>
              <p className="text-zinc-400 text-sm md:text-base">Explore trending hits, new premieres, and cinema releases.</p>
         </div>
@@ -63,7 +63,7 @@ const DiscoverPage: React.FC = () => {
             
             {/* GROUP 1: Trending Now */}
             <div className="space-y-6">
-                <div className="flex items-center gap-3 px-6 md:px-0 border-b border-zinc-800 pb-4">
+                <div className="flex items-center gap-3 px-4 md:px-0 border-b border-zinc-800 pb-4">
                     <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
                         <TrendingUp className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
@@ -93,7 +93,7 @@ const DiscoverPage: React.FC = () => {
 
             {/* GROUP 2: Coming Soon */}
             <div className="space-y-6">
-                <div className="flex items-center gap-3 px-6 md:px-0 border-b border-zinc-800 pb-4">
+                <div className="flex items-center gap-3 px-4 md:px-0 border-b border-zinc-800 pb-4">
                     <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
                         <CalendarClock className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
@@ -125,7 +125,7 @@ const DiscoverPage: React.FC = () => {
 
             {/* GROUP 3: Top Rated */}
             <div className="space-y-6">
-                 <div className="flex items-center gap-3 px-6 md:px-0 border-b border-zinc-800 pb-4">
+                 <div className="flex items-center gap-3 px-4 md:px-0 border-b border-zinc-800 pb-4">
                     <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-400">
                         <Trophy className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
@@ -405,7 +405,7 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
 
     return (
         <div className="space-y-4">
-             <div className="flex items-center justify-between px-6 md:px-0">
+             <div className="flex items-center justify-between px-4 md:px-0">
                  <div className="flex items-center gap-2">
                     {icon}
                     <h3 className={`${variant === 'default' ? 'text-lg text-white' : 'text-base text-zinc-200'} font-bold tracking-tight`}>
@@ -421,7 +421,7 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
              </div>
              
              <div className="relative group/container">
-                 <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 px-6 md:px-0 scroll-smooth hide-scrollbar snap-x">
+                 <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 px-4 md:px-0 scroll-smooth hide-scrollbar snap-x">
                      {items.slice(0, 10).map(show => {
                          const isAdded = allTrackedShows.some(s => s.id === show.id);
                          return (

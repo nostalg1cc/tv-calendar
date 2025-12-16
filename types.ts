@@ -89,6 +89,7 @@ export interface AppSettings {
       images: boolean;
       overview: boolean;
       title: boolean;
+      includeMovies: boolean; // New Setting
   };
   hideTheatrical: boolean;
   ignoreSpecials: boolean; 
