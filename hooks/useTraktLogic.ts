@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { User, TVShow, Interaction } from '../types';
 import { getWatchedHistory, getShowProgress, getDeviceCode, pollToken, getTraktProfile, syncHistory } from '../services/trakt';
 import { getMovieDetails, getShowDetails } from '../services/tmdb';

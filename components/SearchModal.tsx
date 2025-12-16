@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Search, X, Loader2, Plus, Check, Star, Film, Tv, Sparkles, TrendingUp } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { searchShows, getPopularShows, getImageUrl, getRecommendations, getBackdropUrl } from '../services/tmdb';
 import { TVShow } from '../types';
 
-// Extended type to handle recommendation source metadata locally
 type SearchResult = TVShow & { 
     recommendedSource?: string;
     isRecommendation?: boolean; 
@@ -16,12 +16,10 @@ const SearchModal: React.FC = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   
-  // Recommendations state (for Banner mode)
   const [bannerRecommendations, setBannerRecommendations] = useState<TVShow[]>([]);
   const [sourceRecommendation, setSourceRecommendation] = useState<string>('');
   const [loadingRecs, setLoadingRecs] = useState(false);
 
-  // Close on Escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsSearchOpen(false);
@@ -30,7 +28,6 @@ const SearchModal: React.FC = () => {
     return () => window.removeEventListener('keydown', handleEsc);
   }, [setIsSearchOpen]);
 
-  // Load popular shows when opened empty
   useEffect(() => {
     if (isSearchOpen && query === '') {
       setLoading(true);
@@ -41,7 +38,6 @@ const SearchModal: React.FC = () => {
     }
   }, [isSearchOpen, query]);
 
-  // Debounced search
   useEffect(() => {
     if (!query.trim()) return;
     const timeoutId = setTimeout(() => {
@@ -54,7 +50,6 @@ const SearchModal: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [query]);
 
-  // Reset recommendations when search modal closes
   useEffect(() => {
       if (!isSearchOpen) {
           setBannerRecommendations([]);
@@ -64,9 +59,8 @@ const SearchModal: React.FC = () => {
 
   const handleAdd = async (show: SearchResult) => {
       await addToWatchlist(show);
-      setReminderCandidate(show); // Prompt for reminder
+      setReminderCandidate(show);
       
-      // If recommendations are disabled, stop here
       if (!settings.recommendationsEnabled) return;
 
       setLoadingRecs(true);
@@ -75,13 +69,10 @@ const SearchModal: React.FC = () => {
           
           if (recs && recs.length > 0) {
               if (settings.recommendationMethod === 'banner') {
-                  // Banner Mode
                   setBannerRecommendations(recs);
                   setSourceRecommendation(show.name);
               } else {
-                  // Inline Mode (Spotify Style)
-                  
-                  // 1. Deduplication: Filter out items that are already currently displayed in the results list.
+                  // Inline Mode
                   const currentIds = new Set(results.map(r => r.id));
                   const uniqueRecs = recs.filter(r => !currentIds.has(r.id));
 
@@ -92,7 +83,6 @@ const SearchModal: React.FC = () => {
                           isRecommendation: true
                       }));
                       
-                      // 2. Insert after the item that was just added
                       const index = results.findIndex(r => r.id === show.id);
                       if (index !== -1) {
                           const newResults = [
@@ -120,7 +110,6 @@ const SearchModal: React.FC = () => {
         className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[75vh] relative overflow-hidden ring-1 ring-white/10"
         onClick={e => e.stopPropagation()}
       >
-        {/* Blurred Background for Container */}
         <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-xl" />
 
         {/* Search Header */}

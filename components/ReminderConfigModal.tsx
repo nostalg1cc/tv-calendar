@@ -55,33 +55,29 @@ const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClo
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
         <div 
-          className="bg-zinc-950 border border-zinc-800 w-full max-w-sm rounded-3xl shadow-2xl p-6 relative overflow-hidden" 
+          className="bg-zinc-900 border border-zinc-800 w-full max-w-sm rounded-2xl shadow-2xl p-6" 
           onClick={e => e.stopPropagation()}
         >
-            <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 ring-1 ring-indigo-500/20">
-                    <Bell className="w-5 h-5" />
-                </div>
-                <div>
-                    <h3 className="text-lg font-bold text-white">Configure</h3>
-                    <p className="text-xs text-zinc-400">For <span className="text-zinc-200">{name}</span></p>
-                </div>
-                <button onClick={onClose} className="ml-auto p-2 hover:bg-white/10 rounded-full text-zinc-500 hover:text-white transition-colors">
-                    <X className="w-5 h-5" />
-                </button>
+            <div className="flex items-center gap-3 mb-4 text-indigo-400">
+                <Bell className="w-6 h-6" />
+                <h3 className="text-lg font-bold text-white">Set Reminder</h3>
             </div>
+            
+            <p className="text-sm text-zinc-400 mb-6">
+                Configure notifications for <strong className="text-white">{name}</strong>.
+            </p>
 
-            <div className="space-y-6 mb-8">
+            <div className="space-y-4 mb-6">
                 {/* Scope Selection */}
                 <div>
-                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-3 ml-1">Alert Type</label>
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-2">Notification Type</label>
                     <div className="space-y-2">
                         {!isMovie && (
                             <>
                                 {isSpecificEpisode && (
                                     <button 
                                         onClick={() => setScope('episode')}
-                                        className={`w-full flex items-center gap-3 p-3 rounded-xl border text-sm font-medium transition-all ${scope === 'episode' ? 'bg-indigo-600/10 border-indigo-500/50 text-indigo-300' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}
+                                        className={`w-full flex items-center gap-3 p-3 rounded-lg border text-sm transition-all ${scope === 'episode' ? 'bg-indigo-600/10 border-indigo-600 text-indigo-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'}`}
                                     >
                                         <Calendar className="w-4 h-4" />
                                         This Episode Only
@@ -89,7 +85,7 @@ const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClo
                                 )}
                                 <button 
                                     onClick={() => setScope('all')}
-                                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-sm font-medium transition-all ${scope === 'all' ? 'bg-indigo-600/10 border-indigo-500/50 text-indigo-300' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}
+                                    className={`w-full flex items-center gap-3 p-3 rounded-lg border text-sm transition-all ${scope === 'all' ? 'bg-indigo-600/10 border-indigo-600 text-indigo-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'}`}
                                 >
                                     <Tv className="w-4 h-4" />
                                     All Episodes for Series
@@ -101,14 +97,14 @@ const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClo
                              <>
                                 <button 
                                     onClick={() => setScope('movie_theatrical')}
-                                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-sm font-medium transition-all ${scope === 'movie_theatrical' ? 'bg-indigo-600/10 border-indigo-500/50 text-indigo-300' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}
+                                    className={`w-full flex items-center gap-3 p-3 rounded-lg border text-sm transition-all ${scope === 'movie_theatrical' ? 'bg-indigo-600/10 border-indigo-600 text-indigo-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'}`}
                                 >
                                     <Film className="w-4 h-4" />
                                     Theatrical Release
                                 </button>
                                 <button 
                                     onClick={() => setScope('movie_digital')}
-                                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-sm font-medium transition-all ${scope === 'movie_digital' ? 'bg-indigo-600/10 border-indigo-500/50 text-indigo-300' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}
+                                    className={`w-full flex items-center gap-3 p-3 rounded-lg border text-sm transition-all ${scope === 'movie_digital' ? 'bg-indigo-600/10 border-indigo-600 text-indigo-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700'}`}
                                 >
                                     <Tv className="w-4 h-4" />
                                     Digital / Home Release
@@ -120,7 +116,7 @@ const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClo
 
                 {/* Timing Selection */}
                 <div>
-                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-3 ml-1">Notify Me</label>
+                     <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-2">When to notify</label>
                      <div className="grid grid-cols-3 gap-2">
                          {[
                              { label: 'On Day', val: 0 },
@@ -130,7 +126,7 @@ const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClo
                              <button
                                 key={opt.val}
                                 onClick={() => setOffset(opt.val)}
-                                className={`p-3 rounded-xl text-xs font-bold border transition-all ${offset === opt.val ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800'}`}
+                                className={`p-2 rounded-lg text-xs font-medium border transition-colors ${offset === opt.val ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}
                              >
                                  {opt.label}
                              </button>
@@ -139,13 +135,18 @@ const ReminderConfigModal: React.FC<ReminderConfigModalProps> = ({ isOpen, onClo
                 </div>
             </div>
 
-            <button 
-                onClick={handleSave}
-                disabled={isAlreadySet}
-                className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                {isAlreadySet ? <><Check className="w-5 h-5" /> Already Set</> : 'Confirm Reminder'}
-            </button>
+            <div className="flex gap-3">
+                <button onClick={onClose} className="flex-1 py-3 rounded-xl bg-zinc-800 text-zinc-300 font-medium hover:bg-zinc-700 transition-colors">
+                    Cancel
+                </button>
+                <button 
+                    onClick={handleSave}
+                    disabled={isAlreadySet}
+                    className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {isAlreadySet ? 'Already Set' : 'Save Reminder'}
+                </button>
+            </div>
         </div>
     </div>
   );

@@ -21,7 +21,7 @@ const AskReminderModal: React.FC<AskReminderModalProps> = ({ isOpen, item, onClo
 
     const handleAlways = () => {
         updateSettings({ reminderStrategy: 'always' });
-        onConfirm(); // Proceed to set the current one
+        onConfirm(); 
     };
 
     const handleNever = () => {

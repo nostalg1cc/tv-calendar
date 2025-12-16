@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { User, TVShow, Episode } from '../types';
 import { supabase } from '../services/supabase';
 import { getMovieReleaseDates, getShowDetails, getSeasonDetails } from '../services/tmdb';
-import { set, get } from 'idb-keyval';
-import { parseISO, subYears } from 'date-fns';
+import { set } from 'idb-keyval';
 
 const DB_KEY_EPISODES = 'tv_calendar_episodes_v2'; 
 

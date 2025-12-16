@@ -67,7 +67,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
         onClick={e => e.stopPropagation()}
       >
         {/* Sidebar */}
-        <div className="w-64 border-r border-zinc-800 bg-zinc-950/50 flex flex-col p-4 shrink-0">
+        <div className="w-64 border-r border-zinc-800 bg-zinc-950/50 flex flex-col p-4 shrink-0 hidden md:flex">
             <div className="px-4 py-4 mb-4">
                 <h2 className="text-xl font-bold text-white tracking-tight">Settings</h2>
                 <p className="text-xs text-zinc-500">Preferences & Account</p>
@@ -98,6 +98,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
             <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/10 text-zinc-500 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
             </button>
+
+            {/* Mobile Nav Tabs */}
+            <div className="md:hidden flex gap-2 overflow-x-auto pb-4 mb-4 border-b border-zinc-800">
+                <button onClick={() => setActiveTab('general')} className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${activeTab === 'general' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>General</button>
+                <button onClick={() => setActiveTab('appearance')} className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${activeTab === 'appearance' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Appearance</button>
+                <button onClick={() => setActiveTab('integrations')} className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${activeTab === 'integrations' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Integrations</button>
+                <button onClick={() => setActiveTab('data')} className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${activeTab === 'data' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Data</button>
+            </div>
 
             {activeTab === 'general' && (
                 <div className="space-y-8 animate-fade-in">

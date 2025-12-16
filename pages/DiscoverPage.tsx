@@ -31,7 +31,7 @@ const DiscoverPage: React.FC = () => {
   const upcomingTVParams = { 'first_air_date.gte': today, 'sort_by': 'popularity.desc', 'with_original_language': 'en', 'include_null_first_air_dates': 'false' };
   
   return (
-    <div className="max-w-[1600px] mx-auto p-6 pb-20 md:pb-24">
+    <div className="max-w-[1600px] mx-auto p-4 pb-20 md:pb-24">
         {/* Unified Header */}
         <div className="mb-8">
              <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Discover</h1>
@@ -117,8 +117,6 @@ const DiscoverPage: React.FC = () => {
   );
 };
 
-// ... (HeroCarousel and DiscoverSection kept effectively the same but ensured they use existing imports) ...
-// Re-implementing HeroCarousel and DiscoverSection briefly to ensure file completeness
 const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv'; title: string }> = ({ fetchEndpoint, mediaType }) => {
     const [items, setItems] = useState<TVShow[]>([]);
     const [loading, setLoading] = useState(true);
@@ -157,7 +155,7 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv';
 
     const handleNext = () => { setCurrentIndex(prev => (prev + 1) % items.length); resetTimer(); };
     const handlePrev = () => { setCurrentIndex(prev => (prev - 1 + items.length) % items.length); resetTimer(); };
-    const handleAdd = async (e: React.MouseEvent, show: TVShow) => { e.stopPropagation(); await addToWatchlist(show); }; // Using new strategy logic inside addToWatchlist
+    const handleAdd = async (e: React.MouseEvent, show: TVShow) => { e.stopPropagation(); await addToWatchlist(show); setReminderCandidate(show); };
 
     if (loading) return <div className="w-full aspect-[2/3] md:aspect-[21/9] bg-zinc-900 rounded-3xl animate-pulse" />;
     if (items.length === 0) return null;
@@ -198,14 +196,14 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, icon, fetchEndpoint, f
     const [items, setItems] = useState<TVShow[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedShow, setSelectedShow] = useState<TVShow | null>(null);
-    const { allTrackedShows, addToWatchlist } = useAppContext();
+    const { allTrackedShows, addToWatchlist, setReminderCandidate } = useAppContext();
 
     useEffect(() => {
         setLoading(true);
         getCollection(fetchEndpoint, mediaType, 1, fetchParams).then(data => setItems(data)).catch(err => console.error(err)).finally(() => setLoading(false));
     }, [fetchEndpoint, mediaType, JSON.stringify(fetchParams)]);
 
-    const handleAdd = async (e: React.MouseEvent, show: TVShow) => { e.stopPropagation(); await addToWatchlist(show); };
+    const handleAdd = async (e: React.MouseEvent, show: TVShow) => { e.stopPropagation(); await addToWatchlist(show); setReminderCandidate(show); };
 
     if (loading) return <div className="w-full h-48 flex items-center justify-center"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" /></div>;
     if (items.length === 0) return null;
