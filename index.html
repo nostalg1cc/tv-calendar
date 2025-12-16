@@ -96,18 +96,55 @@
       /* Blackout Design Overrides */
       body[data-design="blackout"] {
         --bg-main: #000000;
-        --bg-panel: #0a0a0a;
-        --border-color: #27272a;
+        --bg-panel: rgba(10, 10, 10, 0.8);
+        --border-color: rgba(255, 255, 255, 0.08);
       }
       
       body[data-design="blackout"] .surface-card {
-        background-color: #0a0a0a;
-        border: 1px solid #27272a;
+        background-color: rgba(20, 20, 20, 0.6);
       }
       
       body[data-design="blackout"] .surface-card:hover {
-        background-color: #171717;
-        border-color: #3f3f46;
+        background-color: rgba(30, 30, 30, 0.8);
+        border-color: rgba(var(--theme-500), 0.4);
+      }
+
+      /* Vibrant Background Blurs for Blackout */
+      body[data-design="blackout"]::before {
+        content: "";
+        position: fixed;
+        top: -20vh;
+        left: -20vw;
+        width: 70vw;
+        height: 70vh;
+        background: radial-gradient(circle, rgba(79, 70, 229, 0.12) 0%, rgba(0,0,0,0) 70%); /* Indigo tint */
+        filter: blur(120px);
+        z-index: -1;
+        pointer-events: none;
+        animation: float 20s ease-in-out infinite alternate;
+      }
+
+      body[data-design="blackout"]::after {
+        content: "";
+        position: fixed;
+        bottom: -20vh;
+        right: -20vw;
+        width: 70vw;
+        height: 70vh;
+        background: radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, rgba(0,0,0,0) 70%); /* Pink tint */
+        filter: blur(120px);
+        z-index: -1;
+        pointer-events: none;
+        animation: float-delayed 25s ease-in-out infinite alternate;
+      }
+
+      @keyframes float {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(10%, 10%); }
+      }
+      @keyframes float-delayed {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(-10%, -10%); }
       }
 
       /* Refined Scrollbar */
@@ -147,9 +184,6 @@
       .animate-enter {
         animation: fade-in-up 0.4s ease-out forwards;
       }
-      
-      .aspect-poster { aspect-ratio: 2/3; }
-      .aspect-backdrop { aspect-ratio: 16/9; }
     </style>
   <script type="importmap">
 {

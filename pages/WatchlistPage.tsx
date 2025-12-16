@@ -112,79 +112,84 @@ const WatchlistPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full p-4 md:p-6">
-      {/* Unified Page Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+    <div className="w-full p-4">
+      {/* Page Header (Minimal Design) */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-2">
         {/* Left: Title & Stats */}
-        <div>
-           <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">My Library</h1>
-           <div className="flex items-center gap-3 mt-1.5 text-sm text-zinc-400">
-               <span className="flex items-center gap-1.5"><Tv className="w-4 h-4" /> {showCount} Series</span>
-               <span className="w-1 h-1 bg-zinc-700 rounded-full" />
-               <span className="flex items-center gap-1.5"><Film className="w-4 h-4" /> {movieCount} Movies</span>
-           </div>
+        <div className="flex items-baseline gap-4">
+           <h1 className="text-3xl font-bold text-white tracking-tighter">My Library</h1>
+           <span className="text-xs text-zinc-500 font-medium">
+              {showCount} Series <span className="mx-1 text-zinc-700">|</span> {movieCount} Movies
+           </span>
         </div>
 
         {/* Right: Controls Toolbar */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
              
              {/* Search */}
-             <div className="relative group bg-zinc-900 border border-zinc-800 rounded-lg">
+             <div className="relative group">
                 <input 
                     type="text" 
                     value={localSearch}
                     onChange={(e) => setLocalSearch(e.target.value)}
-                    placeholder="Filter..."
-                    className="bg-transparent py-2.5 pl-3 pr-10 text-sm text-white focus:outline-none w-32 focus:w-48 transition-all placeholder:text-zinc-600 rounded-lg"
+                    placeholder="Search..."
+                    className="bg-transparent border-b border-zinc-800 focus:border-indigo-500 py-1 pl-0 pr-6 text-sm text-white focus:outline-none w-32 focus:w-48 transition-all placeholder:text-zinc-600"
                 />
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 group-focus-within:text-indigo-400" />
+                <Search className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600 group-focus-within:text-indigo-400" />
              </div>
              
-             {/* Filter Toggle Group */}
-             <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+             {/* Divider */}
+             <div className="h-4 w-px bg-zinc-800 mx-1 hidden md:block" />
+
+             {/* Filters (Text Only) */}
+             <div className="flex items-center gap-3">
                  <button 
                     onClick={() => setFilterBy('all')}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${filterBy === 'all' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`text-sm font-medium transition-colors ${filterBy === 'all' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
                  >
                      All
                  </button>
                  <button 
                     onClick={() => setFilterBy('tv')}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${filterBy === 'tv' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`text-sm font-medium transition-colors ${filterBy === 'tv' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
                  >
                      TV
                  </button>
                  <button 
                     onClick={() => setFilterBy('movie')}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${filterBy === 'movie' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`text-sm font-medium transition-colors ${filterBy === 'movie' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
                  >
                      Movies
                  </button>
+                  <button 
+                    onClick={() => setFilterBy('unwatched_movie')}
+                    className={`text-sm font-medium transition-colors flex items-center gap-1 ${filterBy === 'unwatched_movie' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    title="Unwatched Movies"
+                 >
+                     <EyeOff className="w-3.5 h-3.5" />
+                 </button>
              </div>
-             
-             {/* Additional Tools */}
-             <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1">
-                 <button 
-                    onClick={() => setFilterBy(filterBy === 'unwatched_movie' ? 'all' : 'unwatched_movie')}
-                    className={`p-2 rounded-md transition-all ${filterBy === 'unwatched_movie' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-                    title="Unwatched Movies Only"
-                 >
-                     <EyeOff className="w-4 h-4" />
-                 </button>
-                 <button 
+
+             {/* Divider */}
+             <div className="h-4 w-px bg-zinc-800 mx-1 hidden md:block" />
+
+             {/* Actions */}
+             <div className="flex items-center gap-3">
+                <button 
                     onClick={() => setSortBy(sortBy === 'name' ? 'upcoming' : 'name')}
-                    className="p-2 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-                    title={sortBy === 'upcoming' ? 'Sorted by Date' : 'Sorted by Name'}
-                 >
-                     <ArrowUpDown className="w-4 h-4" />
-                 </button>
-                 <button 
+                    className="text-zinc-500 hover:text-white transition-colors flex items-center gap-1"
+                    title={sortBy === 'upcoming' ? 'Sort by Name' : 'Sort by Date'}
+                >
+                    <ArrowUpDown className="w-4 h-4" />
+                </button>
+                
+                <button 
                     onClick={() => setIsListManagerOpen(true)}
-                    className="p-2 rounded-md text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 transition-colors"
+                    className="text-zinc-500 hover:text-indigo-400 transition-colors flex items-center gap-1"
                     title="Manage Lists"
-                 >
-                     <ListPlus className="w-4 h-4" />
-                 </button>
+                >
+                    <ListPlus className="w-5 h-5" />
+                </button>
              </div>
         </div>
       </div>
