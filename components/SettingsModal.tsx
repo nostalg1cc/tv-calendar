@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Film, Ban, Sparkles, Key, Check, Globe, Download, Upload, RefreshCw, AlertTriangle, ShieldAlert, Monitor, Moon, Sun, Smartphone, User, Palette, Layers, Database, Lock, LogOut, ChevronRight, Type, CheckCircle2, QrCode, Scan, Merge, ArrowRight, Loader2, Link as LinkIcon, Zap, Bell, PenTool, CalendarClock, History } from 'lucide-react';
+import { X, Eye, EyeOff, Film, Ban, Sparkles, Key, Check, Globe, Download, Upload, RefreshCw, AlertTriangle, ShieldAlert, Monitor, Moon, Sun, Smartphone, User, Palette, Layers, Database, Lock, LogOut, ChevronRight, Type, CheckCircle2, QrCode, Scan, Merge, ArrowRight, Loader2, Link as LinkIcon, Zap, Bell, PenTool, CalendarClock, History, Grid, LayoutGrid } from 'lucide-react';
 import { useAppContext, THEMES } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -255,19 +255,49 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
                     <section>
                          <div className="mb-4">
-                            <h3 className="text-lg font-bold text-[var(--text-main)]">Interface Density</h3>
+                            <h3 className="text-lg font-bold text-[var(--text-main)]">Layout & Design</h3>
                          </div>
-                         <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] p-4 rounded-xl flex items-center justify-between">
-                             <div className="flex items-center gap-3">
-                                 <div className="p-2 bg-zinc-800 dark:bg-zinc-800 bg-zinc-200 rounded-lg text-[var(--text-main)]"><Monitor className="w-5 h-5" /></div>
-                                 <div>
-                                     <div className="text-sm font-medium text-[var(--text-main)]">Compact Calendar</div>
-                                     <div className="text-xs text-[var(--text-muted)]">Fit more weeks on screen</div>
+                         <div className="flex flex-col gap-3">
+                             <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] p-4 rounded-xl flex items-center justify-between">
+                                 <div className="flex items-center gap-3">
+                                     <div className="p-2 bg-zinc-800 dark:bg-zinc-800 bg-zinc-200 rounded-lg text-[var(--text-main)]"><Monitor className="w-5 h-5" /></div>
+                                     <div>
+                                         <div className="text-sm font-medium text-[var(--text-main)]">Compact Calendar</div>
+                                         <div className="text-xs text-[var(--text-muted)]">Fit more weeks on screen</div>
+                                     </div>
+                                 </div>
+                                 <button onClick={() => updateSettings({ compactCalendar: !settings.compactCalendar })} className={`w-12 h-7 rounded-full transition-colors relative ${settings.compactCalendar ? 'bg-indigo-600' : 'bg-zinc-700'}`}>
+                                     <div className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${settings.compactCalendar ? 'translate-x-5' : ''}`} />
+                                 </button>
+                             </div>
+
+                             <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] p-4 rounded-xl flex items-center justify-between">
+                                 <div className="flex items-center gap-3">
+                                     <div className="p-2 bg-zinc-800 dark:bg-zinc-800 bg-zinc-200 rounded-lg text-[var(--text-main)]">
+                                         {settings.v2GridStyle === 'modern' ? <LayoutGrid className="w-5 h-5" /> : <Grid className="w-5 h-5" />}
+                                     </div>
+                                     <div>
+                                         <div className="text-sm font-medium text-[var(--text-main)]">V2 Grid Style</div>
+                                         <div className="text-xs text-[var(--text-muted)]">
+                                             {settings.v2GridStyle === 'modern' ? 'Rounded cards with spacing' : 'Classic sharp grid'}
+                                         </div>
+                                     </div>
+                                 </div>
+                                 <div className="bg-black/20 p-1 rounded-lg flex">
+                                     <button 
+                                        onClick={() => updateSettings({ v2GridStyle: 'modern' })}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${settings.v2GridStyle === 'modern' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-white'}`}
+                                     >
+                                         Modern
+                                     </button>
+                                     <button 
+                                        onClick={() => updateSettings({ v2GridStyle: 'classic' })}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${settings.v2GridStyle === 'classic' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-white'}`}
+                                     >
+                                         Classic
+                                     </button>
                                  </div>
                              </div>
-                             <button onClick={() => updateSettings({ compactCalendar: !settings.compactCalendar })} className={`w-12 h-7 rounded-full transition-colors relative ${settings.compactCalendar ? 'bg-indigo-600' : 'bg-zinc-700'}`}>
-                                 <div className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${settings.compactCalendar ? 'translate-x-5' : ''}`} />
-                             </button>
                          </div>
                     </section>
                 </div>

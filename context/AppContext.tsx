@@ -115,7 +115,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   baseTheme: 'cosmic', 
   appFont: 'inter',
   reminderStrategy: 'ask',
-  hiddenItems: []
+  hiddenItems: [],
+  v2GridStyle: 'modern'
 };
 
 export const THEMES: Record<string, Record<string, string>> = {
@@ -196,6 +197,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (!synced.appFont) synced.appFont = 'inter';
           if (!synced.reminderStrategy) synced.reminderStrategy = 'ask';
           if (synced.timeShift === undefined) synced.timeShift = false;
+          if (!synced.v2GridStyle) synced.v2GridStyle = 'modern';
           
           // Migrate hiddenIds (number[]) to hiddenItems (object[])
           if (synced.hiddenIds && !synced.hiddenItems) {
@@ -701,7 +703,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const login = (username: string, apiKey: string) => { const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false }; setUser(newUser); setApiToken(apiKey); localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); };
   
   // MODIFIED LOGIN FOR DUAL TABLE
-  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile, fullSyncCompleted: profile.full_sync_completed }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) { const local = getLocalPrefs(); const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; if (mergedSettings.timeShift === undefined) mergedSettings.timeShift = false; 
+  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile, fullSyncCompleted: profile.full_sync_completed }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) { const local = getLocalPrefs(); const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; if (mergedSettings.timeShift === undefined) mergedSettings.timeShift = false; if (!mergedSettings.v2GridStyle) mergedSettings.v2GridStyle = 'modern';
           
           if (mergedSettings.hiddenIds && !mergedSettings.hiddenItems) { mergedSettings.hiddenItems = mergedSettings.hiddenIds.map((id: number) => ({ id, name: 'Unknown Show' })); delete mergedSettings.hiddenIds; }
           if (!mergedSettings.hiddenItems) mergedSettings.hiddenItems = []; 

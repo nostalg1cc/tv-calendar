@@ -112,6 +112,7 @@ export interface AppSettings {
   appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system'; // New Font Option
   reminderStrategy: 'ask' | 'always' | 'never'; // New Reminder Preference
   hiddenItems: { id: number; name: string }[]; // Blacklist for deleted items to prevent Trakt re-sync
+  v2GridStyle?: 'modern' | 'classic'; // New V2 Specific Setting
 }
 
 export interface SubscribedList {

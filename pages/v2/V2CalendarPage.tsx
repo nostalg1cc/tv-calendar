@@ -1,10 +1,10 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths, addDays, isSameDay
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, MonitorPlay, Ticket, Star, Calendar as CalendarIcon, Clock, CheckCircle2, Film, Tv, MoreHorizontal, ArrowUpRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Calendar as CalendarIcon, CheckCircle2, X } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { getImageUrl, getBackdropUrl } from '../../services/tmdb';
 import { Episode } from '../../types';
@@ -16,12 +16,12 @@ const V2CalendarPage: React.FC = () => {
   // Use Context date for persistence, but local 'selectedDay' for the dashboard panel
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   
-  // Update selected day if calendar changes drastically (optional, mostly keep them separate)
+  // Mobile Drawer State
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Sync selected day if month changes externally, or ensure valid date
   useEffect(() => {
-      if (!isSameMonth(selectedDay, calendarDate)) {
-          // If user navigates month, maybe keep selection or reset? 
-          // Let's keep selection until they click a new day to avoid jumping
-      }
+      // Optional: Logic to keep selectedDay in sync if desired
   }, [calendarDate]);
 
   const monthStart = startOfMonth(calendarDate);
@@ -61,37 +61,50 @@ const V2CalendarPage: React.FC = () => {
       setSelectedDay(now);
   };
 
+  const handleDayClick = (day: Date) => {
+      setSelectedDay(day);
+      if (window.innerWidth < 768) {
+          setIsDrawerOpen(true);
+      }
+  };
+
+  // --- Render Logic based on Grid Style ---
+  const isClassic = settings.v2GridStyle === 'classic';
+
   return (
     <div className="flex h-full w-full">
         {/* LEFT: Main Calendar Area */}
         <div className="flex-1 flex flex-col min-w-0">
             {/* Header */}
-            <div className="h-24 flex items-center justify-between px-8 shrink-0">
+            <div className="h-20 md:h-24 flex items-center justify-between px-4 md:px-8 shrink-0">
                 <div>
-                    <h1 className="text-3xl font-bold text-[var(--text-main)] tracking-tight flex items-baseline gap-3">
+                    <h1 className="text-2xl md:text-3xl font-bold text-[var(--text-main)] tracking-tight flex items-baseline gap-3">
                         {format(calendarDate, 'MMMM')} 
-                        <span className="text-xl text-[var(--text-muted)] font-normal">{format(calendarDate, 'yyyy')}</span>
+                        <span className="text-lg md:text-xl text-[var(--text-muted)] font-normal">{format(calendarDate, 'yyyy')}</span>
                     </h1>
                 </div>
                 
-                <div className="flex items-center gap-2 bg-black/20 p-1 rounded-xl border border-white/5 backdrop-blur-md">
+                <div className="flex items-center gap-1 md:gap-2 bg-black/20 p-1 rounded-xl border border-white/5 backdrop-blur-md">
                     <button onClick={prevMonth} className="p-2 hover:bg-white/10 rounded-lg text-[var(--text-muted)] hover:text-white transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-                    <button onClick={goToday} className="px-4 py-1.5 text-sm font-bold text-[var(--text-muted)] hover:text-white transition-colors">Today</button>
+                    <button onClick={goToday} className="px-3 md:px-4 py-1.5 text-xs md:text-sm font-bold text-[var(--text-muted)] hover:text-white transition-colors">Today</button>
                     <button onClick={nextMonth} className="p-2 hover:bg-white/10 rounded-lg text-[var(--text-muted)] hover:text-white transition-colors"><ChevronRight className="w-5 h-5" /></button>
                 </div>
             </div>
 
             {/* Calendar Grid */}
-            <div className="flex-1 flex flex-col px-8 pb-8 min-h-0">
+            <div className="flex-1 flex flex-col px-2 md:px-8 pb-4 md:pb-8 min-h-0">
                 {/* Days Header */}
-                <div className="grid grid-cols-7 mb-4">
+                <div className="grid grid-cols-7 mb-2 md:mb-4">
                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                        <div key={d} className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider pl-2">{d}</div>
+                        <div key={d} className="text-[10px] md:text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider pl-2 text-center md:text-left">{d}</div>
                     ))}
                 </div>
 
-                {/* Days Grid */}
-                <div className="flex-1 grid grid-cols-7 grid-rows-6 gap-2">
+                {/* Days Grid Container */}
+                <div className={`
+                    flex-1 grid grid-cols-7 grid-rows-6
+                    ${isClassic ? 'gap-0 border-t border-l border-white/10' : 'gap-1 md:gap-2'}
+                `}>
                     {calendarDays.map((day, idx) => {
                         const eps = getEpisodesForDay(day);
                         const isCurrentMonth = isSameMonth(day, monthStart);
@@ -102,55 +115,69 @@ const V2CalendarPage: React.FC = () => {
                         return (
                             <div 
                                 key={day.toString()}
-                                onClick={() => setSelectedDay(day)}
+                                onClick={() => handleDayClick(day)}
                                 className={`
-                                    relative rounded-xl border transition-all duration-200 cursor-pointer overflow-hidden group
-                                    ${isSelected 
-                                        ? 'bg-indigo-600/10 border-indigo-500 ring-1 ring-indigo-500/50 z-10' 
-                                        : 'bg-[var(--bg-panel)]/40 border-white/5 hover:border-white/20 hover:bg-white/5'}
-                                    ${!isCurrentMonth ? 'opacity-30 grayscale' : ''}
+                                    relative flex flex-col cursor-pointer overflow-hidden group
+                                    ${isClassic 
+                                        ? `border-r border-b border-white/10 transition-colors ${isSelected ? 'bg-white/5' : 'hover:bg-white/5'}` 
+                                        : `rounded-lg md:rounded-xl border transition-all duration-200 ${isSelected ? 'bg-indigo-600/10 border-indigo-500 ring-1 ring-indigo-500/50 z-10' : 'bg-[var(--bg-panel)]/40 border-white/5 hover:border-white/20 hover:bg-white/5'}`
+                                    }
+                                    ${!isCurrentMonth ? 'opacity-30' : ''}
                                 `}
                             >
                                 {/* Date Number */}
                                 <div className={`
-                                    absolute top-2 left-2 w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold z-20
-                                    ${isDayToday ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/40' : 'text-[var(--text-muted)]'}
+                                    absolute top-1 left-1 md:top-2 md:left-2 w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full text-[10px] md:text-xs font-bold z-20
+                                    ${isDayToday 
+                                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/40' 
+                                        : 'text-[var(--text-muted)]'}
                                 `}>
                                     {format(day, 'd')}
                                 </div>
 
                                 {/* Content Preview (Posters) */}
                                 {hasEps && (
-                                    <div className="absolute inset-0 p-1 pt-8 flex flex-col gap-1">
-                                        {eps.slice(0, 2).map((ep, i) => {
+                                    <div className={`absolute inset-0 p-1 flex flex-col gap-1 ${isClassic ? 'pt-7' : 'pt-7 md:pt-9'}`}>
+                                        {eps.slice(0, isClassic ? 3 : 2).map((ep, i) => {
                                             const poster = getImageUrl(ep.poster_path);
                                             const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                                             const isWatched = interactions[watchedKey]?.is_watched;
 
                                             return (
-                                                <div key={i} className="flex items-center gap-2 bg-black/40 p-1 rounded-lg backdrop-blur-sm border border-white/5">
-                                                    <img src={poster} className={`w-6 h-8 rounded object-cover ${isWatched ? 'grayscale opacity-50' : ''}`} alt="" />
-                                                    <div className="min-w-0">
+                                                <div key={i} className={`flex items-center gap-1.5 md:gap-2 p-0.5 md:p-1 rounded backdrop-blur-sm ${isClassic ? '' : 'bg-black/40 border border-white/5'}`}>
+                                                    <img src={poster} className={`w-4 h-6 md:w-6 md:h-8 rounded-[2px] md:rounded object-cover ${isWatched ? 'grayscale opacity-50' : ''}`} alt="" />
+                                                    <div className="min-w-0 hidden md:block">
                                                         <div className={`text-[9px] font-bold truncate leading-tight ${isWatched ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>
                                                             {ep.show_name}
                                                         </div>
-                                                        <div className="text-[8px] text-zinc-500">
-                                                            {ep.is_movie ? 'Movie' : `S${ep.season_number}E${ep.episode_number}`}
-                                                        </div>
+                                                        {!isClassic && (
+                                                            <div className="text-[8px] text-zinc-500">
+                                                                {ep.is_movie ? 'Movie' : `S${ep.season_number}E${ep.episode_number}`}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )
                                         })}
-                                        {eps.length > 2 && (
-                                            <div className="mt-auto flex justify-center pb-1">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)]" />
+                                        
+                                        {/* IMPROVED "MORE" INDICATOR */}
+                                        {eps.length > (isClassic ? 3 : 2) && (
+                                            <div className="mt-auto flex justify-end md:justify-center pb-1 pr-1 md:pr-0">
+                                                <div className={`
+                                                    px-1.5 py-0.5 md:px-2 md:py-1 rounded-full text-[9px] font-bold flex items-center justify-center
+                                                    ${isClassic ? 'bg-zinc-800 text-zinc-400' : 'bg-white/10 text-white backdrop-blur-md border border-white/10'}
+                                                `}>
+                                                    +{eps.length - (isClassic ? 3 : 2)}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
                                 )}
                                 
-                                {/* Hover Glow */}
-                                <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                                {/* Hover Glow (Modern Only) */}
+                                {!isClassic && (
+                                    <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                                )}
                             </div>
                         );
                     })}
@@ -158,19 +185,57 @@ const V2CalendarPage: React.FC = () => {
             </div>
         </div>
 
-        {/* RIGHT: Agenda / Details Panel (Always visible on desktop) */}
-        <div className="w-96 border-l border-white/5 bg-[var(--bg-panel)]/30 backdrop-blur-2xl flex flex-col shrink-0">
-            {/* Panel Header */}
-            <div className="h-24 flex flex-col justify-center px-6 border-b border-white/5 shrink-0">
+        {/* RIGHT: Agenda Panel (Desktop) */}
+        <div className="hidden md:flex w-96 border-l border-white/5 bg-[var(--bg-panel)]/30 backdrop-blur-2xl flex-col shrink-0">
+            <AgendaContent 
+                selectedDay={selectedDay} 
+                selectedDayEpisodes={selectedDayEpisodes} 
+                isToday={isToday(selectedDay)}
+            />
+        </div>
+
+        {/* MOBILE DRAWER: Agenda */}
+        {isDrawerOpen && (
+            <div className="md:hidden fixed inset-0 z-[100] flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-zinc-900 border-t border-white/10 rounded-t-3xl shadow-2xl h-[75vh] flex flex-col animate-fade-in-up">
+                    <div className="flex justify-center pt-3 pb-1" onClick={() => setIsDrawerOpen(false)}>
+                        <div className="w-12 h-1.5 bg-zinc-700 rounded-full" />
+                    </div>
+                    <div className="flex justify-end px-4">
+                        <button onClick={() => setIsDrawerOpen(false)} className="p-2 bg-zinc-800 rounded-full text-zinc-400">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                    
+                    <AgendaContent 
+                        selectedDay={selectedDay} 
+                        selectedDayEpisodes={selectedDayEpisodes} 
+                        isToday={isToday(selectedDay)}
+                    />
+                </div>
+            </div>
+        )}
+    </div>
+  );
+};
+
+// Extracted Content Component for reuse in Desktop Panel and Mobile Drawer
+const AgendaContent: React.FC<{ selectedDay: Date, selectedDayEpisodes: Episode[], isToday: boolean }> = ({ selectedDay, selectedDayEpisodes, isToday }) => {
+    const { interactions, toggleWatched, toggleEpisodeWatched } = useAppContext();
+
+    return (
+        <>
+            {/* Header */}
+            <div className="h-20 flex flex-col justify-center px-6 border-b border-white/5 shrink-0">
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    {isToday(selectedDay) ? "Today's Agenda" : format(selectedDay, 'EEEE, MMM do')}
+                    {isToday ? "Today's Agenda" : format(selectedDay, 'EEEE, MMM do')}
                 </h2>
                 <p className="text-xs text-[var(--text-muted)] mt-1">
                     {selectedDayEpisodes.length} {selectedDayEpisodes.length === 1 ? 'Release' : 'Releases'} scheduled
                 </p>
             </div>
 
-            {/* Episodes List */}
+            {/* List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                 {selectedDayEpisodes.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-[var(--text-muted)] opacity-50">
@@ -245,9 +310,8 @@ const V2CalendarPage: React.FC = () => {
                     })
                 )}
             </div>
-        </div>
-    </div>
-  );
+        </>
+    );
 };
 
 export default V2CalendarPage;

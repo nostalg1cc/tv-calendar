@@ -1,6 +1,7 @@
 
 import React from 'react';
 import V2Sidebar from './V2Sidebar';
+import V2MobileNav from './V2MobileNav';
 import { useAppContext } from '../../context/AppContext';
 
 // This layout is completely separate from V1
@@ -17,10 +18,12 @@ const V2Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 {/* Decorative Background Elements */}
                 <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-900/10 to-transparent pointer-events-none z-0" />
                 
-                <div className="relative z-10 w-full h-full flex flex-col">
+                <div className="relative z-10 w-full h-full flex flex-col pb-24 md:pb-0">
                     {children}
                 </div>
             </main>
+            
+            <V2MobileNav />
         </div>
     );
 };
