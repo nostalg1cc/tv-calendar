@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Navbar from './components/Navbar';
@@ -14,11 +13,7 @@ import MobileAddWarning from './components/MobileAddWarning';
 import AskReminderModal from './components/AskReminderModal';
 import ReminderConfigModal from './components/ReminderConfigModal';
 import FullSyncModal from './components/FullSyncModal';
-import V2PromoModal from './components/V2PromoModal';
-
-// V2 Imports
-import V2Layout from './components/v2/V2Layout';
-import V2CalendarPage from './pages/v2/V2CalendarPage';
+import { TVShow, Episode } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAppContext();
@@ -52,16 +47,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     };
 
     return (
-        <div className="flex h-screen w-screen bg-[var(--bg-main)] text-slate-100 overflow-hidden font-sans">
-            {/* Ambient Background Gradient (V2 Style Port) */}
-            <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-900/5 to-transparent pointer-events-none z-0" />
-
+        <div className="flex h-screen w-screen bg-[var(--bg-main)] text-slate-100 overflow-hidden">
             {/* Sidebar Navigation */}
             <Navbar />
             
             {/* Main Content Area */}
             <div className={`
-                flex-1 flex flex-col min-w-0 relative z-10
+                flex-1 flex flex-col min-w-0 relative
                 ${isCompactMode ? 'h-full' : 'h-full overflow-y-auto overflow-x-hidden'}
             `}>
                 <div className={`
@@ -84,7 +76,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <SearchModal />
             <MobileAddWarning />
             <FullSyncModal />
-            <V2PromoModal />
             
             {/* Global Reminder Flow */}
             <AskReminderModal 
@@ -112,31 +103,16 @@ const AppRoutes: React.FC = () => {
     }
 
     return (
-        <Routes>
-            {/* V2 ROUTES - Completely separate layout */}
-            <Route path="/v2/*" element={
-                <V2Layout>
-                    <Routes>
-                        <Route path="/" element={<V2CalendarPage />} />
-                        {/* Future V2 routes can go here */}
-                    </Routes>
-                </V2Layout>
-            } />
-
-            {/* V1 ROUTES */}
-            <Route path="/*" element={
-                <Layout>
-                    <Routes>
-                        <Route path="/" element={<CalendarPage />} />
-                        <Route path="/discover" element={<DiscoverPage />} />
-                        <Route path="/search" element={<SearchPage />} />
-                        <Route path="/watchlist" element={<WatchlistPage />} />
-                        <Route path="/reminders" element={<RemindersPage />} />
-                        <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
-                </Layout>
-            } />
-        </Routes>
+        <Layout>
+            <Routes>
+                <Route path="/" element={<CalendarPage />} />
+                <Route path="/discover" element={<DiscoverPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/watchlist" element={<WatchlistPage />} />
+                <Route path="/reminders" element={<RemindersPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        </Layout>
     );
 };
 
