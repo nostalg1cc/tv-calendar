@@ -9,9 +9,22 @@ const Navbar: React.FC = () => {
   const { user, logout, setIsSearchOpen, settings } = useAppContext();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  // Persist sidebar state
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+      try {
+          return localStorage.getItem('tv_calendar_sidebar_collapsed') === 'true';
+      } catch {
+          return false;
+      }
+  });
+
   const location = useLocation();
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+      localStorage.setItem('tv_calendar_sidebar_collapsed', String(isCollapsed));
+  }, [isCollapsed]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
