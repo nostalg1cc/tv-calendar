@@ -3,10 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Calendar, Compass, List, Settings, LogOut, ChevronLeft, ChevronRight, LayoutGrid, Zap } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
+import V2SettingsModal from './V2SettingsModal';
 
 const V2Sidebar: React.FC = () => {
     const { user, logout } = useAppContext();
     const location = useLocation();
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     
     // Independent collapsed state for V2
     const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -21,19 +23,11 @@ const V2Sidebar: React.FC = () => {
         localStorage.setItem('tv_calendar_v2_sidebar_collapsed', String(isCollapsed));
     }, [isCollapsed]);
 
-    const NavItem = ({ to, icon: Icon, label, exact = false }: any) => {
-        const active = exact ? location.pathname === to : location.pathname.startsWith(to);
+    const NavItem = ({ to, icon: Icon, label, exact = false, onClick }: any) => {
+        const active = to ? (exact ? location.pathname === to : location.pathname.startsWith(to)) : false;
         
-        return (
-            <Link 
-                to={to} 
-                className={`
-                    group flex items-center gap-4 px-3 py-3 rounded-2xl transition-all duration-300 relative
-                    ${active ? 'bg-white/10 text-white shadow-lg shadow-black/20' : 'text-zinc-500 hover:text-white hover:bg-white/5'}
-                    ${isCollapsed ? 'justify-center' : ''}
-                `}
-                title={isCollapsed ? label : ''}
-            >
+        const content = (
+            <>
                 <div className={`relative ${active ? 'text-indigo-400' : 'group-hover:scale-110 transition-transform'}`}>
                     <Icon className="w-6 h-6 stroke-[1.5]" />
                     {active && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-indigo-400 rounded-full shadow-[0_0_8px_currentColor]" />}
@@ -49,11 +43,42 @@ const V2Sidebar: React.FC = () => {
                         {label}
                     </div>
                 )}
+            </>
+        );
+
+        if (onClick) {
+            return (
+                <button 
+                    onClick={onClick}
+                    className={`
+                        w-full group flex items-center gap-4 px-3 py-3 rounded-2xl transition-all duration-300 relative
+                        ${active ? 'bg-white/10 text-white shadow-lg shadow-black/20' : 'text-zinc-500 hover:text-white hover:bg-white/5'}
+                        ${isCollapsed ? 'justify-center' : ''}
+                    `}
+                    title={isCollapsed ? label : ''}
+                >
+                    {content}
+                </button>
+            )
+        }
+
+        return (
+            <Link 
+                to={to} 
+                className={`
+                    group flex items-center gap-4 px-3 py-3 rounded-2xl transition-all duration-300 relative
+                    ${active ? 'bg-white/10 text-white shadow-lg shadow-black/20' : 'text-zinc-500 hover:text-white hover:bg-white/5'}
+                    ${isCollapsed ? 'justify-center' : ''}
+                `}
+                title={isCollapsed ? label : ''}
+            >
+                {content}
             </Link>
         );
     };
 
     return (
+        <>
         <aside 
             className={`
                 hidden md:flex flex-col h-full border-r border-white/5 bg-[var(--bg-panel)]/50 backdrop-blur-xl transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] z-50
@@ -76,10 +101,12 @@ const V2Sidebar: React.FC = () => {
             {/* Nav Links */}
             <nav className="flex-1 flex flex-col gap-2 px-3 py-6">
                 <NavItem to="/v2" icon={Calendar} label="Calendar" exact />
-                
-                {/* These link back to V1 for now, but in V2 layout style */}
                 <NavItem to="/discover" icon={Compass} label="Discover" />
                 <NavItem to="/watchlist" icon={List} label="My Library" />
+                
+                <div className="mt-8">
+                    <NavItem icon={Settings} label="Settings" onClick={() => setIsSettingsOpen(true)} />
+                </div>
                 
                 <div className="mt-auto">
                     <div className="w-full h-px bg-white/5 mb-4" />
@@ -132,6 +159,9 @@ const V2Sidebar: React.FC = () => {
                 </div>
             </div>
         </aside>
+
+        <V2SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        </>
     );
 };
 

@@ -4,7 +4,7 @@ import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths, addDays, isSameDay
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Star, Calendar as CalendarIcon, CheckCircle2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Calendar as CalendarIcon, CheckCircle2, X, LayoutList, LayoutGrid, Check } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { getImageUrl, getBackdropUrl } from '../../services/tmdb';
 import { Episode } from '../../types';
@@ -19,13 +19,16 @@ const V2CalendarPage: React.FC = () => {
   // Mobile Drawer State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Sync selected day if month changes externally, or ensure valid date
-  useEffect(() => {
-      // Optional: Logic to keep selectedDay in sync if desired
-  }, [calendarDate]);
+  // View Mode State (Grid vs Feed)
+  // Default to 'feed' on mobile if preferred, but let's stick to user choice or grid default
+  const [viewMode, setViewMode] = useState<'grid' | 'feed'>('grid');
+
+  // Detect Mobile on mount to possibly switch default? 
+  // Let's keep it simple: Grid default, but toggle available.
 
   const monthStart = startOfMonth(calendarDate);
   const monthEnd = endOfMonth(calendarDate);
+  
   const calendarDays = useMemo(() => {
     const start = startOfWeek(monthStart);
     const end = endOfWeek(monthEnd);
@@ -38,6 +41,14 @@ const V2CalendarPage: React.FC = () => {
     }
     return days;
   }, [monthStart, monthEnd]);
+
+  // Feed View needs distinct active days
+  const activeDays = useMemo(() => {
+      return eachDayOfInterval({ start: monthStart, end: monthEnd }).filter(day => {
+          const key = format(day, 'yyyy-MM-dd');
+          return episodes[key] && episodes[key].length > 0;
+      });
+  }, [monthStart, monthEnd, episodes]);
 
   const getEpisodesForDay = (day: Date) => {
     const dateKey = format(day, 'yyyy-MM-dd');
@@ -84,104 +95,249 @@ const V2CalendarPage: React.FC = () => {
                     </h1>
                 </div>
                 
-                <div className="flex items-center gap-1 md:gap-2 bg-black/20 p-1 rounded-xl border border-white/5 backdrop-blur-md">
-                    <button onClick={prevMonth} className="p-2 hover:bg-white/10 rounded-lg text-[var(--text-muted)] hover:text-white transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-                    <button onClick={goToday} className="px-3 md:px-4 py-1.5 text-xs md:text-sm font-bold text-[var(--text-muted)] hover:text-white transition-colors">Today</button>
-                    <button onClick={nextMonth} className="p-2 hover:bg-white/10 rounded-lg text-[var(--text-muted)] hover:text-white transition-colors"><ChevronRight className="w-5 h-5" /></button>
+                <div className="flex items-center gap-3">
+                    {/* View Toggle (Visible on Mobile/Tablet usually) */}
+                    <div className="flex items-center bg-black/20 p-1 rounded-xl border border-white/5 backdrop-blur-md">
+                        <button 
+                            onClick={() => setViewMode('grid')}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white/10 text-white shadow-sm' : 'text-zinc-500 hover:text-white'}`}
+                        >
+                            <LayoutGrid className="w-4 h-4" />
+                        </button>
+                        <button 
+                            onClick={() => setViewMode('feed')}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'feed' ? 'bg-white/10 text-white shadow-sm' : 'text-zinc-500 hover:text-white'}`}
+                        >
+                            <LayoutList className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-1 md:gap-2 bg-black/20 p-1 rounded-xl border border-white/5 backdrop-blur-md">
+                        <button onClick={prevMonth} className="p-2 hover:bg-white/10 rounded-lg text-[var(--text-muted)] hover:text-white transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                        <button onClick={goToday} className="px-3 md:px-4 py-1.5 text-xs md:text-sm font-bold text-[var(--text-muted)] hover:text-white transition-colors">Today</button>
+                        <button onClick={nextMonth} className="p-2 hover:bg-white/10 rounded-lg text-[var(--text-muted)] hover:text-white transition-colors"><ChevronRight className="w-5 h-5" /></button>
+                    </div>
                 </div>
             </div>
 
-            {/* Calendar Grid */}
-            <div className="flex-1 flex flex-col px-2 md:px-8 pb-4 md:pb-8 min-h-0">
-                {/* Days Header */}
-                <div className="grid grid-cols-7 mb-2 md:mb-4">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                        <div key={d} className="text-[10px] md:text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider pl-2 text-center md:text-left">{d}</div>
-                    ))}
-                </div>
+            {/* Main Content View */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto px-2 md:px-8 pb-4 md:pb-8 custom-scrollbar">
+                
+                {viewMode === 'grid' ? (
+                    <>
+                        {/* Days Header */}
+                        <div className="grid grid-cols-7 mb-2 md:mb-4 shrink-0">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                                <div key={d} className="text-[10px] md:text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider pl-2 text-center md:text-left">{d}</div>
+                            ))}
+                        </div>
 
-                {/* Days Grid Container */}
-                <div className={`
-                    flex-1 grid grid-cols-7 grid-rows-6
-                    ${isClassic ? 'gap-0 border-t border-l border-white/10' : 'gap-1 md:gap-2'}
-                `}>
-                    {calendarDays.map((day, idx) => {
-                        const eps = getEpisodesForDay(day);
-                        const isCurrentMonth = isSameMonth(day, monthStart);
-                        const isSelected = isSameDay(day, selectedDay);
-                        const isDayToday = isToday(day);
-                        const hasEps = eps.length > 0;
+                        {/* Days Grid Container */}
+                        <div className={`
+                            flex-1 grid grid-cols-7 grid-rows-6 min-h-[600px]
+                            ${isClassic ? 'gap-0 border-t border-l border-white/10' : 'gap-1 md:gap-2'}
+                        `}>
+                            {calendarDays.map((day, idx) => {
+                                const eps = getEpisodesForDay(day);
+                                const isCurrentMonth = isSameMonth(day, monthStart);
+                                const isSelected = isSameDay(day, selectedDay);
+                                const isDayToday = isToday(day);
+                                const hasEps = eps.length > 0;
+                                const isSingle = eps.length === 1;
 
-                        return (
-                            <div 
-                                key={day.toString()}
-                                onClick={() => handleDayClick(day)}
-                                className={`
-                                    relative flex flex-col cursor-pointer overflow-hidden group
-                                    ${isClassic 
-                                        ? `border-r border-b border-white/10 transition-colors ${isSelected ? 'bg-white/5' : 'hover:bg-white/5'}` 
-                                        : `rounded-lg md:rounded-xl border transition-all duration-200 ${isSelected ? 'bg-indigo-600/10 border-indigo-500 ring-1 ring-indigo-500/50 z-10' : 'bg-[var(--bg-panel)]/40 border-white/5 hover:border-white/20 hover:bg-white/5'}`
-                                    }
-                                    ${!isCurrentMonth ? 'opacity-30' : ''}
-                                `}
-                            >
-                                {/* Date Number */}
-                                <div className={`
-                                    absolute top-1 left-1 md:top-2 md:left-2 w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full text-[10px] md:text-xs font-bold z-20
-                                    ${isDayToday 
-                                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/40' 
-                                        : 'text-[var(--text-muted)]'}
-                                `}>
-                                    {format(day, 'd')}
-                                </div>
+                                return (
+                                    <div 
+                                        key={day.toString()}
+                                        onClick={() => handleDayClick(day)}
+                                        className={`
+                                            relative flex flex-col cursor-pointer overflow-hidden group
+                                            ${isClassic 
+                                                ? `border-r border-b border-white/10 transition-colors ${isSelected ? 'bg-white/5' : 'hover:bg-white/5'}` 
+                                                : `rounded-lg md:rounded-xl border transition-all duration-200 ${isSelected ? 'bg-indigo-600/10 border-indigo-500 ring-1 ring-indigo-500/50 z-10' : 'bg-[var(--bg-panel)]/40 border-white/5 hover:border-white/20 hover:bg-white/5'}`
+                                            }
+                                            ${!isCurrentMonth ? 'opacity-30' : ''}
+                                        `}
+                                    >
+                                        {/* Date Number */}
+                                        <div className={`
+                                            absolute top-1 left-1 md:top-2 md:left-2 w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full text-[10px] md:text-xs font-bold z-20
+                                            ${isDayToday 
+                                                ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/40' 
+                                                : 'text-[var(--text-muted)] text-white/70'}
+                                            ${isSingle ? 'bg-black/40 backdrop-blur-md border border-white/10' : ''}
+                                        `}>
+                                            {format(day, 'd')}
+                                        </div>
 
-                                {/* Content Preview (Posters) */}
-                                {hasEps && (
-                                    <div className={`absolute inset-0 p-1 flex flex-col gap-1 ${isClassic ? 'pt-7' : 'pt-7 md:pt-9'}`}>
-                                        {eps.slice(0, isClassic ? 3 : 2).map((ep, i) => {
-                                            const poster = getImageUrl(ep.poster_path);
-                                            const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
-                                            const isWatched = interactions[watchedKey]?.is_watched;
-
-                                            return (
-                                                <div key={i} className={`flex items-center gap-1.5 md:gap-2 p-0.5 md:p-1 rounded backdrop-blur-sm ${isClassic ? '' : 'bg-black/40 border border-white/5'}`}>
-                                                    <img src={poster} className={`w-4 h-6 md:w-6 md:h-8 rounded-[2px] md:rounded object-cover ${isWatched ? 'grayscale opacity-50' : ''}`} alt="" />
-                                                    <div className="min-w-0 hidden md:block">
-                                                        <div className={`text-[9px] font-bold truncate leading-tight ${isWatched ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>
-                                                            {ep.show_name}
-                                                        </div>
-                                                        {!isClassic && (
-                                                            <div className="text-[8px] text-zinc-500">
-                                                                {ep.is_movie ? 'Movie' : `S${ep.season_number}E${ep.episode_number}`}
+                                        {/* Single Item Poster Mode */}
+                                        {isSingle && (
+                                            <div className="absolute inset-0 z-0">
+                                                {(() => {
+                                                    const ep = eps[0];
+                                                    const poster = settings.useSeason1Art && ep.season1_poster_path ? ep.season1_poster_path : (ep.poster_path || ep.still_path);
+                                                    const url = getImageUrl(poster);
+                                                    const isContain = settings.calendarPosterFillMode === 'contain';
+                                                    
+                                                    return (
+                                                        <>
+                                                            {/* Blur Background if Contain */}
+                                                            {isContain && (
+                                                                <div 
+                                                                    className="absolute inset-0 bg-cover bg-center blur-md opacity-50 scale-110" 
+                                                                    style={{ backgroundImage: `url(${url})` }}
+                                                                />
+                                                            )}
+                                                            
+                                                            <img 
+                                                                src={url} 
+                                                                className={`w-full h-full ${isContain ? 'object-contain relative z-10 drop-shadow-xl' : 'object-cover opacity-80 group-hover:opacity-100 transition-opacity'}`} 
+                                                                alt="" 
+                                                            />
+                                                            
+                                                            {/* Gradient Overlay for Text Visibility */}
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10" />
+                                                            
+                                                            {/* Bottom Label for Single Item */}
+                                                            <div className="absolute bottom-2 left-2 right-2 z-20">
+                                                                <p className="text-[10px] font-bold text-white truncate leading-tight drop-shadow-md">
+                                                                    {ep.show_name}
+                                                                </p>
+                                                                <p className="text-[9px] text-zinc-300 truncate">
+                                                                    {ep.is_movie ? 'Movie' : `S${ep.season_number} E${ep.episode_number}`}
+                                                                </p>
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )
-                                        })}
-                                        
-                                        {/* IMPROVED "MORE" INDICATOR */}
-                                        {eps.length > (isClassic ? 3 : 2) && (
-                                            <div className="mt-auto flex justify-end md:justify-center pb-1 pr-1 md:pr-0">
-                                                <div className={`
-                                                    px-1.5 py-0.5 md:px-2 md:py-1 rounded-full text-[9px] font-bold flex items-center justify-center
-                                                    ${isClassic ? 'bg-zinc-800 text-zinc-400' : 'bg-white/10 text-white backdrop-blur-md border border-white/10'}
-                                                `}>
-                                                    +{eps.length - (isClassic ? 3 : 2)}
-                                                </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         )}
+
+                                        {/* Standard Multi-Item List */}
+                                        {hasEps && !isSingle && (
+                                            <div className={`absolute inset-0 p-1 flex flex-col gap-1 ${isClassic ? 'pt-7' : 'pt-7 md:pt-9'}`}>
+                                                {eps.slice(0, isClassic ? 3 : 2).map((ep, i) => {
+                                                    const poster = getImageUrl(settings.useSeason1Art && ep.season1_poster_path ? ep.season1_poster_path : ep.poster_path);
+                                                    const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+                                                    const isWatched = interactions[watchedKey]?.is_watched;
+
+                                                    return (
+                                                        <div key={i} className={`flex items-center gap-1.5 md:gap-2 p-0.5 md:p-1 rounded backdrop-blur-sm ${isClassic ? '' : 'bg-black/40 border border-white/5'}`}>
+                                                            <img src={poster} className={`w-4 h-6 md:w-6 md:h-8 rounded-[2px] md:rounded object-cover ${isWatched ? 'grayscale opacity-50' : ''}`} alt="" />
+                                                            <div className="min-w-0 hidden md:block">
+                                                                <div className={`text-[9px] font-bold truncate leading-tight ${isWatched ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>
+                                                                    {ep.show_name}
+                                                                </div>
+                                                                {!isClassic && (
+                                                                    <div className="text-[8px] text-zinc-500">
+                                                                        {ep.is_movie ? 'Movie' : `S${ep.season_number}E${ep.episode_number}`}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                                
+                                                {/* More Indicator */}
+                                                {eps.length > (isClassic ? 3 : 2) && (
+                                                    <div className="mt-auto flex justify-end md:justify-center pb-1 pr-1 md:pr-0">
+                                                        <div className={`
+                                                            px-1.5 py-0.5 md:px-2 md:py-1 rounded-full text-[9px] font-bold flex items-center justify-center
+                                                            ${isClassic ? 'bg-zinc-800 text-zinc-400' : 'bg-white/10 text-white backdrop-blur-md border border-white/10'}
+                                                        `}>
+                                                            +{eps.length - (isClassic ? 3 : 2)}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        
+                                        {/* Hover Glow (Modern Only) */}
+                                        {!isClassic && !isSingle && (
+                                            <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                                        )}
                                     </div>
-                                )}
-                                
-                                {/* Hover Glow (Modern Only) */}
-                                {!isClassic && (
-                                    <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                                )}
+                                );
+                            })}
+                        </div>
+                    </>
+                ) : (
+                    // --- FEED / LIST VIEW ---
+                    <div className="max-w-2xl mx-auto space-y-8 pb-20">
+                        {activeDays.length === 0 ? (
+                            <div className="text-center py-20 opacity-50">
+                                <p>No events for this month.</p>
                             </div>
-                        );
-                    })}
-                </div>
+                        ) : (
+                            activeDays.map(day => {
+                                const eps = getEpisodesForDay(day);
+                                const isDayToday = isToday(day);
+                                return (
+                                    <div key={day.toString()}>
+                                        <div className="flex items-center gap-3 mb-4 sticky top-0 bg-[var(--bg-main)]/95 backdrop-blur-xl py-2 z-30 border-b border-white/5">
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${isDayToday ? 'bg-indigo-600 text-white shadow-lg' : 'bg-[var(--bg-panel)] text-zinc-400 border border-white/10'}`}>
+                                                {format(day, 'd')}
+                                            </div>
+                                            <div className="flex flex-col leading-none">
+                                                <span className="text-sm font-bold text-white uppercase tracking-wider">{format(day, 'EEEE')}</span>
+                                                <span className="text-xs text-zinc-500">{format(day, 'MMMM yyyy')}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4 pl-4 border-l-2 border-white/5 ml-5">
+                                            {eps.map(ep => {
+                                                const poster = getImageUrl(settings.useSeason1Art && ep.season1_poster_path ? ep.season1_poster_path : ep.poster_path);
+                                                const backdrop = getBackdropUrl(ep.backdrop_path || ep.show_backdrop_path);
+                                                const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+                                                const isWatched = interactions[watchedKey]?.is_watched;
+
+                                                return (
+                                                    <div key={`${ep.id}`} className="relative bg-[var(--bg-panel)] rounded-xl overflow-hidden shadow-lg border border-white/5 group">
+                                                        <div className="h-32 relative">
+                                                            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${backdrop})` }} />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-panel)] via-[var(--bg-panel)]/50 to-transparent" />
+                                                            <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-panel)] to-transparent" />
+                                                            
+                                                            <div className="absolute bottom-2 left-32 z-10 right-4">
+                                                                <h3 className={`text-lg font-bold leading-tight line-clamp-1 ${isWatched ? 'text-zinc-500 line-through' : 'text-white'}`}>
+                                                                    {ep.show_name}
+                                                                </h3>
+                                                                <p className="text-xs text-zinc-400 truncate">{ep.name}</p>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Floating Poster */}
+                                                        <div className="absolute top-4 left-4 w-24 aspect-[2/3] rounded-lg shadow-xl border border-white/10 overflow-hidden bg-black z-20">
+                                                            <img src={poster} className="w-full h-full object-cover" alt="" />
+                                                        </div>
+
+                                                        {/* Action Footer */}
+                                                        <div className="pl-32 pr-4 pb-4 pt-2 flex justify-between items-center">
+                                                            <div className="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded">
+                                                                {ep.is_movie ? 'Movie' : `S${ep.season_number} E${ep.episode_number}`}
+                                                            </div>
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (ep.show_id) {
+                                                                        if (ep.is_movie) toggleWatched(ep.show_id, 'movie');
+                                                                        else toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
+                                                                    }
+                                                                }}
+                                                                className={`p-2 rounded-full transition-colors ${isWatched ? 'bg-white/10 text-zinc-500' : 'bg-white text-black'}`}
+                                                            >
+                                                                <Check className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                )}
             </div>
         </div>
 
