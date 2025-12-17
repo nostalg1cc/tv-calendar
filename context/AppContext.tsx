@@ -572,7 +572,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const dbBatchSize = 100;
                 for (let i = 0; i < epsToMark.length; i += dbBatchSize) { 
                     const batch = epsToMark.slice(i, i + dbBatchSize).map(item => ({ 
-                        user_id: user.id, ...item 
+                        user_id: user.id, 
+                        tmdb_id: item.tmdb_id,
+                        media_type: item.media_type,
+                        season_number: item.season_number,
+                        episode_number: item.episode_number,
+                        is_watched: item.is_watched,
+                        watched_at: item.watched_at,
+                        updated_at: new Date().toISOString()
                     })); 
                     // Insert into NEW Table
                     await supabase.from('watched_items').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); 
