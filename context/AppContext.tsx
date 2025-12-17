@@ -328,29 +328,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const syncTraktData = async (background = false) => {
-      // ... (Rest of trakt sync unchanged)
       if (!user?.traktToken) return;
       if (!background) setLoading(true);
       setIsSyncing(true);
       try {
           const token = user.traktToken.access_token;
           const [movieHistory, showHistory] = await Promise.all([getWatchedHistory(token, 'movies'), getWatchedHistory(token, 'shows')]);
+          
           let newInteractions: Record<string, Interaction> = { ...interactions };
           let newShowsToAdd: TVShow[] = [];
+          
           const currentShowIds = new Set(allTrackedShows.map(s => s.id));
           const hiddenIds = new Set((settings.hiddenItems || []).map(i => i.id));
           
+          // Process Movies
           for (const item of movieHistory) { 
               const tmdbId = item.movie.ids.tmdb; 
               if (!tmdbId) continue; 
-              newInteractions[`movie-${tmdbId}`] = { tmdb_id: tmdbId, media_type: 'movie', is_watched: true, rating: 0, watched_at: item.last_watched_at }; 
               
-              // Only add to library if not hidden and not already tracked
-              if (!hiddenIds.has(tmdbId) && !currentShowIds.has(tmdbId)) { 
+              if (hiddenIds.has(tmdbId)) continue;
+
+              const key = `movie-${tmdbId}`;
+              const existing = newInteractions[key];
+
+              // PROTECTION: If locally watched, do not override with Trakt data
+              if (existing?.is_watched) {
+                  continue;
+              }
+
+              newInteractions[key] = { 
+                  tmdb_id: tmdbId, 
+                  media_type: 'movie', 
+                  is_watched: true, 
+                  rating: existing?.rating || 0, // Preserve local rating if exists
+                  watched_at: item.last_watched_at 
+              }; 
+              
+              if (!currentShowIds.has(tmdbId)) { 
                   try { const details = await getMovieDetails(tmdbId); newShowsToAdd.push(details); currentShowIds.add(tmdbId); } catch (e) {} 
               } 
           }
 
+          // Process Shows
           const sortedShows = showHistory.sort((a: any, b: any) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime());
           const recentShows = sortedShows.slice(0, 20); 
           
@@ -358,23 +377,75 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               const tmdbId = item.show.ids.tmdb; 
               if (!tmdbId) continue; 
               
-              // Only add to library if not hidden and not already tracked
-              if (!hiddenIds.has(tmdbId) && !currentShowIds.has(tmdbId)) { 
+              if (hiddenIds.has(tmdbId)) continue;
+
+              if (!currentShowIds.has(tmdbId)) { 
                   try { const details = await getShowDetails(tmdbId); newShowsToAdd.push(details); currentShowIds.add(tmdbId); } catch (e) {} 
               } 
               
-              try { const progress = await getShowProgress(token, item.show.ids.trakt); if (progress && progress.seasons) { progress.seasons.forEach((season: any) => { season.episodes.forEach((ep: any) => { if (ep.completed) { const key = `episode-${tmdbId}-${season.number}-${ep.number}`; newInteractions[key] = { tmdb_id: tmdbId, media_type: 'episode', is_watched: true, season_number: season.number, episode_number: ep.number, rating: 0, watched_at: ep.last_watched_at }; } }); }); } } catch (e) {} 
+              try { 
+                  const progress = await getShowProgress(token, item.show.ids.trakt); 
+                  if (progress && progress.seasons) { 
+                      progress.seasons.forEach((season: any) => { 
+                          season.episodes.forEach((ep: any) => { 
+                              if (ep.completed) { 
+                                  const key = `episode-${tmdbId}-${season.number}-${ep.number}`; 
+                                  const existing = newInteractions[key];
+
+                                  // PROTECTION: If locally watched, skip override
+                                  if (existing?.is_watched) {
+                                      return;
+                                  }
+
+                                  newInteractions[key] = { 
+                                      tmdb_id: tmdbId, 
+                                      media_type: 'episode', 
+                                      is_watched: true, 
+                                      season_number: season.number, 
+                                      episode_number: ep.number, 
+                                      rating: existing?.rating || 0, // Preserve rating
+                                      watched_at: ep.last_watched_at 
+                                  }; 
+                              } 
+                          }); 
+                      }); 
+                  } 
+              } catch (e) {} 
           }
           
           setInteractions(newInteractions);
           
           if (user.isCloud && supabase) {
-              const updates = Object.values(newInteractions).map((interaction: Interaction) => ({ user_id: user.id, tmdb_id: interaction.tmdb_id, media_type: interaction.media_type, is_watched: interaction.is_watched, rating: interaction.rating, season_number: interaction.season_number ?? -1, episode_number: interaction.episode_number ?? -1, watched_at: interaction.watched_at || new Date().toISOString() }));
-              if (updates.length > 0) { for (let i = 0; i < updates.length; i += 100) { const batch = updates.slice(i, i + 100); await supabase.from('interactions').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); } }
+              const updates = Object.values(newInteractions).map((interaction: Interaction) => ({ 
+                  user_id: user.id, 
+                  tmdb_id: interaction.tmdb_id, 
+                  media_type: interaction.media_type, 
+                  is_watched: interaction.is_watched, 
+                  rating: interaction.rating, 
+                  season_number: interaction.season_number ?? -1, 
+                  episode_number: interaction.episode_number ?? -1, 
+                  watched_at: interaction.watched_at || new Date().toISOString() 
+              }));
+              
+              if (updates.length > 0) { 
+                  // Batch upsert to cloud
+                  for (let i = 0; i < updates.length; i += 100) { 
+                      const batch = updates.slice(i, i + 100); 
+                      await supabase.from('interactions').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); 
+                  } 
+              }
           }
+          
           if (newShowsToAdd.length > 0) { await batchAddShows(newShowsToAdd); }
           if (!background) alert(`Sync Complete! Updated watched status for recent items.`);
-      } catch (e) { console.error("Trakt Sync Error", e); if (!background) alert("Trakt sync encountered an error. Check console."); } finally { if (!background) setLoading(false); setIsSyncing(false); }
+          
+      } catch (e) { 
+          console.error("Trakt Sync Error", e); 
+          if (!background) alert("Trakt sync encountered an error. Check console."); 
+      } finally { 
+          if (!background) setLoading(false); 
+          setIsSyncing(false); 
+      }
   };
 
   const toggleWatched = async (id: number, mediaType: 'tv' | 'movie') => {
@@ -547,7 +618,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                       if (item.media_type === 'movie') { 
                           const releaseDates = await getMovieReleaseDates(item.id); 
                           releaseDates.forEach(rel => { 
-                              batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); 
+                              batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); 
                           }); 
                       } else { 
                           // Re-fetch details to ensure we have origin_country if missing in listing
