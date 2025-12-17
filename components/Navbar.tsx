@@ -1,6 +1,7 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw, Bell } from 'lucide-react';
+import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import SettingsModal from './SettingsModal';
 
@@ -8,6 +9,7 @@ const Navbar: React.FC = () => {
   const { user, logout, setIsSearchOpen, settings } = useAppContext();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -34,61 +36,83 @@ const Navbar: React.FC = () => {
           ${active 
               ? 'bg-indigo-600/10 text-indigo-400 font-medium' 
               : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.03]'}
+          ${isCollapsed ? 'justify-center' : ''}
       `;
 
       const content = (
           <>
-            <Icon className={`w-5 h-5 ${active ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
-            <span className="text-sm">{label}</span>
-            {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />}
+            <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+            {!isCollapsed && <span className="text-sm truncate">{label}</span>}
+            {active && !isCollapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />}
+            {active && isCollapsed && <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />}
           </>
       );
 
       if (onClick) {
-          return <button onClick={onClick} className={baseClasses}>{content}</button>;
+          return (
+            <button onClick={onClick} className={baseClasses} title={isCollapsed ? label : ''}>
+                {content}
+            </button>
+          );
       }
-      return <Link to={to!} className={baseClasses}>{content}</Link>;
+      return (
+        <Link to={to!} className={baseClasses} title={isCollapsed ? label : ''}>
+            {content}
+        </Link>
+      );
   };
 
   return (
     <>
       {/* DESKTOP SIDEBAR (Visible md+) */}
-      <nav className="hidden md:flex flex-col w-64 bg-[var(--bg-main)] border-r border-[var(--border-color)] h-full shrink-0">
+      <nav className={`hidden md:flex flex-col bg-[var(--bg-main)] border-r border-[var(--border-color)] h-full shrink-0 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
         
-        {/* Navigation Links - Added top padding since header is removed */}
-        <div className="flex-1 px-4 overflow-y-auto pt-8">
+        {/* Navigation Links */}
+        <div className="flex-1 px-4 overflow-y-auto pt-8 scrollbar-hide">
             <div className="mb-6">
-                <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Menu</p>
+                {!isCollapsed && <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 transition-opacity">Menu</p>}
                 <DesktopNavItem to="/" icon={Calendar} label="Calendar" />
                 <DesktopNavItem to="/discover" icon={Compass} label="Discover" />
                 <DesktopNavItem to="/watchlist" icon={List} label="My Library" />
             </div>
 
             <div>
-                <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Tools</p>
+                {!isCollapsed && <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 transition-opacity">Tools</p>}
                 <DesktopNavItem icon={Search} label="Quick Search" onClick={() => setIsSearchOpen(true)} />
                 <DesktopNavItem to="/reminders" icon={Bell} label="Reminders" />
                 <DesktopNavItem icon={Settings} label="Settings" onClick={() => setIsSettingsOpen(true)} />
             </div>
         </div>
 
-        {/* User Footer */}
-        <div className="p-4 border-t border-[var(--border-color)]">
-            <div className="flex items-center gap-3 p-2 rounded-xl bg-white/[0.03] border border-[var(--border-color)]">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold text-xs">
+        {/* User Footer & Toggle */}
+        <div className="p-4 border-t border-[var(--border-color)] flex flex-col gap-2">
+            <button 
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="self-end p-2 text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-white/5 mb-2"
+                title={isCollapsed ? "Expand" : "Collapse"}
+            >
+                {isCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </button>
+
+            <div className={`flex items-center gap-3 p-2 rounded-xl bg-white/[0.03] border border-[var(--border-color)] ${isCollapsed ? 'justify-center p-0 border-none bg-transparent' : ''}`}>
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold text-xs shrink-0">
                     {user.username.charAt(0).toUpperCase()}
                 </div>
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{user.username}</p>
-                    <p className="text-[10px] text-slate-500 truncate">{user.isCloud ? 'Cloud Sync' : 'Local Mode'}</p>
-                </div>
-                <button 
-                    onClick={logout}
-                    className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
-                    title="Logout"
-                >
-                    <LogOut className="w-4 h-4" />
-                </button>
+                {!isCollapsed && (
+                    <>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{user.username}</p>
+                            <p className="text-[10px] text-slate-500 truncate">{user.isCloud ? 'Cloud Sync' : 'Local Mode'}</p>
+                        </div>
+                        <button 
+                            onClick={logout}
+                            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+                            title="Logout"
+                        >
+                            <LogOut className="w-4 h-4" />
+                        </button>
+                    </>
+                )}
             </div>
         </div>
       </nav>
