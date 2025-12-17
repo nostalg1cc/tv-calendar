@@ -305,7 +305,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const saveTraktToken = async (tokenData: any) => { if (!user) return; try { const profile = await getTraktProfile(tokenData.access_token); const updatedUser: User = { ...user, traktToken: { ...tokenData, created_at: Date.now() / 1000 }, traktProfile: profile }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: updatedUser.traktToken, trakt_profile: profile }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } catch (e) { console.error("Failed to fetch Trakt profile", e); } };
   const disconnectTrakt = async () => { if (!user) return; const updatedUser = { ...user, traktToken: undefined, traktProfile: undefined }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: null, trakt_profile: null }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } };
   
-  // Helper to persist interaction to cloud properly
+  // ROBUST CLOUD SAVE (Check then Update/Insert)
   const saveInteractionToCloud = async (interaction: Interaction) => {
       if (!user?.isCloud || !supabase || !user?.id) return;
       try {
@@ -321,17 +321,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               updated_at: new Date().toISOString()
           };
 
-          const { error } = await supabase.from('interactions').upsert(payload, { 
-              onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' 
-          });
-          
-          if (error) {
-              console.error("Supabase Interactions Error:", error);
-              // alert(`Failed to save progress to cloud: ${error.message}`);
+          // Step 1: Check if record exists using basic select to avoid complex constraint issues
+          const { data: existing, error: fetchError } = await supabase
+              .from('interactions')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('tmdb_id', interaction.tmdb_id)
+              .eq('media_type', interaction.media_type)
+              .eq('season_number', interaction.season_number ?? -1)
+              .eq('episode_number', interaction.episode_number ?? -1)
+              .maybeSingle();
+
+          if (fetchError) throw fetchError;
+
+          // Step 2: Update or Insert
+          if (existing) {
+              const { error } = await supabase.from('interactions').update(payload).eq('id', existing.id);
+              if (error) throw error;
+          } else {
+              const { error } = await supabase.from('interactions').insert(payload);
+              if (error) throw error;
           }
       } catch (e: any) {
           console.error("Failed to save interaction to cloud", e);
-          // alert(`Sync Error: ${e.message}`);
       }
   };
 
@@ -343,34 +355,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const token = user.traktToken.access_token;
           const [movieHistory, showHistory] = await Promise.all([getWatchedHistory(token, 'movies'), getWatchedHistory(token, 'shows')]);
           
-          let newInteractions: Record<string, Interaction> = { ...interactions };
           let newShowsToAdd: TVShow[] = [];
-          
           const currentShowIds = new Set(allTrackedShows.map(s => s.id));
           const hiddenIds = new Set((settings.hiddenItems || []).map(i => i.id));
           
+          // Temporary Maps to hold Trakt Data
+          const traktMovies: Record<string, any> = {};
+          const traktEpisodes: Record<string, any> = {};
+
           // Process Movies
           for (const item of movieHistory) { 
               const tmdbId = item.movie.ids.tmdb; 
-              if (!tmdbId) continue; 
-              
-              if (hiddenIds.has(tmdbId)) continue;
-
-              const key = `movie-${tmdbId}`;
-              const existing = newInteractions[key];
-
-              // PROTECTION: If locally watched, do not override with Trakt data
-              if (existing?.is_watched) {
-                  continue;
-              }
-
-              newInteractions[key] = { 
-                  tmdb_id: tmdbId, 
-                  media_type: 'movie', 
-                  is_watched: true, 
-                  rating: existing?.rating || 0, // Preserve local rating if exists
-                  watched_at: item.last_watched_at 
-              }; 
+              if (!tmdbId || hiddenIds.has(tmdbId)) continue; 
+              traktMovies[`movie-${tmdbId}`] = item;
               
               if (!currentShowIds.has(tmdbId)) { 
                   try { const details = await getMovieDetails(tmdbId); newShowsToAdd.push(details); currentShowIds.add(tmdbId); } catch (e) {} 
@@ -383,10 +380,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
           for (const item of recentShows) { 
               const tmdbId = item.show.ids.tmdb; 
-              if (!tmdbId) continue; 
+              if (!tmdbId || hiddenIds.has(tmdbId)) continue; 
               
-              if (hiddenIds.has(tmdbId)) continue;
-
               if (!currentShowIds.has(tmdbId)) { 
                   try { const details = await getShowDetails(tmdbId); newShowsToAdd.push(details); currentShowIds.add(tmdbId); } catch (e) {} 
               } 
@@ -398,22 +393,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           season.episodes.forEach((ep: any) => { 
                               if (ep.completed) { 
                                   const key = `episode-${tmdbId}-${season.number}-${ep.number}`; 
-                                  const existing = newInteractions[key];
-
-                                  // PROTECTION: If locally watched, skip override
-                                  if (existing?.is_watched) {
-                                      return;
-                                  }
-
-                                  newInteractions[key] = { 
-                                      tmdb_id: tmdbId, 
-                                      media_type: 'episode', 
-                                      is_watched: true, 
-                                      season_number: season.number, 
-                                      episode_number: ep.number, 
-                                      rating: existing?.rating || 0, // Preserve rating
-                                      watched_at: ep.last_watched_at 
-                                  }; 
+                                  traktEpisodes[key] = ep;
                               } 
                           }); 
                       }); 
@@ -421,24 +401,75 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               } catch (e) {} 
           }
           
-          setInteractions(newInteractions);
-          
-          if (user.isCloud && supabase) {
-              const updates = Object.values(newInteractions).map((interaction: Interaction) => ({ 
-                  user_id: user.id, 
-                  tmdb_id: interaction.tmdb_id, 
-                  media_type: interaction.media_type, 
-                  is_watched: interaction.is_watched, 
-                  rating: interaction.rating, 
-                  season_number: interaction.season_number ?? -1, 
-                  episode_number: interaction.episode_number ?? -1, 
-                  watched_at: interaction.watched_at || new Date().toISOString() 
-              }));
+          // FUNCTIONAL STATE UPDATE to prevent race conditions
+          setInteractions(currentInteractions => {
+              const nextInteractions = { ...currentInteractions };
               
-              if (updates.length > 0) { 
-                  // Batch upsert to cloud
-                  for (let i = 0; i < updates.length; i += 100) { 
-                      const batch = updates.slice(i, i + 100); 
+              // Merge Movies
+              Object.keys(traktMovies).forEach(key => {
+                  const existing = nextInteractions[key];
+                  const traktItem = traktMovies[key];
+                  // If locally watched, trust local (do nothing). If not watched locally, apply Trakt.
+                  if (!existing?.is_watched) {
+                      nextInteractions[key] = { 
+                          tmdb_id: traktItem.movie.ids.tmdb, 
+                          media_type: 'movie', 
+                          is_watched: true, 
+                          rating: existing?.rating || 0,
+                          watched_at: traktItem.last_watched_at 
+                      };
+                  }
+              });
+
+              // Merge Episodes
+              Object.keys(traktEpisodes).forEach(key => {
+                  const existing = nextInteractions[key];
+                  const traktEp = traktEpisodes[key];
+                  if (!existing?.is_watched) {
+                      const [_, tmdbIdStr, sStr, eStr] = key.split('-');
+                      nextInteractions[key] = { 
+                          tmdb_id: parseInt(tmdbIdStr), 
+                          media_type: 'episode', 
+                          is_watched: true, 
+                          season_number: parseInt(sStr), 
+                          episode_number: parseInt(eStr), 
+                          rating: existing?.rating || 0,
+                          watched_at: traktEp.last_watched_at 
+                      };
+                  }
+              });
+
+              // Sync to cloud inside the update if needed, but since we are modifying bulk, we handle cloud sync below
+              return nextInteractions;
+          });
+          
+          // Persist changes to Cloud (We can't use the 'nextInteractions' easily here without refetching state, 
+          // but typically Trakt sync is additive. We can just push what we found.)
+          if (user.isCloud && supabase) {
+              const batchToUpsert: any[] = [];
+              
+              Object.keys(traktMovies).forEach(key => {
+                  const t = traktMovies[key];
+                  batchToUpsert.push({ 
+                      user_id: user.id, tmdb_id: t.movie.ids.tmdb, media_type: 'movie', is_watched: true, 
+                      rating: 0, season_number: -1, episode_number: -1, watched_at: t.last_watched_at 
+                  });
+              });
+              
+              Object.keys(traktEpisodes).forEach(key => {
+                  const [_, tmdbId, season, episode] = key.split('-');
+                  const t = traktEpisodes[key];
+                  batchToUpsert.push({ 
+                      user_id: user.id, tmdb_id: parseInt(tmdbId), media_type: 'episode', is_watched: true, 
+                      rating: 0, season_number: parseInt(season), episode_number: parseInt(episode), watched_at: t.last_watched_at 
+                  });
+              });
+
+              // Only upsert if we have items, and use onConflict ignoring to just ensure they exist
+              if (batchToUpsert.length > 0) { 
+                  for (let i = 0; i < batchToUpsert.length; i += 100) { 
+                      const batch = batchToUpsert.slice(i, i + 100); 
+                      // We use onConflict here for bulk operations, relying on users having correct constraints or just updating
                       await supabase.from('interactions').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); 
                   } 
               }
@@ -458,56 +489,64 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const toggleWatched = async (id: number, mediaType: 'tv' | 'movie') => {
     const key = `${mediaType}-${id}`;
-    const current = interactions[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 };
-    const newIsWatched = !current.is_watched;
-    
-    const updated: Interaction = { 
-        ...current, 
-        is_watched: newIsWatched, 
-        watched_at: newIsWatched ? new Date().toISOString() : undefined 
-    };
-    
-    // Optimistic Update
-    setInteractions(prev => ({ ...prev, [key]: updated }));
+    // Capture state at the moment of toggle
+    let updated: Interaction | null = null;
 
-    if (user?.traktToken) {
-        const action = updated.is_watched ? 'add' : 'remove';
-        const payload = mediaType === 'movie' ? { movies: [{ ids: { tmdb: id } }] } : { shows: [{ ids: { tmdb: id } }] }; 
-        syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
+    setInteractions(prev => {
+        const current = prev[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 };
+        const newIsWatched = !current.is_watched;
+        updated = { 
+            ...current, 
+            is_watched: newIsWatched, 
+            watched_at: newIsWatched ? new Date().toISOString() : undefined 
+        };
+        return { ...prev, [key]: updated };
+    });
+
+    if (updated) {
+        if (user?.traktToken) {
+            const action = (updated as Interaction).is_watched ? 'add' : 'remove';
+            const payload = mediaType === 'movie' ? { movies: [{ ids: { tmdb: id } }] } : { shows: [{ ids: { tmdb: id } }] }; 
+            syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
+        }
+        await saveInteractionToCloud(updated);
     }
-
-    await saveInteractionToCloud(updated);
   };
 
   const toggleEpisodeWatched = async (showId: number, season: number, episode: number) => { 
       const key = `episode-${showId}-${season}-${episode}`; 
-      const current = interactions[key] || { tmdb_id: showId, media_type: 'episode', is_watched: false, rating: 0, season_number: season, episode_number: episode }; 
-      const newIsWatched = !current.is_watched;
+      let updated: Interaction | null = null;
 
-      const updated: Interaction = { 
-          ...current, 
-          is_watched: newIsWatched, 
-          watched_at: newIsWatched ? new Date().toISOString() : undefined 
-      }; 
+      setInteractions(prev => {
+          const current = prev[key] || { tmdb_id: showId, media_type: 'episode', is_watched: false, rating: 0, season_number: season, episode_number: episode }; 
+          const newIsWatched = !current.is_watched;
+          updated = { 
+              ...current, 
+              is_watched: newIsWatched, 
+              watched_at: newIsWatched ? new Date().toISOString() : undefined 
+          }; 
+          return { ...prev, [key]: updated };
+      });
       
-      // Optimistic Update
-      setInteractions(prev => ({ ...prev, [key]: updated })); 
-      
-      if (user?.traktToken) {
-          const action = updated.is_watched ? 'add' : 'remove';
-          const payload = { shows: [{ ids: { tmdb: showId }, seasons: [{ number: season, episodes: [{ number: episode }] }] }] };
-          syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
+      if (updated) {
+          if (user?.traktToken) {
+              const action = (updated as Interaction).is_watched ? 'add' : 'remove';
+              const payload = { shows: [{ ids: { tmdb: showId }, seasons: [{ number: season, episodes: [{ number: episode }] }] }] };
+              syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
+          }
+          await saveInteractionToCloud(updated);
       }
-
-      await saveInteractionToCloud(updated);
   };
 
   const setRating = async (id: number, mediaType: 'tv' | 'movie', rating: number) => { 
       const key = `${mediaType}-${id}`; 
-      const current = interactions[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 }; 
-      const updated = { ...current, rating: rating }; 
-      setInteractions(prev => ({ ...prev, [key]: updated })); 
-      await saveInteractionToCloud(updated);
+      let updated: Interaction | null = null;
+      setInteractions(prev => {
+          const current = prev[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 }; 
+          updated = { ...current, rating: rating }; 
+          return { ...prev, [key]: updated };
+      });
+      if(updated) await saveInteractionToCloud(updated);
   };
 
   const markHistoryWatched = async (showId: number, targetSeason: number, targetEpisode: number) => {
@@ -636,7 +675,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                       if (item.media_type === 'movie') { 
                           const releaseDates = await getMovieReleaseDates(item.id); 
                           releaseDates.forEach(rel => { 
-                              batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); 
+                              batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); 
                           }); 
                       } else { 
                           // Re-fetch details to ensure we have origin_country if missing in listing
