@@ -442,17 +442,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                                  <p className="text-xs text-[var(--text-muted)] mt-1">Items removed from your library will appear here.</p>
                              </div>
                              <span className="text-sm font-bold text-zinc-500 bg-black/20 px-3 py-1 rounded-full">
-                                 {settings.hiddenIds?.length || 0}
+                                 {settings.hiddenItems?.length || 0}
                              </span>
                          </div>
                          
-                         {settings.hiddenIds && settings.hiddenIds.length > 0 ? (
+                         {settings.hiddenItems && settings.hiddenItems.length > 0 ? (
                              <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                                 {settings.hiddenIds.map(id => (
-                                     <div key={id} className="flex items-center justify-between p-3 bg-black/20 rounded-xl border border-[var(--border-color)]">
-                                         <span className="text-sm font-mono text-[var(--text-muted)]">ID: {id}</span>
+                                 {settings.hiddenItems.map(item => (
+                                     <div key={item.id} className="flex items-center justify-between p-3 bg-black/20 rounded-xl border border-[var(--border-color)]">
+                                         <div className="flex flex-col">
+                                             <span className="text-sm font-bold text-[var(--text-main)]">{item.name}</span>
+                                             <span className="text-[10px] font-mono text-[var(--text-muted)]">ID: {item.id}</span>
+                                         </div>
                                          <button 
-                                            onClick={() => unhideShow(id)}
+                                            onClick={() => unhideShow(item.id)}
                                             className="text-xs font-bold text-indigo-400 hover:text-indigo-300"
                                          >
                                              Restore

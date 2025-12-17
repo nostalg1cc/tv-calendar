@@ -111,7 +111,7 @@ export interface AppSettings {
   baseTheme: 'cosmic' | 'oled' | 'midnight' | 'forest' | 'dawn' | 'light' | 'auto'; // New Base Theme
   appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system'; // New Font Option
   reminderStrategy: 'ask' | 'always' | 'never'; // New Reminder Preference
-  hiddenIds: number[]; // Blacklist for deleted items to prevent Trakt re-sync
+  hiddenItems: { id: number; name: string }[]; // Blacklist for deleted items to prevent Trakt re-sync
 }
 
 export interface SubscribedList {

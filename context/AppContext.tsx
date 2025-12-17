@@ -113,7 +113,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   baseTheme: 'cosmic', 
   appFont: 'inter',
   reminderStrategy: 'ask',
-  hiddenIds: []
+  hiddenItems: []
 };
 
 export const THEMES: Record<string, Record<string, string>> = {
@@ -190,7 +190,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (!synced.appFont) synced.appFont = 'inter';
           if (!synced.reminderStrategy) synced.reminderStrategy = 'ask';
           if (synced.timeShift === undefined) synced.timeShift = false;
-          if (!synced.hiddenIds) synced.hiddenIds = [];
+          
+          // Migrate hiddenIds (number[]) to hiddenItems (object[])
+          if (synced.hiddenIds && !synced.hiddenItems) {
+              synced.hiddenItems = synced.hiddenIds.map((id: number) => ({ id, name: 'Unknown Show' }));
+              delete synced.hiddenIds;
+          }
+          if (!synced.hiddenItems) synced.hiddenItems = [];
 
           const local = getLocalPrefs();
           return { ...DEFAULT_SETTINGS, ...synced, ...local, compactCalendar: true }; 
@@ -332,7 +338,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           let newInteractions: Record<string, Interaction> = { ...interactions };
           let newShowsToAdd: TVShow[] = [];
           const currentShowIds = new Set(allTrackedShows.map(s => s.id));
-          const hiddenIds = new Set(settings.hiddenIds || []);
+          const hiddenIds = new Set((settings.hiddenItems || []).map(i => i.id));
           
           for (const item of movieHistory) { 
               const tmdbId = item.movie.ids.tmdb; 
@@ -603,7 +609,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [user, allTrackedShows, watchlist, fullSyncRequired, settings.timeShift, settings.timezone]); // Add Timezone dependencies
 
   const login = (username: string, apiKey: string) => { const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false }; setUser(newUser); setApiToken(apiKey); localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); };
-  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile, fullSyncCompleted: profile.full_sync_completed }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) { const local = getLocalPrefs(); const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; if (mergedSettings.timeShift === undefined) mergedSettings.timeShift = false; if (!mergedSettings.hiddenIds) mergedSettings.hiddenIds = []; setSettings(mergedSettings); } const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); if (remoteWatchlist) { const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; setWatchlist(loadedWatchlist); } const { data: remoteSubs } = await supabase.from('subscriptions').select('*'); if (remoteSubs) { const loadedLists: SubscribedList[] = []; for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) { console.error(e); } } setSubscribedLists(loadedLists); } const { data: remoteInteractions } = await supabase.from('interactions').select('*'); if (remoteInteractions) { const intMap: Record<string, Interaction> = {}; (remoteInteractions as any[]).forEach((i) => { if (i.media_type === 'episode') { intMap[`episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}`] = { tmdb_id: i.tmdb_id, media_type: 'episode', is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at }; } else { intMap[`${i.media_type}-${i.tmdb_id}`] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, watched_at: i.watched_at }; } }); setInteractions(intMap); } const { data: remoteReminders } = await supabase.from('reminders').select('*'); if (remoteReminders) { setReminders(remoteReminders.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes }))); } if (!profile.full_sync_completed) { setFullSyncRequired(true); setLoading(false); } else { setLoading(true); if (newUser.id) { const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); if (cached) setEpisodes(cached); await loadCloudCalendar(newUser.id); } setLoading(false); } } };
+  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile, fullSyncCompleted: profile.full_sync_completed }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) { const local = getLocalPrefs(); const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; if (mergedSettings.timeShift === undefined) mergedSettings.timeShift = false; 
+          
+          if (mergedSettings.hiddenIds && !mergedSettings.hiddenItems) {
+              mergedSettings.hiddenItems = mergedSettings.hiddenIds.map((id: number) => ({ id, name: 'Unknown Show' }));
+              delete mergedSettings.hiddenIds;
+          }
+          if (!mergedSettings.hiddenItems) mergedSettings.hiddenItems = []; 
+          
+          setSettings(mergedSettings); } const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); if (remoteWatchlist) { const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; setWatchlist(loadedWatchlist); } const { data: remoteSubs } = await supabase.from('subscriptions').select('*'); if (remoteSubs) { const loadedLists: SubscribedList[] = []; for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) { console.error(e); } } setSubscribedLists(loadedLists); } const { data: remoteInteractions } = await supabase.from('interactions').select('*'); if (remoteInteractions) { const intMap: Record<string, Interaction> = {}; (remoteInteractions as any[]).forEach((i) => { if (i.media_type === 'episode') { intMap[`episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}`] = { tmdb_id: i.tmdb_id, media_type: 'episode', is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at }; } else { intMap[`${i.media_type}-${i.tmdb_id}`] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, watched_at: i.watched_at }; } }); setInteractions(intMap); } const { data: remoteReminders } = await supabase.from('reminders').select('*'); if (remoteReminders) { setReminders(remoteReminders.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes }))); } if (!profile.full_sync_completed) { setFullSyncRequired(true); setLoading(false); } else { setLoading(true); if (newUser.id) { const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); if (cached) setEpisodes(cached); await loadCloudCalendar(newUser.id); } setLoading(false); } } };
   const reloadAccount = async () => { if (isSyncing) return; setLoading(true); try { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); if (user?.isCloud && supabase) { const { data: { session } } = await supabase.auth.getSession(); if (session) { await loginCloud(session); } else { logout(); } } else { await refreshEpisodes(true); } } catch (e) { console.error("Reload failed", e); setLoading(false); } };
   const updateUserKey = async (apiKey: string) => { if (user) { const updatedUser = { ...user, tmdbKey: apiKey }; setUser(updatedUser); setApiToken(apiKey); if (user.isCloud && supabase) { await supabase.from('profiles').update({ tmdb_key: apiKey }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } };
   const updateSettings = async (newSettings: Partial<AppSettings>) => { setSettings(prev => { const updated = { ...prev, ...newSettings, compactCalendar: true }; const localKeys = ['viewMode', 'mobileNavLayout']; const localPrefs = getLocalPrefs(); const prefsToSaveLocally: any = { ...localPrefs }; let hasLocalChanges = false; localKeys.forEach(k => { if (k in newSettings) { prefsToSaveLocally[k] = newSettings[k as keyof AppSettings]; hasLocalChanges = true; } }); if (hasLocalChanges) { localStorage.setItem('tv_calendar_local_prefs', JSON.stringify(prefsToSaveLocally)); } const settingsToSync = { ...updated }; localKeys.forEach(k => delete (settingsToSync as any)[k]); if (user?.isCloud && supabase) { supabase.from('profiles').update({ settings: settingsToSync }).eq('id', user.id).then(); } localStorage.setItem('tv_calendar_settings', JSON.stringify(settingsToSync)); return updated; }); };
@@ -619,10 +633,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (watchlist.find(s => s.id === show.id)) return; 
       
       // If was hidden, unhide it first
-      const currentHidden = settings.hiddenIds || [];
-      if (currentHidden.includes(show.id)) {
-          const newHidden = currentHidden.filter(id => id !== show.id);
-          updateSettings({ hiddenIds: newHidden });
+      const currentHidden = settings.hiddenItems || [];
+      if (currentHidden.some(i => i.id === show.id)) {
+          const newHidden = currentHidden.filter(i => i.id !== show.id);
+          updateSettings({ hiddenItems: newHidden });
       }
 
       const newWatchlist = [...watchlist, show]; 
@@ -664,9 +678,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const removeFromWatchlist = async (showId: number) => {
     // 1. Add to Hidden List to prevent Trakt from re-syncing it
-    const currentHidden = settings.hiddenIds || [];
-    if (!currentHidden.includes(showId)) {
-        updateSettings({ hiddenIds: [...currentHidden, showId] });
+    const currentHidden = settings.hiddenItems || [];
+    
+    // Find name before removing
+    const show = allTrackedShows.find(s => s.id === showId);
+    const name = show?.name || 'Unknown Show';
+
+    if (!currentHidden.some(i => i.id === showId)) {
+        updateSettings({ hiddenItems: [...currentHidden, { id: showId, name }] });
     }
 
     // 2. Remove from Local State
@@ -703,9 +722,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const unhideShow = (showId: number) => {
-      const currentHidden = settings.hiddenIds || [];
-      const newHidden = currentHidden.filter(id => id !== showId);
-      updateSettings({ hiddenIds: newHidden });
+      const currentHidden = settings.hiddenItems || [];
+      const newHidden = currentHidden.filter(i => i.id !== showId);
+      updateSettings({ hiddenItems: newHidden });
       // Trigger sync to fetch it back if it exists in Trakt
       if (user?.traktToken) {
           syncTraktData(true);
@@ -714,7 +733,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const batchAddShows = async (shows: TVShow[]) => { 
       const currentIds = new Set(watchlist.map(s => s.id)); 
-      const hiddenIds = new Set(settings.hiddenIds || []);
+      const hiddenIds = new Set((settings.hiddenItems || []).map(i => i.id));
       
       const newShows = shows.filter(s => !currentIds.has(s.id) && !hiddenIds.has(s.id)); 
       
