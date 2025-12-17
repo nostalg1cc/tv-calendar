@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw, Bell, PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import SettingsModal from './SettingsModal';
 
@@ -94,6 +94,29 @@ const Navbar: React.FC = () => {
                 <DesktopNavItem icon={Search} label="Quick Search" onClick={() => setIsSearchOpen(true)} />
                 <DesktopNavItem to="/reminders" icon={Bell} label="Reminders" />
                 <DesktopNavItem icon={Settings} label="Settings" onClick={() => setIsSettingsOpen(true)} />
+            </div>
+
+            {/* V2 PROMO LINK */}
+            <div className="mt-6 pt-6 border-t border-[var(--border-color)]">
+                <Link 
+                    to="/v2" 
+                    className={`
+                        flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200
+                        bg-gradient-to-r from-indigo-600/10 to-purple-600/10 border border-indigo-500/20 hover:border-indigo-500/50
+                        ${isCollapsed ? 'justify-center' : ''}
+                    `}
+                    title="Try Version 2"
+                >
+                    <div className="w-5 h-5 rounded bg-indigo-500 text-white flex items-center justify-center shrink-0">
+                        <Zap className="w-3 h-3 fill-white" />
+                    </div>
+                    {!isCollapsed && (
+                        <div className="flex flex-col">
+                            <span className="text-xs font-bold text-indigo-400">Try V2 Beta</span>
+                            <span className="text-[9px] text-zinc-500">New Unified UI</span>
+                        </div>
+                    )}
+                </Link>
             </div>
         </div>
 
@@ -251,6 +274,16 @@ const Navbar: React.FC = () => {
                   </div>
 
                   <div className="space-y-3">
+                      
+                      {/* V2 Mobile Link */}
+                      <Link 
+                         to="/v2"
+                         className="w-full bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/30 p-4 rounded-xl flex items-center gap-4 text-white transition-colors"
+                      >
+                         <Zap className="w-5 h-5 text-indigo-400 fill-indigo-400" />
+                         <div className="flex-1 text-left font-bold">Try V2 Beta UI</div>
+                      </Link>
+
                       <Link 
                          to="/reminders"
                          onClick={() => setIsUserMenuOpen(false)}

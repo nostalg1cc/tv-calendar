@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Navbar from './components/Navbar';
@@ -13,7 +14,11 @@ import MobileAddWarning from './components/MobileAddWarning';
 import AskReminderModal from './components/AskReminderModal';
 import ReminderConfigModal from './components/ReminderConfigModal';
 import FullSyncModal from './components/FullSyncModal';
-import { TVShow, Episode } from './types';
+import V2PromoModal from './components/V2PromoModal';
+
+// V2 Imports
+import V2Layout from './components/v2/V2Layout';
+import V2CalendarPage from './pages/v2/V2CalendarPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAppContext();
@@ -76,6 +81,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <SearchModal />
             <MobileAddWarning />
             <FullSyncModal />
+            <V2PromoModal />
             
             {/* Global Reminder Flow */}
             <AskReminderModal 
@@ -103,16 +109,31 @@ const AppRoutes: React.FC = () => {
     }
 
     return (
-        <Layout>
-            <Routes>
-                <Route path="/" element={<CalendarPage />} />
-                <Route path="/discover" element={<DiscoverPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/watchlist" element={<WatchlistPage />} />
-                <Route path="/reminders" element={<RemindersPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-        </Layout>
+        <Routes>
+            {/* V2 ROUTES - Completely separate layout */}
+            <Route path="/v2/*" element={
+                <V2Layout>
+                    <Routes>
+                        <Route path="/" element={<V2CalendarPage />} />
+                        {/* Future V2 routes can go here */}
+                    </Routes>
+                </V2Layout>
+            } />
+
+            {/* V1 ROUTES */}
+            <Route path="/*" element={
+                <Layout>
+                    <Routes>
+                        <Route path="/" element={<CalendarPage />} />
+                        <Route path="/discover" element={<DiscoverPage />} />
+                        <Route path="/search" element={<SearchPage />} />
+                        <Route path="/watchlist" element={<WatchlistPage />} />
+                        <Route path="/reminders" element={<RemindersPage />} />
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                </Layout>
+            } />
+        </Routes>
     );
 };
 
