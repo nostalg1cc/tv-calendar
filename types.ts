@@ -105,7 +105,10 @@ export interface AppSettings {
   timezone?: string; // Region Preference
   theme?: string; // Accent Color Theme
   customThemeColor?: string; // Hex Code for Custom Theme
-  appDesign: 'default' | 'blackout'; // New App Design Setting
+  appDesign: 'default' | 'blackout'; // Deprecated in favor of baseTheme, kept for migration
+  baseTheme: 'cosmic' | 'oled' | 'midnight' | 'forest' | 'dawn' | 'light' | 'auto'; // New Base Theme
+  appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system'; // New Font Option
+  reminderStrategy: 'ask' | 'always' | 'never'; // New Reminder Preference
 }
 
 export interface SubscribedList {

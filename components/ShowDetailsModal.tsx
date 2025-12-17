@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { X, Play, Plus, Check, Star, Calendar, Loader2, Film, Tv, Video as VideoIcon } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos } from '../services/tmdb';
@@ -62,7 +63,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
         <>
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" onClick={onClose}>
             <div 
-                className="bg-zinc-950 border border-zinc-800 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col relative max-h-[90vh]"
+                className="bg-[var(--bg-main)] border border-[var(--border-color)] w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col relative max-h-[90vh]"
                 onClick={e => e.stopPropagation()}
             >
                 {loading ? (
@@ -74,8 +75,8 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                         {/* Hero Header */}
                         <div className="relative h-64 md:h-80 shrink-0">
                             <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${getBackdropUrl(details.backdrop_path)})` }} />
-                            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
-                            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/20 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-main)] via-[var(--bg-main)]/40 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-main)] via-[var(--bg-main)]/20 to-transparent" />
                             
                             <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-colors border border-white/10 z-20">
                                 <X className="w-5 h-5" />
@@ -101,7 +102,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 overflow-y-auto bg-zinc-950 p-6 md:p-8 pt-6 sm:pt-20">
+                        <div className="flex-1 overflow-y-auto bg-[var(--bg-main)] p-6 md:p-8 pt-6 sm:pt-20">
                             
                             <div className="sm:hidden w-32 aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-zinc-800 mb-6 mx-auto">
                                 <img src={getImageUrl(details.poster_path)} className="w-full h-full object-cover" alt="" />
@@ -144,7 +145,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                 </div>
 
                                 {/* Sidebar Info */}
-                                <div className="space-y-4 p-4 bg-zinc-900/50 rounded-2xl border border-zinc-800/50 h-fit">
+                                <div className="space-y-4 p-4 bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-color)] h-fit">
                                     <div>
                                         <span className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Status</span>
                                         <span className="text-sm text-white font-medium">

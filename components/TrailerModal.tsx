@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Play, Loader2, Film, Tv, Video as VideoIcon, ExternalLink } from 'lucide-react';
 import { Video, Episode } from '../types';
@@ -91,11 +92,11 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fade-in" onClick={onClose}>
         <div 
-            className="bg-zinc-950 border border-zinc-800 w-full max-w-5xl rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
+            className="bg-[var(--bg-main)] border border-[var(--border-color)] w-full max-w-5xl rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
             onClick={e => e.stopPropagation()}
         >
             {/* Header */}
-            <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
+            <div className="p-4 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-panel)]/50">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-indigo-500/10 rounded-full text-indigo-400">
                         {item.is_movie ? <Film className="w-5 h-5" /> : <Tv className="w-5 h-5" />}
@@ -111,7 +112,7 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
                         )}
                     </div>
                 </div>
-                <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
+                <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
                     <X className="w-6 h-6" />
                 </button>
             </div>
@@ -153,8 +154,8 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
                 </div>
 
                 {/* Sidebar Playlist */}
-                <div className="w-full md:w-80 bg-zinc-900 border-l border-zinc-800 flex flex-col overflow-y-auto custom-scrollbar shrink-0">
-                    <div className="p-4 border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
+                <div className="w-full md:w-80 bg-[var(--bg-panel)] border-l border-[var(--border-color)] flex flex-col overflow-y-auto custom-scrollbar shrink-0">
+                    <div className="p-4 border-b border-[var(--border-color)] sticky top-0 z-10 bg-[var(--bg-panel)]">
                         <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
                             Available Clips
                         </h3>

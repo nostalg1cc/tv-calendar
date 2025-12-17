@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Loader2, Plus, Check } from 'lucide-react';
 import { TVShow } from '../types';
@@ -77,21 +78,21 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
     <>
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div 
-        className="bg-zinc-900 border border-zinc-800 w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]"
+        className="bg-[var(--bg-main)] border border-[var(--border-color)] w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50 shrink-0">
+        <div className="p-5 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-panel)]/50 shrink-0">
           <div>
               <h2 className="text-2xl font-bold text-white tracking-tight">{title}</h2>
               <p className="text-sm text-zinc-400">{mediaType === 'tv' ? 'TV Series' : 'Movies'}</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
         
         <div 
-            className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-zinc-950" 
+            className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[var(--bg-main)]" 
             ref={containerRef}
             onScroll={handleScroll}
         >
@@ -104,7 +105,7 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
                             className="flex flex-col gap-2 group relative cursor-pointer"
                             onClick={() => setSelectedItem(show)}
                         >
-                            <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-zinc-800 bg-zinc-900 transition-all duration-300 group-hover:border-indigo-500/30 group-hover:-translate-y-1">
+                            <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-[var(--border-color)] bg-[var(--bg-panel)] transition-all duration-300 group-hover:border-indigo-500/30 group-hover:-translate-y-1">
                                 <img 
                                     src={getImageUrl(show.poster_path)} 
                                     alt={show.name} 

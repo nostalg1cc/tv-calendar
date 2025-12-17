@@ -1,5 +1,6 @@
+
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Ticket, MonitorPlay, Download, Upload, HardDrive, Sparkles, LayoutList, AlignJustify, Key, Check, ListVideo, AlertTriangle, ShieldAlert, FileJson, RefreshCw, Loader2, Hourglass, Expand, Shrink, QrCode, Smartphone, Merge, ArrowDownToLine, Image as ImageIcon, Maximize, Scan, SquareDashedBottom, Database, Globe, Palette, User as UserIcon, Monitor, Pipette, Link as LinkIcon, ExternalLink, Copy, LogOut, LayoutGrid, List, Layers, PanelBottom, Pill, Filter, Ban, FileText, Lock, Type, Film, Moon } from 'lucide-react';
+import { X, Eye, EyeOff, Film, Ban, Sparkles, Key, Check, Globe, Download, Upload, RefreshCw, AlertTriangle, ShieldAlert, Monitor, Moon, Sun, Smartphone, User, Palette, Layers, Database, Lock, LogOut, ChevronRight, Type, CheckCircle2, QrCode, Scan, Merge, ArrowRight, Loader2, Link as LinkIcon, Zap, Bell, PenTool } from 'lucide-react';
 import { useAppContext, THEMES } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -9,353 +10,501 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-type Tab = 'general' | 'design' | 'integrations' | 'data';
+type TabId = 'appearance' | 'account' | 'preferences' | 'data';
+
+const FONTS = [
+    { id: 'inter', name: 'Inter', family: 'Inter, sans-serif' },
+    { id: 'outfit', name: 'Outfit', family: 'Outfit, sans-serif' },
+    { id: 'space', name: 'Space', family: 'Space Grotesk, sans-serif' },
+    { id: 'lora', name: 'Lora', family: 'Lora, serif' },
+];
+
+const BASE_THEMES = [
+    { id: 'auto', name: 'Auto', color: '#52525b', icon: Sparkles },
+    { id: 'cosmic', name: 'Cosmic', color: '#18181b', icon: Moon },
+    { id: 'oled', name: 'OLED', color: '#000000', icon: Moon },
+    { id: 'midnight', name: 'Midnight', color: '#0f172a', icon: Moon },
+    { id: 'forest', name: 'Forest', color: '#05190b', icon: Moon },
+    { id: 'dawn', name: 'Dawn', color: '#3f3f46', icon: Moon },
+    { id: 'light', name: 'Light', color: '#f4f4f5', icon: Sun },
+];
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { settings, updateSettings, watchlist, subscribedLists, user, updateUserKey, importBackup, batchAddShows, batchSubscribe, syncProgress, loading, getSyncPayload, processSyncPayload, reloadAccount, reminders, interactions, traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData } = useAppContext();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { settings, updateSettings, user, updateUserKey, importBackup, batchAddShows, batchSubscribe, processSyncPayload, getSyncPayload, reloadAccount, traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData, watchlist, subscribedLists, reminders, interactions } = useAppContext();
   
-  // Local state for key editing
+  const [activeTab, setActiveTab] = useState<TabId>('appearance');
   const [keyInput, setKeyInput] = useState(user?.tmdbKey || '');
   const [isEditingKey, setIsEditingKey] = useState(false);
-
-  // Tab State
-  const [activeTab, setActiveTab] = useState<Tab>('general');
-
-  // Export Security State
-  const [showExportWarning, setShowExportWarning] = useState(false);
-  const [hasAcknowledgedRisk, setHasAcknowledgedRisk] = useState(false);
-  
-  // Import / Merge State
-  const [mergePreview, setMergePreview] = useState<any>(null); 
-  const [isProcessingImport, setIsProcessingImport] = useState(false);
-
-  // QR Sync State
   const [showQr, setShowQr] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
-
-  // Custom Color State
   const [customColor, setCustomColor] = useState(settings.customThemeColor || '#6366f1');
+  
+  // Export/Import State
+  const [showExportWarning, setShowExportWarning] = useState(false);
+  const [hasAcknowledgedRisk, setHasAcknowledgedRisk] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mergePreview, setMergePreview] = useState<any>(null);
+  const [isProcessingImport, setIsProcessingImport] = useState(false);
 
   // Trakt State
   const [traktClientId, setTraktClientId] = useState(localStorage.getItem('trakt_client_id') || '');
   const [traktCode, setTraktCode] = useState<{ user_code: string; verification_url: string; device_code: string, interval: number } | null>(null);
-  const [isTraktPolling, setIsTraktPolling] = useState(false);
   const [isTraktSyncing, setIsTraktSyncing] = useState(false);
 
-  // Get available timezones
-  const timezones = React.useMemo(() => { try { return (Intl as any).supportedValuesOf('timeZone'); } catch { return []; } }, []);
-  
-  // Reset local processing state
-  useEffect(() => { if (!loading && isProcessingImport) { setIsProcessingImport(false); onClose(); } }, [loading, isProcessingImport, onClose]);
-  
-  // Update local custom color state when settings change
-  useEffect(() => { if (settings.customThemeColor) { setCustomColor(settings.customThemeColor); } }, [settings.customThemeColor]);
-  
-  // Apply custom color debounced
+  useEffect(() => {
+      if (settings.customThemeColor) setCustomColor(settings.customThemeColor);
+  }, [settings.customThemeColor]);
+
+  // Helpers
   const handleCustomColorChange = (hex: string) => { setCustomColor(hex); updateSettings({ customThemeColor: hex, theme: 'custom' }); };
-  
   const toggleSpoiler = (key: 'images' | 'overview' | 'title' | 'includeMovies') => {
       const newConfig = { ...settings.spoilerConfig, [key]: !settings.spoilerConfig[key] };
       updateSettings({ spoilerConfig: newConfig });
   };
-
-  if (!isOpen && !isProcessingImport) return null;
-  // ... (Helpers: handleExportProfile, handleExportWatchlist, downloadJson, handleImportClick, handleFileChange, confirmMerge, saveKey, handleScan, handleForceReload) ...
-  const handleExportProfile = () => { const data = { version: '2.0', exportDate: new Date().toISOString(), user, watchlist, subscribedLists, settings, reminders, interactions }; downloadJson(data, `tv-calendar-profile-${user?.username || 'backup'}-${new Date().toISOString().split('T')[0]}`); setShowExportWarning(false); setHasAcknowledgedRisk(false); };
-  const handleExportWatchlist = () => { const data = { watchlist }; downloadJson(data, `tv-calendar-watchlist-${new Date().toISOString().split('T')[0]}`); };
-  const downloadJson = (data: any, filename: string) => { const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${filename}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); };
-  
-  const handleImportClick = () => fileInputRef.current?.click();
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const content = event.target?.result as string; const data = JSON.parse(content); if (!Array.isArray(data) && !data.watchlist && !data.settings && !data.user) { throw new Error('Invalid backup file format'); } let incomingShows = Array.isArray(data) ? data : (data.watchlist || []); let incomingLists = Array.isArray(data) ? [] : (data.subscribedLists || []); const currentShowIds = new Set(watchlist.map(s => s.id)); const currentListIds = new Set(subscribedLists.map(l => l.id)); const newShows = incomingShows.filter((s: any) => !currentShowIds.has(s.id)); const newLists = incomingLists.filter((l: any) => !currentListIds.has(l.id)); const matchCount = incomingShows.length - newShows.length; setMergePreview({ matchCount, newShows, newLists, totalNew: newShows.length + newLists.length, fullData: data }); } catch (err) { console.error(err); alert('Failed to import: Invalid file format.'); } }; reader.readAsText(file); if (fileInputRef.current) fileInputRef.current.value = ''; };
-  const confirmMerge = () => { if (mergePreview) { setIsProcessingImport(true); if (mergePreview.newShows.length > 0) batchAddShows(mergePreview.newShows); if (mergePreview.newLists.length > 0) batchSubscribe(mergePreview.newLists); setTimeout(() => { setIsProcessingImport(false); setMergePreview(null); onClose(); }, 1500); } };
-  
   const saveKey = () => { if (keyInput.trim()) { updateUserKey(keyInput.trim()); setIsEditingKey(false); } };
-  const handleScan = (result: any) => { if (result && result[0]?.rawValue) { setShowScanner(false); setIsProcessingImport(true); processSyncPayload(result[0].rawValue); } };
-  const handleForceReload = async () => { if (confirm('This will wipe the local cache and re-download all data from the server. This may take a moment. Continue?')) { onClose(); await reloadAccount(); } };
-
-  // --- Trakt Logic ---
+  const downloadJson = (data: any, filename: string) => { const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${filename}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); };
+  const handleExportProfile = () => { const data = { version: '2.1', exportDate: new Date().toISOString(), user, watchlist, subscribedLists, settings, reminders, interactions }; downloadJson(data, `tv-calendar-backup-${new Date().toISOString().split('T')[0]}`); setShowExportWarning(false); };
+  const handleImportClick = () => fileInputRef.current?.click();
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const data = JSON.parse(event.target?.result as string); let incomingShows = Array.isArray(data) ? data : (data.watchlist || []); let incomingLists = Array.isArray(data) ? [] : (data.subscribedLists || []); const currentShowIds = new Set(watchlist.map(s => s.id)); const currentListIds = new Set(subscribedLists.map(l => l.id)); const newShows = incomingShows.filter((s: any) => !currentShowIds.has(s.id)); const newLists = incomingLists.filter((l: any) => !currentListIds.has(l.id)); setMergePreview({ matchCount: incomingShows.length - newShows.length, newShows, newLists, totalNew: newShows.length + newLists.length, fullData: data }); } catch { alert('Invalid file.'); } }; reader.readAsText(file); if (fileInputRef.current) fileInputRef.current.value = ''; };
+  const confirmMerge = () => { if (mergePreview) { setIsProcessingImport(true); if (mergePreview.newShows.length > 0) batchAddShows(mergePreview.newShows); if (mergePreview.newLists.length > 0) batchSubscribe(mergePreview.newLists); setTimeout(() => { setIsProcessingImport(false); setMergePreview(null); onClose(); }, 1000); } };
+  const handleScan = (result: any) => { if (result?.[0]?.rawValue) { setShowScanner(false); setIsProcessingImport(true); processSyncPayload(result[0].rawValue); } };
+  
   const handleTraktConnect = async () => {
-      if (!traktClientId) { alert("Please enter a Client ID"); return; }
-      localStorage.setItem('trakt_client_id', traktClientId);
-      try {
-          const codeData = await traktAuth(traktClientId, ''); 
-          setTraktCode(codeData);
-          
-          // Start Polling
-          setIsTraktPolling(true);
-          const interval = setInterval(async () => {
-              const pollRes = await traktPoll(codeData.device_code, traktClientId, '');
-              if (pollRes.status === 200) {
-                  clearInterval(interval);
-                  setIsTraktPolling(false);
-                  setTraktCode(null);
-                  await saveTraktToken(pollRes.data);
-              } else if (pollRes.status === 410 || pollRes.status === 418 || pollRes.status === 409) {
-                  clearInterval(interval);
-                  setIsTraktPolling(false);
-                  setTraktCode(null);
-                  if (pollRes.status !== 409) alert("Trakt connection timed out.");
-              }
-          }, codeData.interval * 1000);
-      } catch (e) {
-          console.error(e);
-          alert("Failed to connect to Trakt.");
-      }
+    if (!traktClientId) { alert("Please enter a Client ID"); return; }
+    localStorage.setItem('trakt_client_id', traktClientId);
+    try {
+        const codeData = await traktAuth(traktClientId, ''); 
+        setTraktCode(codeData);
+        const interval = setInterval(async () => {
+            const pollRes = await traktPoll(codeData.device_code, traktClientId, '');
+            if (pollRes.status === 200) { clearInterval(interval); setTraktCode(null); await saveTraktToken(pollRes.data); } 
+            else if (pollRes.status >= 400 && pollRes.status !== 429) { clearInterval(interval); setTraktCode(null); }
+        }, codeData.interval * 1000);
+    } catch (e) { alert("Failed to connect to Trakt."); }
   };
 
-  const handleSyncTrakt = async () => {
-      setIsTraktSyncing(true);
-      await syncTraktData();
-      setIsTraktSyncing(false);
-  };
+  const TABS = [
+      { id: 'appearance', label: 'Appearance', icon: Palette },
+      { id: 'preferences', label: 'Preferences', icon: Layers },
+      { id: 'account', label: 'Account & Sync', icon: User },
+      { id: 'data', label: 'Data & Storage', icon: Database },
+  ];
 
-  // ... (Render Overlays) ...
-  if (mergePreview) { return (<div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm"><div className="bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl w-full max-w-sm p-6 animate-fade-in relative overflow-hidden"><div className="text-center mb-6"><Merge className="w-12 h-12 text-indigo-400 mx-auto mb-3" /><h2 className="text-xl font-bold text-white mb-2">Merge Content</h2><p className="text-zinc-400 text-sm">Found {mergePreview.totalNew} new items.</p></div><div className="flex gap-3"><button onClick={() => setMergePreview(null)} className="flex-1 py-3 rounded-lg font-medium text-zinc-300 hover:bg-zinc-800 transition-colors">Cancel</button><button onClick={confirmMerge} className="flex-1 py-3 rounded-lg font-bold bg-indigo-600 hover:bg-indigo-500 text-white">Import</button></div></div></div>); }
-  if (showScanner) { return (<div className="fixed inset-0 z-[100] bg-black flex flex-col animate-fade-in"><div className="flex justify-between items-center p-4 bg-black/50 absolute top-0 left-0 right-0 z-10 backdrop-blur-md"><h2 className="text-white font-bold">Scan QR</h2><button onClick={() => setShowScanner(false)} className="p-2 bg-white/10 rounded-full text-white"><X className="w-6 h-6" /></button></div><div className="flex-1 flex items-center justify-center"><Scanner onScan={handleScan} /></div></div>); }
-  if (showQr) { const payload = getSyncPayload(); return (<div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fade-in" onClick={() => setShowQr(false)}><div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center" onClick={e => e.stopPropagation()}><h3 className="text-2xl font-bold text-slate-900 mb-6">Scan on Mobile</h3><QRCode value={payload} size={240} /><button onClick={() => setShowQr(false)} className="w-full mt-6 py-3 rounded-xl bg-slate-900 text-white font-bold">Done</button></div></div>); }
-  if (isProcessingImport) { return (<div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 bg-zinc-950/95 backdrop-blur-xl"><Loader2 className="w-10 h-10 text-indigo-500 animate-spin mb-4" /><h2 className="text-xl font-bold text-white">Syncing Data...</h2></div>); }
-  if (showExportWarning) { return (<div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-red-950/80 backdrop-blur-md"><div className="bg-zinc-900 border-2 border-red-500/50 rounded-3xl shadow-2xl w-full max-w-md p-6 animate-fade-in"><div className="flex items-center gap-3 mb-4 text-red-400"><AlertTriangle className="w-8 h-8" /><h2 className="text-2xl font-bold text-white">Security Warning</h2></div><p className="text-zinc-300 mb-4">This file contains your <strong>Private API Key</strong>. Do not share it.</p><div className="flex items-start gap-3 mb-6 p-3 bg-zinc-800/50 rounded-lg cursor-pointer" onClick={() => setHasAcknowledgedRisk(!hasAcknowledgedRisk)}><div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${hasAcknowledgedRisk ? 'bg-red-600 border-red-500' : 'border-zinc-500'}`}>{hasAcknowledgedRisk && <Check className="w-3.5 h-3.5 text-white" />}</div><p className="text-sm text-zinc-400 select-none">I understand the risks.</p></div><div className="flex gap-3"><button onClick={() => { setShowExportWarning(false); setHasAcknowledgedRisk(false); }} className="flex-1 py-3 rounded-lg font-medium text-zinc-300 hover:bg-zinc-800">Cancel</button><button onClick={handleExportProfile} disabled={!hasAcknowledgedRisk} className="flex-1 py-3 rounded-lg font-bold bg-red-600 hover:bg-red-500 text-white disabled:opacity-50">Download</button></div></div></div>); }
+  // Overlays
+  if (!isOpen && !isProcessingImport) return null;
+  if (isProcessingImport) return (<div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/90 backdrop-blur-xl"><Loader2 className="w-10 h-10 text-indigo-500 animate-spin mb-4" /><h2 className="text-xl font-bold text-white">Processing...</h2></div>);
+  if (showQr) return (<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl" onClick={() => setShowQr(false)}><div className="bg-white rounded-3xl p-8 max-w-sm w-full flex flex-col items-center" onClick={e => e.stopPropagation()}><QRCode value={getSyncPayload()} size={240} /><button onClick={() => setShowQr(false)} className="w-full mt-6 py-3 rounded-xl bg-slate-900 text-white font-bold">Done</button></div></div>);
+  if (showScanner) return (<div className="fixed inset-0 z-[100] bg-black flex flex-col"><div className="flex justify-between items-center p-4 absolute top-0 w-full z-10"><h2 className="text-white font-bold">Scan QR</h2><button onClick={() => setShowScanner(false)} className="p-2 bg-white/10 rounded-full text-white"><X className="w-6 h-6" /></button></div><div className="flex-1 flex items-center justify-center"><Scanner onScan={handleScan} /></div></div>);
+  if (mergePreview) return (<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"><div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 w-full max-w-sm"><div className="text-center mb-6"><Merge className="w-12 h-12 text-indigo-500 mx-auto mb-3" /><h2 className="text-xl font-bold text-white">Import Data</h2><p className="text-zinc-400">Found {mergePreview.totalNew} new items.</p></div><div className="flex gap-3"><button onClick={() => setMergePreview(null)} className="flex-1 py-3 rounded-xl bg-zinc-800 text-zinc-300">Cancel</button><button onClick={confirmMerge} className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold">Import</button></div></div></div>);
+  if (showExportWarning) return (<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-red-950/90 backdrop-blur-md"><div className="bg-zinc-900 border-2 border-red-500/50 rounded-3xl p-6 w-full max-w-md"><div className="flex items-center gap-3 mb-4 text-red-400"><ShieldAlert className="w-8 h-8" /><h2 className="text-2xl font-bold text-white">Warning</h2></div><p className="text-zinc-300 mb-6">This file contains your <strong>API Key</strong>. Do not share it publicly.</p><div className="flex items-center gap-3 mb-6 p-3 bg-zinc-800/50 rounded-lg cursor-pointer" onClick={() => setHasAcknowledgedRisk(!hasAcknowledgedRisk)}><div className={`w-5 h-5 rounded border flex items-center justify-center ${hasAcknowledgedRisk ? 'bg-red-600 border-red-500' : 'border-zinc-500'}`}>{hasAcknowledgedRisk && <Check className="w-3.5 h-3.5 text-white" />}</div><p className="text-sm text-zinc-400">I understand.</p></div><div className="flex gap-3"><button onClick={() => setShowExportWarning(false)} className="flex-1 py-3 rounded-xl bg-zinc-800 text-zinc-300">Cancel</button><button onClick={handleExportProfile} disabled={!hasAcknowledgedRisk} className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold disabled:opacity-50">Download</button></div></div></div>);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-        <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
-          <h2 className="text-xl font-bold text-white">Settings</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
-        </div>
-
-        <div className="flex border-b border-zinc-800 bg-zinc-900/30">
-            {[{ id: 'general', icon: UserIcon, label: 'General' }, { id: 'design', icon: Palette, label: 'Design' }, { id: 'integrations', icon: LinkIcon, label: 'Connect' }, { id: 'data', icon: Database, label: 'Data' }].map((tab) => (<button key={tab.id} onClick={() => setActiveTab(tab.id as Tab)} className={`flex-1 py-4 flex flex-col items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors relative ${activeTab === tab.id ? 'text-indigo-400 bg-indigo-500/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'}`}><tab.icon className={`w-5 h-5 ${activeTab === tab.id ? 'text-indigo-400' : 'text-zinc-500'}`} />{tab.label}{activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" />}</button>))}
-        </div>
+      <div 
+        className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-3xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col md:flex-row overflow-hidden relative" 
+        onClick={e => e.stopPropagation()}
+      >
         
-        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1 bg-zinc-950/30">
-            {/* ... (ActiveTab === 'general' logic unchanged) ... */}
-            {activeTab === 'general' && (
-                <div className="space-y-6 animate-fade-in">
-                    <section>
-                        <div className="flex items-center gap-3 mb-3"><div className="p-2.5 rounded-xl bg-zinc-800 text-zinc-300 h-fit"><Key className="w-6 h-6" /></div><div><h3 className="text-white font-medium">TMDB Access Token</h3><p className="text-zinc-400 text-sm">Required for API access.</p></div></div>
-                        <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-lg">{isEditingKey ? (<div className="flex gap-2"><input type="password" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} className="flex-1 bg-black/50 border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="TMDB Token" /><button onClick={saveKey} className="bg-emerald-600 hover:bg-emerald-500 text-white p-2 rounded transition-colors"><Check className="w-4 h-4" /></button></div>) : (<div className="flex justify-between items-center"><div className="text-zinc-400 text-sm font-mono truncate max-w-[200px]">{user?.tmdbKey ? '••••••••••••••••' : 'Not Set'}</div><button onClick={() => { setKeyInput(user?.tmdbKey || ''); setIsEditingKey(true); }} className="text-xs text-indigo-400 hover:text-white underline">Change</button></div>)}</div>
-                    </section>
-                    <div className="h-px bg-zinc-800/50" />
-                    <section>
-                        <div className="flex items-center gap-3 mb-3"><div className="p-2.5 rounded-xl bg-zinc-800 text-zinc-300 h-fit"><Globe className="w-6 h-6" /></div><div><h3 className="text-white font-medium">Region & Time</h3><p className="text-zinc-400 text-sm">Localize air dates.</p></div></div>
-                        {timezones.length > 0 ? (<div className="relative"><select value={settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone} onChange={(e) => updateSettings({ timezone: e.target.value })} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none focus:border-indigo-500 appearance-none cursor-pointer">{timezones.map((tz: string) => (<option key={tz} value={tz}>{tz}</option>))}</select><div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500"><ArrowDownToLine className="w-4 h-4" /></div></div>) : (<p className="text-xs text-zinc-500 italic">Not supported in this browser.</p>)}
-                    </section>
-                    {!user?.isCloud && (
-                        <>
-                            <div className="h-px bg-zinc-800/50" />
-                            <section>
-                                <div className="flex items-center gap-3 mb-3"><div className="p-2.5 rounded-xl bg-zinc-800 text-zinc-300 h-fit"><Smartphone className="w-6 h-6" /></div><div><h3 className="text-white font-medium">Device Sync</h3><p className="text-zinc-400 text-sm">Transfer data instantly.</p></div></div>
-                                <button onClick={() => setShowQr(true)} className="w-full py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold flex items-center justify-center gap-2 border border-white/5"><QrCode className="w-5 h-5" /> Show Transfer Code</button>
-                            </section>
-                        </>
-                    )}
-                </div>
-            )}
+        {/* Desktop Sidebar */}
+        <div className="hidden md:flex w-64 border-r border-[var(--border-color)] flex-col bg-[var(--bg-panel)]">
+            <div className="p-6 border-b border-[var(--border-color)]">
+                <h2 className="text-xl font-bold text-[var(--text-main)]">Settings</h2>
+                <p className="text-xs text-[var(--text-muted)]">Customize your experience</p>
+            </div>
             
-            {activeTab === 'design' && (
-                <div className="space-y-6 animate-fade-in">
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                {TABS.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as TabId)}
+                        className={`
+                            w-full flex items-center gap-3 p-3 rounded-xl transition-all text-sm font-medium
+                            ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-[var(--text-muted)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-main)]'}
+                        `}
+                    >
+                        <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? 'text-white' : ''}`} />
+                        <span>{tab.label}</span>
+                        {activeTab === tab.id && <ChevronRight className="w-4 h-4 ml-auto text-white/50" />}
+                    </button>
+                ))}
+            </nav>
+
+            <div className="p-4 border-t border-[var(--border-color)]">
+                <button onClick={onClose} className="w-full py-3 rounded-xl border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-black/5 dark:hover:bg-zinc-800 transition-colors text-sm font-medium">
+                    Close Settings
+                </button>
+            </div>
+        </div>
+
+        {/* Mobile Top Tabs */}
+        <div className="md:hidden flex flex-col bg-[var(--bg-panel)] border-b border-[var(--border-color)]">
+            <div className="flex items-center justify-between p-4 pb-2">
+                <h2 className="text-lg font-bold text-[var(--text-main)]">Settings</h2>
+                <button onClick={onClose} className="p-2 -mr-2 text-[var(--text-muted)]"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="flex overflow-x-auto px-4 pb-0 gap-4 hide-scrollbar">
+                {TABS.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as TabId)}
+                        className={`
+                            flex flex-col items-center gap-1 pb-3 px-1 border-b-2 transition-colors shrink-0
+                            ${activeTab === tab.id ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-[var(--text-muted)]'}
+                        `}
+                    >
+                        <tab.icon className="w-5 h-5" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">{tab.label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-[var(--bg-main)] p-6 md:p-10 relative">
+            <button onClick={onClose} className="absolute top-6 right-6 hidden md:block p-2 rounded-full bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-main)]"><X className="w-5 h-5" /></button>
+
+            {/* --- APPEARANCE TAB --- */}
+            {activeTab === 'appearance' && (
+                <div className="space-y-10 animate-fade-in max-w-3xl">
                     <section>
-                        <h3 className="text-white font-bold mb-3">App Design</h3>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button onClick={() => updateSettings({ appDesign: 'default' })} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${settings.appDesign === 'default' ? 'bg-zinc-800 border-indigo-500' : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800'}`}>
-                                <LayoutList className="w-6 h-6 text-zinc-400" />
-                                <span className="text-xs font-bold text-zinc-300">Standard</span>
-                            </button>
-                            <button onClick={() => updateSettings({ appDesign: 'blackout' })} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all overflow-hidden relative ${settings.appDesign === 'blackout' ? 'bg-black border-indigo-500' : 'bg-black border-zinc-800 hover:border-zinc-700'}`}>
-                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 to-pink-900/20 opacity-50" />
-                                <Moon className="w-6 h-6 text-indigo-400 relative z-10" />
-                                <span className="text-xs font-bold text-white relative z-10">Blackout</span>
-                            </button>
+                        <div className="mb-6">
+                            <h3 className="text-2xl font-bold text-[var(--text-main)] mb-1">Typography</h3>
+                            <p className="text-[var(--text-muted)] text-sm">Choose a font that suits your style.</p>
                         </div>
-                    </section>
-
-                    <div className="h-px bg-zinc-800/50" />
-
-                    <section>
-                        <h3 className="text-white font-bold mb-3">Accent Color</h3>
-                        <div className="grid grid-cols-7 gap-2">
-                            {Object.keys(THEMES).map((themeKey) => (
-                                <button key={themeKey} onClick={() => updateSettings({ theme: themeKey, customThemeColor: undefined })} className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${settings.theme === themeKey ? 'border-white scale-110' : 'border-transparent'}`} style={{ backgroundColor: `rgb(${THEMES[themeKey]['500']})` }} />
-                            ))}
-                            <div className="relative group">
-                                <button className={`w-8 h-8 rounded-full border-2 flex items-center justify-center overflow-hidden ${settings.theme === 'custom' ? 'border-white' : 'border-zinc-700'}`} style={{ backgroundColor: settings.theme === 'custom' ? customColor : 'transparent' }}>
-                                    <Pipette className="w-4 h-4 text-zinc-400" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {FONTS.map(font => (
+                                <button
+                                    key={font.id}
+                                    onClick={() => updateSettings({ appFont: font.id as any })}
+                                    className={`
+                                        p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group
+                                        ${settings.appFont === font.id ? 'bg-indigo-600/10 border-indigo-500' : 'bg-[var(--bg-panel)] border-[var(--border-color)] hover:border-zinc-500'}
+                                    `}
+                                >
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className={`text-sm font-medium ${settings.appFont === font.id ? 'text-indigo-500 dark:text-indigo-400' : 'text-[var(--text-muted)]'}`}>{font.name}</span>
+                                        {settings.appFont === font.id && <CheckCircle2 className="w-4 h-4 text-indigo-500" />}
+                                    </div>
+                                    <div style={{ fontFamily: font.family }} className="text-2xl text-[var(--text-main)]">
+                                        The quick brown fox
+                                    </div>
                                 </button>
-                                <input type="color" value={customColor} onChange={(e) => handleCustomColorChange(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
-                            </div>
+                            ))}
                         </div>
                     </section>
 
-                    <div className="h-px bg-zinc-800/50" />
+                    <div className="h-px bg-[var(--border-color)]" />
 
                     <section>
-                        <h3 className="text-white font-bold mb-3">Card Appearance</h3>
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800">
-                                <div className="flex items-center gap-3"><div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><ImageIcon className="w-4 h-4" /></div><span className="text-sm font-medium text-zinc-200">Image Fit</span></div>
-                                <div className="flex bg-zinc-800 p-0.5 rounded-lg">
-                                    <button onClick={() => updateSettings({ calendarPosterFillMode: 'cover' })} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${settings.calendarPosterFillMode === 'cover' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400'}`}>Cover</button>
-                                    <button onClick={() => updateSettings({ calendarPosterFillMode: 'contain' })} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${settings.calendarPosterFillMode === 'contain' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400'}`}>Contain</button>
-                                </div>
-                            </div>
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800">
-                                <div className="flex items-center gap-3"><div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><MonitorPlay className="w-4 h-4" /></div><span className="text-sm font-medium text-zinc-200">Use Season 1 Art</span></div>
-                                <button onClick={() => updateSettings({ useSeason1Art: !settings.useSeason1Art })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.useSeason1Art ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.useSeason1Art ? 'translate-x-4' : ''}`} /></button>
-                            </div>
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800">
-                                <div className="flex items-center gap-3"><div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><SquareDashedBottom className="w-4 h-4" /></div><span className="text-sm font-medium text-zinc-200">Clean Grid</span></div>
-                                <button onClick={() => updateSettings({ cleanGrid: !settings.cleanGrid })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.cleanGrid ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.cleanGrid ? 'translate-x-4' : ''}`} /></button>
-                            </div>
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800">
-                                <div className="flex items-center gap-3"><div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><Expand className="w-4 h-4" /></div><span className="text-sm font-medium text-zinc-200">Compact Calendar</span></div>
-                                <button onClick={() => updateSettings({ compactCalendar: !settings.compactCalendar })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.compactCalendar ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.compactCalendar ? 'translate-x-4' : ''}`} /></button>
-                            </div>
+                         <div className="mb-6">
+                            <h3 className="text-2xl font-bold text-[var(--text-main)] mb-1">Theme & Color</h3>
+                            <p className="text-[var(--text-muted)] text-sm">Customize the interface colors.</p>
                         </div>
-                    </section>
-
-                    <div className="h-px bg-zinc-800/50" />
-
-                    <section>
-                        <h3 className="text-white font-bold mb-3">Content & Behavior</h3>
-                        <div className="space-y-2">
-                            {/* Spoiler Protection Granular Controls */}
-                            <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><EyeOff className="w-4 h-4" /></div>
-                                    <div>
-                                        <h4 className="text-sm font-medium text-white">Spoiler Protection</h4>
-                                        <p className="text-[10px] text-zinc-500">Block content on unwatched episodes.</p>
-                                    </div>
-                                </div>
-                                
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-xs text-zinc-300 flex items-center gap-2"><ImageIcon className="w-3 h-3 text-zinc-500" /> Blur Thumbnails</label>
-                                        <button onClick={() => toggleSpoiler('images')} className={`w-8 h-5 rounded-full transition-colors relative ${settings.spoilerConfig.images ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${settings.spoilerConfig.images ? 'translate-x-3' : ''}`} /></button>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-xs text-zinc-300 flex items-center gap-2"><FileText className="w-3 h-3 text-zinc-500" /> Hide Description</label>
-                                        <button onClick={() => toggleSpoiler('overview')} className={`w-8 h-5 rounded-full transition-colors relative ${settings.spoilerConfig.overview ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${settings.spoilerConfig.overview ? 'translate-x-3' : ''}`} /></button>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-xs text-zinc-300 flex items-center gap-2"><Type className="w-3 h-3 text-zinc-500" /> Hide Episode Titles</label>
-                                        <button onClick={() => toggleSpoiler('title')} className={`w-8 h-5 rounded-full transition-colors relative ${settings.spoilerConfig.title ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${settings.spoilerConfig.title ? 'translate-x-3' : ''}`} /></button>
-                                    </div>
-                                    
-                                    <div className="h-px bg-zinc-800 my-2" />
-                                    
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-xs text-zinc-300 flex items-center gap-2"><Film className="w-3 h-3 text-zinc-500" /> Include Movies</label>
-                                        <button onClick={() => toggleSpoiler('includeMovies')} className={`w-8 h-5 rounded-full transition-colors relative ${settings.spoilerConfig.includeMovies ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${settings.spoilerConfig.includeMovies ? 'translate-x-3' : ''}`} /></button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800">
-                                <div className="flex items-center gap-3"><div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><Ban className="w-4 h-4" /></div><span className="text-sm font-medium text-zinc-200">Ignore Specials (S0)</span></div>
-                                <button onClick={() => updateSettings({ ignoreSpecials: !settings.ignoreSpecials })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.ignoreSpecials ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.ignoreSpecials ? 'translate-x-4' : ''}`} /></button>
-                            </div>
-                            
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800">
-                                <div className="flex items-center gap-3"><div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><Sparkles className="w-4 h-4" /></div><span className="text-sm font-medium text-zinc-200">Recommendations</span></div>
-                                <button onClick={() => updateSettings({ recommendationsEnabled: !settings.recommendationsEnabled })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.recommendationsEnabled ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.recommendationsEnabled ? 'translate-x-4' : ''}`} /></button>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-            )}
-            
-            {/* ... (Other tabs unchanged) ... */}
-            {activeTab === 'integrations' && (
-                <div className="space-y-6 animate-fade-in">
-                    <section className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 text-center">
-                        <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-red-900/20">
-                            <span className="text-white font-bold text-2xl">t</span>
-                        </div>
-                        <h3 className="text-xl font-bold text-white mb-2">Trakt.tv</h3>
-                        <p className="text-sm text-zinc-400 mb-6">Sync your watched history and ratings.</p>
                         
-                        {user?.traktToken ? (
-                            <div className="space-y-4">
-                                <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center gap-4">
-                                    {user.traktProfile?.images?.avatar?.full ? (
-                                        <img src={user.traktProfile.images.avatar.full} alt="Avatar" className="w-12 h-12 rounded-full" />
-                                    ) : (
-                                        <div className="w-12 h-12 bg-zinc-800 rounded-full flex items-center justify-center text-zinc-500"><UserIcon className="w-6 h-6" /></div>
-                                    )}
-                                    <div className="text-left">
-                                        <div className="text-white font-bold">{user.traktProfile?.name || user.traktProfile?.username || 'Trakt User'}</div>
-                                        <div className="text-xs text-zinc-500">Connected</div>
-                                    </div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <button onClick={handleSyncTrakt} disabled={isTraktSyncing} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold flex items-center justify-center gap-2">
-                                        {isTraktSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Sync Now
-                                    </button>
-                                    <button onClick={disconnectTrakt} className="p-3 bg-red-600/10 text-red-400 hover:bg-red-600/20 rounded-xl font-bold">
-                                        Disconnect
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {!traktCode ? (
-                                    <>
-                                        <input 
-                                            type="text" 
-                                            value={traktClientId} 
-                                            onChange={e => setTraktClientId(e.target.value)} 
-                                            placeholder="Trakt Client ID" 
-                                            className="w-full bg-black/30 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-white focus:border-red-500 focus:outline-none" 
-                                        />
-                                        <button onClick={handleTraktConnect} className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-colors">
-                                            Connect Account
+                        <div className="space-y-6">
+                            <div>
+                                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3 block">Base Theme</label>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    {BASE_THEMES.map(theme => (
+                                        <button
+                                            key={theme.id}
+                                            onClick={() => updateSettings({ baseTheme: theme.id as any })}
+                                            className={`
+                                                flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all
+                                                ${settings.baseTheme === theme.id ? 'border-indigo-500 bg-[var(--bg-panel)]' : 'border-[var(--border-color)] bg-[var(--bg-panel)] opacity-60 hover:opacity-100'}
+                                            `}
+                                        >
+                                            <div className="w-8 h-8 rounded-full shadow-lg border border-white/10 flex items-center justify-center" style={{ backgroundColor: theme.color }}>
+                                                {theme.id === 'auto' && <Sparkles className="w-4 h-4 text-white" />}
+                                                {theme.id === 'light' && <Sun className="w-4 h-4 text-zinc-900" />}
+                                                {['cosmic', 'oled', 'midnight', 'forest', 'dawn'].includes(theme.id) && <Moon className="w-4 h-4 text-white/50" />}
+                                            </div>
+                                            <span className="text-xs font-medium text-[var(--text-main)]">{theme.name}</span>
                                         </button>
-                                        <p className="text-[10px] text-zinc-500">
-                                            Requires a Trakt API App. <a href="https://trakt.tv/oauth/applications" target="_blank" rel="noreferrer" className="text-zinc-400 underline">Get ID</a>
-                                        </p>
-                                    </>
-                                ) : (
-                                    <div className="bg-zinc-800 p-4 rounded-xl animate-fade-in">
-                                        <p className="text-sm text-zinc-300 mb-2">Enter this code at <span className="text-indigo-400 select-all">{traktCode.verification_url}</span>:</p>
-                                        <div className="text-3xl font-mono font-bold text-white tracking-widest my-4 select-all">{traktCode.user_code}</div>
-                                        <div className="flex items-center justify-center gap-2 text-xs text-zinc-500">
-                                            <Loader2 className="w-3 h-3 animate-spin" /> Waiting for authentication...
-                                        </div>
-                                    </div>
-                                )}
+                                    ))}
+                                </div>
                             </div>
-                        )}
+
+                            <div>
+                                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3 block">Accent Color</label>
+                                <div className="flex flex-wrap gap-3">
+                                    {Object.keys(THEMES).map((themeKey) => (
+                                        <button 
+                                            key={themeKey} 
+                                            onClick={() => updateSettings({ theme: themeKey, customThemeColor: undefined })} 
+                                            className={`w-10 h-10 rounded-full border-2 transition-transform hover:scale-110 ${settings.theme === themeKey ? 'border-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'border-transparent'}`} 
+                                            style={{ backgroundColor: `rgb(${THEMES[themeKey]['500']})` }} 
+                                        />
+                                    ))}
+                                    <div className="relative group">
+                                        <button className={`w-10 h-10 rounded-full border-2 flex items-center justify-center overflow-hidden bg-zinc-800 ${settings.theme === 'custom' ? 'border-white scale-110' : 'border-zinc-700'}`}>
+                                            <div className="w-full h-full" style={{ backgroundColor: customColor }} />
+                                            {/* Pen Icon Overlay */}
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
+                                                <PenTool className="w-4 h-4 text-white drop-shadow-md" />
+                                            </div>
+                                        </button>
+                                        <input type="color" value={customColor} onChange={(e) => handleCustomColorChange(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </section>
-                </div>
-            )}
-            
-            {activeTab === 'data' && (
-                <div className="space-y-6 animate-fade-in">
+
+                    <div className="h-px bg-[var(--border-color)]" />
+
                     <section>
-                         <div className="flex items-center gap-3 mb-3"><div className="p-2.5 rounded-xl bg-zinc-800 text-zinc-300 h-fit"><Database className="w-6 h-6" /></div><div><h3 className="text-white font-medium">Backup & Restore</h3><p className="text-zinc-400 text-sm">Save your data locally.</p></div></div>
-                         <div className="grid grid-cols-2 gap-3">
-                             <button onClick={() => setShowExportWarning(true)} className="py-3 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 text-sm"><Download className="w-4 h-4" /> Export Profile</button>
-                             <button onClick={handleImportClick} className="py-3 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 text-sm"><Upload className="w-4 h-4" /> Import File</button>
-                             <button onClick={handleExportWatchlist} className="col-span-2 py-2 bg-zinc-900/50 border border-zinc-800 text-zinc-400 hover:text-white rounded-xl text-xs font-medium">Export Watchlist Only (JSON)</button>
+                         <div className="mb-4">
+                            <h3 className="text-lg font-bold text-[var(--text-main)]">Interface Density</h3>
+                         </div>
+                         <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] p-4 rounded-xl flex items-center justify-between">
+                             <div className="flex items-center gap-3">
+                                 <div className="p-2 bg-zinc-800 dark:bg-zinc-800 bg-zinc-200 rounded-lg text-[var(--text-main)]"><Monitor className="w-5 h-5" /></div>
+                                 <div>
+                                     <div className="text-sm font-medium text-[var(--text-main)]">Compact Calendar</div>
+                                     <div className="text-xs text-[var(--text-muted)]">Fit more weeks on screen</div>
+                                 </div>
+                             </div>
+                             <button onClick={() => updateSettings({ compactCalendar: !settings.compactCalendar })} className={`w-12 h-7 rounded-full transition-colors relative ${settings.compactCalendar ? 'bg-indigo-600' : 'bg-zinc-700'}`}>
+                                 <div className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${settings.compactCalendar ? 'translate-x-5' : ''}`} />
+                             </button>
                          </div>
                     </section>
-                    
-                    <div className="h-px bg-zinc-800/50" />
-                    
-                    <section>
-                         <h3 className="text-red-400 font-bold mb-3 flex items-center gap-2"><ShieldAlert className="w-5 h-5" /> Danger Zone</h3>
-                         <button onClick={handleForceReload} className="w-full py-3 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 rounded-xl font-bold flex items-center justify-center gap-2 text-sm transition-colors">
-                             <RefreshCw className="w-4 h-4" /> Force Reload All Data
-                         </button>
-                         <p className="text-[10px] text-zinc-600 mt-2 text-center">This will clear your local cache and re-fetch everything from TMDB/Supabase.</p>
+                </div>
+            )}
+
+            {/* --- PREFERENCES TAB --- */}
+            {activeTab === 'preferences' && (
+                <div className="space-y-8 animate-fade-in max-w-3xl">
+                     <section>
+                         <h3 className="text-2xl font-bold text-[var(--text-main)] mb-6">Content Settings</h3>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             {/* Spoiler Card */}
+                             <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] p-5 rounded-2xl">
+                                 <div className="flex items-center gap-3 mb-4">
+                                     <div className="p-2 bg-red-500/10 text-red-400 rounded-lg"><EyeOff className="w-5 h-5" /></div>
+                                     <h4 className="font-bold text-[var(--text-main)]">Spoiler Protection</h4>
+                                 </div>
+                                 <div className="space-y-3">
+                                     {[['images', 'Blur Images'], ['overview', 'Hide Descriptions'], ['title', 'Hide Titles']].map(([key, label]) => (
+                                         <div key={key} className="flex items-center justify-between">
+                                             <span className="text-sm text-[var(--text-muted)]">{label}</span>
+                                             <button onClick={() => toggleSpoiler(key as any)} className={`w-10 h-6 rounded-full transition-colors relative ${settings.spoilerConfig[key as keyof typeof settings.spoilerConfig] ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.spoilerConfig[key as keyof typeof settings.spoilerConfig] ? 'translate-x-4' : ''}`} /></button>
+                                         </div>
+                                     ))}
+                                     <div className="h-px bg-[var(--border-color)] my-2" />
+                                     <div className="flex items-center justify-between">
+                                         <span className="text-sm text-[var(--text-muted)]">Apply to Movies</span>
+                                         <button onClick={() => toggleSpoiler('includeMovies')} className={`w-10 h-6 rounded-full transition-colors relative ${settings.spoilerConfig.includeMovies ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.spoilerConfig.includeMovies ? 'translate-x-4' : ''}`} /></button>
+                                     </div>
+                                 </div>
+                             </div>
+
+                             {/* Discovery Settings */}
+                             <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] p-5 rounded-2xl">
+                                 <div className="flex items-center gap-3 mb-4">
+                                     <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg"><Sparkles className="w-5 h-5" /></div>
+                                     <h4 className="font-bold text-[var(--text-main)]">Discovery</h4>
+                                 </div>
+                                 <div className="space-y-4">
+                                     <div className="flex items-center justify-between">
+                                         <div>
+                                             <span className="text-sm text-[var(--text-main)] block">Smart Suggestions</span>
+                                             <span className="text-[10px] text-[var(--text-muted)]">Suggest similar shows when adding</span>
+                                         </div>
+                                         <button onClick={() => updateSettings({ recommendationsEnabled: !settings.recommendationsEnabled })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.recommendationsEnabled ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.recommendationsEnabled ? 'translate-x-4' : ''}`} /></button>
+                                     </div>
+                                     
+                                     {settings.recommendationsEnabled && (
+                                         <div className="bg-black/20 dark:bg-black/20 bg-zinc-200/50 p-2 rounded-xl flex">
+                                             <button 
+                                                onClick={() => updateSettings({ recommendationMethod: 'banner' })}
+                                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${settings.recommendationMethod === 'banner' ? 'bg-white text-black shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+                                             >
+                                                 Banner Rail
+                                             </button>
+                                             <button 
+                                                onClick={() => updateSettings({ recommendationMethod: 'inline' })}
+                                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${settings.recommendationMethod === 'inline' ? 'bg-white text-black shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+                                             >
+                                                 Inline Grid
+                                             </button>
+                                         </div>
+                                     )}
+                                 </div>
+                             </div>
+
+                             {/* Reminders Settings */}
+                             <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] p-5 rounded-2xl">
+                                 <div className="flex items-center gap-3 mb-4">
+                                     <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg"><Bell className="w-5 h-5" /></div>
+                                     <h4 className="font-bold text-[var(--text-main)]">Reminders</h4>
+                                 </div>
+                                 <div className="space-y-3">
+                                     <div>
+                                         <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider block mb-2">Default Action</label>
+                                         <div className="grid grid-cols-3 gap-2">
+                                             {['ask', 'always', 'never'].map((opt) => (
+                                                 <button 
+                                                    key={opt}
+                                                    onClick={() => updateSettings({ reminderStrategy: opt as any })}
+                                                    className={`py-2 rounded-lg text-xs font-bold uppercase border transition-all ${settings.reminderStrategy === opt ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-transparent border-[var(--border-color)] text-[var(--text-muted)] hover:bg-black/5'}`}
+                                                 >
+                                                     {opt}
+                                                 </button>
+                                             ))}
+                                         </div>
+                                         <p className="text-[10px] text-[var(--text-muted)] mt-2">
+                                             Controls whether to prompt for reminders when adding items.
+                                         </p>
+                                     </div>
+                                 </div>
+                             </div>
+
+                             {/* General Card */}
+                             <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] p-5 rounded-2xl">
+                                 <div className="flex items-center gap-3 mb-4">
+                                     <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg"><Layers className="w-5 h-5" /></div>
+                                     <h4 className="font-bold text-[var(--text-main)]">General</h4>
+                                 </div>
+                                 <div className="space-y-3">
+                                     <div className="flex items-center justify-between">
+                                         <span className="text-sm text-[var(--text-muted)]">Ignore Specials (S0)</span>
+                                         <button onClick={() => updateSettings({ ignoreSpecials: !settings.ignoreSpecials })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.ignoreSpecials ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.ignoreSpecials ? 'translate-x-4' : ''}`} /></button>
+                                     </div>
+                                      <div className="flex items-center justify-between">
+                                         <span className="text-sm text-[var(--text-muted)]">Hide Theatrical Movies</span>
+                                         <button onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.hideTheatrical ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.hideTheatrical ? 'translate-x-4' : ''}`} /></button>
+                                     </div>
+                                 </div>
+                             </div>
+                         </div>
+                     </section>
+                     
+                     <section>
+                         <h3 className="text-lg font-bold text-[var(--text-main)] mb-4">Region</h3>
+                         <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] p-4 rounded-xl flex items-center justify-between">
+                             <div className="flex items-center gap-3">
+                                 <div className="p-2 bg-zinc-800 dark:bg-zinc-800 bg-zinc-200 rounded-lg text-[var(--text-main)]"><Globe className="w-5 h-5" /></div>
+                                 <div className="text-sm font-medium text-[var(--text-main)]">Timezone</div>
+                             </div>
+                             <div className="relative w-48">
+                                <select value={settings.timezone} onChange={(e) => updateSettings({ timezone: e.target.value })} className="w-full bg-black/5 dark:bg-black/30 border border-[var(--border-color)] rounded-lg py-2 pl-3 pr-8 text-sm text-[var(--text-main)] focus:outline-none appearance-none cursor-pointer">
+                                    {(Intl as any).supportedValuesOf('timeZone').map((tz: string) => (<option key={tz} value={tz}>{tz}</option>))}
+                                </select>
+                             </div>
+                         </div>
+                     </section>
+                </div>
+            )}
+
+            {/* --- ACCOUNT TAB --- */}
+            {activeTab === 'account' && (
+                <div className="space-y-8 animate-fade-in max-w-3xl">
+                    <section className="bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-2xl p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold text-[var(--text-main)]">API Credentials</h3>
+                            <div className="px-2 py-1 bg-zinc-800 text-[var(--text-main)] rounded text-xs font-mono">Required</div>
+                        </div>
+                        <div className="flex gap-2">
+                             {isEditingKey ? (
+                                 <div className="flex-1 flex gap-2">
+                                     <input type="password" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} className="flex-1 bg-black/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-indigo-500 focus:outline-none" placeholder="TMDB Access Token" />
+                                     <button onClick={saveKey} className="px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl"><Check className="w-5 h-5" /></button>
+                                 </div>
+                             ) : (
+                                 <div className="flex-1 flex items-center justify-between bg-black/5 dark:bg-black/30 border border-[var(--border-color)] rounded-xl px-4 py-3">
+                                     <span className="text-[var(--text-muted)] font-mono text-sm">{user?.tmdbKey ? '••••••••••••••••••••••••' : 'No Key Set'}</span>
+                                     <button onClick={() => { setKeyInput(user?.tmdbKey || ''); setIsEditingKey(true); }} className="text-xs font-bold text-indigo-400 hover:text-indigo-300">EDIT</button>
+                                 </div>
+                             )}
+                        </div>
                     </section>
+
+                    <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Trakt Integration */}
+                        <div className="bg-red-500/5 dark:bg-red-950/20 border border-red-500/20 dark:border-red-900/30 rounded-2xl p-6 flex flex-col items-center text-center">
+                            <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center mb-3 shadow-lg shadow-red-900/20">
+                                <span className="text-white font-bold text-xl">t</span>
+                            </div>
+                            <h4 className="text-lg font-bold text-[var(--text-main)] mb-1">Trakt.tv</h4>
+                            <p className="text-xs text-[var(--text-muted)] mb-4 flex-1">Sync watched history automatically.</p>
+                            {user?.traktToken ? (
+                                <div className="w-full space-y-2">
+                                    <div className="px-3 py-2 bg-black/5 dark:bg-white/5 rounded-lg text-xs text-[var(--text-muted)] truncate">Connected as {user.traktProfile?.username}</div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => { setIsTraktSyncing(true); syncTraktData().then(() => setIsTraktSyncing(false)); }} className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1">{isTraktSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Sync</button>
+                                        <button onClick={disconnectTrakt} className="py-2 px-3 bg-zinc-200 dark:bg-zinc-800 text-[var(--text-muted)] hover:text-white rounded-lg"><LogOut className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                            ) : !traktCode ? (
+                                <div className="w-full space-y-2">
+                                    <input type="text" placeholder="Client ID" value={traktClientId} onChange={e => setTraktClientId(e.target.value)} className="w-full bg-black/50 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-white focus:outline-none" />
+                                    <button onClick={handleTraktConnect} className="w-full py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold">Connect</button>
+                                </div>
+                            ) : (
+                                <div className="w-full bg-black/50 p-3 rounded-lg border border-red-900/30">
+                                    <div className="text-xl font-mono text-white font-bold mb-1">{traktCode.user_code}</div>
+                                    <p className="text-[10px] text-zinc-500">Enter code at trakt.tv/activate</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Cloud/Device Sync */}
+                        <div className="bg-indigo-500/5 dark:bg-indigo-950/20 border border-indigo-500/20 dark:border-indigo-900/30 rounded-2xl p-6 flex flex-col items-center text-center">
+                            <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center mb-3 shadow-lg shadow-indigo-900/20">
+                                <Smartphone className="w-6 h-6 text-white" />
+                            </div>
+                            <h4 className="text-lg font-bold text-[var(--text-main)] mb-1">Device Sync</h4>
+                            <p className="text-xs text-[var(--text-muted)] mb-4 flex-1">Transfer data to mobile instantly.</p>
+                            {!user?.isCloud ? (
+                                <div className="w-full grid grid-cols-2 gap-2">
+                                    <button onClick={() => setShowQr(true)} className="py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1"><QrCode className="w-3 h-3" /> Show QR</button>
+                                    <button onClick={() => setShowScanner(true)} className="py-2 bg-zinc-200 dark:bg-zinc-800 text-[var(--text-main)] rounded-lg text-xs font-bold flex items-center justify-center gap-1"><Scan className="w-3 h-3" /> Scan QR</button>
+                                </div>
+                            ) : (
+                                <div className="w-full py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold flex items-center justify-center gap-2">
+                                    <CheckCircle2 className="w-4 h-4" /> Cloud Active
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                </div>
+            )}
+
+            {/* --- DATA TAB --- */}
+            {activeTab === 'data' && (
+                <div className="space-y-6 animate-fade-in max-w-3xl">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button onClick={handleExportProfile} className="p-6 bg-[var(--bg-panel)] border border-[var(--border-color)] hover:border-indigo-500/50 rounded-2xl text-left group transition-all">
+                            <Download className="w-8 h-8 text-indigo-500 mb-3 group-hover:-translate-y-1 transition-transform" />
+                            <h4 className="font-bold text-[var(--text-main)] mb-1">Backup Profile</h4>
+                            <p className="text-xs text-[var(--text-muted)]">Save all settings and data to JSON.</p>
+                        </button>
+                        <button onClick={handleImportClick} className="p-6 bg-[var(--bg-panel)] border border-[var(--border-color)] hover:border-emerald-500/50 rounded-2xl text-left group transition-all">
+                            <Upload className="w-8 h-8 text-emerald-500 mb-3 group-hover:-translate-y-1 transition-transform" />
+                            <h4 className="font-bold text-[var(--text-main)] mb-1">Restore Profile</h4>
+                            <p className="text-xs text-[var(--text-muted)]">Import settings from a JSON file.</p>
+                        </button>
+                     </div>
+
+                     <div className="bg-red-950/10 border border-red-900/20 rounded-2xl p-6 mt-8">
+                         <h4 className="text-red-400 font-bold mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> Danger Zone</h4>
+                         <div className="flex items-center justify-between">
+                             <div className="text-sm text-[var(--text-muted)]">
+                                 <strong className="text-[var(--text-main)] block">Force Reload</strong>
+                                 Clear local cache and re-fetch all data.
+                             </div>
+                             <button onClick={() => { if(confirm('Are you sure?')) reloadAccount(); }} className="px-4 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-400 border border-red-600/20 rounded-lg text-xs font-bold">
+                                 Reload Data
+                             </button>
+                         </div>
+                     </div>
                 </div>
             )}
         </div>
         
+        {/* Hidden File Input */}
         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
       </div>
     </div>

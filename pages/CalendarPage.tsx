@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
@@ -231,16 +232,16 @@ const CalendarPage: React.FC = () => {
                    <button onClick={() => refreshEpisodes(true)} disabled={loading || isSyncing} className="p-1 text-zinc-500 hover:text-indigo-400 transition-colors group" title="Force Refresh">
                       <RefreshCw className={`w-5 h-5 ${loading || isSyncing ? 'animate-spin text-indigo-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
                   </button>
-                  <div className="w-px h-5 bg-zinc-800" />
+                  <div className="w-px h-5 bg-[var(--border-color)]" />
                   <div className="flex items-center gap-6">
                       <button onClick={() => setShowTV(!showTV)} className={`transition-colors ${showTV ? 'text-white' : 'text-zinc-700 hover:text-zinc-500'}`} title="Toggle TV Shows"><Tv className="w-5 h-5" /></button>
                       <button onClick={() => setShowMovies(!showMovies)} className={`transition-colors ${showMovies ? 'text-white' : 'text-zinc-700 hover:text-zinc-500'}`} title="Toggle Movies"><Film className="w-5 h-5" /></button>
                   </div>
-                  <div className="w-px h-5 bg-zinc-800" />
+                  <div className="w-px h-5 bg-[var(--border-color)]" />
                   <button onClick={cycleViewMode} className="p-1 text-zinc-500 hover:text-white transition-colors" title="Toggle View">
                       <ViewIcon className="w-5 h-5" />
                   </button>
-                   <div className="w-px h-5 bg-zinc-800" />
+                   <div className="w-px h-5 bg-[var(--border-color)]" />
                    <div className="flex items-center gap-1">
                       <button onClick={prevMonth} className="p-2 text-zinc-500 hover:text-white transition-colors" title="Previous Month"><ChevronLeft className="w-5 h-5" /></button>
                       <button onClick={goToToday} className="px-2 text-sm font-bold text-zinc-500 hover:text-white transition-colors uppercase tracking-wider">This Week</button>
@@ -267,9 +268,9 @@ const CalendarPage: React.FC = () => {
                         <button onClick={nextMonth} className="p-1 text-zinc-500 hover:text-white"><ChevronRight className="w-5 h-5" /></button>
                    </div>
                    <div className="flex items-center gap-3">
-                        <div className="w-px h-4 bg-zinc-800" />
+                        <div className="w-px h-4 bg-[var(--border-color)]" />
                         <button onClick={() => refreshEpisodes(true)} className={`text-zinc-500 ${loading || isSyncing ? 'animate-spin text-indigo-400' : ''}`}><RefreshCw className="w-5 h-5" /></button>
-                        <div className="w-px h-4 bg-zinc-800" />
+                        <div className="w-px h-4 bg-[var(--border-color)]" />
                         <button onClick={cycleViewMode} className="text-zinc-500 hover:text-white">
                             <ViewIcon className="w-5 h-5" />
                         </button>
@@ -280,7 +281,7 @@ const CalendarPage: React.FC = () => {
       
       {/* Archive Warning */}
       {isArchivedDate && activeDays.length === 0 && !loading && (
-          <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800 p-8 text-center">
+          <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-[var(--border-color)] p-8 text-center bg-[var(--bg-panel)]">
              <History className="w-12 h-12 text-zinc-600 mb-4" />
              <h3 className="text-lg font-bold text-white mb-2">Archived History</h3>
              <p className="text-sm text-zinc-500 mb-6 max-w-sm">
@@ -294,7 +295,7 @@ const CalendarPage: React.FC = () => {
 
       {/* Loading State */}
       {loading && activeDays.length === 0 && !isArchivedDate ? (
-          <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-zinc-800">
+          <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-[var(--border-color)] bg-[var(--bg-panel)]">
              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
              <p className="text-sm text-zinc-500">Syncing your calendar...</p>
           </div>
@@ -304,10 +305,10 @@ const CalendarPage: React.FC = () => {
             {/* --- GRID VIEW --- */}
             {viewMode === 'grid' && (
                 <div className={`
-                    flex flex-col bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl
+                    flex flex-col bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-2xl
                     ${settings.compactCalendar ? 'flex-1 h-full min-h-0' : 'aspect-[16/10]'}
                 `}>
-                    <div className="grid grid-cols-7 border-b border-zinc-800 bg-zinc-900/80">
+                    <div className="grid grid-cols-7 border-b border-[var(--border-color)] bg-[var(--bg-panel)]">
                         {weekDays.map(day => (
                             <div key={day} className="py-2 text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
                                 {day.charAt(0)}
@@ -316,7 +317,7 @@ const CalendarPage: React.FC = () => {
                     </div>
 
                     <div 
-                        className="grid grid-cols-7 flex-1 bg-zinc-950 overflow-y-auto"
+                        className="grid grid-cols-7 flex-1 bg-[var(--bg-main)] overflow-y-auto"
                         ref={scrollContainerRef}
                     >
                         {calendarDays.map((day, idx) => {
@@ -329,8 +330,8 @@ const CalendarPage: React.FC = () => {
                             const isLastCol = (idx + 1) % 7 === 0;
                             const isLastRow = idx >= 35;
                             const borderClasses = `
-                                ${!isLastCol ? 'border-r border-zinc-800/50' : ''}
-                                ${!isLastRow ? 'border-b border-zinc-800/50' : ''}
+                                ${!isLastCol ? 'border-r border-[var(--border-color)]' : ''}
+                                ${!isLastRow ? 'border-b border-[var(--border-color)]' : ''}
                             `;
 
                             return (
@@ -341,8 +342,8 @@ const CalendarPage: React.FC = () => {
                                         relative group flex flex-col transition-colors
                                         min-h-[60px] md:min-h-0
                                         ${borderClasses}
-                                        ${!isCurrentMonth ? 'bg-black/40 opacity-50' : ''}
-                                        ${hasEpisodes ? 'cursor-pointer hover:bg-zinc-900/30' : ''}
+                                        ${!isCurrentMonth ? 'bg-black/20 opacity-50' : ''}
+                                        ${hasEpisodes ? 'cursor-pointer hover:bg-white/5' : ''}
                                     `}
                                 >
                                     <div className={`
@@ -370,7 +371,7 @@ const CalendarPage: React.FC = () => {
                                                         const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
                                                         
                                                         return (
-                                                            <div key={i} className={`flex items-center gap-2 p-1.5 rounded border border-zinc-800/50 truncate shrink-0 ${isWatched ? 'bg-zinc-900/50 opacity-60' : 'bg-zinc-900/90'}`}>
+                                                            <div key={i} className={`flex items-center gap-2 p-1.5 rounded border border-white/5 truncate shrink-0 ${isWatched ? 'bg-[var(--bg-panel)] opacity-60' : 'bg-[var(--bg-panel)]'}`}>
                                                                 <div className="relative shrink-0 w-5 h-7">
                                                                     <img 
                                                                         src={getImageUrl(posterSrc)} 
@@ -401,7 +402,7 @@ const CalendarPage: React.FC = () => {
                                                 </div>
                                                 
                                                 {dayEpisodes.length > 3 && (
-                                                    <div className="mt-auto text-[9px] text-center text-zinc-500 font-medium bg-zinc-900/50 py-0.5 shrink-0">
+                                                    <div className="mt-auto text-[9px] text-center text-zinc-500 font-medium bg-black/20 py-0.5 shrink-0">
                                                         +{dayEpisodes.length - 3} more
                                                     </div>
                                                 )}
@@ -448,13 +449,13 @@ const CalendarPage: React.FC = () => {
                                                 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center text-base md:text-lg font-bold border
                                                 ${isDayToday 
                                                     ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/50' 
-                                                    : 'bg-zinc-800 border-zinc-700 text-zinc-300'}
+                                                    : 'bg-[var(--bg-panel)] border-[var(--border-color)] text-zinc-300'}
                                             `}>
                                                 {format(day, 'd')}
                                             </div>
                                         </div>
 
-                                        <div className="flex-1 space-y-3 pb-4 border-b border-zinc-800 min-w-0">
+                                        <div className="flex-1 space-y-3 pb-4 border-b border-[var(--border-color)] min-w-0">
                                             {eps.map(ep => {
                                                 const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
                                                 const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
@@ -463,7 +464,7 @@ const CalendarPage: React.FC = () => {
                                                     <div 
                                                         key={`${ep.show_id}-${ep.id}`}
                                                         onClick={() => setSelectedDate(day)}
-                                                        className={`surface-card rounded-xl p-3 flex gap-3 cursor-pointer group border transition-colors ${isWatched ? 'bg-zinc-900/50 border-zinc-800/50 opacity-60 hover:opacity-100' : 'bg-zinc-900 border-zinc-800 hover:border-indigo-500/30'}`}
+                                                        className={`surface-card rounded-xl p-3 flex gap-3 cursor-pointer group border transition-colors ${isWatched ? 'bg-[var(--bg-panel)] border-[var(--border-color)] opacity-60 hover:opacity-100' : 'bg-[var(--bg-panel)] border-[var(--border-color)] hover:border-indigo-500/30'}`}
                                                     >
                                                         <div className="relative w-12 h-16 shrink-0 rounded-md overflow-hidden bg-black shadow-sm">
                                                             <img 
@@ -531,7 +532,7 @@ const CalendarPage: React.FC = () => {
                                         <div className="flex items-center gap-3 mb-3 px-2">
                                             <div className={`
                                                 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
-                                                ${isDayToday ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400'}
+                                                ${isDayToday ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-panel)] text-zinc-400 border border-[var(--border-color)]'}
                                             `}>
                                                 {format(day, 'd')}
                                             </div>
@@ -556,7 +557,7 @@ const CalendarPage: React.FC = () => {
                                                     <div 
                                                         key={`${ep.show_id}-${ep.id}`}
                                                         className={`
-                                                            relative w-[85vw] max-w-sm aspect-[4/5] sm:aspect-video shrink-0 snap-center rounded-2xl overflow-hidden shadow-2xl border border-zinc-800
+                                                            relative w-[85vw] max-w-sm aspect-[4/5] sm:aspect-video shrink-0 snap-center rounded-2xl overflow-hidden shadow-2xl border border-[var(--border-color)]
                                                             group transition-all
                                                         `}
                                                     >
@@ -567,7 +568,7 @@ const CalendarPage: React.FC = () => {
                                                                 className={`w-full h-full object-cover transition-all duration-700 ${isWatched ? 'grayscale opacity-30' : 'opacity-80'}`}
                                                                 alt=""
                                                             />
-                                                            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-main)] via-[var(--bg-main)]/40 to-transparent" />
                                                         </div>
 
                                                         {/* Content Overlay */}
@@ -613,7 +614,7 @@ const CalendarPage: React.FC = () => {
                                                                             e.stopPropagation();
                                                                             if(ep.show_id) toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
                                                                         }}
-                                                                        className={`py-2.5 rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center ${isWatched ? 'bg-zinc-800 text-zinc-400' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
+                                                                        className={`py-2.5 rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center ${isWatched ? 'bg-[var(--bg-panel)] text-zinc-400' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
                                                                     >
                                                                         {isWatched ? 'Unwatch' : 'Mark Watched'}
                                                                     </button>
@@ -624,7 +625,7 @@ const CalendarPage: React.FC = () => {
                                                                             e.stopPropagation();
                                                                             if(ep.show_id) toggleWatched(ep.show_id, 'movie');
                                                                         }}
-                                                                        className={`py-2.5 rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center ${isWatched ? 'bg-zinc-800 text-zinc-400' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
+                                                                        className={`py-2.5 rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center ${isWatched ? 'bg-[var(--bg-panel)] text-zinc-400' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
                                                                     >
                                                                         {isWatched ? 'Unwatch' : 'Mark Watched'}
                                                                     </button>

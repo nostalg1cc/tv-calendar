@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
-import { Search, X, Loader2, Plus, Check, Star, Film, Tv, Sparkles } from 'lucide-react';
+import { Search, X, Loader2, Plus, Check, Star, Film, Tv, Sparkles, ArrowRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { searchShows, getPopularShows, getImageUrl, getRecommendations } from '../services/tmdb';
 import { TVShow } from '../types';
 
-// Extended type to handle recommendation source metadata locally
 type SearchResult = TVShow & { 
     recommendedSource?: string;
     isRecommendation?: boolean; 
@@ -16,7 +16,7 @@ const SearchModal: React.FC = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   
-  // Recommendations state (for Banner mode)
+  // Recommendations state
   const [bannerRecommendations, setBannerRecommendations] = useState<TVShow[]>([]);
   const [sourceRecommendation, setSourceRecommendation] = useState<string>('');
   const [loadingRecs, setLoadingRecs] = useState(false);
@@ -62,28 +62,30 @@ const SearchModal: React.FC = () => {
       }
   }, [isSearchOpen]);
 
-  const handleAdd = async (show: SearchResult) => {
+  const handleAdd = async (e: React.MouseEvent, show: SearchResult) => {
+      e.stopPropagation(); // Prevent card click
       await addToWatchlist(show);
-      setReminderCandidate(show); // Prompt for reminder
       
-      // If recommendations are disabled, stop here
+      // Note: addToWatchlist now handles setReminderCandidate based on strategy in AppContext
+      
       if (!settings.recommendationsEnabled) return;
 
       setLoadingRecs(true);
       try {
           const recs = await getRecommendations(show.id, show.media_type);
           
-          if (recs && recs.length > 0) {
+          // STRICT FILTER: Exclude anything already in library
+          const trackedIds = new Set(allTrackedShows.map(s => s.id));
+          const validRecs = recs.filter(r => !trackedIds.has(r.id));
+          
+          if (validRecs.length > 0) {
               if (settings.recommendationMethod === 'banner') {
-                  // Banner Mode
-                  setBannerRecommendations(recs);
+                  setBannerRecommendations(validRecs);
                   setSourceRecommendation(show.name);
               } else {
-                  // Inline Mode (Spotify Style)
-                  
-                  // 1. Deduplication: Filter out items that are already currently displayed in the results list.
+                  // Inline Mode
                   const currentIds = new Set(results.map(r => r.id));
-                  const uniqueRecs = recs.filter(r => !currentIds.has(r.id));
+                  const uniqueRecs = validRecs.filter(r => !currentIds.has(r.id));
 
                   if (uniqueRecs.length > 0) {
                       const recsWithSource = uniqueRecs.map(r => ({
@@ -92,7 +94,7 @@ const SearchModal: React.FC = () => {
                           isRecommendation: true
                       }));
                       
-                      // 2. Insert after the item that was just added
+                      // Insert after the added item
                       const index = results.findIndex(r => r.id === show.id);
                       if (index !== -1) {
                           const newResults = [
@@ -115,83 +117,78 @@ const SearchModal: React.FC = () => {
   if (!isSearchOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20 px-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsSearchOpen(false)}>
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-10 sm:pt-20 px-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsSearchOpen(false)}>
       <div 
-        className="bg-zinc-900 border border-zinc-800 w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+        className="bg-[var(--bg-main)] border border-[var(--border-color)] w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Search Header */}
-        <div className="p-4 border-b border-zinc-800 flex items-center gap-4 bg-zinc-900/50">
-          <Search className="w-5 h-5 text-zinc-400" />
+        <div className="p-5 border-b border-[var(--border-color)] flex items-center gap-4 bg-[var(--bg-panel)]/80 backdrop-blur-md shrink-0 sticky top-0 z-20">
+          <Search className="w-6 h-6 text-[var(--text-muted)]" />
           <input 
             type="text" 
             placeholder="Search TV Shows & Movies..." 
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-white text-lg placeholder:text-zinc-500"
+            className="flex-1 bg-transparent border-none outline-none text-[var(--text-main)] text-xl placeholder:text-[var(--text-muted)] font-medium"
             autoFocus
           />
           {loading && <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />}
           <button 
             onClick={() => setIsSearchOpen(false)}
-            className="p-1 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white"
+            className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Content Area */}
-        <div className="overflow-y-auto custom-scrollbar bg-zinc-950">
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-[var(--bg-main)]">
             
-            {/* Banner Recommendations Section (Only if method is 'banner' and enabled) */}
+            {/* Banner Recommendations Rail */}
             {settings.recommendationsEnabled && settings.recommendationMethod === 'banner' && (bannerRecommendations.length > 0 || loadingRecs) && (
-                <div className="p-4 bg-indigo-900/10 border-b border-zinc-800 animate-fade-in">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-bold text-indigo-300 flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-indigo-400" />
+                <div className="py-6 px-6 bg-indigo-500/5 border-b border-[var(--border-color)] animate-fade-in">
+                    <div className="flex items-center justify-between mb-4 px-2">
+                        <h3 className="text-sm font-bold text-indigo-500 dark:text-indigo-300 flex items-center gap-2 uppercase tracking-wide">
+                            <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                             {loadingRecs ? 'Finding recommendations...' : `Because you added "${sourceRecommendation}"`}
                         </h3>
-                        <button onClick={() => setBannerRecommendations([])} className="text-xs text-zinc-400 hover:text-white">
+                        <button onClick={() => setBannerRecommendations([])} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">
                             Dismiss
                         </button>
                     </div>
 
                     {loadingRecs ? (
-                        <div className="h-32 flex items-center justify-center">
-                            <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                        <div className="h-40 flex items-center justify-center">
+                            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar snap-x">
                             {bannerRecommendations.map(show => {
                                 const isAdded = allTrackedShows.some(w => w.id === show.id);
                                 return (
-                                    <div key={`rec-${show.id}`} className="flex gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-indigo-500/30 transition-all group">
-                                        <div className="relative w-12 h-16 shrink-0">
+                                    <div key={`rec-${show.id}`} className="relative w-32 shrink-0 snap-start group">
+                                        <div className="aspect-[2/3] rounded-lg overflow-hidden bg-[var(--bg-panel)] shadow-lg relative">
                                             <img 
-                                            src={getImageUrl(show.poster_path)} 
-                                            alt={show.name} 
-                                            className="w-full h-full object-cover rounded shadow"
+                                                src={getImageUrl(show.poster_path)} 
+                                                alt={show.name} 
+                                                className="w-full h-full object-cover transition-transform group-hover:scale-105"
                                             />
-                                        </div>
-                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                            <h4 className="font-bold text-white text-sm truncate">{show.name}</h4>
-                                            <div className="flex items-center gap-2 text-[10px] text-zinc-400 mb-1.5">
-                                                {show.media_type === 'movie' ? 'Movie' : 'TV Show'} • {show.vote_average.toFixed(1)} ★
+                                            {/* Hover Overlay */}
+                                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <button 
+                                                    onClick={(e) => handleAdd(e, show as SearchResult)}
+                                                    disabled={isAdded}
+                                                    className={`p-2 rounded-full ${isAdded ? 'bg-emerald-500 text-white' : 'bg-white text-black hover:scale-110 transition-transform'}`}
+                                                >
+                                                    {isAdded ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                                                </button>
                                             </div>
-                                            <button 
-                                                onClick={() => handleAdd(show)}
-                                                disabled={isAdded}
-                                                className={`
-                                                    self-start px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1
-                                                    ${isAdded 
-                                                        ? 'bg-emerald-500/10 text-emerald-400 cursor-default' 
-                                                        : 'bg-indigo-600 hover:bg-indigo-500 text-white'}
-                                                `}
-                                            >
-                                                {isAdded ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                                                {isAdded ? 'Added' : 'Quick Add'}
-                                            </button>
                                         </div>
+                                        <h4 className="text-xs font-bold text-[var(--text-main)] mt-2 truncate">{show.name}</h4>
+                                        <p className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
+                                            <Star className="w-3 h-3 text-yellow-500 fill-current" /> {show.vote_average.toFixed(1)}
+                                        </p>
                                     </div>
                                 );
                             })}
@@ -200,83 +197,101 @@ const SearchModal: React.FC = () => {
                 </div>
             )}
 
-            {/* Main Results List */}
-            <div className="p-4">
-            {results.length === 0 && !loading ? (
-                <div className="text-center py-12 text-zinc-500">
-                <p>No results found.</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {results.map((show, idx) => {
-                    const isAdded = allTrackedShows.some(w => w.id === show.id);
-                    const isInlineRec = show.isRecommendation;
-
-                    return (
-                    <div 
-                        key={`${show.id}-${idx}`} // Use index to allow duplicate recommendations if they appear in different contexts (though deduplication logic largely prevents this now)
-                        className={`
-                            flex gap-4 p-3 rounded-xl transition-all group animate-fade-in
-                            ${isInlineRec 
-                                ? 'bg-indigo-950/20 border border-indigo-500/20 shadow-lg shadow-indigo-900/5 relative overflow-hidden' 
-                                : 'bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700'}
-                        `}
-                    >
-                        {/* Subtle background glow for recommendations */}
-                        {isInlineRec && <div className="absolute inset-0 bg-indigo-500/5 pointer-events-none"></div>}
-
-                        <div className="relative w-16 h-24 shrink-0 z-10 bg-black rounded-md overflow-hidden">
-                            <img 
-                            src={getImageUrl(show.poster_path)} 
-                            alt={show.name} 
-                            className="w-full h-full object-cover"
-                            />
-                            <div className="absolute top-1 right-1 bg-black/60 backdrop-blur-[2px] rounded p-0.5">
-                                {show.media_type === 'movie' ? <Film className="w-3 h-3 text-white" /> : <Tv className="w-3 h-3 text-white" />}
-                            </div>
-                        </div>
-                        
-                        <div className="flex-1 flex flex-col justify-between py-1 z-10">
-                        <div>
-                            {isInlineRec && (
-                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-300 uppercase tracking-wide mb-1.5 opacity-90">
-                                    <Sparkles className="w-3 h-3" />
-                                    <span>Because you added "{show.recommendedSource}"</span>
-                                </div>
-                            )}
-                            <h4 className="font-bold text-white leading-tight mb-1 line-clamp-1">{show.name}</h4>
-                            <div className="flex items-center gap-2 text-xs text-zinc-400">
-                            <span>{show.first_air_date?.split('-')[0] || 'N/A'}</span>
-                            <span>•</span>
-                            <div className="flex items-center gap-1 text-yellow-500">
-                                <Star className="w-3 h-3 fill-current" />
-                                {show.vote_average.toFixed(1)}
-                            </div>
-                            </div>
-                        </div>
-                        
-                        <button 
-                            onClick={() => handleAdd(show)}
-                            disabled={isAdded}
-                            className={`
-                            self-start mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors
-                            ${isAdded 
-                                ? 'bg-emerald-500/20 text-emerald-400 cursor-default' 
-                                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'}
-                            `}
-                        >
-                            {isAdded ? (
-                            <><Check className="w-3 h-3" /> Added</>
-                            ) : (
-                            <><Plus className="w-3 h-3" /> Add</>
-                            )}
-                        </button>
-                        </div>
+            {/* Main Grid Results */}
+            <div className="p-6">
+                {results.length === 0 && !loading ? (
+                    <div className="text-center py-20 text-[var(--text-muted)] flex flex-col items-center">
+                        <Search className="w-12 h-12 mb-4 opacity-20" />
+                        <p className="text-lg">No results found.</p>
+                        <p className="text-sm opacity-60">Try searching for a different title.</p>
                     </div>
-                    );
-                })}
-                </div>
-            )}
+                ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                        {results.map((show, idx) => {
+                            const isAdded = allTrackedShows.some(w => w.id === show.id);
+                            const isInlineRec = show.isRecommendation;
+
+                            return (
+                                <div 
+                                    key={`${show.id}-${idx}`}
+                                    className={`
+                                        group relative flex flex-col gap-2 animate-fade-in-up
+                                        ${isInlineRec ? 'col-span-1' : ''}
+                                    `}
+                                    style={{ animationDelay: `${idx * 50}ms` }}
+                                >
+                                    {/* Inline Header */}
+                                    {isInlineRec && (
+                                        <div className="absolute -top-3 left-0 right-0 z-20 flex justify-center">
+                                            <div className="bg-indigo-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-lg border border-indigo-400 flex items-center gap-1">
+                                                <Sparkles className="w-2.5 h-2.5" /> For You
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className={`
+                                        relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg bg-[var(--bg-panel)] transition-all duration-300
+                                        ${isInlineRec ? 'ring-2 ring-indigo-500 shadow-indigo-500/20' : 'group-hover:-translate-y-1 group-hover:shadow-2xl'}
+                                    `}>
+                                        <img 
+                                            src={getImageUrl(show.poster_path)} 
+                                            alt={show.name} 
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                            loading="lazy"
+                                        />
+                                        
+                                        {/* Overlay Gradient */}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                                            <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded backdrop-blur-md">
+                                                        {show.media_type === 'movie' ? 'Movie' : 'TV'}
+                                                    </span>
+                                                    <div className="flex items-center gap-1 text-yellow-400 text-xs font-bold">
+                                                        <Star className="w-3.5 h-3.5 fill-current" /> {show.vote_average.toFixed(1)}
+                                                    </div>
+                                                </div>
+                                                <p className="text-xs text-zinc-300 line-clamp-3 mb-3 leading-relaxed">
+                                                    {show.overview || "No overview available."}
+                                                </p>
+                                                <button 
+                                                    onClick={(e) => handleAdd(e, show)}
+                                                    disabled={isAdded}
+                                                    className={`
+                                                        w-full py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-lg
+                                                        ${isAdded 
+                                                            ? 'bg-emerald-600 text-white cursor-default' 
+                                                            : 'bg-white text-black hover:bg-zinc-200'}
+                                                    `}
+                                                >
+                                                    {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                                                    {isAdded ? 'Tracking' : 'Add to List'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Minimal Info Below */}
+                                    <div className="px-1">
+                                        <h4 className={`font-bold text-sm leading-tight truncate transition-colors ${isInlineRec ? 'text-indigo-500 dark:text-indigo-300' : 'text-[var(--text-main)]'}`}>
+                                            {show.name}
+                                        </h4>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <span className="text-xs text-[var(--text-muted)] font-medium">
+                                                {show.first_air_date ? show.first_air_date.split('-')[0] : 'TBA'}
+                                            </span>
+                                            {isInlineRec && (
+                                                <span className="text-[9px] text-[var(--text-muted)] truncate max-w-[80px]">
+                                                    from "{show.recommendedSource}"
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
       </div>

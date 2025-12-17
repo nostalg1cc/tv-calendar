@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X, Calendar as CalendarIcon, Star, Bell, Eye, EyeOff, Film, Ticket, MonitorPlay, Globe, Check, CheckCheck, Loader2, PlayCircle, Lock, AlertTriangle } from 'lucide-react';
 import { Episode, AppSettings, Interaction } from '../types';
@@ -44,7 +45,7 @@ const EpisodeRow: React.FC<{
     const revealText = (e: React.MouseEvent) => { e.stopPropagation(); setRevealed(p => ({ ...p, overview: true })); };
 
     return (
-        <div className={`flex gap-4 p-3 rounded-2xl transition-all border border-zinc-800/50 bg-zinc-900/40 hover:bg-zinc-900 group ${isWatched ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+        <div className={`flex gap-4 p-3 rounded-2xl transition-all border border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-white/5 group ${isWatched ? 'opacity-60 grayscale-[0.5]' : ''}`}>
             {/* Thumbnail Column */}
             <div 
                 className="relative w-28 sm:w-36 aspect-video shrink-0 rounded-xl overflow-hidden bg-black shadow-lg cursor-pointer group/image"
@@ -107,7 +108,7 @@ const EpisodeRow: React.FC<{
                     {isTextBlocked ? (
                         <div 
                             onClick={revealText}
-                            className="bg-zinc-950/50 border border-zinc-800/50 rounded-lg p-3 cursor-pointer group/spoiler hover:bg-zinc-900 transition-colors flex items-center justify-between"
+                            className="bg-black/20 border border-[var(--border-color)] rounded-lg p-3 cursor-pointer group/spoiler hover:bg-black/40 transition-colors flex items-center justify-between"
                         >
                             <div className="flex items-center gap-2 text-zinc-500 italic group-hover/spoiler:text-zinc-400">
                                 <Lock className="w-3 h-3" /> 
@@ -158,7 +159,7 @@ const EpisodeRow: React.FC<{
                         className={`
                             flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ml-1
                             ${isWatched 
-                                ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' 
+                                ? 'bg-white/10 text-zinc-400 hover:bg-white/20' 
                                 : 'bg-white text-black hover:bg-zinc-200 shadow-lg shadow-white/5'}
                         `}
                     >
@@ -239,13 +240,13 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
     <>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" onClick={onClose}>
       <div 
-        className="bg-zinc-950 border border-zinc-800 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col relative" 
+        className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col relative" 
         onClick={e => e.stopPropagation()}
       >
         {/* Cinematic Header */}
         <div className="relative h-40 shrink-0">
             <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${headerBackdropUrl})` }} />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-main)] via-[var(--bg-main)]/60 to-transparent" />
             
             <button 
                 onClick={onClose} 
@@ -266,7 +267,7 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
             </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-zinc-950">
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[var(--bg-main)]">
             <div className="flex flex-col gap-4">
                 {episodes.map((ep) => (
                     <EpisodeRow 
