@@ -330,7 +330,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Persist WATCHED STATUS to new manual table 'watched_items'
   const saveManualWatchedStatus = async (interaction: Interaction) => {
-      if (!user?.isCloud || !supabase || !user?.id) return;
+      if (!user?.isCloud || !supabase || !user?.id) {
+          console.warn("Save skipped: User not in cloud mode or ID missing");
+          return;
+      }
       try {
           const payload = {
               user_id: user.id,
@@ -343,8 +346,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               updated_at: new Date().toISOString()
           };
 
-          console.log("Saving to watched_items:", payload);
-
           // Use the new dedicated table with explicit upsert
           const { error } = await supabase.from('watched_items').upsert(payload, { 
               onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' 
@@ -352,9 +353,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
           if (error) {
               console.error("Watched status save failed:", error.message);
-              alert("Failed to save watched status: " + error.message);
           } else {
-              console.log("Saved watched status successfully.");
+              console.log("Saved watched status successfully for", interaction.tmdb_id);
           }
       } catch (e: any) { console.error("Watched status save error", e); }
   };
@@ -472,54 +472,58 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const toggleWatched = async (id: number, mediaType: 'tv' | 'movie') => {
     const key = `${mediaType}-${id}`;
-    let updated: Interaction | null = null;
+    
+    // 1. Calculate New State
+    const current = interactions[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 };
+    const newIsWatched = !current.is_watched;
+    const updated: Interaction = { 
+        ...current, 
+        is_watched: newIsWatched, 
+        watched_at: newIsWatched ? new Date().toISOString() : undefined 
+    };
 
-    setInteractions(prev => {
-        const current = prev[key] || { tmdb_id: id, media_type: mediaType, is_watched: false, rating: 0 };
-        const newIsWatched = !current.is_watched;
-        updated = { ...current, is_watched: newIsWatched, watched_at: newIsWatched ? new Date().toISOString() : undefined };
-        
-        // Update Manual Override Memory
-        manualOverridesRef.current[key] = newIsWatched;
-        
-        return { ...prev, [key]: updated };
-    });
+    // 2. Update Memory Ref immediately
+    manualOverridesRef.current[key] = newIsWatched;
 
-    if (updated) {
-        if (user?.traktToken) {
-            const action = (updated as Interaction).is_watched ? 'add' : 'remove';
-            const payload = mediaType === 'movie' ? { movies: [{ ids: { tmdb: id } }] } : { shows: [{ ids: { tmdb: id } }] }; 
-            syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
-        }
-        // SAVE TO NEW TABLE
-        await saveManualWatchedStatus(updated);
+    // 3. Update UI State
+    setInteractions(prev => ({
+        ...prev,
+        [key]: updated
+    }));
+
+    // 4. Trakt Sync
+    if (user?.traktToken) {
+        const action = updated.is_watched ? 'add' : 'remove';
+        const payload = mediaType === 'movie' ? { movies: [{ ids: { tmdb: id } }] } : { shows: [{ ids: { tmdb: id } }] }; 
+        syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
     }
+    
+    // 5. Save to Manual DB
+    await saveManualWatchedStatus(updated);
   };
 
   const toggleEpisodeWatched = async (showId: number, season: number, episode: number) => { 
       const key = `episode-${showId}-${season}-${episode}`; 
-      let updated: Interaction | null = null;
-
-      setInteractions(prev => {
-          const current = prev[key] || { tmdb_id: showId, media_type: 'episode', is_watched: false, rating: 0, season_number: season, episode_number: episode }; 
-          const newIsWatched = !current.is_watched;
-          updated = { ...current, is_watched: newIsWatched, watched_at: newIsWatched ? new Date().toISOString() : undefined }; 
-          
-          // Update Manual Override Memory
-          manualOverridesRef.current[key] = newIsWatched;
-
-          return { ...prev, [key]: updated };
-      });
       
-      if (updated) {
-          if (user?.traktToken) {
-              const action = (updated as Interaction).is_watched ? 'add' : 'remove';
-              const payload = { shows: [{ ids: { tmdb: showId }, seasons: [{ number: season, episodes: [{ number: episode }] }] }] };
-              syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
-          }
-          // SAVE TO NEW TABLE
-          await saveManualWatchedStatus(updated);
+      const current = interactions[key] || { tmdb_id: showId, media_type: 'episode', is_watched: false, rating: 0, season_number: season, episode_number: episode }; 
+      const newIsWatched = !current.is_watched;
+      const updated: Interaction = { 
+          ...current, 
+          is_watched: newIsWatched, 
+          watched_at: newIsWatched ? new Date().toISOString() : undefined 
+      }; 
+
+      manualOverridesRef.current[key] = newIsWatched;
+
+      setInteractions(prev => ({ ...prev, [key]: updated }));
+      
+      if (user?.traktToken) {
+          const action = updated.is_watched ? 'add' : 'remove';
+          const payload = { shows: [{ ids: { tmdb: showId }, seasons: [{ number: season, episodes: [{ number: episode }] }] }] };
+          syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
       }
+      
+      await saveManualWatchedStatus(updated);
   };
 
   const setRating = async (id: number, mediaType: 'tv' | 'movie', rating: number) => { 
