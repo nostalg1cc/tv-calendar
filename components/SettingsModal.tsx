@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Film, Ban, Sparkles, Key, Check, Globe, Download, Upload, RefreshCw, AlertTriangle, ShieldAlert, Monitor, Moon, Sun, Smartphone, User, Palette, Layers, Database, Lock, LogOut, ChevronRight, Type, CheckCircle2, QrCode, Scan, Merge, ArrowRight, Loader2, Link as LinkIcon, Zap, Bell, PenTool } from 'lucide-react';
+import { X, Eye, EyeOff, Film, Ban, Sparkles, Key, Check, Globe, Download, Upload, RefreshCw, AlertTriangle, ShieldAlert, Monitor, Moon, Sun, Smartphone, User, Palette, Layers, Database, Lock, LogOut, ChevronRight, Type, CheckCircle2, QrCode, Scan, Merge, ArrowRight, Loader2, Link as LinkIcon, Zap, Bell, PenTool, CalendarClock } from 'lucide-react';
 import { useAppContext, THEMES } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -383,15 +383,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                      
                      <section>
                          <h3 className="text-lg font-bold text-[var(--text-main)] mb-4">Region</h3>
-                         <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] p-4 rounded-xl flex items-center justify-between">
-                             <div className="flex items-center gap-3">
-                                 <div className="p-2 bg-zinc-800 dark:bg-zinc-800 bg-zinc-200 rounded-lg text-[var(--text-main)]"><Globe className="w-5 h-5" /></div>
-                                 <div className="text-sm font-medium text-[var(--text-main)]">Timezone</div>
+                         <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] p-4 rounded-xl flex flex-col gap-4">
+                             {/* Timezone Selector */}
+                             <div className="flex items-center justify-between">
+                                 <div className="flex items-center gap-3">
+                                     <div className="p-2 bg-zinc-800 dark:bg-zinc-800 bg-zinc-200 rounded-lg text-[var(--text-main)]"><Globe className="w-5 h-5" /></div>
+                                     <div className="text-sm font-medium text-[var(--text-main)]">Timezone</div>
+                                 </div>
+                                 <div className="relative w-48">
+                                    <select value={settings.timezone} onChange={(e) => updateSettings({ timezone: e.target.value })} className="w-full bg-black/5 dark:bg-black/30 border border-[var(--border-color)] rounded-lg py-2 pl-3 pr-8 text-sm text-[var(--text-main)] focus:outline-none appearance-none cursor-pointer">
+                                        {(Intl as any).supportedValuesOf('timeZone').map((tz: string) => (<option key={tz} value={tz}>{tz}</option>))}
+                                    </select>
+                                 </div>
                              </div>
-                             <div className="relative w-48">
-                                <select value={settings.timezone} onChange={(e) => updateSettings({ timezone: e.target.value })} className="w-full bg-black/5 dark:bg-black/30 border border-[var(--border-color)] rounded-lg py-2 pl-3 pr-8 text-sm text-[var(--text-main)] focus:outline-none appearance-none cursor-pointer">
-                                    {(Intl as any).supportedValuesOf('timeZone').map((tz: string) => (<option key={tz} value={tz}>{tz}</option>))}
-                                </select>
+
+                             <div className="h-px bg-[var(--border-color)]" />
+
+                             {/* Smart Date Toggle */}
+                             <div className="flex items-center justify-between">
+                                 <div className="flex items-start gap-3">
+                                     <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg"><CalendarClock className="w-5 h-5" /></div>
+                                     <div>
+                                         <div className="text-sm font-medium text-[var(--text-main)]">Smart Date Adjustment</div>
+                                         <div className="text-xs text-[var(--text-muted)] max-w-[200px]">
+                                             Adjust episode dates if they air late at night in origin country (e.g. US shows appearing next day in Europe).
+                                         </div>
+                                     </div>
+                                 </div>
+                                 <button onClick={() => updateSettings({ timeShift: !settings.timeShift })} className={`w-10 h-6 rounded-full transition-colors relative ${settings.timeShift ? 'bg-indigo-600' : 'bg-zinc-700'}`}>
+                                     <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.timeShift ? 'translate-x-4' : ''}`} />
+                                 </button>
                              </div>
                          </div>
                      </section>

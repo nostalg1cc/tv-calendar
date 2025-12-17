@@ -9,6 +9,7 @@ export interface TVShow {
   vote_average: number;
   number_of_seasons?: number;
   media_type: 'tv' | 'movie'; // distinct type
+  origin_country?: string[]; // Added for Timezone Logic
   seasons?: { season_number: number; poster_path: string | null; episode_count: number }[]; // Added for metadata caching
 }
 
@@ -103,6 +104,7 @@ export interface AppSettings {
   useSeason1Art: boolean; // Anti-Spoiler
   cleanGrid: boolean; // No Text Labels
   timezone?: string; // Region Preference
+  timeShift: boolean; // Smart Date Adjustment
   theme?: string; // Accent Color Theme
   customThemeColor?: string; // Hex Code for Custom Theme
   appDesign: 'default' | 'blackout'; // Deprecated in favor of baseTheme, kept for migration

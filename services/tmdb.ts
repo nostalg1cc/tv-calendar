@@ -1,3 +1,4 @@
+
 import { TVShow, Season, Video } from '../types';
 
 const BASE_URL = 'https://api.themoviedb.org/3';
@@ -105,7 +106,8 @@ export const getShowDetails = async (id: number): Promise<TVShow> => {
   const data = await fetchTMDB<any>(`/tv/${id}`);
   return {
       ...data,
-      media_type: 'tv'
+      media_type: 'tv',
+      origin_country: data.origin_country // Pass this through for timezone logic
   };
 };
 
@@ -140,7 +142,8 @@ export const getMovieDetails = async (id: number): Promise<TVShow> => {
     overview: data.overview,
     first_air_date: data.release_date,
     vote_average: data.vote_average,
-    media_type: 'movie'
+    media_type: 'movie',
+    origin_country: data.production_countries?.map((c: any) => c.iso_3166_1) || []
   };
 };
 
@@ -191,7 +194,8 @@ export const searchShows = async (query: string): Promise<TVShow[]> => {
       first_air_date: item.media_type === 'movie' ? item.release_date : item.first_air_date,
       vote_average: item.vote_average,
       number_of_seasons: undefined, // Explicitly undefined so logic fetches real details
-      media_type: item.media_type
+      media_type: item.media_type,
+      origin_country: item.origin_country || []
     }));
 };
 
@@ -207,7 +211,8 @@ export const getPopularShows = async (): Promise<TVShow[]> => {
             overview: item.overview,
             first_air_date: item.media_type === 'movie' ? item.release_date : item.first_air_date,
             vote_average: item.vote_average,
-            media_type: item.media_type
+            media_type: item.media_type,
+            origin_country: item.origin_country || []
         }));
 };
 
@@ -233,7 +238,8 @@ export const getCollection = async (
         overview: item.overview,
         first_air_date: mediaType === 'movie' ? item.release_date : item.first_air_date,
         vote_average: item.vote_average,
-        media_type: mediaType
+        media_type: mediaType,
+        origin_country: item.origin_country || []
       }));
 };
 
@@ -255,7 +261,8 @@ export const getRecommendations = async (id: number, mediaType: 'tv' | 'movie'):
           first_air_date: mediaType === 'movie' ? item.release_date : item.first_air_date,
           vote_average: item.vote_average,
           number_of_seasons: undefined, // Explicitly undefined
-          media_type: mediaType
+          media_type: mediaType,
+          origin_country: item.origin_country || []
         }));
   } catch (e) {
       console.warn("Failed to fetch recommendations", e);
@@ -294,7 +301,8 @@ export const getListDetails = async (listId: string): Promise<{ name: string; it
                 overview: item.overview,
                 first_air_date: item.media_type === 'movie' ? item.release_date : item.first_air_date,
                 vote_average: item.vote_average,
-                media_type: item.media_type
+                media_type: item.media_type,
+                origin_country: item.origin_country || []
             }));
             
         return { name: listName, items };
@@ -312,7 +320,8 @@ export const getListDetails = async (listId: string): Promise<{ name: string; it
                     overview: item.overview,
                     first_air_date: item.media_type === 'movie' ? item.release_date : item.first_air_date,
                     vote_average: item.vote_average,
-                    media_type: item.media_type
+                    media_type: item.media_type,
+                    origin_country: item.origin_country || []
                 }));
             return { name: data.name, items };
         } catch (v3Error) {

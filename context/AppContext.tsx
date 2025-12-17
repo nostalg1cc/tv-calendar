@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, ReactNo
 import { User, TVShow, Episode, AppSettings, SubscribedList, Reminder, Interaction, TraktProfile } from '../types';
 import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails, setApiToken } from '../services/tmdb';
 import { get, set, del } from 'idb-keyval';
-import { format, subYears, parseISO, isSameDay, subMinutes } from 'date-fns';
+import { format, subYears, parseISO, isSameDay, subMinutes, addDays } from 'date-fns';
 import LZString from 'lz-string';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { getDeviceCode, pollToken, getWatchedHistory, getTraktProfile, getShowProgress, syncHistory } from '../services/trakt';
@@ -77,6 +77,20 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+// Timezone map for major countries to use as origin estimation
+const COUNTRY_TIMEZONES: Record<string, string> = {
+    'US': 'America/New_York',
+    'GB': 'Europe/London',
+    'JP': 'Asia/Tokyo',
+    'KR': 'Asia/Seoul',
+    'CA': 'America/Toronto',
+    'AU': 'Australia/Sydney',
+    'DE': 'Europe/Berlin',
+    'FR': 'Europe/Paris',
+    'BR': 'America/Sao_Paulo',
+    'IN': 'Asia/Kolkata',
+};
+
 const DEFAULT_SETTINGS: AppSettings = {
   spoilerConfig: { images: false, overview: false, title: false, includeMovies: false },
   hideTheatrical: false,
@@ -91,6 +105,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   useSeason1Art: false,
   cleanGrid: false,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  timeShift: false, // Default off to prevent confusion, user opts-in
   theme: 'default',
   customThemeColor: '#6366f1',
   appDesign: 'default',
@@ -124,6 +139,25 @@ const getLocalPrefs = (): Partial<AppSettings> => {
   }
 };
 
+// Helper to get offset in minutes for a timezone
+const getTimezoneOffsetMinutes = (timeZone: string): number => {
+    try {
+        const now = new Date();
+        const str = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).format(now);
+        // Extracts GMT-05:00 or GMT+01:00
+        const match = str.match(/GMT([+-])(\d{2}):(\d{2})/);
+        if (match) {
+            const sign = match[1] === '+' ? 1 : -1;
+            const hours = parseInt(match[2]);
+            const minutes = parseInt(match[3]);
+            return sign * (hours * 60 + minutes);
+        }
+    } catch (e) {
+        // Fallback or invalid timezone
+    }
+    return 0; 
+};
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => { try { return localStorage.getItem('tv_calendar_user') ? JSON.parse(localStorage.getItem('tv_calendar_user')!) : null; } catch { return null; } });
   useEffect(() => { if (user?.tmdbKey) setApiToken(user.tmdbKey); }, [user]);
@@ -153,6 +187,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (!synced.baseTheme) synced.baseTheme = synced.appDesign === 'blackout' ? 'oled' : 'cosmic';
           if (!synced.appFont) synced.appFont = 'inter';
           if (!synced.reminderStrategy) synced.reminderStrategy = 'ask';
+          if (synced.timeShift === undefined) synced.timeShift = false;
 
           const local = getLocalPrefs();
           return { ...DEFAULT_SETTINGS, ...synced, ...local, compactCalendar: true }; 
@@ -405,10 +440,157 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loadArchivedEvents = async () => { if (!user?.isCloud || !supabase || !user.id) return; setLoading(true); try { const oneYearAgo = subYears(new Date(), 1).toISOString(); const { data, error } = await supabase.from('user_calendar_events').select('*').eq('user_id', user.id).lt('air_date', oneYearAgo); if (error) throw error; if (data && data.length > 0) { setEpisodes(prev => { const next = { ...prev }; data.forEach((row: any) => { const dateKey = row.air_date; if (!dateKey) return; if (!next[dateKey]) next[dateKey] = []; const exists = next[dateKey].some(e => e.show_id === row.tmdb_id && e.season_number === row.season_number && e.episode_number === row.episode_number); if (!exists) { next[dateKey].push(mapDbToEpisode(row)); } }); return next; }); } } catch (e) { console.error("Archive load failed", e); } finally { setLoading(false); } };
   const saveToCloudCalendar = async (episodesList: Episode[], userId: string) => { if (!supabase || episodesList.length === 0) return; const rows = episodesList.map(ep => ({ user_id: userId, tmdb_id: ep.show_id || ep.id, media_type: ep.is_movie ? 'movie' : 'tv', season_number: ep.season_number ?? -1, episode_number: ep.episode_number ?? -1, title: ep.show_name || ep.name || '', episode_name: ep.name || '', overview: ep.overview || '', air_date: ep.air_date, poster_path: ep.poster_path || null, backdrop_path: ep.still_path || null, vote_average: ep.vote_average || 0, release_type: ep.release_type || null })); const batchSize = 100; for (let i = 0; i < rows.length; i += batchSize) { const batch = rows.slice(i, i + batchSize); const { error } = await supabase.from('user_calendar_events').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); if (error) { console.error('Supabase Upsert Failed:', error.message, error.details); } } };
   const performFullSync = async () => { if (!user?.isCloud || !supabase || !user.id) return; setIsSyncing(true); setLoading(true); try { const uniqueItems = [...allTrackedShows]; setSyncProgress({ current: 0, total: uniqueItems.length }); await supabase.from('user_calendar_events').delete().eq('user_id', user.id); let processedCount = 0; const batchSize = 3; let fullEpisodeList: Episode[] = []; for (let i = 0; i < uniqueItems.length; i += batchSize) { const batch = uniqueItems.slice(i, i + batchSize); const batchEpisodes: Episode[] = []; await Promise.all(batch.map(async (item) => { try { if (item.media_type === 'movie') { const releaseDates = await getMovieReleaseDates(item.id); releaseDates.forEach(rel => { batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); }); } else { const details = await getShowDetails(item.id); const seasonsMeta = details.seasons || []; for (const sMeta of seasonsMeta) { try { const sData = await getSeasonDetails(item.id, sMeta.season_number); if (sData.episodes) { sData.episodes.forEach(ep => { if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: details.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false }); }); } } catch (e) { console.error(`Error fetching season ${sMeta.season_number}`, e); } } } } catch (err) { console.error(`Error processing ${item.name}`, err); } })); if (batchEpisodes.length > 0) { fullEpisodeList = [...fullEpisodeList, ...batchEpisodes]; await saveToCloudCalendar(batchEpisodes, user.id); } processedCount += batch.length; setSyncProgress(prev => ({ ...prev, current: processedCount })); } await supabase.from('profiles').update({ full_sync_completed: true, last_full_sync: new Date().toISOString() }).eq('id', user.id); const newEpisodesMap: Record<string, Episode[]> = {}; fullEpisodeList.forEach(ep => { if(!ep.air_date) return; if(!newEpisodesMap[ep.air_date]) newEpisodesMap[ep.air_date] = []; newEpisodesMap[ep.air_date].push(ep); }); await set(DB_KEY_EPISODES, newEpisodesMap); setEpisodes(newEpisodesMap); setFullSyncRequired(false); } catch (e) { console.error("Full Sync Failed", e); alert("Sync failed. Please check console for details."); } finally { setIsSyncing(false); setLoading(false); } };
-  const refreshEpisodes = useCallback(async (force = false) => { if (fullSyncRequired) return; if (!user || (!user.tmdbKey && !user.isCloud)) { setLoading(false); return; } const lastUpdate = await get<number>(DB_KEY_META); const now = Date.now(); if (!user.isCloud && !force && lastUpdate && (now - lastUpdate < CACHE_DURATION)) { const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); if (cachedEps && Object.keys(cachedEps).length > 0) { setEpisodes(cachedEps); setLoading(false); return; } } const itemsToProcess = [...allTrackedShows]; if (itemsToProcess.length === 0) { setEpisodes({}); setLoading(false); return; } if (Object.keys(episodes).length === 0) setLoading(true); setIsSyncing(true); try { const processedIds = new Set<number>(); const uniqueItems: TVShow[] = []; itemsToProcess.forEach(item => { if (!processedIds.has(item.id)) { processedIds.add(item.id); uniqueItems.push(item); } }); setSyncProgress({ current: 0, total: uniqueItems.length }); const mergeNewEpisodes = (newEps: Episode[]) => { setEpisodes(prev => { const next = { ...prev }; newEps.forEach(ep => { if (!ep.air_date) return; const dateKey = ep.air_date; const existing = next[dateKey] || []; const others = existing.filter(e => !(e.show_id === ep.show_id && e.episode_number === ep.episode_number && e.season_number === ep.season_number)); next[dateKey] = [...others, ep]; }); return next; }); }; let processedCount = 0; const oneYearAgo = subYears(new Date(), 1); while (processedCount < uniqueItems.length) { const currentBatchSize = 5; const batch = uniqueItems.slice(processedCount, processedCount + currentBatchSize); const batchEpisodes: Episode[] = []; await Promise.all(batch.map(async (item) => { try { if (item.media_type === 'movie') { const releaseDates = await getMovieReleaseDates(item.id); releaseDates.forEach(rel => { batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); }); } else { const details = await getShowDetails(item.id); const seasonsMeta = details.seasons || []; const sortedSeasons = [...seasonsMeta].sort((a, b) => b.season_number - a.season_number); for (const sMeta of sortedSeasons) { try { const sData = await getSeasonDetails(item.id, sMeta.season_number); if (sData.episodes && sData.episodes.length > 0) { const lastEpDate = sData.episodes[sData.episodes.length - 1].air_date; sData.episodes.forEach(ep => { if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: details.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false }); }); if (lastEpDate && parseISO(lastEpDate) < oneYearAgo) break; } } catch (e) {} } } } catch (error) { console.error(error); } })); mergeNewEpisodes(batchEpisodes); if (user.isCloud && supabase && user.id) await saveToCloudCalendar(batchEpisodes, user.id); processedCount += currentBatchSize; setSyncProgress(prev => ({ ...prev, current: Math.min(processedCount, uniqueItems.length) })); } setEpisodes(current => { set(DB_KEY_EPISODES, current); return current; }); await set(DB_KEY_META, Date.now()); } catch (e) { console.error(e); } finally { setLoading(false); setIsSyncing(false); } }, [user, allTrackedShows, watchlist, episodes, fullSyncRequired]);
+  
+  // Adjusted Date Helper
+  const getAdjustedDate = (airDate: string, originCountries?: string[]): string => {
+      if (!settings.timeShift || !originCountries || originCountries.length === 0 || !settings.timezone) return airDate;
+      
+      const originCountry = originCountries[0];
+      const originTz = COUNTRY_TIMEZONES[originCountry];
+      
+      if (!originTz) return airDate;
+
+      // Simple Heuristic:
+      // If we assume a 20:00 (8 PM) air time in origin country.
+      // We calculate offset difference between User TZ and Origin TZ.
+      const originOffset = getTimezoneOffsetMinutes(originTz);
+      const userOffset = getTimezoneOffsetMinutes(settings.timezone);
+      
+      const diffMinutes = userOffset - originOffset;
+      const airTimeMinutes = 20 * 60; // 20:00 = 1200 mins
+      
+      const adjustedTimeMinutes = airTimeMinutes + diffMinutes;
+      
+      if (adjustedTimeMinutes >= 24 * 60) {
+          // It pushed to next day
+          return format(addDays(parseISO(airDate), 1), 'yyyy-MM-dd');
+      } else if (adjustedTimeMinutes < 0) {
+          // It pulled to previous day
+          return format(addDays(parseISO(airDate), -1), 'yyyy-MM-dd');
+      }
+      
+      return airDate;
+  };
+
+  const refreshEpisodes = useCallback(async (force = false) => { 
+      if (fullSyncRequired) return; 
+      if (!user || (!user.tmdbKey && !user.isCloud)) { setLoading(false); return; } 
+      
+      const lastUpdate = await get<number>(DB_KEY_META); 
+      const now = Date.now(); 
+      if (!user.isCloud && !force && lastUpdate && (now - lastUpdate < CACHE_DURATION)) { 
+          const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); 
+          if (cachedEps && Object.keys(cachedEps).length > 0) { 
+              setEpisodes(cachedEps); 
+              setLoading(false); 
+              return; 
+          } 
+      } 
+      
+      const itemsToProcess = [...allTrackedShows]; 
+      if (itemsToProcess.length === 0) { setEpisodes({}); setLoading(false); return; } 
+      if (Object.keys(episodes).length === 0) setLoading(true); 
+      
+      setIsSyncing(true); 
+      
+      try { 
+          const processedIds = new Set<number>(); 
+          const uniqueItems: TVShow[] = []; 
+          itemsToProcess.forEach(item => { if (!processedIds.has(item.id)) { processedIds.add(item.id); uniqueItems.push(item); } }); 
+          setSyncProgress({ current: 0, total: uniqueItems.length }); 
+          
+          const mergeNewEpisodes = (newEps: Episode[], originCountries?: string[]) => { 
+              setEpisodes(prev => { 
+                  const next = { ...prev }; 
+                  newEps.forEach(ep => { 
+                      if (!ep.air_date) return; 
+                      // Apply Smart Adjustment Logic
+                      const dateKey = getAdjustedDate(ep.air_date, originCountries); 
+                      
+                      const existing = next[dateKey] || []; 
+                      const others = existing.filter(e => !(e.show_id === ep.show_id && e.episode_number === ep.episode_number && e.season_number === ep.season_number)); 
+                      next[dateKey] = [...others, ep]; 
+                  }); 
+                  return next; 
+              }); 
+          }; 
+          
+          let processedCount = 0; 
+          const oneYearAgo = subYears(new Date(), 1); 
+          
+          while (processedCount < uniqueItems.length) { 
+              const currentBatchSize = 5; 
+              const batch = uniqueItems.slice(processedCount, processedCount + currentBatchSize); 
+              
+              await Promise.all(batch.map(async (item) => { 
+                  try { 
+                      const batchEpisodes: Episode[] = [];
+                      if (item.media_type === 'movie') { 
+                          const releaseDates = await getMovieReleaseDates(item.id); 
+                          releaseDates.forEach(rel => { 
+                              batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); 
+                          }); 
+                      } else { 
+                          // Re-fetch details to ensure we have origin_country if missing in listing
+                          let details = item;
+                          if(!item.origin_country) {
+                              try { details = await getShowDetails(item.id); } catch(e) {}
+                          } else {
+                              // If we already have list item, fetch seasons meta
+                              try { const full = await getShowDetails(item.id); details = full; } catch(e) {}
+                          }
+
+                          const seasonsMeta = details.seasons || []; 
+                          const sortedSeasons = [...seasonsMeta].sort((a, b) => b.season_number - a.season_number); 
+                          
+                          for (const sMeta of sortedSeasons) { 
+                              try { 
+                                  const sData = await getSeasonDetails(item.id, sMeta.season_number); 
+                                  if (sData.episodes && sData.episodes.length > 0) { 
+                                      const lastEpDate = sData.episodes[sData.episodes.length - 1].air_date; 
+                                      sData.episodes.forEach(ep => { 
+                                          if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: details.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false }); 
+                                      }); 
+                                      if (lastEpDate && parseISO(lastEpDate) < oneYearAgo) break; 
+                                  } 
+                              } catch (e) {} 
+                          } 
+                          
+                          mergeNewEpisodes(batchEpisodes, details.origin_country); 
+                      } 
+                      
+                      // For movies, release dates are usually specific to region if fetched correctly, 
+                      // but if using simple date, we skip smart adjust or apply it if generic. 
+                      // Currently `mergeNewEpisodes` is called separately for TV above. 
+                      if (item.media_type === 'movie' && batchEpisodes.length > 0) {
+                           mergeNewEpisodes(batchEpisodes, item.origin_country);
+                      }
+
+                  } catch (error) { 
+                      console.error(error); 
+                  } 
+              })); 
+              
+              // Only save raw episodes to cloud (without timezone shift logic applied to DB rows to avoid corruption)
+              // Actually for cloud calendar view, we might want to store raw dates and shift on client. 
+              // Currently `saveToCloudCalendar` saves `air_date`. 
+              
+              processedCount += currentBatchSize; 
+              setSyncProgress(prev => ({ ...prev, current: Math.min(processedCount, uniqueItems.length) })); 
+          } 
+          
+          setEpisodes(current => { set(DB_KEY_EPISODES, current); return current; }); 
+          await set(DB_KEY_META, Date.now()); 
+      } catch (e) { 
+          console.error(e); 
+      } finally { 
+          setLoading(false); 
+          setIsSyncing(false); 
+      } 
+  }, [user, allTrackedShows, watchlist, fullSyncRequired, settings.timeShift, settings.timezone]); // Add Timezone dependencies
 
   const login = (username: string, apiKey: string) => { const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false }; setUser(newUser); setApiToken(apiKey); localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); };
-  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile, fullSyncCompleted: profile.full_sync_completed }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) { const local = getLocalPrefs(); const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; setSettings(mergedSettings); } const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); if (remoteWatchlist) { const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; setWatchlist(loadedWatchlist); } const { data: remoteSubs } = await supabase.from('subscriptions').select('*'); if (remoteSubs) { const loadedLists: SubscribedList[] = []; for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) { console.error(e); } } setSubscribedLists(loadedLists); } const { data: remoteInteractions } = await supabase.from('interactions').select('*'); if (remoteInteractions) { const intMap: Record<string, Interaction> = {}; (remoteInteractions as any[]).forEach((i) => { if (i.media_type === 'episode') { intMap[`episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}`] = { tmdb_id: i.tmdb_id, media_type: 'episode', is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at }; } else { intMap[`${i.media_type}-${i.tmdb_id}`] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, watched_at: i.watched_at }; } }); setInteractions(intMap); } const { data: remoteReminders } = await supabase.from('reminders').select('*'); if (remoteReminders) { setReminders(remoteReminders.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes }))); } if (!profile.full_sync_completed) { setFullSyncRequired(true); setLoading(false); } else { setLoading(true); if (newUser.id) { const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); if (cached) setEpisodes(cached); await loadCloudCalendar(newUser.id); } setLoading(false); } } };
+  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile, fullSyncCompleted: profile.full_sync_completed }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) { const local = getLocalPrefs(); const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; if (mergedSettings.timeShift === undefined) mergedSettings.timeShift = false; setSettings(mergedSettings); } const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); if (remoteWatchlist) { const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; setWatchlist(loadedWatchlist); } const { data: remoteSubs } = await supabase.from('subscriptions').select('*'); if (remoteSubs) { const loadedLists: SubscribedList[] = []; for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) { console.error(e); } } setSubscribedLists(loadedLists); } const { data: remoteInteractions } = await supabase.from('interactions').select('*'); if (remoteInteractions) { const intMap: Record<string, Interaction> = {}; (remoteInteractions as any[]).forEach((i) => { if (i.media_type === 'episode') { intMap[`episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}`] = { tmdb_id: i.tmdb_id, media_type: 'episode', is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at }; } else { intMap[`${i.media_type}-${i.tmdb_id}`] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, watched_at: i.watched_at }; } }); setInteractions(intMap); } const { data: remoteReminders } = await supabase.from('reminders').select('*'); if (remoteReminders) { setReminders(remoteReminders.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes }))); } if (!profile.full_sync_completed) { setFullSyncRequired(true); setLoading(false); } else { setLoading(true); if (newUser.id) { const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); if (cached) setEpisodes(cached); await loadCloudCalendar(newUser.id); } setLoading(false); } } };
   const reloadAccount = async () => { if (isSyncing) return; setLoading(true); try { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); if (user?.isCloud && supabase) { const { data: { session } } = await supabase.auth.getSession(); if (session) { await loginCloud(session); } else { logout(); } } else { await refreshEpisodes(true); } } catch (e) { console.error("Reload failed", e); setLoading(false); } };
   const updateUserKey = async (apiKey: string) => { if (user) { const updatedUser = { ...user, tmdbKey: apiKey }; setUser(updatedUser); setApiToken(apiKey); if (user.isCloud && supabase) { await supabase.from('profiles').update({ tmdb_key: apiKey }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } };
   const updateSettings = async (newSettings: Partial<AppSettings>) => { setSettings(prev => { const updated = { ...prev, ...newSettings, compactCalendar: true }; const localKeys = ['viewMode', 'mobileNavLayout']; const localPrefs = getLocalPrefs(); const prefsToSaveLocally: any = { ...localPrefs }; let hasLocalChanges = false; localKeys.forEach(k => { if (k in newSettings) { prefsToSaveLocally[k] = newSettings[k as keyof AppSettings]; hasLocalChanges = true; } }); if (hasLocalChanges) { localStorage.setItem('tv_calendar_local_prefs', JSON.stringify(prefsToSaveLocally)); } const settingsToSync = { ...updated }; localKeys.forEach(k => delete (settingsToSync as any)[k]); if (user?.isCloud && supabase) { supabase.from('profiles').update({ settings: settingsToSync }).eq('id', user.id).then(); } localStorage.setItem('tv_calendar_settings', JSON.stringify(settingsToSync)); return updated; }); };
