@@ -88,21 +88,11 @@ const Navbar: React.FC = () => {
                 ${isCollapsed ? 'w-20' : 'w-72'}
             `}
         >
-            {/* Header / Logo */}
-            <div className={`h-20 flex items-center ${isCollapsed ? 'justify-center' : 'px-6'}`}>
-                <div className="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                    <Zap className="w-6 h-6 text-white fill-white" />
-                </div>
-                {!isCollapsed && (
-                    <div className="ml-3 animate-fade-in">
-                        <h1 className="font-bold text-lg leading-none tracking-tight">TV Calendar</h1>
-                        <p className="text-[10px] text-zinc-500 font-mono mt-1">CLASSIC V1</p>
-                    </div>
-                )}
-            </div>
+            {/* Spacer for top padding since logo is gone */}
+            <div className="h-6" />
 
             {/* Nav Links */}
-            <nav className="flex-1 flex flex-col gap-2 px-3 py-6 overflow-y-auto scrollbar-hide">
+            <nav className="flex-1 flex flex-col gap-2 px-3 py-2 overflow-y-auto scrollbar-hide">
                 <NavItem to="/" icon={Calendar} label="Calendar" exact />
                 <NavItem to="/discover" icon={Compass} label="Discover" />
                 <NavItem to="/watchlist" icon={List} label="My Library" />

@@ -4,10 +4,9 @@ import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths, addDays, isSameDay, subYears
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw, Filter, Tv, Film, Check, History, GalleryVertical, Layers, Clock, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw, Filter, Tv, Film, Check, History, GalleryVertical, Layers, Clock, Star, CheckCircle2, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import EpisodeModal from '../components/EpisodeModal';
-import { getImageUrl } from '../services/tmdb';
+import { getImageUrl, getBackdropUrl } from '../services/tmdb';
 import { Episode } from '../types';
 
 const CalendarPage: React.FC = () => {
@@ -17,7 +16,11 @@ const CalendarPage: React.FC = () => {
   const currentDate = calendarDate;
   const setCurrentDate = setCalendarDate;
 
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  // Selected Day State (Defaults to Today)
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  
+  // Mobile Drawer State
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -37,7 +40,18 @@ const CalendarPage: React.FC = () => {
   };
   const goToToday = () => {
       setCalendarScrollPos(0);
-      setCurrentDate(new Date());
+      const now = new Date();
+      setCurrentDate(now);
+      setSelectedDate(now); // Also select today in the agenda
+  };
+
+  // Click Handler
+  const handleDayClick = (day: Date) => {
+      setSelectedDate(day);
+      // Open drawer on mobile/tablet (xl breakpoint is 1280px)
+      if (window.innerWidth < 1280) {
+          setIsDrawerOpen(true);
+      }
   };
 
   // Check if we are in "Archived" territory (more than 1 year ago)
@@ -231,72 +245,102 @@ const CalendarPage: React.FC = () => {
       );
   };
 
-  const TodayAgenda = () => {
-      const today = new Date();
-      const todaysEps = getEpisodesForDay(today);
-      
-      return (
-          <div className="flex flex-col h-full overflow-hidden">
-              <div className="p-6 border-b border-[var(--border-color)]">
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-indigo-400" />
-                      Today's Agenda
-                  </h3>
-                  <p className="text-xs text-zinc-500 mt-1">{format(today, 'EEEE, MMMM do')}</p>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
-                  {todaysEps.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-zinc-500 opacity-60">
-                          <CalendarIcon className="w-10 h-10 mb-3 stroke-1" />
-                          <p className="text-sm">No releases today.</p>
-                      </div>
-                  ) : (
-                      todaysEps.map(ep => {
-                          const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
-                          const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
-                          const isWatched = interactions[watchedKey]?.is_watched;
+  const AgendaContent = () => {
+      const selectedDayEpisodes = getEpisodesForDay(selectedDate);
+      const isToday = isSameDay(selectedDate, new Date());
 
-                          return (
-                              <div key={`${ep.id}`} className={`surface-card p-3 rounded-xl border border-[var(--border-color)] flex gap-3 group transition-all hover:border-indigo-500/30 ${isWatched ? 'opacity-60' : ''}`}>
-                                  <div className="w-12 h-16 shrink-0 bg-black rounded-lg overflow-hidden relative shadow-sm">
-                                      <img src={getImageUrl(posterSrc)} className={`w-full h-full object-cover ${isWatched ? 'grayscale' : ''}`} alt="" />
-                                  </div>
-                                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                      <h4 className={`text-sm font-bold truncate leading-tight ${isWatched ? 'text-zinc-500 line-through' : 'text-zinc-200 group-hover:text-white'}`}>
-                                          {ep.show_name}
-                                      </h4>
-                                      <div className="flex items-center gap-2 mt-1 text-xs text-zinc-500">
-                                          {ep.is_movie ? (
-                                              <span className="text-[10px] uppercase font-bold border border-zinc-700 px-1 rounded">Movie</span>
-                                          ) : (
-                                              <span className="font-mono text-indigo-400">S{ep.season_number} E{ep.episode_number}</span>
-                                          )}
-                                          <span className="truncate max-w-[80px]">• {ep.name}</span>
-                                      </div>
-                                  </div>
-                                  <div className="flex flex-col justify-center">
-                                      <button 
-                                          onClick={(e) => {
-                                              e.stopPropagation();
-                                              if (ep.show_id) {
-                                                  if (ep.is_movie) toggleWatched(ep.show_id, 'movie');
-                                                  else toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
-                                              }
-                                          }}
-                                          className={`p-2 rounded-full transition-colors ${isWatched ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-600 hover:text-white hover:bg-white/10'}`}
-                                          title={isWatched ? "Mark Unwatched" : "Mark Watched"}
-                                      >
-                                          <Check className="w-4 h-4" />
-                                      </button>
-                                  </div>
-                              </div>
-                          )
-                      })
-                  )}
-              </div>
-          </div>
-      );
+      return (
+        <div className="flex flex-col h-full overflow-hidden">
+            {/* Header */}
+            <div className="h-20 flex flex-col justify-center px-6 border-b border-white/5 shrink-0 bg-[var(--bg-panel)]/30 backdrop-blur-md">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-indigo-400" />
+                    {isToday ? "Today's Agenda" : format(selectedDate, 'EEEE, MMM do')}
+                </h2>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                    {selectedDayEpisodes.length} {selectedDayEpisodes.length === 1 ? 'Release' : 'Releases'} scheduled
+                </p>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                {selectedDayEpisodes.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-[var(--text-muted)] opacity-50">
+                        <CalendarIcon className="w-12 h-12 mb-4 stroke-1" />
+                        <p className="text-sm">No releases for this day.</p>
+                    </div>
+                ) : (
+                    selectedDayEpisodes.map(ep => {
+                        const poster = getImageUrl(ep.poster_path || ep.still_path);
+                        const backdrop = getBackdropUrl(ep.backdrop_path || ep.show_backdrop_path);
+                        const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+                        const isWatched = interactions[watchedKey]?.is_watched;
+
+                        return (
+                            <div key={`${ep.id}`} className="group relative bg-[var(--bg-main)] border border-white/5 rounded-2xl overflow-hidden shadow-lg transition-all hover:border-indigo-500/30">
+                                {/* Cinematic Backdrop Header */}
+                                <div className="h-24 relative">
+                                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${backdrop})` }} />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-main)] to-transparent" />
+                                    <div className="absolute top-2 right-2">
+                                        <div className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border ${ep.is_movie ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/20' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/20'}`}>
+                                            {ep.is_movie ? 'Movie' : 'Episode'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Content */}
+                                <div className="p-4 relative -mt-8">
+                                    <div className="flex gap-4">
+                                        <div className="w-20 h-28 shrink-0 relative bg-black rounded-lg shadow-2xl border border-white/10 overflow-hidden">
+                                            <img src={poster} className="w-full h-full object-cover" alt="" />
+                                        </div>
+                                        <div className="flex-1 min-w-0 pt-8">
+                                            <h3 className={`font-bold text-white leading-tight line-clamp-2 ${isWatched ? 'line-through text-[var(--text-muted)]' : ''}`}>
+                                                {ep.show_name}
+                                            </h3>
+                                            <div className="text-xs text-[var(--text-muted)] mt-1 flex items-center gap-2">
+                                                {!ep.is_movie && <span className="font-mono text-indigo-400">S{ep.season_number} E{ep.episode_number}</span>}
+                                                <span className="flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500" /> {ep.vote_average.toFixed(1)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <h4 className="text-sm font-bold text-white mb-1">{ep.name}</h4>
+                                        <p className="text-xs text-[var(--text-muted)] line-clamp-3 leading-relaxed">
+                                            {ep.overview || "No overview available."}
+                                        </p>
+                                    </div>
+
+                                    {/* Action Footer */}
+                                    <div className="mt-4 pt-4 border-t border-white/5 flex gap-2">
+                                        <button 
+                                            onClick={() => {
+                                                if (ep.show_id) {
+                                                    if (ep.is_movie) toggleWatched(ep.show_id, 'movie');
+                                                    else toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
+                                                }
+                                            }}
+                                            className={`
+                                                flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all
+                                                ${isWatched 
+                                                    ? 'bg-white/5 text-[var(--text-muted)] hover:bg-white/10' 
+                                                    : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20'}
+                                            `}
+                                        >
+                                            {isWatched ? <CheckCircle2 className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                                            {isWatched ? 'Watched' : 'Mark Watched'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })
+                )}
+            </div>
+        </div>
+      )
   };
 
   return (
@@ -410,6 +454,7 @@ const CalendarPage: React.FC = () => {
                                     const dayEpisodes = getEpisodesForDay(day);
                                     const isCurrentMonth = isSameMonth(day, monthStart);
                                     const isDayToday = isTodayInZone(day);
+                                    const isSelected = isSameDay(day, selectedDate);
                                     const hasEpisodes = dayEpisodes.length > 0;
                                     const isSingle = dayEpisodes.length === 1;
                                     
@@ -423,13 +468,13 @@ const CalendarPage: React.FC = () => {
                                     return (
                                         <div
                                             key={dateKey}
-                                            onClick={() => hasEpisodes && setSelectedDate(day)}
+                                            onClick={() => handleDayClick(day)}
                                             className={`
-                                                relative group flex flex-col transition-colors overflow-hidden
+                                                relative group flex flex-col transition-all overflow-hidden cursor-pointer
                                                 min-h-[60px] md:min-h-0
                                                 ${borderClasses}
                                                 ${!isCurrentMonth ? 'bg-black/20 opacity-50' : ''}
-                                                ${hasEpisodes ? 'cursor-pointer hover:bg-white/5' : ''}
+                                                ${isSelected ? 'bg-indigo-500/10' : 'hover:bg-white/5'}
                                             `}
                                         >
                                             <div className={`
@@ -495,6 +540,10 @@ const CalendarPage: React.FC = () => {
                                             {isDayToday && (
                                                 <div className="absolute inset-0 border-[2px] border-indigo-500 pointer-events-none z-30 shadow-[inset_0_0_10px_rgba(99,102,241,0.2)]" />
                                             )}
+                                            
+                                            {isSelected && !isDayToday && (
+                                                <div className="absolute inset-0 border border-indigo-500/50 pointer-events-none z-30" />
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -545,7 +594,7 @@ const CalendarPage: React.FC = () => {
                                                         return (
                                                             <div 
                                                                 key={`${ep.show_id}-${ep.id}`}
-                                                                onClick={() => setSelectedDate(day)}
+                                                                onClick={() => handleDayClick(day)}
                                                                 className={`surface-card rounded-xl p-3 flex gap-3 cursor-pointer group border transition-colors ${isWatched ? 'bg-[var(--bg-panel)] border-[var(--border-color)] opacity-60 hover:opacity-100' : 'bg-[var(--bg-panel)] border-[var(--border-color)] hover:border-indigo-500/30'}`}
                                                             >
                                                                 <div className="relative w-12 h-16 shrink-0 rounded-md overflow-hidden bg-black shadow-sm">
@@ -685,7 +734,7 @@ const CalendarPage: React.FC = () => {
                                                                     {/* Action Bar */}
                                                                     <div className="grid grid-cols-2 gap-2 mt-auto">
                                                                         <button 
-                                                                            onClick={() => setSelectedDate(day)}
+                                                                            onClick={() => handleDayClick(day)}
                                                                             className="py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center"
                                                                         >
                                                                             Details
@@ -732,18 +781,27 @@ const CalendarPage: React.FC = () => {
             )}
         </div>
 
-        {/* Right Sidebar (Desktop Only) - V1 Style */}
+        {/* Right Sidebar (Desktop Only) - Agenda Panel */}
         <div className="hidden xl:flex w-80 flex-col rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)]/30 backdrop-blur-md shrink-0 overflow-hidden">
-            <TodayAgenda />
+            <AgendaContent />
         </div>
 
-        {selectedDate && (
-            <EpisodeModal 
-            isOpen={!!selectedDate} 
-            onClose={() => setSelectedDate(null)} 
-            episodes={getEpisodesForDay(selectedDate)}
-            date={selectedDate}
-            />
+        {/* Mobile Drawer (Bottom Sheet) */}
+        {isDrawerOpen && (
+            <div className="xl:hidden fixed inset-0 z-[100] flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-zinc-900 border-t border-white/10 rounded-t-3xl shadow-2xl h-[75vh] flex flex-col animate-fade-in-up">
+                    <div className="flex justify-center pt-3 pb-1" onClick={() => setIsDrawerOpen(false)}>
+                        <div className="w-12 h-1.5 bg-zinc-700 rounded-full" />
+                    </div>
+                    <div className="flex justify-end px-4">
+                        <button onClick={() => setIsDrawerOpen(false)} className="p-2 bg-zinc-800 rounded-full text-zinc-400">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                    
+                    <AgendaContent />
+                </div>
+            </div>
         )}
     </div>
   );
