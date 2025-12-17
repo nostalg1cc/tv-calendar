@@ -19,6 +19,7 @@ interface AppContextType {
   allTrackedShows: TVShow[]; 
   addToWatchlist: (show: TVShow) => Promise<void>;
   removeFromWatchlist: (showId: number) => void;
+  unhideShow: (showId: number) => void;
   batchAddShows: (shows: TVShow[]) => void; 
   batchSubscribe: (lists: SubscribedList[]) => void; 
   subscribeToList: (listId: string) => Promise<void>;
@@ -111,7 +112,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   appDesign: 'default',
   baseTheme: 'cosmic', 
   appFont: 'inter',
-  reminderStrategy: 'ask'
+  reminderStrategy: 'ask',
+  hiddenIds: []
 };
 
 export const THEMES: Record<string, Record<string, string>> = {
@@ -188,6 +190,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (!synced.appFont) synced.appFont = 'inter';
           if (!synced.reminderStrategy) synced.reminderStrategy = 'ask';
           if (synced.timeShift === undefined) synced.timeShift = false;
+          if (!synced.hiddenIds) synced.hiddenIds = [];
 
           const local = getLocalPrefs();
           return { ...DEFAULT_SETTINGS, ...synced, ...local, compactCalendar: true }; 
@@ -329,12 +332,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           let newInteractions: Record<string, Interaction> = { ...interactions };
           let newShowsToAdd: TVShow[] = [];
           const currentShowIds = new Set(allTrackedShows.map(s => s.id));
+          const hiddenIds = new Set(settings.hiddenIds || []);
           
           for (const item of movieHistory) { 
               const tmdbId = item.movie.ids.tmdb; 
               if (!tmdbId) continue; 
               newInteractions[`movie-${tmdbId}`] = { tmdb_id: tmdbId, media_type: 'movie', is_watched: true, rating: 0, watched_at: item.last_watched_at }; 
-              if (!currentShowIds.has(tmdbId)) { try { const details = await getMovieDetails(tmdbId); newShowsToAdd.push(details); currentShowIds.add(tmdbId); } catch (e) {} } 
+              
+              // Only add to library if not hidden and not already tracked
+              if (!hiddenIds.has(tmdbId) && !currentShowIds.has(tmdbId)) { 
+                  try { const details = await getMovieDetails(tmdbId); newShowsToAdd.push(details); currentShowIds.add(tmdbId); } catch (e) {} 
+              } 
           }
 
           const sortedShows = showHistory.sort((a: any, b: any) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime());
@@ -343,7 +351,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           for (const item of recentShows) { 
               const tmdbId = item.show.ids.tmdb; 
               if (!tmdbId) continue; 
-              if (!currentShowIds.has(tmdbId)) { try { const details = await getShowDetails(tmdbId); newShowsToAdd.push(details); currentShowIds.add(tmdbId); } catch (e) {} } 
+              
+              // Only add to library if not hidden and not already tracked
+              if (!hiddenIds.has(tmdbId) && !currentShowIds.has(tmdbId)) { 
+                  try { const details = await getShowDetails(tmdbId); newShowsToAdd.push(details); currentShowIds.add(tmdbId); } catch (e) {} 
+              } 
+              
               try { const progress = await getShowProgress(token, item.show.ids.trakt); if (progress && progress.seasons) { progress.seasons.forEach((season: any) => { season.episodes.forEach((ep: any) => { if (ep.completed) { const key = `episode-${tmdbId}-${season.number}-${ep.number}`; newInteractions[key] = { tmdb_id: tmdbId, media_type: 'episode', is_watched: true, season_number: season.number, episode_number: ep.number, rating: 0, watched_at: ep.last_watched_at }; } }); }); } } catch (e) {} 
           }
           
@@ -590,7 +603,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [user, allTrackedShows, watchlist, fullSyncRequired, settings.timeShift, settings.timezone]); // Add Timezone dependencies
 
   const login = (username: string, apiKey: string) => { const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false }; setUser(newUser); setApiToken(apiKey); localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); };
-  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile, fullSyncCompleted: profile.full_sync_completed }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) { const local = getLocalPrefs(); const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; if (mergedSettings.timeShift === undefined) mergedSettings.timeShift = false; setSettings(mergedSettings); } const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); if (remoteWatchlist) { const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; setWatchlist(loadedWatchlist); } const { data: remoteSubs } = await supabase.from('subscriptions').select('*'); if (remoteSubs) { const loadedLists: SubscribedList[] = []; for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) { console.error(e); } } setSubscribedLists(loadedLists); } const { data: remoteInteractions } = await supabase.from('interactions').select('*'); if (remoteInteractions) { const intMap: Record<string, Interaction> = {}; (remoteInteractions as any[]).forEach((i) => { if (i.media_type === 'episode') { intMap[`episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}`] = { tmdb_id: i.tmdb_id, media_type: 'episode', is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at }; } else { intMap[`${i.media_type}-${i.tmdb_id}`] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, watched_at: i.watched_at }; } }); setInteractions(intMap); } const { data: remoteReminders } = await supabase.from('reminders').select('*'); if (remoteReminders) { setReminders(remoteReminders.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes }))); } if (!profile.full_sync_completed) { setFullSyncRequired(true); setLoading(false); } else { setLoading(true); if (newUser.id) { const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); if (cached) setEpisodes(cached); await loadCloudCalendar(newUser.id); } setLoading(false); } } };
+  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile, fullSyncCompleted: profile.full_sync_completed }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) { const local = getLocalPrefs(); const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; if (mergedSettings.timeShift === undefined) mergedSettings.timeShift = false; if (!mergedSettings.hiddenIds) mergedSettings.hiddenIds = []; setSettings(mergedSettings); } const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); if (remoteWatchlist) { const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; setWatchlist(loadedWatchlist); } const { data: remoteSubs } = await supabase.from('subscriptions').select('*'); if (remoteSubs) { const loadedLists: SubscribedList[] = []; for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) { console.error(e); } } setSubscribedLists(loadedLists); } const { data: remoteInteractions } = await supabase.from('interactions').select('*'); if (remoteInteractions) { const intMap: Record<string, Interaction> = {}; (remoteInteractions as any[]).forEach((i) => { if (i.media_type === 'episode') { intMap[`episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}`] = { tmdb_id: i.tmdb_id, media_type: 'episode', is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at }; } else { intMap[`${i.media_type}-${i.tmdb_id}`] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, watched_at: i.watched_at }; } }); setInteractions(intMap); } const { data: remoteReminders } = await supabase.from('reminders').select('*'); if (remoteReminders) { setReminders(remoteReminders.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes }))); } if (!profile.full_sync_completed) { setFullSyncRequired(true); setLoading(false); } else { setLoading(true); if (newUser.id) { const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); if (cached) setEpisodes(cached); await loadCloudCalendar(newUser.id); } setLoading(false); } } };
   const reloadAccount = async () => { if (isSyncing) return; setLoading(true); try { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); if (user?.isCloud && supabase) { const { data: { session } } = await supabase.auth.getSession(); if (session) { await loginCloud(session); } else { logout(); } } else { await refreshEpisodes(true); } } catch (e) { console.error("Reload failed", e); setLoading(false); } };
   const updateUserKey = async (apiKey: string) => { if (user) { const updatedUser = { ...user, tmdbKey: apiKey }; setUser(updatedUser); setApiToken(apiKey); if (user.isCloud && supabase) { await supabase.from('profiles').update({ tmdb_key: apiKey }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } };
   const updateSettings = async (newSettings: Partial<AppSettings>) => { setSettings(prev => { const updated = { ...prev, ...newSettings, compactCalendar: true }; const localKeys = ['viewMode', 'mobileNavLayout']; const localPrefs = getLocalPrefs(); const prefsToSaveLocally: any = { ...localPrefs }; let hasLocalChanges = false; localKeys.forEach(k => { if (k in newSettings) { prefsToSaveLocally[k] = newSettings[k as keyof AppSettings]; hasLocalChanges = true; } }); if (hasLocalChanges) { localStorage.setItem('tv_calendar_local_prefs', JSON.stringify(prefsToSaveLocally)); } const settingsToSync = { ...updated }; localKeys.forEach(k => delete (settingsToSync as any)[k]); if (user?.isCloud && supabase) { supabase.from('profiles').update({ settings: settingsToSync }).eq('id', user.id).then(); } localStorage.setItem('tv_calendar_settings', JSON.stringify(settingsToSync)); return updated; }); };
@@ -604,6 +617,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // MODIFIED ADD TO WATCHLIST - Handles Reminder Strategy
   const addToWatchlist = async (show: TVShow) => { 
       if (watchlist.find(s => s.id === show.id)) return; 
+      
+      // If was hidden, unhide it first
+      const currentHidden = settings.hiddenIds || [];
+      if (currentHidden.includes(show.id)) {
+          const newHidden = currentHidden.filter(id => id !== show.id);
+          updateSettings({ hiddenIds: newHidden });
+      }
+
       const newWatchlist = [...watchlist, show]; 
       setWatchlist(newWatchlist); 
       
@@ -642,9 +663,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
   
   const removeFromWatchlist = async (showId: number) => {
+    // 1. Add to Hidden List to prevent Trakt from re-syncing it
+    const currentHidden = settings.hiddenIds || [];
+    if (!currentHidden.includes(showId)) {
+        updateSettings({ hiddenIds: [...currentHidden, showId] });
+    }
+
+    // 2. Remove from Local State
     const isTrackedInLists = subscribedLists.some(list => list.items.some(i => i.id === showId));
     const newWatchlist = watchlist.filter(s => s.id !== showId);
     setWatchlist(newWatchlist);
+
+    // 3. Clean up Episodes if not in other lists
     if (!isTrackedInLists) {
         setEpisodes(prev => {
             const next = { ...prev };
@@ -672,7 +702,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, 2000);
   };
 
-  const batchAddShows = async (shows: TVShow[]) => { const currentIds = new Set(watchlist.map(s => s.id)); const newShows = shows.filter(s => !currentIds.has(s.id)); if (newShows.length === 0) return; const newWatchlist = [...watchlist, ...newShows]; setWatchlist(newWatchlist); if (user?.isCloud && supabase) { const rows = newShows.map(show => ({ user_id: user.id, tmdb_id: show.id, media_type: show.media_type, name: show.name, poster_path: show.poster_path, backdrop_path: show.backdrop_path, overview: show.overview, first_air_date: show.first_air_date, vote_average: show.vote_average })); if (rows.length > 0) { await supabase.from('watchlist').upsert(rows, { onConflict: 'user_id, tmdb_id' }); } } if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current); updateTimeoutRef.current = setTimeout(() => { refreshEpisodes(true); }, 2000); };
+  const unhideShow = (showId: number) => {
+      const currentHidden = settings.hiddenIds || [];
+      const newHidden = currentHidden.filter(id => id !== showId);
+      updateSettings({ hiddenIds: newHidden });
+      // Trigger sync to fetch it back if it exists in Trakt
+      if (user?.traktToken) {
+          syncTraktData(true);
+      }
+  };
+
+  const batchAddShows = async (shows: TVShow[]) => { 
+      const currentIds = new Set(watchlist.map(s => s.id)); 
+      const hiddenIds = new Set(settings.hiddenIds || []);
+      
+      const newShows = shows.filter(s => !currentIds.has(s.id) && !hiddenIds.has(s.id)); 
+      
+      if (newShows.length === 0) return; 
+      const newWatchlist = [...watchlist, ...newShows]; 
+      setWatchlist(newWatchlist); 
+      if (user?.isCloud && supabase) { const rows = newShows.map(show => ({ user_id: user.id, tmdb_id: show.id, media_type: show.media_type, name: show.name, poster_path: show.poster_path, backdrop_path: show.backdrop_path, overview: show.overview, first_air_date: show.first_air_date, vote_average: show.vote_average })); if (rows.length > 0) { await supabase.from('watchlist').upsert(rows, { onConflict: 'user_id, tmdb_id' }); } } if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current); updateTimeoutRef.current = setTimeout(() => { refreshEpisodes(true); }, 2000); 
+  };
   const subscribeToList = async (listId: string) => { if (subscribedLists.some(l => l.id === listId)) return; try { const listDetails = await getListDetails(listId); const newList: SubscribedList = { id: listId, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }; const newLists = [...subscribedLists, newList]; setSubscribedLists(newLists); if (user?.isCloud && supabase) { await supabase.from('subscriptions').upsert({ user_id: user.id, list_id: listId, name: listDetails.name, item_count: listDetails.items.length }, { onConflict: 'user_id, list_id' }); } if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current); updateTimeoutRef.current = setTimeout(() => { refreshEpisodes(true); }, 2000); } catch (error) { throw error; } };
   
   const unsubscribeFromList = async (listId: string) => {
@@ -730,7 +780,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       user, login, loginCloud, logout, updateUserKey,
-      watchlist, addToWatchlist, removeFromWatchlist, batchAddShows, batchSubscribe,
+      watchlist, addToWatchlist, removeFromWatchlist, unhideShow, batchAddShows, batchSubscribe,
       subscribedLists, subscribeToList, unsubscribeFromList, allTrackedShows,
       episodes, loading, isSyncing, syncProgress, refreshEpisodes, loadArchivedEvents,
       requestNotificationPermission,

@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Film, Ban, Sparkles, Key, Check, Globe, Download, Upload, RefreshCw, AlertTriangle, ShieldAlert, Monitor, Moon, Sun, Smartphone, User, Palette, Layers, Database, Lock, LogOut, ChevronRight, Type, CheckCircle2, QrCode, Scan, Merge, ArrowRight, Loader2, Link as LinkIcon, Zap, Bell, PenTool, CalendarClock } from 'lucide-react';
+import { X, Eye, EyeOff, Film, Ban, Sparkles, Key, Check, Globe, Download, Upload, RefreshCw, AlertTriangle, ShieldAlert, Monitor, Moon, Sun, Smartphone, User, Palette, Layers, Database, Lock, LogOut, ChevronRight, Type, CheckCircle2, QrCode, Scan, Merge, ArrowRight, Loader2, Link as LinkIcon, Zap, Bell, PenTool, CalendarClock, History } from 'lucide-react';
 import { useAppContext, THEMES } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -30,7 +30,7 @@ const BASE_THEMES = [
 ];
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { settings, updateSettings, user, updateUserKey, importBackup, batchAddShows, batchSubscribe, processSyncPayload, getSyncPayload, reloadAccount, traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData, watchlist, subscribedLists, reminders, interactions } = useAppContext();
+  const { settings, updateSettings, user, updateUserKey, importBackup, batchAddShows, batchSubscribe, processSyncPayload, getSyncPayload, reloadAccount, traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData, watchlist, subscribedLists, reminders, interactions, unhideShow } = useAppContext();
   
   const [activeTab, setActiveTab] = useState<TabId>('appearance');
   const [keyInput, setKeyInput] = useState(user?.tmdbKey || '');
@@ -419,80 +419,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 </div>
             )}
 
-            {/* --- ACCOUNT TAB --- */}
-            {activeTab === 'account' && (
-                <div className="space-y-8 animate-fade-in max-w-3xl">
-                    <section className="bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-2xl p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-bold text-[var(--text-main)]">API Credentials</h3>
-                            <div className="px-2 py-1 bg-zinc-800 text-[var(--text-main)] rounded text-xs font-mono">Required</div>
-                        </div>
-                        <div className="flex gap-2">
-                             {isEditingKey ? (
-                                 <div className="flex-1 flex gap-2">
-                                     <input type="password" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} className="flex-1 bg-black/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-indigo-500 focus:outline-none" placeholder="TMDB Access Token" />
-                                     <button onClick={saveKey} className="px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl"><Check className="w-5 h-5" /></button>
-                                 </div>
-                             ) : (
-                                 <div className="flex-1 flex items-center justify-between bg-black/5 dark:bg-black/30 border border-[var(--border-color)] rounded-xl px-4 py-3">
-                                     <span className="text-[var(--text-muted)] font-mono text-sm">{user?.tmdbKey ? '••••••••••••••••••••••••' : 'No Key Set'}</span>
-                                     <button onClick={() => { setKeyInput(user?.tmdbKey || ''); setIsEditingKey(true); }} className="text-xs font-bold text-indigo-400 hover:text-indigo-300">EDIT</button>
-                                 </div>
-                             )}
-                        </div>
-                    </section>
-
-                    <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Trakt Integration */}
-                        <div className="bg-red-500/5 dark:bg-red-950/20 border border-red-500/20 dark:border-red-900/30 rounded-2xl p-6 flex flex-col items-center text-center">
-                            <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center mb-3 shadow-lg shadow-red-900/20">
-                                <span className="text-white font-bold text-xl">t</span>
-                            </div>
-                            <h4 className="text-lg font-bold text-[var(--text-main)] mb-1">Trakt.tv</h4>
-                            <p className="text-xs text-[var(--text-muted)] mb-4 flex-1">Sync watched history automatically.</p>
-                            {user?.traktToken ? (
-                                <div className="w-full space-y-2">
-                                    <div className="px-3 py-2 bg-black/5 dark:bg-white/5 rounded-lg text-xs text-[var(--text-muted)] truncate">Connected as {user.traktProfile?.username}</div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => { setIsTraktSyncing(true); syncTraktData().then(() => setIsTraktSyncing(false)); }} className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1">{isTraktSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Sync</button>
-                                        <button onClick={disconnectTrakt} className="py-2 px-3 bg-zinc-200 dark:bg-zinc-800 text-[var(--text-muted)] hover:text-white rounded-lg"><LogOut className="w-4 h-4" /></button>
-                                    </div>
-                                </div>
-                            ) : !traktCode ? (
-                                <div className="w-full space-y-2">
-                                    <input type="text" placeholder="Client ID" value={traktClientId} onChange={e => setTraktClientId(e.target.value)} className="w-full bg-black/50 border border-red-900/30 rounded-lg px-3 py-2 text-xs text-white focus:outline-none" />
-                                    <button onClick={handleTraktConnect} className="w-full py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold">Connect</button>
-                                </div>
-                            ) : (
-                                <div className="w-full bg-black/50 p-3 rounded-lg border border-red-900/30">
-                                    <div className="text-xl font-mono text-white font-bold mb-1">{traktCode.user_code}</div>
-                                    <p className="text-[10px] text-zinc-500">Enter code at trakt.tv/activate</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Cloud/Device Sync */}
-                        <div className="bg-indigo-500/5 dark:bg-indigo-950/20 border border-indigo-500/20 dark:border-indigo-900/30 rounded-2xl p-6 flex flex-col items-center text-center">
-                            <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center mb-3 shadow-lg shadow-indigo-900/20">
-                                <Smartphone className="w-6 h-6 text-white" />
-                            </div>
-                            <h4 className="text-lg font-bold text-[var(--text-main)] mb-1">Device Sync</h4>
-                            <p className="text-xs text-[var(--text-muted)] mb-4 flex-1">Transfer data to mobile instantly.</p>
-                            {!user?.isCloud ? (
-                                <div className="w-full grid grid-cols-2 gap-2">
-                                    <button onClick={() => setShowQr(true)} className="py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1"><QrCode className="w-3 h-3" /> Show QR</button>
-                                    <button onClick={() => setShowScanner(true)} className="py-2 bg-zinc-200 dark:bg-zinc-800 text-[var(--text-main)] rounded-lg text-xs font-bold flex items-center justify-center gap-1"><Scan className="w-3 h-3" /> Scan QR</button>
-                                </div>
-                            ) : (
-                                <div className="w-full py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold flex items-center justify-center gap-2">
-                                    <CheckCircle2 className="w-4 h-4" /> Cloud Active
-                                </div>
-                            )}
-                        </div>
-                    </section>
-                </div>
-            )}
-
             {/* --- DATA TAB --- */}
             {activeTab === 'data' && (
                 <div className="space-y-6 animate-fade-in max-w-3xl">
@@ -507,6 +433,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             <h4 className="font-bold text-[var(--text-main)] mb-1">Restore Profile</h4>
                             <p className="text-xs text-[var(--text-muted)]">Import settings from a JSON file.</p>
                         </button>
+                     </div>
+
+                     <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-2xl p-6">
+                         <div className="flex items-center justify-between mb-4">
+                             <div>
+                                 <h4 className="font-bold text-[var(--text-main)] flex items-center gap-2"><Ban className="w-5 h-5 text-zinc-500" /> Ignored Items</h4>
+                                 <p className="text-xs text-[var(--text-muted)] mt-1">Items removed from your library will appear here.</p>
+                             </div>
+                             <span className="text-sm font-bold text-zinc-500 bg-black/20 px-3 py-1 rounded-full">
+                                 {settings.hiddenIds?.length || 0}
+                             </span>
+                         </div>
+                         
+                         {settings.hiddenIds && settings.hiddenIds.length > 0 ? (
+                             <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                                 {settings.hiddenIds.map(id => (
+                                     <div key={id} className="flex items-center justify-between p-3 bg-black/20 rounded-xl border border-[var(--border-color)]">
+                                         <span className="text-sm font-mono text-[var(--text-muted)]">ID: {id}</span>
+                                         <button 
+                                            onClick={() => unhideShow(id)}
+                                            className="text-xs font-bold text-indigo-400 hover:text-indigo-300"
+                                         >
+                                             Restore
+                                         </button>
+                                     </div>
+                                 ))}
+                             </div>
+                         ) : (
+                             <div className="text-center py-6 text-[var(--text-muted)] text-sm">No ignored items.</div>
+                         )}
                      </div>
 
                      <div className="bg-red-950/10 border border-red-900/20 rounded-2xl p-6 mt-8">
