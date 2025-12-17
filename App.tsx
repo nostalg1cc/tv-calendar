@@ -52,13 +52,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     };
 
     return (
-        <div className="flex h-screen w-screen bg-[var(--bg-main)] text-slate-100 overflow-hidden">
+        <div className="flex h-screen w-screen bg-[var(--bg-main)] text-slate-100 overflow-hidden font-sans">
+            {/* Ambient Background Gradient (V2 Style Port) */}
+            <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-900/5 to-transparent pointer-events-none z-0" />
+
             {/* Sidebar Navigation */}
             <Navbar />
             
             {/* Main Content Area */}
             <div className={`
-                flex-1 flex flex-col min-w-0 relative
+                flex-1 flex flex-col min-w-0 relative z-10
                 ${isCompactMode ? 'h-full' : 'h-full overflow-y-auto overflow-x-hidden'}
             `}>
                 <div className={`
