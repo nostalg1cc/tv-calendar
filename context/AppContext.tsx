@@ -167,7 +167,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Navigation State
   const [calendarScrollPos, setCalendarScrollPos] = useState(0);
 
-  // Manual Overrides Memory
+  // Manual Overrides Memory - IMPORTANT for preserving user choices over sync
   const manualOverridesRef = useRef<Record<string, boolean>>({});
 
   const [settings, setSettings] = useState<AppSettings>(() => { 
@@ -328,7 +328,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } catch (e: any) { console.error("Rating save error", e); }
   };
 
-  // Persist WATCHED STATUS to new manual table
+  // Persist WATCHED STATUS to new manual table 'watched_items'
   const saveManualWatchedStatus = async (interaction: Interaction) => {
       if (!user?.isCloud || !supabase || !user?.id) return;
       try {
@@ -343,12 +343,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               updated_at: new Date().toISOString()
           };
 
-          // Use the new dedicated table
+          console.log("Saving to watched_items:", payload);
+
+          // Use the new dedicated table with explicit upsert
           const { error } = await supabase.from('watched_items').upsert(payload, { 
               onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' 
           });
           
-          if (error) console.error("Watched status save failed", error);
+          if (error) {
+              console.error("Watched status save failed:", error.message);
+              alert("Failed to save watched status: " + error.message);
+          } else {
+              console.log("Saved watched status successfully.");
+          }
       } catch (e: any) { console.error("Watched status save error", e); }
   };
 
@@ -526,7 +533,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if(updated) await saveRatingToCloud(updated);
   };
 
-  // ... (Other functions like markHistoryWatched can remain or be updated similarly if needed, sticking to core fixes for now)
   const markHistoryWatched = async (showId: number, targetSeason: number, targetEpisode: number) => {
       setIsSyncing(true);
       try {
