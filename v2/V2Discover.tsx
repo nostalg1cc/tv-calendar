@@ -10,24 +10,13 @@ import { format, addDays } from 'date-fns';
 
 // Helper to fetch mixed trending for Top 10 (duplicated slightly to allow custom endpoint/period)
 const fetchTop10 = async (): Promise<TVShow[]> => {
-    // We can't use getCollection for mixed types because it enforces a single mediaType map
-    // We use getPopularShows logic but for /trending/all/day
-    // Since getPopularShows is exported, let's just use a direct fetch here to be self-contained
-    // or reused logic if available. For now, I'll assume we need 'day' trends for a Top 10 list.
-    
-    // Quick fetch implementation since we can't import fetchTMDB (it's not exported)
-    // We will use the existing getPopularShows but filtering for "Today" is better. 
-    // Actually, getPopularShows is /trending/all/week. 
-    // Let's compromise and use getPopularShows for now to ensure consistency with types, 
-    // or just rely on a Collection with a specific type if we want to split.
-    // BUT the request implies mixed.
-    // I will use getPopularShows (Weekly) which is stable, and slice 10.
     return await getPopularShows();
 };
 
 const V2Discover: React.FC = () => {
     const [trailerTarget, setTrailerTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', episode?: any} | null>(null);
     const [detailTarget, setDetailTarget] = useState<{showId: number, mediaType: 'tv' | 'movie'} | null>(null);
+    const [upsideDownMode, setUpsideDownMode] = useState(false);
     
     const today = new Date().toISOString().split('T')[0];
     const nextMonth = format(addDays(new Date(), 30), 'yyyy-MM-dd');
@@ -43,12 +32,20 @@ const V2Discover: React.FC = () => {
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#020202] overflow-y-auto custom-scrollbar relative">
+            {/* Easter Egg Overlay */}
+            <div className={`fixed inset-0 pointer-events-none z-[200] transition-opacity duration-1000 ${upsideDownMode ? 'opacity-100' : 'opacity-0'}`}>
+                <div className="absolute inset-0 shadow-[inset_0_0_150px_80px_rgba(185,28,28,0.6)] animate-pulse mix-blend-screen" />
+                <div className="absolute inset-0 bg-red-950/20 mix-blend-overlay" />
+                <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-red-900/40 to-transparent opacity-50" />
+                <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-red-900/40 to-transparent opacity-50" />
+            </div>
+
             <HeroBillboard onPlayTrailer={handlePlayTrailer} />
             
             <div className="relative z-10 -mt-24 md:-mt-48 pb-20 space-y-12 px-6 md:px-12">
                 
                 {/* Priority 0: Top 10 Row */}
-                <Top10Row onOpenDetails={handleOpenDetails} />
+                <Top10Row onOpenDetails={handleOpenDetails} onHoverSpecial={setUpsideDownMode} />
 
                 {/* Priority 1: Trending Shows */}
                 <ContentRow 
@@ -58,6 +55,7 @@ const V2Discover: React.FC = () => {
                     mediaType="tv"
                     filterEn={true}
                     onOpenDetails={handleOpenDetails}
+                    onHoverSpecial={setUpsideDownMode}
                 />
 
                 {/* Priority 2: Trending Movies */}
@@ -68,6 +66,7 @@ const V2Discover: React.FC = () => {
                     mediaType="movie"
                     filterEn={true}
                     onOpenDetails={handleOpenDetails}
+                    onHoverSpecial={setUpsideDownMode}
                 />
 
                 {/* Priority 3: In Theaters */}
@@ -84,6 +83,7 @@ const V2Discover: React.FC = () => {
                         'with_original_language': 'en'
                     }}
                     onOpenDetails={handleOpenDetails}
+                    onHoverSpecial={setUpsideDownMode}
                 />
 
                 {/* Priority 4: Upcoming Digital */}
@@ -100,6 +100,7 @@ const V2Discover: React.FC = () => {
                         'with_original_language': 'en'
                     }}
                     onOpenDetails={handleOpenDetails}
+                    onHoverSpecial={setUpsideDownMode}
                 />
                 
                 {/* Priority 5: Top Rated (Critical) */}
@@ -110,6 +111,7 @@ const V2Discover: React.FC = () => {
                     mediaType="movie" 
                     params={{ 'with_original_language': 'en' }}
                     onOpenDetails={handleOpenDetails}
+                    onHoverSpecial={setUpsideDownMode}
                 />
             </div>
 
@@ -135,7 +137,7 @@ const V2Discover: React.FC = () => {
     );
 };
 
-const Top10Row: React.FC<{ onOpenDetails: (show: TVShow) => void }> = ({ onOpenDetails }) => {
+const Top10Row: React.FC<{ onOpenDetails: (show: TVShow) => void; onHoverSpecial: (active: boolean) => void }> = ({ onOpenDetails, onHoverSpecial }) => {
     const [items, setItems] = useState<TVShow[]>([]);
     
     useEffect(() => {
@@ -155,46 +157,51 @@ const Top10Row: React.FC<{ onOpenDetails: (show: TVShow) => void }> = ({ onOpenD
 
             <div className="relative -mx-6 md:-mx-12 px-6 md:px-12 overflow-x-auto hide-scrollbar pb-8">
                 <div className="flex gap-4 w-max">
-                    {items.map((item, index) => (
-                        <div 
-                            key={item.id}
-                            onClick={() => onOpenDetails(item)}
-                            className="relative w-[180px] h-[220px] flex-shrink-0 cursor-pointer group/card transition-transform duration-300 hover:scale-105 z-0 hover:z-10"
-                        >
-                            {/* Number SVG - Behind */}
-                            <div className="absolute left-[-20px] bottom-0 h-full w-[140px] flex items-end justify-start pointer-events-none z-0">
-                                <svg className="h-full w-full overflow-visible" viewBox="0 0 100 150">
-                                    <text 
-                                        x="-10" 
-                                        y="145" 
-                                        fontSize="160" 
-                                        fontWeight="900" 
-                                        fill="#020202" 
-                                        stroke="#444" 
-                                        strokeWidth="2"
-                                        style={{ fontFamily: 'Inter, sans-serif' }}
-                                    >
-                                        {index + 1}
-                                    </text>
-                                </svg>
-                            </div>
+                    {items.map((item, index) => {
+                        const isStrangerThings = item.id === 66732 || item.name.toLowerCase() === 'stranger things';
+                        return (
+                            <div 
+                                key={item.id}
+                                onClick={() => onOpenDetails(item)}
+                                onMouseEnter={() => isStrangerThings && onHoverSpecial(true)}
+                                onMouseLeave={() => isStrangerThings && onHoverSpecial(false)}
+                                className="relative w-[180px] h-[220px] flex-shrink-0 cursor-pointer group/card transition-transform duration-300 hover:scale-105 z-0 hover:z-10"
+                            >
+                                {/* Number SVG - Behind */}
+                                <div className="absolute left-[-20px] bottom-0 h-full w-[140px] flex items-end justify-start pointer-events-none z-0">
+                                    <svg className="h-full w-full overflow-visible" viewBox="0 0 100 150">
+                                        <text 
+                                            x="-10" 
+                                            y="145" 
+                                            fontSize="160" 
+                                            fontWeight="900" 
+                                            fill="#020202" 
+                                            stroke="#444" 
+                                            strokeWidth="2"
+                                            style={{ fontFamily: 'Inter, sans-serif' }}
+                                        >
+                                            {index + 1}
+                                        </text>
+                                    </svg>
+                                </div>
 
-                            {/* Poster - Overlapping Right */}
-                            <div className="absolute right-0 top-0 w-[140px] h-[210px] rounded-lg overflow-hidden bg-zinc-900 border border-white/10 shadow-2xl z-10 transition-all duration-300 group-hover/card:border-white/30">
-                                <img 
-                                    src={getImageUrl(item.poster_path)} 
-                                    alt={item.name} 
-                                    className="w-full h-full object-cover"
-                                />
-                                {/* Simple Overlay on Hover */}
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center">
-                                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white">
-                                        <Info className="w-5 h-5" />
+                                {/* Poster - Overlapping Right */}
+                                <div className="absolute right-0 top-0 w-[140px] h-[210px] rounded-lg overflow-hidden bg-zinc-900 border border-white/10 shadow-2xl z-10 transition-all duration-300 group-hover/card:border-white/30">
+                                    <img 
+                                        src={getImageUrl(item.poster_path)} 
+                                        alt={item.name} 
+                                        className={`w-full h-full object-cover transition-transform duration-700 ${isStrangerThings ? 'group-hover/card:rotate-180' : ''}`}
+                                    />
+                                    {/* Simple Overlay on Hover */}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center">
+                                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white">
+                                            <Info className="w-5 h-5" />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -304,7 +311,7 @@ const HeroBillboard: React.FC<{ onPlayTrailer: (id: number, type: 'tv' | 'movie'
     );
 };
 
-const ContentRow: React.FC<{ title: string; subtitle?: string; endpoint: string; mediaType: 'movie' | 'tv'; params?: Record<string, string>; filterEn?: boolean; onOpenDetails: (show: TVShow) => void }> = ({ title, subtitle, endpoint, mediaType, params, filterEn, onOpenDetails }) => {
+const ContentRow: React.FC<{ title: string; subtitle?: string; endpoint: string; mediaType: 'movie' | 'tv'; params?: Record<string, string>; filterEn?: boolean; onOpenDetails: (show: TVShow) => void; onHoverSpecial: (active: boolean) => void }> = ({ title, subtitle, endpoint, mediaType, params, filterEn, onOpenDetails, onHoverSpecial }) => {
     const [items, setItems] = useState<TVShow[]>([]);
     const { addToWatchlist, allTrackedShows } = useAppContext();
 
@@ -341,10 +348,14 @@ const ContentRow: React.FC<{ title: string; subtitle?: string; endpoint: string;
                 <div className="flex gap-4 w-max">
                     {items.slice(0, 20).map(item => {
                         const isAdded = allTrackedShows.some(s => s.id === item.id);
+                        const isStrangerThings = item.id === 66732 || item.name.toLowerCase() === 'stranger things';
+
                         return (
                             <div 
                                 key={item.id} 
                                 onClick={() => onOpenDetails(item)}
+                                onMouseEnter={() => isStrangerThings && onHoverSpecial(true)}
+                                onMouseLeave={() => isStrangerThings && onHoverSpecial(false)}
                                 className="relative group/card cursor-pointer w-[160px] aspect-[2/3] transition-all duration-300 ease-out hover:scale-110 hover:z-50 origin-center"
                             >
                                 <div className="w-full h-full rounded-lg overflow-hidden bg-zinc-900 border border-white/5 relative shadow-xl group-hover/card:shadow-[0_0_30px_rgba(0,0,0,0.5)]">
@@ -352,7 +363,7 @@ const ContentRow: React.FC<{ title: string; subtitle?: string; endpoint: string;
                                         src={getImageUrl(item.poster_path)} 
                                         alt={item.name} 
                                         loading="lazy"
-                                        className={`w-full h-full object-cover transition-all duration-500 ${isAdded ? 'grayscale opacity-40' : ''}`}
+                                        className={`w-full h-full object-cover transition-all duration-700 ${isAdded ? 'grayscale opacity-40' : ''} ${isStrangerThings ? 'group-hover/card:rotate-180' : ''}`}
                                     />
                                     
                                     {isAdded && (

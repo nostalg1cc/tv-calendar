@@ -15,6 +15,7 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<TVShow[]>([]);
     const [loading, setLoading] = useState(false);
+    const [upsideDownMode, setUpsideDownMode] = useState(false);
     
     // Recommendation Engine State
     const [recommendations, setRecommendations] = useState<TVShow[]>([]);
@@ -28,6 +29,7 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
             setQuery('');
             setResults([]);
             setRecommendations([]);
+            setUpsideDownMode(false);
             // Focus with a slight delay for animation
             setTimeout(() => inputRef.current?.focus(), 100);
             
@@ -90,6 +92,12 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
 
     return (
         <div className="fixed inset-0 z-[200] bg-[#050505]/95 backdrop-blur-2xl flex flex-col animate-fade-in">
+            {/* Easter Egg Overlay */}
+            <div className={`fixed inset-0 pointer-events-none z-[190] transition-opacity duration-1000 ${upsideDownMode ? 'opacity-100' : 'opacity-0'}`}>
+                <div className="absolute inset-0 shadow-[inset_0_0_150px_80px_rgba(185,28,28,0.6)] animate-pulse mix-blend-screen" />
+                <div className="absolute inset-0 bg-red-950/20 mix-blend-overlay" />
+            </div>
+
             {/* Header / Input Area */}
             <div className="shrink-0 p-6 md:p-12 pb-0 flex flex-col relative z-20">
                 <button 
@@ -115,7 +123,7 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* Results Area */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 md:px-12 py-8">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 md:px-12 py-8 relative z-20">
                 <div className="max-w-5xl w-full mx-auto pb-20">
                     
                     {/* Recommendation Rail */}
@@ -136,7 +144,14 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                             ) : (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                     {recommendations.slice(0, 5).map(show => (
-                                        <ShowCard key={`rec-${show.id}`} show={show} onAdd={handleAdd} isTracked={false} isRec={true} />
+                                        <ShowCard 
+                                            key={`rec-${show.id}`} 
+                                            show={show} 
+                                            onAdd={handleAdd} 
+                                            isTracked={false} 
+                                            isRec={true} 
+                                            onHoverSpecial={setUpsideDownMode}
+                                        />
                                     ))}
                                 </div>
                             )}
@@ -165,7 +180,13 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                                     {results.map(show => {
                                         const isTracked = allTrackedShows.some(s => s.id === show.id);
                                         return (
-                                            <ShowCard key={show.id} show={show} onAdd={handleAdd} isTracked={isTracked} />
+                                            <ShowCard 
+                                                key={show.id} 
+                                                show={show} 
+                                                onAdd={handleAdd} 
+                                                isTracked={isTracked} 
+                                                onHoverSpecial={setUpsideDownMode}
+                                            />
                                         );
                                     })}
                                 </div>
@@ -178,14 +199,20 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
     );
 };
 
-const ShowCard = ({ show, onAdd, isTracked, isRec = false }: { show: TVShow, onAdd: (e: React.MouseEvent, s: TVShow) => void, isTracked: boolean, isRec?: boolean }) => {
+const ShowCard = ({ show, onAdd, isTracked, isRec = false, onHoverSpecial }: { show: TVShow, onAdd: (e: React.MouseEvent, s: TVShow) => void, isTracked: boolean, isRec?: boolean, onHoverSpecial: (active: boolean) => void }) => {
+    const isStrangerThings = show.id === 66732 || show.name.toLowerCase() === 'stranger things';
+
     return (
-        <div className="group relative flex flex-col gap-3 cursor-pointer">
+        <div 
+            className="group relative flex flex-col gap-3 cursor-pointer"
+            onMouseEnter={() => isStrangerThings && onHoverSpecial(true)}
+            onMouseLeave={() => isStrangerThings && onHoverSpecial(false)}
+        >
             <div className={`relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border border-white/5 shadow-2xl transition-all duration-300 ${isTracked ? 'opacity-60' : 'group-hover:-translate-y-2 group-hover:shadow-indigo-900/20'} ${isRec ? 'ring-1 ring-indigo-500/30' : ''}`}>
                 <img 
                     src={getImageUrl(show.poster_path)} 
                     alt="" 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    className={`w-full h-full object-cover transition-transform duration-700 ${isStrangerThings ? 'group-hover:rotate-180' : 'group-hover:scale-110'}`}
                     loading="lazy"
                 />
                 
