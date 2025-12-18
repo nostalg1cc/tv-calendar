@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { Check, CalendarDays, Play, History, EyeOff, Ticket, MonitorPlay } from 'lucide-react';
+import { Check, CalendarDays, Play, History, EyeOff, Ticket, MonitorPlay, ChevronRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
@@ -20,7 +20,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
         return true;
     });
 
-    // Group episodes by show_id
+    // Group episodes by show_id to create cleaner cards for show marathons
     const groupedEps = dayEps.reduce((acc, ep) => {
         const key = ep.show_id || ep.id;
         if (!acc[key]) acc[key] = [];
@@ -32,61 +32,63 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
         const firstEp = eps[0];
         const { spoilerConfig } = settings;
         
-        // Determine preview image based on spoiler replacement mode
-        const episodeImageUrl = getImageUrl(firstEp.still_path || firstEp.poster_path);
-        const bannerImageUrl = getImageUrl(firstEp.show_backdrop_path || firstEp.poster_path);
+        // Check if any episode in this group is unwatched (spoiler target)
+        const hasUnwatched = eps.some(ep => !interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched);
         
+        // Determine preview image based on spoiler mode: Blur vs Series Banner
+        const stillUrl = getImageUrl(firstEp.still_path || firstEp.poster_path);
+        const bannerUrl = getImageUrl(firstEp.show_backdrop_path || firstEp.poster_path);
+        
+        const isSpoilerProtected = hasUnwatched && spoilerConfig.images;
+        const displayImageUrl = (isSpoilerProtected && spoilerConfig.replacementMode === 'banner') ? bannerUrl : stillUrl;
+
         return (
             <div className="w-full bg-zinc-950 border-b border-white/5 flex flex-col group/card">
-                {/* Horizontal Banner Header */}
-                <div className="bg-zinc-900/50 px-4 py-2 border-y border-white/5 flex items-center justify-between">
-                    <h4 className="text-[10px] font-black text-zinc-100 uppercase tracking-[0.15em] truncate pr-4">
+                {/* Horizontal Header Banner */}
+                <div className="bg-zinc-900/40 px-4 py-2 border-y border-white/5 flex items-center justify-between">
+                    <h4 className="text-[10px] font-black text-zinc-300 uppercase tracking-[0.15em] truncate pr-4">
                         {firstEp.show_name || firstEp.name}
                     </h4>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                          {firstEp.is_movie ? (
-                            <span className="text-[8px] font-mono text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 border border-indigo-500/20">MOVIE</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 border border-indigo-500/20 rounded">Movie</span>
                          ) : (
-                            <span className="text-[8px] font-mono text-zinc-600 bg-white/5 px-1.5 py-0.5 border border-white/5">{eps.length} EP</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 bg-white/5 px-1.5 py-0.5 border border-white/5 rounded">{eps.length} EP</span>
                          )}
                     </div>
                 </div>
 
-                {/* Episode Preview with Blur vs Banner Option */}
-                <div className="relative aspect-video w-full overflow-hidden bg-black">
-                    {eps.some(ep => !interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched) && spoilerConfig.images ? (
-                        spoilerConfig.replacementMode === 'banner' ? (
-                            <img src={bannerImageUrl} alt="" className="w-full h-full object-cover opacity-60 transition-opacity" />
-                        ) : (
-                            <img src={episodeImageUrl} alt="" className="w-full h-full object-cover blur-2xl scale-110 opacity-30 transition-opacity" />
-                        )
-                    ) : (
-                        <img src={episodeImageUrl} alt="" className="w-full h-full object-cover opacity-60 group-hover/card:opacity-80 transition-opacity duration-500" />
-                    )}
+                {/* Main Visual Component with Spoiler Logic */}
+                <div className="relative aspect-video w-full overflow-hidden bg-zinc-900">
+                    <img 
+                        src={displayImageUrl} 
+                        alt="" 
+                        className={`w-full h-full object-cover transition-all duration-700 
+                            ${isSpoilerProtected && spoilerConfig.replacementMode === 'blur' ? 'blur-2xl scale-110 opacity-30' : 'opacity-60 group-hover/card:opacity-90'}
+                        `}
+                    />
                     
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                     
-                    {eps.some(ep => !interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched) && spoilerConfig.images && spoilerConfig.replacementMode === 'blur' && (
+                    {isSpoilerProtected && spoilerConfig.replacementMode === 'blur' && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                            <EyeOff className="w-6 h-6 text-zinc-700 opacity-50" />
+                            <EyeOff className="w-6 h-6 text-zinc-800" />
                         </div>
                     )}
                 </div>
 
-                {/* Episodes List */}
+                {/* Sub-Item List (Individual Episodes or Releases) */}
                 <div className="flex flex-col">
                     {eps.map((ep) => {
                         const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                         const isWatched = interactions[watchedKey]?.is_watched;
                         
-                        // Respect Spoiler Settings
-                        const displayName = (!isWatched && spoilerConfig.title) 
-                            ? (ep.is_movie ? 'Movie Content' : `Episode ${ep.episode_number}`) 
-                            : (ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema Release' : 'Digital Release') : ep.name);
-                        
-                        const displayOverview = (!isWatched && spoilerConfig.overview)
-                            ? 'Overview hidden to prevent spoilers.'
-                            : (ep.is_movie ? (ep.overview || 'Feature Film Release') : `Season ${ep.season_number} • Episode ${ep.episode_number}`);
+                        // Respect Spoiler Settings for text
+                        const isTextCensored = !isWatched && spoilerConfig.title;
+                        const isDescCensored = !isWatched && spoilerConfig.overview;
+
+                        const titleText = isTextCensored ? `Episode ${ep.episode_number}` : (ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema Premiere' : 'Digital Release') : ep.name);
+                        const subText = isDescCensored ? 'Description hidden' : (ep.is_movie ? ep.overview : `S${ep.season_number} E${ep.episode_number}`);
 
                         return (
                             <div 
@@ -98,42 +100,36 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
                                 `}
                             >
                                 <div className="min-w-0 flex-1">
-                                    <p className={`text-[11px] font-bold truncate leading-none mb-1.5 ${(!isWatched && spoilerConfig.title) ? 'text-zinc-500' : 'text-zinc-200'}`}>
-                                        {displayName}
-                                    </p>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className={`text-[11px] font-bold truncate leading-none ${isTextCensored ? 'text-zinc-600' : 'text-zinc-200'}`}>
+                                            {titleText}
+                                        </p>
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         {ep.is_movie && (
                                             ep.release_type === 'theatrical' 
                                                 ? <Ticket className="w-2.5 h-2.5 text-pink-500" />
                                                 : <MonitorPlay className="w-2.5 h-2.5 text-emerald-500" />
                                         )}
-                                        <p className={`text-[9px] font-mono uppercase tracking-tighter truncate ${(!isWatched && spoilerConfig.overview) ? 'text-zinc-600' : 'text-zinc-500'}`}>
-                                            {displayOverview}
+                                        <p className={`text-[9px] font-mono uppercase tracking-tighter truncate ${isDescCensored ? 'text-zinc-700 italic' : 'text-zinc-500'}`}>
+                                            {subText}
                                         </p>
                                     </div>
                                 </div>
 
-                                {/* Action Bar */}
                                 <div className="flex items-center gap-1 shrink-0">
                                     {!ep.is_movie && (
                                         <button 
                                             onClick={() => markHistoryWatched(ep.show_id!, ep.season_number, ep.episode_number)}
-                                            className="p-2 text-zinc-600 hover:text-emerald-400 transition-colors"
-                                            title="Mark all previous as watched"
+                                            className="p-2 text-zinc-700 hover:text-emerald-500 transition-colors"
+                                            title="Sync Catch-up"
                                         >
                                             <History className="w-3.5 h-3.5" />
                                         </button>
                                     )}
                                     <button 
-                                        className="p-2 text-zinc-600 hover:text-white transition-colors"
-                                        title="Watch Trailer"
-                                    >
-                                        <Play className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
                                         onClick={() => ep.show_id && (ep.is_movie ? toggleWatched(ep.show_id, 'movie') : toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number))}
-                                        className={`p-2 transition-all ${isWatched ? 'text-emerald-500' : 'text-zinc-600 hover:text-indigo-400'}`}
-                                        title={isWatched ? "Unwatch" : "Mark Watched"}
+                                        className={`p-2 transition-all ${isWatched ? 'text-emerald-500' : 'text-zinc-600 hover:text-white'}`}
                                     >
                                         <Check className={`w-4 h-4 ${isWatched ? 'stroke-[3px]' : 'stroke-2'}`} />
                                     </button>
@@ -148,7 +144,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
 
     return (
         <aside className="w-[320px] hidden xl:flex flex-col bg-[#050505] border-l border-white/5 shrink-0 z-20">
-            {/* Content Area */}
+            {/* Scrollable Content Area */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {dayEps.length > 0 ? (
                     <div className="flex flex-col">
@@ -157,24 +153,24 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
                         ))}
                     </div>
                 ) : (
-                    <div className="h-full flex flex-col items-center justify-center p-10 text-center">
+                    <div className="h-full flex flex-col items-center justify-center p-10 text-center opacity-50">
                         <CalendarDays className="w-8 h-8 text-zinc-800 mb-4 stroke-[1px]" />
-                        <h4 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">No Activity</h4>
-                        <p className="text-[9px] text-zinc-700 font-medium leading-relaxed uppercase tracking-tighter">
-                            Your library is clear for this date
+                        <h4 className="text-[10px] font-black text-zinc-700 uppercase tracking-widest mb-1">Clear Horizon</h4>
+                        <p className="text-[9px] text-zinc-800 font-medium uppercase tracking-tighter">
+                            No scheduled tracking for this day
                         </p>
                     </div>
                 )}
             </div>
 
-            {/* Footer Summary (Slim) */}
+            {/* Footer Status Bar */}
             <footer className="px-6 py-4 border-t border-white/5 bg-zinc-950/40">
                 <div className="flex items-center justify-between mb-2">
-                    <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Library Health</span>
-                    <span className="text-[9px] font-mono text-zinc-400">SYNCED</span>
+                    <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Database Pulse</span>
+                    <span className="text-[9px] font-mono text-emerald-600">LIVE</span>
                 </div>
-                <div className="h-[2px] w-full bg-zinc-900">
-                    <div className="h-full bg-indigo-500 w-[70%] shadow-[0_0_10px_rgba(99,102,241,0.5)] transition-all duration-1000" />
+                <div className="h-[2px] w-full bg-zinc-900 overflow-hidden rounded-full">
+                    <div className="h-full bg-indigo-500 w-[85%] shadow-[0_0_10px_rgba(99,102,241,0.4)] animate-pulse" />
                 </div>
             </footer>
         </aside>
