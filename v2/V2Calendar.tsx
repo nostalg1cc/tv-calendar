@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, format, isSameMonth, addMonths, subMonths, addDays, isSameDay, isToday
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Filter, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, AlignJustify, Ticket, List as ListIcon, Smartphone, Layers } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, AlignJustify, Ticket, List as ListIcon, Smartphone, Layers, ChevronDown } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
@@ -43,26 +43,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         return () => window.removeEventListener('resize', handleResize);
     }, [viewMode]);
 
-    // Scroll to today logic
-    useEffect(() => {
-        if ((viewMode === 'cards' || viewMode === 'list') && cardScrollRef.current) {
-            setTimeout(() => {
-                const todayEl = document.getElementById('v2-today-anchor');
-                if (todayEl) {
-                    todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 100);
-        }
-    }, [viewMode, calendarDate]);
-
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (filterRef.current && !filterRef.current.contains(e.target as Node)) setIsFilterOpen(false);
-        };
-        if (isFilterOpen) document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isFilterOpen]);
-
     const monthStart = startOfMonth(calendarDate);
     const monthEnd = endOfMonth(calendarDate);
     
@@ -91,6 +71,27 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         });
     }, [monthStart, monthEnd, episodes, settings, showTV, showMovies, showHidden]);
 
+    // Scroll to today logic
+    useEffect(() => {
+        if ((viewMode === 'cards' || viewMode === 'list') && cardScrollRef.current) {
+            // Slight delay to ensure DOM render
+            setTimeout(() => {
+                const todayEl = document.getElementById('v2-today-anchor');
+                if (todayEl) {
+                    todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+        }
+    }, [viewMode, calendarDate, activeDays]); // Added activeDays to ensure it fires after data calculation
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (filterRef.current && !filterRef.current.contains(e.target as Node)) setIsFilterOpen(false);
+        };
+        if (isFilterOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isFilterOpen]);
+
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     const getEpisodesForDay = (day: Date) => {
@@ -106,6 +107,20 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
             if (isBlacklisted && !showHidden) return false;
             return true;
         });
+    };
+
+    const groupEpisodes = (episodes: Episode[]) => {
+        const groups: Record<number, Episode[]> = {};
+        const order: number[] = [];
+        episodes.forEach(ep => {
+            const id = ep.show_id || (ep.id * -1); // Fallback ID for safety
+            if (!groups[id]) {
+                groups[id] = [];
+                order.push(id);
+            }
+            groups[id].push(ep);
+        });
+        return order.map(id => groups[id]);
     };
 
     const cycleViewMode = () => {
@@ -348,15 +363,9 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                             const isCurrentMonth = isSameMonth(day, monthStart);
                             const dayEps = getEpisodesForDay(day);
                             
-                            // Group logic
-                            const groupedEps = dayEps.reduce((acc, ep) => {
-                                const key = ep.show_id || ep.id;
-                                if (!acc[key]) acc[key] = [];
-                                acc[key].push(ep);
-                                return acc;
-                            }, {} as Record<number, Episode[]>);
-                            const groups = Object.values(groupedEps);
-                            const totalGroups = groups.length;
+                            // Group logic for Grid
+                            const groupedEps = groupEpisodes(dayEps);
+                            const totalGroups = groupedEps.length;
 
                             return (
                                 <div key={day.toISOString()} onClick={() => onSelectDay(day)} className={`relative border-r border-b border-white/5 flex flex-col group/cell overflow-hidden transition-all duration-300 cursor-pointer ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''} ${idx >= 35 ? 'border-b-0' : ''} ${isCurrentMonth ? 'bg-transparent' : 'bg-white/[0.01] opacity-20'} ${isActive ? 'bg-white/[0.04]' : 'hover:z-10 hover:bg-white/[0.02]'}`}>
@@ -364,10 +373,10 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                         <span className={`text-[10px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded ${isTodayDate ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' : isCurrentMonth ? (isActive ? 'text-white' : 'text-zinc-600 group-hover/cell:text-zinc-300') : 'text-zinc-800'} transition-colors`}>{format(day, 'dd')}</span>
                                     </div>
                                     
-                                    {totalGroups === 1 && groups[0].length === 1 ? (
-                                        <SingleEpisodeCell ep={groups[0][0]} />
+                                    {totalGroups === 1 && groupedEps[0].length === 1 ? (
+                                        <SingleEpisodeCell ep={groupedEps[0][0]} />
                                     ) : totalGroups > 0 ? (
-                                        <GroupedEpisodeCell groups={groups} />
+                                        <GroupedEpisodeCell groups={groupedEps} />
                                     ) : null}
                                     
                                     {isActive && <div className="absolute inset-0 border-[2px] border-indigo-500/80 pointer-events-none z-40 shadow-[inset_0_0_15px_rgba(99,102,241,0.1)]" />}
@@ -390,14 +399,15 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                             <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest">No Events Found</p>
                         </div>
                     ) : (
-                        <div className="pb-32 pt-2">
+                        <div className="pb-32 pt-0">
                             {activeDays.map(day => {
-                                const eps = getEpisodesForDay(day);
+                                const dayEps = getEpisodesForDay(day);
                                 const isTodayDate = isToday(day);
+                                const groupedEps = groupEpisodes(dayEps);
                                 
                                 return (
                                     <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined}>
-                                        {/* Sticky Day Header - Reduced gap */}
+                                        {/* Sticky Day Header */}
                                         <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-2 px-6 flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <span className={`text-xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-400' : 'text-white'}`}>{format(day, 'dd')}</span>
@@ -409,61 +419,78 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                             {isTodayDate && <span className="text-[9px] font-bold bg-indigo-600 text-white px-2 py-1 rounded uppercase tracking-wide">Today</span>}
                                         </div>
 
-                                        {/* Cards Container */}
-                                        <div className="px-4 py-3 grid gap-4">
-                                            {eps.map(ep => {
-                                                const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
-                                                const isWatched = interactions[watchedKey]?.is_watched;
-                                                const imageUrl = getImageUrl(ep.show_backdrop_path || ep.still_path || ep.poster_path);
+                                        {/* Cards Container - Full Width, No Rounding */}
+                                        <div className="flex flex-col gap-px bg-white/5">
+                                            {groupedEps.map((group, groupIdx) => {
+                                                const firstEp = group[0];
+                                                const imageUrl = getImageUrl(firstEp.show_backdrop_path || firstEp.still_path || firstEp.poster_path);
+                                                
+                                                // Check if all episodes in group are watched for style
+                                                const allWatched = group.every(ep => {
+                                                    const key = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+                                                    return interactions[key]?.is_watched;
+                                                });
 
                                                 return (
                                                     <div 
-                                                        key={`${ep.show_id}-${ep.id}`} 
+                                                        key={`${firstEp.show_id}-${groupIdx}`} 
                                                         onClick={() => onSelectDay(day)}
                                                         className={`
-                                                            relative overflow-hidden rounded-3xl bg-[#09090b] border border-white/5 group transition-all duration-300
-                                                            ${isWatched ? 'opacity-50 grayscale' : 'hover:scale-[1.01] hover:border-white/10'}
+                                                            relative bg-[#09090b] group transition-all duration-300 hover:bg-zinc-900
+                                                            ${allWatched ? 'opacity-60 grayscale' : ''}
                                                         `}
                                                     >
-                                                        {/* Immersive Backdrop */}
-                                                        <div className="aspect-video w-full relative">
-                                                            <img src={imageUrl} alt="" className="w-full h-full object-cover opacity-80" />
+                                                        {/* Header Backdrop */}
+                                                        <div className="aspect-[3/1] w-full relative overflow-hidden">
+                                                            <img src={imageUrl} alt="" className="w-full h-full object-cover opacity-60" />
                                                             <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/40 to-transparent" />
-                                                            
-                                                            {/* Floating Meta */}
-                                                            <div className="absolute top-3 right-3 flex gap-2">
-                                                                <ReleaseBadge ep={ep} />
+                                                            <div className="absolute top-3 right-3">
+                                                                <ReleaseBadge ep={firstEp} />
                                                             </div>
                                                         </div>
 
                                                         {/* Content Body */}
-                                                        <div className="relative p-5 -mt-12">
-                                                            <div className="flex justify-between items-start gap-4">
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center gap-2 mb-1.5 opacity-80">
-                                                                        <Clock className="w-3 h-3 text-zinc-400" />
-                                                                        <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">
-                                                                            {format(new Date(ep.air_date), 'h:mm a')}
-                                                                        </span>
-                                                                    </div>
-                                                                    <h3 className="text-xl font-black text-white leading-tight mb-1 truncate">{ep.show_name}</h3>
-                                                                    <p className="text-sm text-zinc-400 font-medium truncate">{ep.name}</p>
-                                                                </div>
-                                                                
-                                                                <button 
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        if (ep.show_id) {
-                                                                            ep.is_movie ? toggleWatched(ep.show_id, 'movie') : toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
-                                                                        }
-                                                                    }}
-                                                                    className={`
-                                                                        w-12 h-12 rounded-full flex items-center justify-center transition-all border shadow-lg
-                                                                        ${isWatched ? 'bg-zinc-800 text-emerald-500 border-zinc-700' : 'bg-white text-black border-white hover:bg-zinc-200'}
-                                                                    `}
-                                                                >
-                                                                    <Check className="w-5 h-5 stroke-[3px]" />
-                                                                </button>
+                                                        <div className="relative px-5 pb-5 -mt-8">
+                                                            <h3 className="text-xl font-black text-white leading-tight mb-2 drop-shadow-md truncate">{firstEp.show_name}</h3>
+                                                            
+                                                            {/* Grouped Episodes List */}
+                                                            <div className="space-y-1">
+                                                                {group.map(ep => {
+                                                                    const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+                                                                    const isWatched = interactions[watchedKey]?.is_watched;
+                                                                    
+                                                                    return (
+                                                                        <div key={ep.id} className="flex items-center justify-between gap-4 py-2 border-t border-white/5 first:border-t-0">
+                                                                            <div className="min-w-0">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    {!ep.is_movie && <span className="text-[10px] font-mono font-bold text-zinc-500">S{ep.season_number} E{ep.episode_number}</span>}
+                                                                                    <span className="text-sm text-zinc-300 font-medium truncate">{ep.name}</span>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2 mt-0.5">
+                                                                                    <Clock className="w-3 h-3 text-zinc-500" />
+                                                                                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                                                                                        {format(new Date(ep.air_date), 'h:mm a')}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            <button 
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    if (ep.show_id) {
+                                                                                        ep.is_movie ? toggleWatched(ep.show_id, 'movie') : toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
+                                                                                    }
+                                                                                }}
+                                                                                className={`
+                                                                                    w-8 h-8 rounded-full flex items-center justify-center transition-all border
+                                                                                    ${isWatched ? 'bg-zinc-800 text-emerald-500 border-zinc-700' : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white hover:text-black'}
+                                                                                `}
+                                                                            >
+                                                                                <Check className="w-4 h-4" />
+                                                                            </button>
+                                                                        </div>
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -506,9 +533,9 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
                                         <div className="divide-y divide-white/5">
                                             {eps.map(ep => {
-                                                const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
                                                 const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                                                 const isWatched = interactions[watchedKey]?.is_watched;
+                                                const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
 
                                                 return (
                                                     <div 
