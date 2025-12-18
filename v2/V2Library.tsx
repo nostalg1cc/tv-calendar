@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { List, Trash2, Check, Filter, Tv, Film, MonitorPlay, SortAsc, LayoutGrid, Clock, Calendar, Search, Star, AlertCircle, Info, MoreHorizontal, X } from 'lucide-react';
+import { List, Trash2, Filter, SortAsc, LayoutGrid, Search, Star, AlertCircle, MoreHorizontal, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { getImageUrl, getBackdropUrl } from '../services/tmdb';
+import { getImageUrl } from '../services/tmdb';
 import { Episode, TVShow } from '../types';
 import ShowDetailsModal from '../components/ShowDetailsModal';
 import { format, parseISO } from 'date-fns';
@@ -11,7 +11,7 @@ type SortMode = 'name' | 'next_up' | 'added';
 type FilterMode = 'all' | 'tv' | 'movie' | 'ended' | 'returning';
 
 const V2Library: React.FC = () => {
-    const { allTrackedShows, episodes, interactions, removeFromWatchlist, settings, updateSettings, toggleWatched } = useAppContext();
+    const { allTrackedShows, episodes, interactions, removeFromWatchlist, settings, updateSettings } = useAppContext();
     const [searchQuery, setSearchQuery] = useState('');
     const [filter, setFilter] = useState<FilterMode>('all');
     const [sort, setSort] = useState<SortMode>('name');
@@ -26,13 +26,6 @@ const V2Library: React.FC = () => {
         const upcoming = allEps.filter(ep => ep.show_id === showId && ep.air_date && ep.air_date >= today);
         upcoming.sort((a, b) => a.air_date.localeCompare(b.air_date));
         return upcoming.length > 0 ? upcoming[0].air_date : null;
-    };
-
-    const getStatusText = (item: TVShow) => {
-        if (item.media_type === 'movie') return item.first_air_date ? item.first_air_date.split('-')[0] : 'TBA';
-        const nextDate = getNextEpisodeDate(item.id);
-        if (nextDate) return `Next: ${format(parseISO(nextDate), 'MMM d')}`;
-        return 'Ended / TBA';
     };
 
     const filteredItems = useMemo(() => {
@@ -268,7 +261,7 @@ const V2Library: React.FC = () => {
                     isOpen={!!selectedItem} 
                     onClose={() => setSelectedItem(null)}
                     showId={selectedItem.id}
-                    mediaType={selectedItem.mediaType}
+                    mediaType={selectedItem.media_type}
                 />
             )}
 
