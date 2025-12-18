@@ -29,19 +29,18 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { settings, reminderCandidate, setReminderCandidate } = useAppContext();
     const location = useLocation();
     
-    // Determine if we need specialized layout logic
+    // Check if we are in V2 context
+    const isV2 = location.pathname.startsWith('/v2');
+    if (isV2) return <>{children}</>;
+
     const isCalendar = location.pathname === '/';
     const isCompactMode = settings.compactCalendar && isCalendar;
     const isPill = settings.mobileNavLayout === 'pill';
-    const isV2 = location.pathname.startsWith('/v2');
 
     const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-    // If reminderCandidate is set (Ask Modal is triggered)
-    // If confirmed, close ask modal and open Config Modal
     const handleConfirmReminder = () => {
         setIsConfigOpen(true);
-        // keep reminderCandidate set so ConfigModal can use it
     };
 
     const handleCloseFlow = () => {
@@ -49,15 +48,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         setIsConfigOpen(false);
     };
 
-    // V2 uses its own standalone layout
-    if (isV2) return <>{children}</>;
-
     return (
         <div className="flex h-screen w-screen bg-[var(--bg-main)] text-slate-100 overflow-hidden">
-            {/* Sidebar Navigation */}
             <Navbar />
-            
-            {/* Main Content Area */}
             <div className={`
                 flex-1 flex flex-col min-w-0 relative
                 ${isCompactMode ? 'h-full' : 'h-full overflow-y-auto overflow-x-hidden'}
@@ -71,19 +64,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 `}>
                     {children}
                 </div>
-
-                {/* Bottom Gradient Fade for Pill Mode */}
                 {isPill && (
                     <div className="md:hidden fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[var(--bg-main)] via-[var(--bg-main)]/80 to-transparent pointer-events-none z-40" />
                 )}
             </div>
-
-            {/* Global Overlays */}
             <SearchModal />
             <MobileAddWarning />
             <FullSyncModal />
-            
-            {/* Global Reminder Flow */}
             <AskReminderModal 
                 isOpen={!!reminderCandidate && !isConfigOpen} 
                 item={reminderCandidate} 
@@ -109,17 +96,21 @@ const AppRoutes: React.FC = () => {
     }
 
     return (
-        <Layout>
-            <Routes>
-                <Route path="/" element={<CalendarPage />} />
-                <Route path="/discover" element={<DiscoverPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/watchlist" element={<WatchlistPage />} />
-                <Route path="/reminders" element={<RemindersPage />} />
-                <Route path="/v2/*" element={<V2Dashboard />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-        </Layout>
+        <Routes>
+            <Route path="/v2/*" element={<ProtectedRoute><V2Dashboard /></ProtectedRoute>} />
+            <Route path="/*" element={
+                <Layout>
+                    <Routes>
+                        <Route path="/" element={<CalendarPage />} />
+                        <Route path="/discover" element={<DiscoverPage />} />
+                        <Route path="/search" element={<SearchPage />} />
+                        <Route path="/watchlist" element={<WatchlistPage />} />
+                        <Route path="/reminders" element={<RemindersPage />} />
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                </Layout>
+            } />
+        </Routes>
     );
 };
 
