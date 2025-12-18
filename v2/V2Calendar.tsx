@@ -139,6 +139,42 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         );
     };
 
+    const SingleEpisodeCell = ({ ep }: { ep: Episode }) => {
+        const imageUrl = getImageUrl(ep.poster_path);
+        const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+        const isWatched = interactions[watchedKey]?.is_watched;
+
+        return (
+            <div className="absolute inset-0 w-full h-full">
+                <img 
+                    src={imageUrl} 
+                    className={`w-full h-full object-cover transition-all duration-500 ${isWatched ? 'grayscale opacity-30' : 'opacity-60 group-hover/cell:scale-110 group-hover/cell:opacity-40'}`}
+                    alt=""
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-[#000000]/20 to-transparent" />
+                
+                <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col justify-end h-full">
+                    <h4 className={`text-[10px] font-black uppercase tracking-tight leading-tight line-clamp-2 mb-1 ${isWatched ? 'text-zinc-600 line-through' : 'text-white drop-shadow-md'}`}>
+                        {ep.show_name}
+                    </h4>
+                    <div className="flex items-center gap-1.5">
+                        {ep.is_movie ? (
+                             <span className={`text-[8px] font-bold uppercase tracking-wider flex items-center gap-1 ${ep.release_type === 'theatrical' ? 'text-pink-400' : 'text-emerald-400'}`}>
+                                {ep.release_type === 'theatrical' ? <Ticket className="w-2 h-2" /> : <MonitorPlay className="w-2 h-2" />}
+                                {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                            </span>
+                        ) : (
+                            <span className={`text-[9px] font-mono font-bold ${isWatched ? 'text-zinc-600' : 'text-zinc-300'}`}>
+                                S{ep.season_number} E{ep.episode_number}
+                            </span>
+                        )}
+                        {isWatched && <Check className="w-3 h-3 text-emerald-500" />}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
             {/* Header */}
@@ -251,7 +287,9 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                         <span className={`text-[10px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded ${isTodayDate ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' : isCurrentMonth ? (isActive ? 'text-white' : 'text-zinc-600 group-hover/cell:text-zinc-300') : 'text-zinc-800'} transition-colors`}>{format(day, 'dd')}</span>
                                     </div>
                                     
-                                    {dayEps.length > 0 && (
+                                    {dayEps.length === 1 ? (
+                                        <SingleEpisodeCell ep={dayEps[0]} />
+                                    ) : dayEps.length > 1 ? (
                                         <div className="absolute inset-0 p-2 pt-8 flex flex-col gap-1">
                                             {dayEps.slice(0, 3).map(ep => {
                                                 const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
@@ -275,7 +313,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                 </div>
                                             )}
                                         </div>
-                                    )}
+                                    ) : null}
                                     {isActive && <div className="absolute inset-0 border-[2px] border-indigo-500/80 pointer-events-none z-40 shadow-[inset_0_0_15px_rgba(99,102,241,0.1)]" />}
                                 </div>
                             );
