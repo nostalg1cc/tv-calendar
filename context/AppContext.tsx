@@ -647,8 +647,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const finalEpisodesMap: Record<string, Episode[]> = { ...currentEps };
           
           incomingEpisodes.forEach(ep => {
-              if(!ep.air_date) return;
-              const dateKey = getAdjustedDate(ep.air_date, (allTrackedShows.find(s=>s.id === ep.show_id))?.origin_country);
+              const airDate = ep.air_date;
+              if (!airDate) return;
+              
+              const dateKey = getAdjustedDate(airDate, (allTrackedShows.find(s=>s.id === ep.show_id))?.origin_country);
               
               if (!finalEpisodesMap[dateKey]) finalEpisodesMap[dateKey] = [];
               
