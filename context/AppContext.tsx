@@ -257,9 +257,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return () => mediaQuery.removeEventListener('change', handleChange);
   }, [settings.baseTheme]);
 
-  const [watchlist, setWatchlist] = useState<TVShow[]>(() => { try { return JSON.parse(localStorage.getItem('tv_calendar_watchlist') || '[]'); } catch { return []; } });
-  const [subscribedLists, setSubscribedLists] = useState<SubscribedList[]>(() => { try { return JSON.parse(localStorage.getItem('tv_calendar_subscribed_lists') || '[]'); } catch { return []; } });
-  const [reminders, setReminders] = useState<Reminder[]>(() => { try { return JSON.parse(localStorage.getItem('tv_calendar_reminders') || '[]'); } catch { return []; } });
+  // Fix state initialization for watchlist, subscribedLists, and reminders by adding JSON.parse and correcting syntax errors.
+  const [watchlist, setWatchlist] = useState<TVShow[]>(() => { try { const saved = localStorage.getItem('tv_calendar_watchlist'); return saved ? JSON.parse(saved) : []; } catch { return []; } });
+  const [subscribedLists, setSubscribedLists] = useState<SubscribedList[]>(() => { try { const saved = localStorage.getItem('tv_calendar_subscribed_lists'); return saved ? JSON.parse(saved) : []; } catch { return []; } });
+  const [reminders, setReminders] = useState<Reminder[]>(() => { try { const saved = localStorage.getItem('tv_calendar_reminders'); return saved ? JSON.parse(saved) : []; } catch { return []; } });
   const [interactions, setInteractions] = useState<Record<string, Interaction>>(() => { try { return JSON.parse(localStorage.getItem('tv_calendar_interactions') || '{}'); } catch { return {}; } });
 
   const [episodes, setEpisodes] = useState<Record<string, Episode[]>>({});
@@ -575,7 +576,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
           if (user?.isCloud && supabase) {
                 const dbBatchSize = 100;
-                for (let i = 0; i < dbBatchSize) { 
+                for (let i = 0; i < epsToMark.length; i += dbBatchSize) { 
                     const batch = epsToMark.slice(i, i + dbBatchSize).map(item => ({ 
                         user_id: user.id, 
                         tmdb_id: item.tmdb_id,
