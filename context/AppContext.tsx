@@ -503,11 +503,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const key = `${mediaType}-${id}`;
       const currentInteraction = interactions[key];
       const current = currentInteraction?.is_watched || false;
-      const newInteraction: Interaction = {
-          rating: 0,
-          ...currentInteraction,
+      
+      const base: Interaction = currentInteraction || {
           tmdb_id: id,
           media_type: mediaType,
+          rating: 0,
+          is_watched: false
+      };
+
+      const newInteraction: Interaction = {
+          ...base,
           is_watched: !current,
           watched_at: !current ? new Date().toISOString() : undefined
       };
@@ -521,16 +526,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const key = `episode-${showId}-${season}-${episode}`;
       const currentInteraction = interactions[key];
       const current = currentInteraction?.is_watched || false;
-      const newInteraction: Interaction = {
-          rating: 0,
-          ...currentInteraction,
+      
+      const base: Interaction = currentInteraction || {
           tmdb_id: showId,
           media_type: 'episode',
           season_number: season,
           episode_number: episode,
+          rating: 0,
+          is_watched: false
+      };
+
+      const newInteraction: Interaction = {
+          ...base,
           is_watched: !current,
           watched_at: !current ? new Date().toISOString() : undefined
       };
+
       const newInteractions = { ...interactions, [key]: newInteraction };
       setInteractions(newInteractions);
       await saveLocalData(watchlist, subscribedLists, episodes, reminders, newInteractions);
@@ -549,15 +560,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       targetEps.forEach(e => {
           const key = `episode-${e.show_id}-${e.season_number}-${e.episode_number}`;
           const existing = newInteractions[key];
-          newInteractions[key] = { 
+          
+          const base: Interaction = existing || {
+              tmdb_id: showId,
+              media_type: 'episode',
+              season_number: e.season_number,
+              episode_number: e.episode_number,
               rating: 0,
-              ...existing,
-              tmdb_id: showId, 
-              media_type: 'episode', 
-              season_number: e.season_number, 
-              episode_number: e.episode_number, 
+              is_watched: false
+          };
+
+          newInteractions[key] = { 
+              ...base,
               is_watched: true, 
-              watched_at: existing?.watched_at || new Date().toISOString() 
+              watched_at: base.watched_at || new Date().toISOString() 
           };
       });
       setInteractions(newInteractions);

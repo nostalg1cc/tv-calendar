@@ -3,8 +3,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
     Calendar, Compass, List, Settings, 
-    ArrowLeft, LayoutPanelLeft, Minimize2, 
-    LogOut, Search
+    LayoutPanelLeft, Minimize2, Search
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
