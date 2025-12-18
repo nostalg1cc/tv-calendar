@@ -63,6 +63,7 @@ interface AppContextType {
   closeMobileWarning: (suppressFuture: boolean) => void;
   reloadAccount: () => Promise<void>;
   hardRefreshCalendar: () => Promise<void>;
+  testConnection: () => Promise<{ success: boolean; message: string }>;
 
   // Calendar Persistence
   calendarScrollPos: number;
@@ -312,16 +313,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // --- TIMEZONE & SHIFT LOGIC ---
 
   const getAdjustedDate = useCallback((airDate: string, originCountries?: string[]): string => {
-      if (!settings.timeShift || !originCountries || originCountries.length === 0 || !settings.timezone) return airDate;
-      const originCountry = originCountries[0];
+      if (!settings.timeShift || !settings.timezone) return airDate;
+      
+      // Default to US if origin is unknown to enable "Smart Shift" aggressively
+      const originCountry = (originCountries && originCountries.length > 0) ? originCountries[0] : 'US';
+      
       const originTz = COUNTRY_TIMEZONES[originCountry];
       if (!originTz) return airDate;
+      
       const originOffset = getTimezoneOffsetMinutes(originTz);
       const userOffset = getTimezoneOffsetMinutes(settings.timezone);
       const diffMinutes = userOffset - originOffset;
-      const airTimeMinutes = 20 * 60; 
+      const airTimeMinutes = 20 * 60; // Assume 8 PM default
       const adjustedTimeMinutes = airTimeMinutes + diffMinutes;
-      if (adjustedTimeMinutes >= 24 * 60) { return format(addDays(parseISO(airDate), 1), 'yyyy-MM-dd'); } else if (adjustedTimeMinutes < 0) { return format(addDays(parseISO(airDate), -1), 'yyyy-MM-dd'); }
+      
+      if (adjustedTimeMinutes >= 24 * 60) { return format(addDays(parseISO(airDate), 1), 'yyyy-MM-dd'); } 
+      else if (adjustedTimeMinutes < 0) { return format(addDays(parseISO(airDate), -1), 'yyyy-MM-dd'); }
+      
       return airDate;
   }, [settings.timeShift, settings.timezone]);
 
@@ -939,7 +947,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           localKeys.forEach(k => delete (settingsToSync as any)[k]); 
           
           if (user?.isCloud && supabase && user.id) {
-              supabase.from('profiles').update({ settings: settingsToSync }).eq('id', user.id).then(({error}) => { 
+              // Ensure settings are stringified for DB text column if necessary, or sent as object for JSONB
+              supabase.from('profiles').update({ 
+                  settings: settingsToSync, 
+                  updated_at: new Date().toISOString() 
+              }).eq('id', user.id).then(({error}) => { 
                   if(error) console.error("Failed to sync settings", error); 
               }); 
           }
@@ -1071,6 +1083,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const processSyncPayload = useCallback(async (encodedPayload: string) => { try { const json = LZString.decompressFromEncodedURIComponent(encodedPayload); if (!json) throw new Error("Invalid payload"); const data = JSON.parse(json); if (data.user) { const newUser: User = { ...data.user, isAuthenticated: true }; setUser(newUser); setApiToken(newUser.tmdbKey); if (!newUser.isCloud) localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); } if (data.settings) updateSettings(data.settings); if (data.interactions) { setInteractions(data.interactions); if (!data.user?.isCloud) localStorage.setItem('tv_calendar_interactions', JSON.stringify(data.interactions)); } if (data.watchlist && Array.isArray(data.watchlist)) { setLoading(true); const shows: TVShow[] = []; for (const item of data.watchlist) { try { const details = item.type === 'movie' ? await getMovieDetails(item.id) : await getShowDetails(item.id); shows.push(details); } catch (e) {} } await batchAddShows(shows); } if (data.lists && Array.isArray(data.lists)) { for (const listId of data.lists) await subscribeToList(listId); } setTimeout(() => window.location.reload(), 500); } catch (e) { alert("Failed to process sync data."); setLoading(false); } }, [batchAddShows, subscribeToList, updateSettings]);
   const closeMobileWarning = (suppressFuture: boolean) => { setIsMobileWarningOpen(false); if (suppressFuture) updateSettings({ suppressMobileAddWarning: true }); };
 
+  // --- NEW: Connection Diagnostic ---
+  const testConnection = async (): Promise<{ success: boolean; message: string }> => {
+      if (!isSupabaseConfigured() || !supabase) return { success: false, message: 'Supabase client not initialized.' };
+      if (!user?.isCloud || !user.id) return { success: false, message: 'Not logged into a cloud account.' };
+
+      try {
+          // 1. Test Read
+          const { data, error: readError } = await supabase.from('profiles').select('id, settings').eq('id', user.id).single();
+          if (readError) throw readError;
+          if (!data) throw new Error('Profile not found for this user ID.');
+
+          // 2. Test Write (Touch updated_at)
+          const { error: writeError } = await supabase.from('profiles').update({ updated_at: new Date().toISOString() }).eq('id', user.id);
+          if (writeError) throw writeError;
+
+          return { success: true, message: 'Connection Healthy: Read & Write successful.' };
+      } catch (e: any) {
+          console.error("Connection Test Failed", e);
+          return { success: false, message: `Connection Failed: ${e.message || e.code || 'Unknown Error'}` };
+      }
+  };
+
   return (
     <AppContext.Provider value={{
       user, login, loginCloud, logout, updateUserKey,
@@ -1091,7 +1125,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       interactions, toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
       traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData,
       fullSyncRequired, performFullSync,
-      hardRefreshCalendar
+      hardRefreshCalendar,
+      testConnection // Exposed here
     }}>
       {children}
     </AppContext.Provider>

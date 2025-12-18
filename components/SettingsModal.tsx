@@ -1,6 +1,5 @@
-
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Film, Ban, Sparkles, Key, Check, Globe, Download, Upload, RefreshCw, AlertTriangle, ShieldAlert, Monitor, Moon, Sun, Smartphone, User, Palette, Layers, Database, Lock, LogOut, ChevronRight, Type, CheckCircle2, QrCode, Scan, Merge, ArrowRight, Loader2, Link as LinkIcon, Zap, Bell, PenTool, CalendarClock, History } from 'lucide-react';
+import { X, Eye, EyeOff, Film, Ban, Sparkles, Key, Check, Globe, Download, Upload, RefreshCw, AlertTriangle, ShieldAlert, Monitor, Moon, Sun, Smartphone, User, Palette, Layers, Database, Lock, LogOut, ChevronRight, Type, CheckCircle2, QrCode, Scan, Merge, ArrowRight, Loader2, Link as LinkIcon, Zap, Bell, PenTool, CalendarClock, History, Signal } from 'lucide-react';
 import { useAppContext, THEMES } from '../context/AppContext';
 import QRCode from 'react-qr-code';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -30,7 +29,7 @@ const BASE_THEMES = [
 ];
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { settings, updateSettings, user, updateUserKey, importBackup, batchAddShows, batchSubscribe, processSyncPayload, getSyncPayload, reloadAccount, traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData, watchlist, subscribedLists, reminders, interactions, unhideShow } = useAppContext();
+  const { settings, updateSettings, user, updateUserKey, importBackup, batchAddShows, batchSubscribe, processSyncPayload, getSyncPayload, reloadAccount, traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData, watchlist, subscribedLists, reminders, interactions, unhideShow, testConnection } = useAppContext();
   
   const [activeTab, setActiveTab] = useState<TabId>('appearance');
   const [keyInput, setKeyInput] = useState(user?.tmdbKey || '');
@@ -38,6 +37,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [showQr, setShowQr] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [customColor, setCustomColor] = useState(settings.customThemeColor || '#6366f1');
+  
+  // Connection Test State
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
   
   // Export/Import State
   const [showExportWarning, setShowExportWarning] = useState(false);
@@ -69,18 +72,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const confirmMerge = () => { if (mergePreview) { setIsProcessingImport(true); if (mergePreview.newShows.length > 0) batchAddShows(mergePreview.newShows); if (mergePreview.newLists.length > 0) batchSubscribe(mergePreview.newLists); setTimeout(() => { setIsProcessingImport(false); setMergePreview(null); onClose(); }, 1000); } };
   const handleScan = (result: any) => { if (result?.[0]?.rawValue) { setShowScanner(false); setIsProcessingImport(true); processSyncPayload(result[0].rawValue); } };
   
-  const handleTraktConnect = async () => {
-    if (!traktClientId) { alert("Please enter a Client ID"); return; }
-    localStorage.setItem('trakt_client_id', traktClientId);
-    try {
-        const codeData = await traktAuth(traktClientId, ''); 
-        setTraktCode(codeData);
-        const interval = setInterval(async () => {
-            const pollRes = await traktPoll(codeData.device_code, traktClientId, '');
-            if (pollRes.status === 200) { clearInterval(interval); setTraktCode(null); await saveTraktToken(pollRes.data); } 
-            else if (pollRes.status >= 400 && pollRes.status !== 429) { clearInterval(interval); setTraktCode(null); }
-        }, codeData.interval * 1000);
-    } catch (e) { alert("Failed to connect to Trakt."); }
+  const runConnectionTest = async () => {
+      setIsTesting(true);
+      setTestResult(null);
+      const res = await testConnection();
+      setTestResult(res);
+      setIsTesting(false);
   };
 
   const TABS = [
@@ -422,6 +419,32 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
             {/* --- DATA TAB --- */}
             {activeTab === 'data' && (
                 <div className="space-y-6 animate-fade-in max-w-3xl">
+                     
+                     {/* Diagnostics Panel */}
+                     <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-2xl p-6">
+                        <h4 className="font-bold text-[var(--text-main)] mb-4 flex items-center gap-2"><Signal className="w-5 h-5 text-indigo-500" /> Connection Diagnostics</h4>
+                        
+                        <div className="flex flex-col sm:flex-row items-center gap-4">
+                            <div className="flex-1 text-sm text-[var(--text-muted)]">
+                                Test if your application can successfully read and write to the cloud database. Use this if settings aren't saving.
+                            </div>
+                            <button 
+                                onClick={runConnectionTest} 
+                                disabled={isTesting}
+                                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg"
+                            >
+                                {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                Test Connection
+                            </button>
+                        </div>
+
+                        {testResult && (
+                            <div className={`mt-4 p-3 rounded-lg border text-xs font-mono ${testResult.success ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                                {testResult.message}
+                            </div>
+                        )}
+                     </div>
+
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <button onClick={handleExportProfile} className="p-6 bg-[var(--bg-panel)] border border-[var(--border-color)] hover:border-indigo-500/50 rounded-2xl text-left group transition-all">
                             <Download className="w-8 h-8 text-indigo-500 mb-3 group-hover:-translate-y-1 transition-transform" />
