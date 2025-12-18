@@ -1,16 +1,17 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { Check, CalendarDays, Play, History, EyeOff, Ticket, MonitorPlay, ChevronRight } from 'lucide-react';
+import { Check, CalendarDays, Play, History, EyeOff, Ticket, MonitorPlay, ChevronRight, PlayCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
 
 interface V2AgendaProps {
     selectedDay: Date;
+    onPlayTrailer?: (showId: number, mediaType: 'tv' | 'movie', episode?: Episode) => void;
 }
 
-const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
+const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer }) => {
     const { episodes, settings, interactions, toggleEpisodeWatched, toggleWatched, markHistoryWatched } = useAppContext();
     
     const dateKey = format(selectedDay, 'yyyy-MM-dd');
@@ -49,12 +50,19 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
                     <h4 className="text-[10px] font-black text-zinc-300 uppercase tracking-[0.15em] truncate pr-4">
                         {firstEp.show_name || firstEp.name}
                     </h4>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                          {firstEp.is_movie ? (
-                            <span className="text-[8px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 border border-indigo-500/20 rounded">Movie</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 border border-indigo-500/20 rounded mr-2">Movie</span>
                          ) : (
-                            <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 bg-white/5 px-1.5 py-0.5 border border-white/5 rounded">{eps.length} EP</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 bg-white/5 px-1.5 py-0.5 border border-white/5 rounded mr-2">{eps.length} EP</span>
                          )}
+                         <button 
+                            onClick={() => onPlayTrailer?.(firstEp.show_id || firstEp.id, firstEp.is_movie ? 'movie' : 'tv')}
+                            className="p-1.5 text-zinc-600 hover:text-white transition-colors"
+                            title="Play Trailer"
+                         >
+                            <PlayCircle className="w-3.5 h-3.5" />
+                         </button>
                     </div>
                 </div>
 
@@ -122,7 +130,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
                                         <button 
                                             onClick={() => markHistoryWatched(ep.show_id!, ep.season_number, ep.episode_number)}
                                             className="p-2 text-zinc-700 hover:text-emerald-500 transition-colors"
-                                            title="Sync Catch-up"
+                                            title="Mark past as watched"
                                         >
                                             <History className="w-3.5 h-3.5" />
                                         </button>
@@ -131,7 +139,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
                                         onClick={() => ep.show_id && (ep.is_movie ? toggleWatched(ep.show_id, 'movie') : toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number))}
                                         className={`p-2 transition-all ${isWatched ? 'text-emerald-500' : 'text-zinc-600 hover:text-white'}`}
                                     >
-                                        <Check className={`w-4 h-4 ${isWatched ? 'stroke-[3px]' : 'stroke-2'}`} />
+                                        <Check className={`w-4 h-4 ${isWatched ? 'stroke-[3px]' : 'stroke-2'}`} title="Mark watched" />
                                     </button>
                                 </div>
                             </div>

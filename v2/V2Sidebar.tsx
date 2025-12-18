@@ -119,16 +119,15 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
 
                 {/* User Info Section (Above Settings) */}
                 <div className={`
-                    bg-zinc-900/40 p-2.5 rounded-2xl border border-white/5 transition-all group/user
+                    bg-transparent p-2.5 rounded-2xl transition-all group/user
                     ${mode === 'collapsed' ? 'flex flex-col items-center' : 'flex items-center gap-3'}
                 `}>
-                    <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-xs shrink-0 border border-indigo-500/10 shadow-inner">
+                    <div className="w-9 h-9 flex items-center justify-center font-black text-lg shrink-0 text-white">
                         {user?.username.charAt(0).toUpperCase()}
                     </div>
                     {mode !== 'collapsed' && (
                         <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-bold text-zinc-200 truncate leading-none mb-1">{user?.username}</p>
-                            <p className="text-[10px] font-mono text-zinc-600 truncate uppercase tracking-tighter">Premium</p>
+                            <p className="text-[14px] font-bold text-zinc-100 truncate leading-none">{user?.username}</p>
                         </div>
                     )}
                     {mode !== 'collapsed' && (

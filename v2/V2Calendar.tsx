@@ -111,27 +111,29 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
-            <header className="h-20 shrink-0 border-b border-white/5 flex items-center justify-between px-8 bg-zinc-950/20 backdrop-blur-md z-[60]">
-                <div className="flex items-center gap-6">
-                    <h2 className="text-2xl font-black text-white tracking-tighter uppercase flex items-baseline">
+            <header className="h-16 shrink-0 border-b border-white/5 flex items-center justify-between px-8 bg-zinc-950/20 backdrop-blur-md z-[60]">
+                <div className="flex items-center gap-4">
+                    <h2 className="text-xl font-black text-white tracking-tighter uppercase flex items-baseline">
                         {format(calendarDate, 'MMMM')} 
-                        <span className="text-zinc-700 font-mono font-light ml-2 text-lg">{format(calendarDate, 'yyyy')}</span>
+                        <span className="text-zinc-700 font-mono font-light ml-2 text-base">{format(calendarDate, 'yyyy')}</span>
                     </h2>
-                    <div className="flex items-center bg-zinc-900/50 rounded-xl p-1 border border-white/5">
-                        <button onClick={() => setCalendarDate(subMonths(calendarDate, 1))} className="p-2 hover:bg-white/5 text-zinc-500 hover:text-white transition-all rounded-lg"><ChevronLeft className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => { setCalendarDate(new Date()); onSelectDay(new Date()); }} className="px-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-indigo-400 transition-colors">Today</button>
-                        <button onClick={() => setCalendarDate(addMonths(calendarDate, 1))} className="p-2 hover:bg-white/5 text-zinc-500 hover:text-white transition-all rounded-lg"><ChevronRight className="w-3.5 h-3.5" /></button>
-                    </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                    {/* Navigation Moved to Right */}
+                    <div className="flex items-center bg-zinc-900/50 rounded-xl p-1 border border-white/5 mr-2">
+                        <button onClick={() => setCalendarDate(subMonths(calendarDate, 1))} className="p-1.5 hover:bg-white/5 text-zinc-500 hover:text-white transition-all rounded-lg"><ChevronLeft className="w-4 h-4" /></button>
+                        <button onClick={() => { setCalendarDate(new Date()); onSelectDay(new Date()); }} className="px-3 text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:text-indigo-400 transition-colors">This Week</button>
+                        <button onClick={() => setCalendarDate(addMonths(calendarDate, 1))} className="p-1.5 hover:bg-white/5 text-zinc-500 hover:text-white transition-all rounded-lg"><ChevronRight className="w-4 h-4" /></button>
+                    </div>
+
                     <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5">
-                        <button className="p-2 bg-indigo-500 text-white rounded-lg shadow-lg shadow-indigo-500/20"><LayoutGrid className="w-3.5 h-3.5" /></button>
-                        <button className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors"><Layers className="w-3.5 h-3.5" /></button>
+                        <button className="p-1.5 bg-zinc-800 text-white rounded-lg"><LayoutGrid className="w-3.5 h-3.5" /></button>
+                        <button className="p-1.5 text-zinc-500 hover:text-zinc-300 transition-colors"><Layers className="w-3.5 h-3.5" /></button>
                     </div>
                     
                     <div className="relative" ref={filterRef}>
-                        <button onClick={() => setIsFilterOpen(!isFilterOpen)} className={`p-2.5 transition-all rounded-xl border border-white/5 ${isFilterOpen ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'}`}><Filter className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setIsFilterOpen(!isFilterOpen)} className={`p-2 transition-all rounded-xl border border-white/5 ${isFilterOpen ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'}`}><Filter className="w-3.5 h-3.5" /></button>
                         
                         {isFilterOpen && (
                             <div className="absolute top-full right-0 mt-3 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-enter">
@@ -168,7 +170,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
             <div className="grid grid-cols-7 border-b border-white/5 bg-zinc-950/10 shrink-0">
                 {weekDays.map(day => (
-                    <div key={day} className="py-2.5 text-center text-[9px] font-black text-zinc-600 uppercase tracking-[0.25em] border-r border-white/5 last:border-r-0">
+                    <div key={day} className="py-2 text-center text-[9px] font-black text-zinc-600 uppercase tracking-[0.25em] border-r border-white/5 last:border-r-0">
                         {day}
                     </div>
                 ))}
