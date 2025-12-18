@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, ReactNo
 import { User, TVShow, Episode, AppSettings, SubscribedList, Reminder, Interaction, TraktProfile } from '../types';
 import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails, setApiToken } from '../services/tmdb';
 import { get, set, del } from 'idb-keyval';
-import { format, subYears, parseISO, isSameDay, subMinutes, addDays } from 'date-fns';
+import { format, subYears, parseISO, isSameDay, subMinutes, addDays, subMonths } from 'date-fns';
 import LZString from 'lz-string';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { getDeviceCode, pollToken, getWatchedHistory, getTraktProfile, getShowProgress, syncHistory } from '../services/trakt';
@@ -581,24 +581,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (fullSyncRequired) return; 
       if (!user || (!user.tmdbKey && !user.isCloud)) { setLoading(false); return; } 
       
-      // Auto-Sync Logic Check
       const shouldSync = settings.autoSync || force;
-      
       const lastUpdate = await get<number>(DB_KEY_META); 
       const now = Date.now(); 
 
-      // If we have cache and shouldn't sync, or cache is fresh enough and not forced
+      // Initialize from cache first if available
+      const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); 
+      if (cachedEps) {
+          setEpisodes(cachedEps);
+      }
+
+      // Skip sync if recent and not forced
       if (!shouldSync || (!user.isCloud && !force && lastUpdate && (now - lastUpdate < CACHE_DURATION))) { 
-          const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); 
-          if (cachedEps && Object.keys(cachedEps).length > 0) { 
-              setEpisodes(cachedEps); 
+          if (cachedEps) { 
               setLoading(false); 
               return; 
-          } 
-          // If no cache but we have shows, we must sync anyway if it's the first load
-          if (allTrackedShows.length > 0 && shouldSync) {
-              // Proceed to sync
-          } else {
+          }
+          if (allTrackedShows.length === 0) {
               setLoading(false);
               return;
           }
@@ -606,31 +605,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       
       const itemsToProcess = [...allTrackedShows]; 
       if (itemsToProcess.length === 0) { setEpisodes({}); setLoading(false); return; } 
-      if (Object.keys(episodes).length === 0) setLoading(true); 
+      
+      // Don't show full loading screen if we have cached data, just a sync indicator
+      if (!cachedEps) setLoading(true);
       setIsSyncing(true); 
+      
       try { 
           const processedIds = new Set<number>(); 
           const uniqueItems: TVShow[] = []; 
           itemsToProcess.forEach(item => { if (!processedIds.has(item.id)) { processedIds.add(item.id); uniqueItems.push(item); } }); 
           setSyncProgress({ current: 0, total: uniqueItems.length }); 
+          
+          // Merge logic: Don't replace state, merge into it
+          const currentEps = cachedEps || {};
+
           const mergeNewEpisodes = (newEps: Episode[], originCountries?: string[]) => { 
-              setEpisodes(prev => { 
-                  const next = { ...prev }; 
-                  newEps.forEach(ep => { 
-                      if (!ep.air_date) return; 
-                      const dateKey = getAdjustedDate(ep.air_date, originCountries); 
-                      const existing = next[dateKey] || []; 
-                      const others = existing.filter(e => !(e.show_id === ep.show_id && e.episode_number === ep.episode_number && e.season_number === ep.season_number)); 
-                      next[dateKey] = [...others, ep]; 
-                  }); 
-                  return next; 
-              }); 
+              // We'll update the state at the end or in chunks to avoid UI lag
+              // For now, let's collect them in a temporary map and merge later
+              return newEps;
           }; 
+
           let processedCount = 0; 
-          const oneYearAgo = subYears(new Date(), 1); 
+          // Smart Sync Window: 6 months ago to Future
+          const sixMonthsAgo = subMonths(new Date(), 6);
+          const incomingEpisodes: Episode[] = [];
+
+          // Use a batch size, but the queue in TMDB service will handle concurrency limits
           while (processedCount < uniqueItems.length) { 
-              const currentBatchSize = 5; 
+              const currentBatchSize = 10; 
               const batch = uniqueItems.slice(processedCount, processedCount + currentBatchSize); 
+              
               await Promise.all(batch.map(async (item) => { 
                   try { 
                       const batchEpisodes: Episode[] = [];
@@ -640,34 +644,80 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                               batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); 
                           }); 
                       } else { 
+                          // Fetch latest show details to get current seasons
                           let details = item;
-                          if(!item.origin_country) { try { details = await getShowDetails(item.id); } catch(e) {} } else { try { const full = await getShowDetails(item.id); details = full; } catch(e) {} }
+                          try { details = await getShowDetails(item.id); } catch(e) {}
+                          
                           const seasonsMeta = details.seasons || []; 
-                          const sortedSeasons = [...seasonsMeta].sort((a, b) => b.season_number - a.season_number); 
-                          for (const sMeta of sortedSeasons) { 
+                          
+                          // Smart Filtering: Only fetch seasons that are:
+                          // 1. Specials (Season 0) - if not ignored
+                          // 2. Aired recently (last 6 months)
+                          // 3. Airing in the future
+                          // 4. The very last season (to catch TBA episodes)
+                          const seasonsToFetch = seasonsMeta.filter((s, index) => {
+                              if (s.season_number === 0) return !settings.ignoreSpecials;
+                              if (!s.air_date) return true; // TBA season
+                              const sDate = parseISO(s.air_date);
+                              return sDate >= sixMonthsAgo || index === seasonsMeta.length - 1;
+                          });
+
+                          for (const sMeta of seasonsToFetch) { 
                               try { 
                                   const sData = await getSeasonDetails(item.id, sMeta.season_number); 
-                                  if (sData.episodes && sData.episodes.length > 0) { 
-                                      const lastEpDate = sData.episodes[sData.episodes.length - 1].air_date; 
+                                  if (sData.episodes) { 
                                       sData.episodes.forEach(ep => { 
                                           if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: details.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false }); 
                                       }); 
-                                      if (lastEpDate && parseISO(lastEpDate) < oneYearAgo) break; 
                                   } 
                               } catch (e) {} 
                           } 
-                          mergeNewEpisodes(batchEpisodes, details.origin_country); 
+                          
+                          // If we skipped seasons, we should probably keep existing cache for those seasons?
+                          // For now, this logic prioritizes the calendar view.
+                          incomingEpisodes.push(...mergeNewEpisodes(batchEpisodes, details.origin_country));
                       } 
-                      if (item.media_type === 'movie' && batchEpisodes.length > 0) { mergeNewEpisodes(batchEpisodes, item.origin_country); }
+                      if (item.media_type === 'movie') { incomingEpisodes.push(...mergeNewEpisodes(batchEpisodes, item.origin_country)); }
                   } catch (error) {} 
               })); 
               processedCount += currentBatchSize; 
               setSyncProgress(prev => ({ ...prev, current: Math.min(processedCount, uniqueItems.length) })); 
           } 
-          setEpisodes(current => { set(DB_KEY_EPISODES, current); return current; }); 
+          
+          // Rebuild map from incoming + existing (if preserving history is needed, we'd need complex merging)
+          // Since we are "Smart Syncing", we might miss old episodes. 
+          // Ideally, we merge incoming into currentEps.
+          
+          // 1. Create a map of existing episodes
+          const finalEpisodesMap: Record<string, Episode[]> = { ...currentEps };
+          
+          // 2. Iterate incoming and update/insert
+          // Note: This naive merge appends. We need to replace specific episodes if they exist to update info.
+          // However, grouping by Date makes this hard.
+          // Better Strategy: Rebuild the map for the *shows we just fetched*.
+          
+          // To allow "Smart Sync" to work alongside "Historical Data", we shouldn't delete old data from the map
+          // unless we know for sure it's invalid.
+          // But cleaning up is also good.
+          
+          // Let's go with: Merge incoming into the map.
+          incomingEpisodes.forEach(ep => {
+              if(!ep.air_date) return;
+              const dateKey = getAdjustedDate(ep.air_date, (allTrackedShows.find(s=>s.id === ep.show_id))?.origin_country);
+              
+              if (!finalEpisodesMap[dateKey]) finalEpisodesMap[dateKey] = [];
+              
+              // Remove existing entry for this specific episode if it exists (to update it)
+              finalEpisodesMap[dateKey] = finalEpisodesMap[dateKey].filter(e => !(e.show_id === ep.show_id && e.season_number === ep.season_number && e.episode_number === ep.episode_number));
+              
+              finalEpisodesMap[dateKey].push(ep);
+          });
+
+          setEpisodes(finalEpisodesMap);
+          await set(DB_KEY_EPISODES, finalEpisodesMap); 
           await set(DB_KEY_META, Date.now()); 
       } catch (e) {} finally { setLoading(false); setIsSyncing(false); } 
-  }, [user, allTrackedShows, watchlist, fullSyncRequired, settings.timeShift, settings.timezone, settings.autoSync]);
+  }, [user, allTrackedShows, watchlist, fullSyncRequired, settings.timeShift, settings.timezone, settings.autoSync, settings.ignoreSpecials]);
 
   const hardRefreshCalendar = async () => {
     // 1. Clear IndexedDB

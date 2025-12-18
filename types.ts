@@ -1,4 +1,5 @@
 
+
 export interface TVShow {
   id: number;
   name: string; // Used for Title (Movie) or Name (TV)
@@ -10,7 +11,7 @@ export interface TVShow {
   number_of_seasons?: number;
   media_type: 'tv' | 'movie'; // distinct type
   origin_country?: string[]; // Added for Timezone Logic
-  seasons?: { season_number: number; poster_path: string | null; episode_count: number }[]; // Added for metadata caching
+  seasons?: { season_number: number; poster_path: string | null; episode_count: number; air_date?: string }[]; // Added for metadata caching
 }
 
 export interface Episode {
