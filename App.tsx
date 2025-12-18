@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
@@ -13,6 +14,7 @@ import MobileAddWarning from './components/MobileAddWarning';
 import AskReminderModal from './components/AskReminderModal';
 import ReminderConfigModal from './components/ReminderConfigModal';
 import FullSyncModal from './components/FullSyncModal';
+import V2Dashboard from './v2/V2Dashboard';
 import { TVShow, Episode } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -31,6 +33,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const isCalendar = location.pathname === '/';
     const isCompactMode = settings.compactCalendar && isCalendar;
     const isPill = settings.mobileNavLayout === 'pill';
+    const isV2 = location.pathname.startsWith('/v2');
 
     const [isConfigOpen, setIsConfigOpen] = useState(false);
 
@@ -45,6 +48,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         setReminderCandidate(null);
         setIsConfigOpen(false);
     };
+
+    // V2 uses its own standalone layout
+    if (isV2) return <>{children}</>;
 
     return (
         <div className="flex h-screen w-screen bg-[var(--bg-main)] text-slate-100 overflow-hidden">
@@ -110,6 +116,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/watchlist" element={<WatchlistPage />} />
                 <Route path="/reminders" element={<RemindersPage />} />
+                <Route path="/v2/*" element={<V2Dashboard />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </Layout>

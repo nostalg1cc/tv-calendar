@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw, Bell, PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import SettingsModal from './SettingsModal';
 
@@ -42,10 +42,10 @@ const Navbar: React.FC = () => {
   const isPillLayout = settings.mobileNavLayout === 'pill';
   
   // Desktop Sidebar Item
-  const DesktopNavItem = ({ to, icon: Icon, label, onClick }: { to?: string, icon: any, label: string, onClick?: () => void }) => {
+  const DesktopNavItem = ({ to, icon: Icon, label, onClick, isNew }: { to?: string, icon: any, label: string, onClick?: () => void, isNew?: boolean }) => {
       const active = to ? isActive(to) : false;
       const baseClasses = `
-          group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 mb-1 w-full
+          group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 mb-1 w-full relative
           ${active 
               ? 'bg-indigo-600/10 text-indigo-400 font-medium' 
               : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.03]'}
@@ -56,6 +56,9 @@ const Navbar: React.FC = () => {
           <>
             <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
             {!isCollapsed && <span className="text-sm truncate">{label}</span>}
+            {isNew && !isCollapsed && (
+              <span className="ml-2 px-1.5 py-0.5 bg-indigo-500 text-[8px] font-bold text-white rounded uppercase tracking-tighter animate-pulse">New</span>
+            )}
             {active && !isCollapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />}
             {active && isCollapsed && <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />}
           </>
@@ -87,6 +90,7 @@ const Navbar: React.FC = () => {
                 <DesktopNavItem to="/" icon={Calendar} label="Calendar" />
                 <DesktopNavItem to="/discover" icon={Compass} label="Discover" />
                 <DesktopNavItem to="/watchlist" icon={List} label="My Library" />
+                <DesktopNavItem to="/v2" icon={Zap} label="Try V2 (Preview)" isNew={true} />
             </div>
 
             <div>

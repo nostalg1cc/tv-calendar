@@ -85,6 +85,8 @@ export interface CalendarDay {
   isToday: boolean;
 }
 
+export type V2SidebarMode = 'fixed' | 'collapsed' | 'floating';
+
 export interface AppSettings {
   spoilerConfig: {
       images: boolean;
@@ -112,6 +114,7 @@ export interface AppSettings {
   appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system'; // New Font Option
   reminderStrategy: 'ask' | 'always' | 'never'; // New Reminder Preference
   hiddenItems: { id: number; name: string }[]; // Blacklist for deleted items to prevent Trakt re-sync
+  v2SidebarMode: V2SidebarMode; // Mode for V2 interface
 }
 
 export interface SubscribedList {
