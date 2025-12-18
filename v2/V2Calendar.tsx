@@ -82,7 +82,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 }
             }, 100);
         }
-    }, [viewMode, calendarDate, activeDays]); // Added activeDays to ensure it fires after data calculation
+    }, [viewMode, calendarDate, activeDays]); 
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -113,7 +113,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         const groups: Record<number, Episode[]> = {};
         const order: number[] = [];
         episodes.forEach(ep => {
-            const id = ep.show_id || (ep.id * -1); // Fallback ID for safety
+            const id = ep.show_id || (ep.id * -1); 
             if (!groups[id]) {
                 groups[id] = [];
                 order.push(id);
@@ -167,11 +167,11 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     style={{ backgroundImage: `url(${imageUrl})` }}
                 />
                 
-                {/* Main Poster - Preserving Aspect Ratio, No Padding for Full Height */}
+                {/* Main Poster - Full Height, Centered, No Padding */}
                 <div className="absolute inset-0 flex items-center justify-center">
                     <img 
                         src={imageUrl} 
-                        className={`max-w-full max-h-full object-contain shadow-2xl relative z-10 transition-all duration-300 ${isWatched ? 'grayscale opacity-50' : 'opacity-100'}`}
+                        className={`h-full w-auto max-w-full object-contain shadow-2xl relative z-10 transition-all duration-300 ${isWatched ? 'grayscale opacity-50' : 'opacity-100'}`}
                         alt=""
                     />
                 </div>
@@ -209,7 +209,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     const count = group.length;
                     const posterSrc = getImageUrl(first.poster_path);
                     
-                    // Simple check: if all watched, render grouped as watched
                     const allWatched = group.every(ep => {
                         const key = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                         return interactions[key]?.is_watched;
@@ -260,13 +259,11 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
             {/* Header */}
             <header className="h-16 shrink-0 border-b border-white/5 flex items-center bg-[#050505]/80 z-[60] backdrop-blur-md sticky top-0">
-                {/* Date Display */}
                 <div className="flex-1 flex flex-col justify-center px-6 border-r border-white/5 h-full min-w-[120px]">
                      <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest leading-none mb-1">{format(calendarDate, 'yyyy')}</span>
                      <span className="text-xl font-black text-white uppercase tracking-tighter leading-none">{format(calendarDate, 'MMMM')}</span>
                 </div>
 
-                {/* Navigation Group */}
                 <div className="flex h-full">
                     <button 
                         onClick={() => setCalendarDate(subMonths(calendarDate, 1))} 
@@ -292,7 +289,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     </button>
                 </div>
 
-                {/* View Switcher */}
                 <button
                     onClick={cycleViewMode}
                     className="w-14 h-full flex items-center justify-center border-r border-white/5 text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
@@ -303,7 +299,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     {viewMode === 'list' && <ListIcon className="w-5 h-5" />}
                 </button>
 
-                {/* Filter Toggles */}
                 <div className="flex h-full relative" ref={filterRef}>
                     <button 
                         onClick={() => setIsFilterOpen(!isFilterOpen)}
@@ -326,14 +321,11 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                         <div className="flex items-center gap-3"><Film className="w-3.5 h-3.5" /> Movies</div>
                                         {showMovies && <Check className="w-3 h-3" />}
                                     </button>
-                                    
                                     <div className="h-px bg-white/5 my-2 mx-2" />
-                                    
                                     <button onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} className={`w-full flex items-center justify-between p-3 rounded-xl text-[11px] font-bold transition-all ${!settings.hideTheatrical ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
                                         <div className="flex items-center gap-3"><MonitorPlay className="w-3.5 h-3.5" /> Digital Only</div>
                                         {!settings.hideTheatrical && <Check className="w-3 h-3" />}
                                     </button>
-                                    
                                     <button onClick={() => setShowHidden(!showHidden)} className={`w-full flex items-center justify-between p-3 rounded-xl text-[11px] font-bold transition-all ${showHidden ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
                                         <div className="flex items-center gap-3">{showHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} Hidden Items</div>
                                         {showHidden && <Check className="w-3 h-3" />}
@@ -362,8 +354,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                             const isActive = isSameDay(day, selectedDay);
                             const isCurrentMonth = isSameMonth(day, monthStart);
                             const dayEps = getEpisodesForDay(day);
-                            
-                            // Group logic for Grid
                             const groupedEps = groupEpisodes(dayEps);
                             const totalGroups = groupedEps.length;
 
@@ -407,7 +397,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 
                                 return (
                                     <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined}>
-                                        {/* Sticky Day Header */}
                                         <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-2 px-6 flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <span className={`text-xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-400' : 'text-white'}`}>{format(day, 'dd')}</span>
@@ -419,13 +408,11 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                             {isTodayDate && <span className="text-[9px] font-bold bg-indigo-600 text-white px-2 py-1 rounded uppercase tracking-wide">Today</span>}
                                         </div>
 
-                                        {/* Cards Container - Full Width, No Rounding */}
-                                        <div className="flex flex-col gap-px bg-white/5">
+                                        <div className="flex flex-col gap-px bg-zinc-900">
                                             {groupedEps.map((group, groupIdx) => {
                                                 const firstEp = group[0];
-                                                const imageUrl = getImageUrl(firstEp.show_backdrop_path || firstEp.still_path || firstEp.poster_path);
+                                                const bannerUrl = getBackdropUrl(firstEp.show_backdrop_path || firstEp.backdrop_path || firstEp.still_path || firstEp.poster_path);
                                                 
-                                                // Check if all episodes in group are watched for style
                                                 const allWatched = group.every(ep => {
                                                     const key = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                                                     return interactions[key]?.is_watched;
@@ -436,24 +423,24 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                         key={`${firstEp.show_id}-${groupIdx}`} 
                                                         onClick={() => onSelectDay(day)}
                                                         className={`
-                                                            relative bg-[#09090b] group transition-all duration-300 hover:bg-zinc-900
+                                                            relative w-full bg-[#09090b] group transition-all duration-300
                                                             ${allWatched ? 'opacity-60 grayscale' : ''}
                                                         `}
                                                     >
-                                                        {/* Header Backdrop */}
-                                                        <div className="aspect-[3/1] w-full relative overflow-hidden">
-                                                            <img src={imageUrl} alt="" className="w-full h-full object-cover opacity-60" />
-                                                            <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/40 to-transparent" />
+                                                        {/* Full Width Banner */}
+                                                        <div className="w-full aspect-[21/9] sm:aspect-[3/1] relative overflow-hidden">
+                                                            <img src={bannerUrl} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/20 to-transparent" />
                                                             <div className="absolute top-3 right-3">
                                                                 <ReleaseBadge ep={firstEp} />
                                                             </div>
+                                                            <div className="absolute bottom-3 left-4">
+                                                                <h3 className="text-xl sm:text-2xl font-black text-white leading-none drop-shadow-md">{firstEp.show_name}</h3>
+                                                            </div>
                                                         </div>
 
-                                                        {/* Content Body */}
-                                                        <div className="relative px-5 pb-5 -mt-8">
-                                                            <h3 className="text-xl font-black text-white leading-tight mb-2 drop-shadow-md truncate">{firstEp.show_name}</h3>
-                                                            
-                                                            {/* Grouped Episodes List */}
+                                                        {/* Episode List in Card */}
+                                                        <div className="px-4 pb-4">
                                                             <div className="space-y-1">
                                                                 {group.map(ep => {
                                                                     const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;

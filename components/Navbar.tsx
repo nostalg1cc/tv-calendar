@@ -84,16 +84,16 @@ const Navbar: React.FC = () => {
         <div className="flex-1 px-4 overflow-y-auto pt-8 scrollbar-hide">
             <div className="mb-6">
                 {!isCollapsed && <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 transition-opacity">Menu</p>}
-                <DesktopNavItem to="/" icon={Calendar} label="Calendar" />
-                <DesktopNavItem to="/discover" icon={Compass} label="Discover" />
-                <DesktopNavItem to="/watchlist" icon={List} label="My Library" />
-                <DesktopNavItem to="/v2/calendar" icon={Sparkles} label="Try V2 Dashboard" />
+                <DesktopNavItem to="/v1/" icon={Calendar} label="Calendar" />
+                <DesktopNavItem to="/v1/discover" icon={Compass} label="Discover" />
+                <DesktopNavItem to="/v1/watchlist" icon={List} label="My Library" />
+                <DesktopNavItem to="/calendar" icon={Sparkles} label="Go to V2 Dashboard" />
             </div>
 
             <div>
                 {!isCollapsed && <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 transition-opacity">Tools</p>}
                 <DesktopNavItem icon={Search} label="Quick Search" onClick={() => setIsSearchOpen(true)} />
-                <DesktopNavItem to="/reminders" icon={Bell} label="Reminders" />
+                <DesktopNavItem to="/v1/reminders" icon={Bell} label="Reminders" />
                 <DesktopNavItem icon={Settings} label="Settings" onClick={() => setIsSettingsOpen(true)} />
             </div>
         </div>
@@ -139,8 +139,8 @@ const Navbar: React.FC = () => {
             className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-main)]/95 backdrop-blur-xl border-t border-[var(--border-color)] z-50 transition-transform duration-300 safe-area-bottom"
           >
               <div className="flex items-center justify-between px-2 h-16">
-                <MobileTab to="/" icon={Calendar} label="Calendar" active={isActive('/')} />
-                <MobileTab to="/discover" icon={Compass} label="Discover" active={isActive('/discover')} />
+                <MobileTab to="/v1/" icon={Calendar} label="Calendar" active={isActive('/v1/')} />
+                <MobileTab to="/v1/discover" icon={Compass} label="Discover" active={isActive('/v1/discover')} />
                 
                 <button 
                     onClick={() => setIsSearchOpen(true)}
@@ -152,7 +152,7 @@ const Navbar: React.FC = () => {
                     <span className="text-[9px] font-medium text-slate-400">Search</span>
                 </button>
                 
-                <MobileTab to="/watchlist" icon={List} label="Library" active={isActive('/watchlist')} />
+                <MobileTab to="/v1/watchlist" icon={List} label="Library" active={isActive('/v1/watchlist')} />
                 
                 <button 
                     onClick={() => setIsUserMenuOpen(true)}
@@ -170,23 +170,23 @@ const Navbar: React.FC = () => {
           <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none flex justify-center px-4 mb-3 pb-[env(safe-area-inset-bottom,12px)]">
               <div className="pointer-events-auto bg-zinc-950/70 backdrop-blur-3xl border border-white/10 rounded-full px-7 py-3.5 flex items-center gap-7 shadow-2xl shadow-black/50 safe-area-bottom ring-1 ring-white/5">
                   <Link 
-                    to="/" 
+                    to="/v1/" 
                     className={`
                         relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
-                        ${isActive('/') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}
+                        ${isActive('/v1/') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}
                     `}
                   >
-                      <Calendar className={`w-6 h-6 ${isActive('/') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                      <Calendar className={`w-6 h-6 ${isActive('/v1/') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
                   </Link>
                   
                   <Link 
-                    to="/discover" 
+                    to="/v1/discover" 
                     className={`
                         relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
-                        ${isActive('/discover') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}
+                        ${isActive('/v1/discover') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}
                     `}
                   >
-                      <Compass className={`w-6 h-6 ${isActive('/discover') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                      <Compass className={`w-6 h-6 ${isActive('/v1/discover') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
                   </Link>
 
                   {/* Search Button (Normal Style) */}
@@ -201,13 +201,13 @@ const Navbar: React.FC = () => {
                   </button>
 
                   <Link 
-                    to="/watchlist" 
+                    to="/v1/watchlist" 
                     className={`
                         relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
-                        ${isActive('/watchlist') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}
+                        ${isActive('/v1/watchlist') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}
                     `}
                   >
-                      <List className={`w-6 h-6 ${isActive('/watchlist') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                      <List className={`w-6 h-6 ${isActive('/v1/watchlist') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
                   </Link>
 
                   <button 
@@ -253,16 +253,16 @@ const Navbar: React.FC = () => {
 
                   <div className="space-y-3">
                       <Link 
-                         to="/v2/calendar"
+                         to="/calendar"
                          onClick={() => setIsUserMenuOpen(false)}
                          className="w-full bg-indigo-500/10 hover:bg-indigo-500/20 p-4 rounded-xl flex items-center gap-4 text-indigo-300 transition-colors border border-indigo-500/20"
                       >
                          <Sparkles className="w-5 h-5 text-indigo-400" />
-                         <div className="flex-1 text-left font-medium">Try V2 Dashboard</div>
+                         <div className="flex-1 text-left font-medium">Go to V2 Dashboard</div>
                       </Link>
 
                       <Link 
-                         to="/reminders"
+                         to="/v1/reminders"
                          onClick={() => setIsUserMenuOpen(false)}
                          className="w-full bg-zinc-800/50 hover:bg-zinc-800 p-4 rounded-xl flex items-center gap-4 text-zinc-200 transition-colors border border-zinc-800"
                       >
@@ -305,7 +305,6 @@ const Navbar: React.FC = () => {
 
 const MobileTab = ({ to, icon: Icon, label, active }: { to: string, icon: any, label: string, active: boolean }) => (
     <Link to={to} className={`flex flex-col items-center justify-center w-full max-w-[4rem] h-full gap-1 active:scale-95 transition-transform ${active ? 'text-indigo-400' : 'text-slate-500'}`}>
-        {/* Removed fill-current to fix look on mobile active state */}
         <Icon className={`w-5 h-5 ${active ? 'text-indigo-400 stroke-2' : 'stroke-2'}`} />
         <span className="text-[9px] font-medium">{label}</span>
     </Link>

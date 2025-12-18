@@ -30,10 +30,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const location = useLocation();
     
     // Check if we are in V2 context
-    const isV2 = location.pathname.startsWith('/v2');
-    if (isV2) return <>{children}</>;
+    const isV2 = location.pathname.startsWith('/v2') || location.pathname === '/' || location.pathname.startsWith('/calendar') || location.pathname.startsWith('/discover') || location.pathname.startsWith('/library');
+    if (isV2 && !location.pathname.startsWith('/v1')) return <>{children}</>;
 
-    const isCalendar = location.pathname === '/';
+    const isCalendar = location.pathname === '/v1/' || location.pathname === '/v1';
     const isCompactMode = settings.compactCalendar && isCalendar;
     const isPill = settings.mobileNavLayout === 'pill';
 
@@ -97,8 +97,10 @@ const AppRoutes: React.FC = () => {
 
     return (
         <Routes>
-            <Route path="/v2/*" element={<ProtectedRoute><V2Dashboard /></ProtectedRoute>} />
-            <Route path="/*" element={
+            <Route path="/login" element={<LoginPage />} />
+            
+            {/* Legacy V1 Routes */}
+            <Route path="/v1/*" element={
                 <Layout>
                     <Routes>
                         <Route path="/" element={<CalendarPage />} />
@@ -106,10 +108,13 @@ const AppRoutes: React.FC = () => {
                         <Route path="/search" element={<SearchPage />} />
                         <Route path="/watchlist" element={<WatchlistPage />} />
                         <Route path="/reminders" element={<RemindersPage />} />
-                        <Route path="*" element={<Navigate to="/" replace />} />
+                        <Route path="*" element={<Navigate to="/v1/" replace />} />
                     </Routes>
                 </Layout>
             } />
+
+            {/* V2 Routes (Default) */}
+            <Route path="/*" element={<ProtectedRoute><V2Dashboard /></ProtectedRoute>} />
         </Routes>
     );
 };

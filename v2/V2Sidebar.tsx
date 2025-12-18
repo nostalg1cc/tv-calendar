@@ -16,12 +16,12 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
     const mode = settings.v2SidebarMode || 'fixed';
     const location = useLocation();
     
-    const isActive = (path: string) => location.pathname === path;
+    const isActive = (path: string) => location.pathname.includes(path);
 
     const menuItems = [
-        { id: 'v2-calendar', to: '/v2/calendar', icon: Calendar, label: 'Calendar' },
-        { id: 'v2-discover', to: '/v2/discover', icon: Compass, label: 'Discovery' },
-        { id: 'v2-library', to: '/v2/library', icon: List, label: 'Library' },
+        { id: 'v2-calendar', to: '/calendar', icon: Calendar, label: 'Calendar' },
+        { id: 'v2-discover', to: '/discover', icon: Compass, label: 'Discovery' },
+        { id: 'v2-library', to: '/library', icon: List, label: 'Library' },
     ];
 
     const sidebarWidth = mode === 'collapsed' ? '72px' : '240px';
