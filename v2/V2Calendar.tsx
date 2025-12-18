@@ -78,7 +78,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
             setTimeout(() => {
                 const todayEl = document.getElementById('v2-today-anchor');
                 if (todayEl) {
-                    todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    todayEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             }, 100);
         }
@@ -160,18 +160,18 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         const isWatched = interactions[watchedKey]?.is_watched;
 
         return (
-            <div className="absolute inset-0 w-full h-full bg-[#050505] overflow-hidden">
+            <div className="absolute inset-0 w-full h-full bg-[#050505] overflow-hidden group/cell-item">
                 {/* Blur Pillar Background */}
                 <div 
                     className="absolute inset-0 bg-cover bg-center blur-xl opacity-30 scale-110" 
                     style={{ backgroundImage: `url(${imageUrl})` }}
                 />
                 
-                {/* Main Poster - Preserving Aspect Ratio */}
-                <div className="absolute inset-0 p-1.5 flex items-center justify-center">
+                {/* Main Poster - Preserving Aspect Ratio, No Padding for Full Height */}
+                <div className="absolute inset-0 flex items-center justify-center">
                     <img 
                         src={imageUrl} 
-                        className={`max-w-full max-h-full object-contain shadow-2xl relative z-10 ${isWatched ? 'grayscale opacity-50' : 'opacity-100'}`}
+                        className={`max-w-full max-h-full object-contain shadow-2xl relative z-10 transition-all duration-300 ${isWatched ? 'grayscale opacity-50' : 'opacity-100'}`}
                         alt=""
                     />
                 </div>
@@ -179,8 +179,8 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 {/* Gradient Overlay for Text */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent z-20 pointer-events-none" />
                 
-                <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col justify-end h-full z-30 pointer-events-none">
-                    <h4 className={`text-[10px] font-black uppercase tracking-tight leading-tight line-clamp-2 mb-1 ${isWatched ? 'text-zinc-600 line-through' : 'text-white drop-shadow-md'}`}>
+                <div className="absolute bottom-0 left-0 right-0 p-2 flex flex-col justify-end h-full z-30 pointer-events-none">
+                    <h4 className={`text-[10px] font-black uppercase tracking-tight leading-tight line-clamp-2 mb-1 drop-shadow-md ${isWatched ? 'text-zinc-500 line-through' : 'text-white'}`}>
                         {ep.show_name}
                     </h4>
                     <div className="flex items-center gap-1.5">
