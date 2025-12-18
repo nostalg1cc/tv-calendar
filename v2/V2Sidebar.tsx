@@ -1,17 +1,21 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
     Calendar, Compass, List, Settings, 
     ArrowLeft, LayoutPanelLeft, Minimize2, 
-    LogOut, Search, ChevronRight, User
+    LogOut, Search
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { V2SidebarMode } from '../types';
 
-const V2Sidebar: React.FC = () => {
+interface V2SidebarProps {
+    onOpenSettings?: () => void;
+}
+
+const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
     const { settings, updateSettings, user, logout } = useAppContext();
-    const mode = (settings.v2SidebarMode === ('floating' as any) ? 'fixed' : settings.v2SidebarMode) || 'fixed';
+    const mode = settings.v2SidebarMode || 'fixed';
     const location = useLocation();
     
     const isActive = (path: string) => location.pathname === path;
@@ -29,7 +33,7 @@ const V2Sidebar: React.FC = () => {
 
     const sidebarWidth = mode === 'collapsed' ? '72px' : '260px';
 
-    const NavItem: React.FC<{ to: string; icon: any; label: string; onClick?: () => void; active?: boolean }> = ({ to, icon: Icon, label, onClick, active: forceActive }) => {
+    const NavItem: React.FC<{ to: string; icon: any; label: string; onClick?: () => void; active?: boolean; danger?: boolean }> = ({ to, icon: Icon, label, onClick, active: forceActive, danger }) => {
         const active = forceActive ?? isActive(to);
         const isSlim = mode === 'collapsed';
 
@@ -39,11 +43,11 @@ const V2Sidebar: React.FC = () => {
                     group flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-200 relative
                     ${active 
                         ? 'bg-indigo-600/15 text-indigo-400 font-bold shadow-lg shadow-indigo-500/5' 
-                        : 'text-zinc-500 hover:text-zinc-100 hover:bg-white/[0.04]'}
+                        : danger ? 'text-red-900/40 hover:text-red-400 hover:bg-red-500/5' : 'text-zinc-500 hover:text-zinc-100 hover:bg-white/[0.04]'}
                     ${isSlim ? 'justify-center' : ''}
                 `}
             >
-                <Icon className={`w-[20px] h-[20px] shrink-0 ${active ? 'text-indigo-400' : 'text-zinc-500 group-hover:text-zinc-300'}`} />
+                <Icon className={`w-[20px] h-[20px] shrink-0 ${active ? 'text-indigo-400' : danger ? 'text-red-950' : 'text-zinc-500 group-hover:text-zinc-300'}`} />
                 {!isSlim && (
                     <span className="text-[14px] tracking-tight truncate">{label}</span>
                 )}
@@ -88,10 +92,32 @@ const V2Sidebar: React.FC = () => {
                 />
             </div>
 
-            {/* Bottom Area */}
-            <div className="mt-auto p-3 space-y-4">
+            {/* Bottom Area Reordered */}
+            <div className="mt-auto p-3 space-y-2">
                 
-                {/* User Info Section */}
+                {/* Mode Switcher */}
+                <div className={`
+                    bg-zinc-900/30 p-1.5 rounded-2xl flex border border-white/5 shadow-inner mb-4
+                    ${mode === 'collapsed' ? 'flex-col gap-1' : 'gap-1'}
+                `}>
+                    {modes.map(m => (
+                        <button
+                            key={m.id}
+                            onClick={() => updateSettings({ v2SidebarMode: m.id })}
+                            className={`
+                                flex-1 flex items-center justify-center py-2 rounded-xl transition-all
+                                ${mode === m.id 
+                                    ? 'bg-zinc-800 text-indigo-400 shadow-md ring-1 ring-white/5' 
+                                    : 'text-zinc-600 hover:text-zinc-400 hover:bg-white/[0.02]'}
+                            `}
+                            title={m.label}
+                        >
+                            <m.icon className="w-4 h-4" />
+                        </button>
+                    ))}
+                </div>
+
+                {/* User Info Section (Above Settings) */}
                 <div className={`
                     bg-zinc-900/40 p-2.5 rounded-2xl border border-white/5 transition-all group/user
                     ${mode === 'collapsed' ? 'flex flex-col items-center' : 'flex items-center gap-3'}
@@ -116,11 +142,13 @@ const V2Sidebar: React.FC = () => {
                     )}
                 </div>
 
-                <div className="space-y-1">
+                {/* Bottom Tools */}
+                <div className="space-y-0.5">
                     <NavItem 
-                        to="/v2/settings" 
+                        to="#" 
                         icon={Settings} 
                         label="Settings" 
+                        onClick={onOpenSettings}
                     />
 
                     <NavItem 
@@ -128,28 +156,6 @@ const V2Sidebar: React.FC = () => {
                         icon={ArrowLeft} 
                         label="Exit V2" 
                     />
-                </div>
-
-                {/* Mode Switcher */}
-                <div className={`
-                    bg-zinc-900/60 p-1.5 rounded-2xl flex border border-white/5 shadow-inner
-                    ${mode === 'collapsed' ? 'flex-col gap-1' : 'gap-1'}
-                `}>
-                    {modes.map(m => (
-                        <button
-                            key={m.id}
-                            onClick={() => updateSettings({ v2SidebarMode: m.id })}
-                            className={`
-                                flex-1 flex items-center justify-center py-2 rounded-xl transition-all
-                                ${mode === m.id 
-                                    ? 'bg-zinc-800 text-indigo-400 shadow-md ring-1 ring-white/5' 
-                                    : 'text-zinc-600 hover:text-zinc-400 hover:bg-white/[0.02]'}
-                            `}
-                            title={m.label}
-                        >
-                            <m.icon className="w-4 h-4" />
-                        </button>
-                    ))}
                 </div>
             </div>
         </nav>
