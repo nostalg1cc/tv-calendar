@@ -1,12 +1,12 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
-  startOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, format, isSameMonth, addMonths, subMonths, addDays, isSameDay
+  startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, format, isSameMonth, addMonths, subMonths, addDays, isSameDay, isToday
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Filter, Layers, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, Layers, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, AlignJustify } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
-import { getImageUrl } from '../services/tmdb';
+import { getImageUrl, getBackdropUrl } from '../services/tmdb';
 
 interface V2CalendarProps {
     selectedDay: Date;
@@ -14,15 +14,44 @@ interface V2CalendarProps {
 }
 
 const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => {
-    const { calendarDate, setCalendarDate, episodes, settings, updateSettings, interactions } = useAppContext();
+    const { calendarDate, setCalendarDate, episodes, settings, updateSettings, interactions, toggleWatched, toggleEpisodeWatched } = useAppContext();
     const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [viewMode, setViewMode] = useState<'grid' | 'cards'>('grid');
     
-    // Local visibility filters for the current view
+    // Local filters
     const [showTV, setShowTV] = useState(true);
     const [showMovies, setShowMovies] = useState(true);
     const [showHidden, setShowHidden] = useState(false);
 
     const filterRef = useRef<HTMLDivElement>(null);
+    const cardScrollRef = useRef<HTMLDivElement>(null);
+
+    // Auto-switch to cards on mobile mount
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 768) {
+                // Only switch if user hasn't manually set it? For now enforce default as requested.
+                // We'll just set it on mount or resize to mobile if it's 'grid'
+                if (viewMode === 'grid') setViewMode('cards');
+            }
+        };
+        // Initial check
+        if (window.innerWidth < 768) setViewMode('cards');
+        
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Scroll to today in Card View
+    useEffect(() => {
+        if (viewMode === 'cards' && cardScrollRef.current) {
+            const todayEl = document.getElementById('v2-card-today');
+            if (todayEl) {
+                todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }, [viewMode, calendarDate]);
+
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (filterRef.current && !filterRef.current.contains(e.target as Node)) setIsFilterOpen(false);
@@ -32,10 +61,32 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     }, [isFilterOpen]);
 
     const monthStart = startOfMonth(calendarDate);
-    const dateRange = eachDayOfInterval({
-        start: startOfWeek(monthStart),
-        end: endOfWeek(addDays(startOfWeek(monthStart), 41))
-    }).slice(0, 42);
+    const monthEnd = endOfMonth(calendarDate);
+    
+    // Grid Days: 6 weeks (42 days)
+    const gridDays = useMemo(() => {
+        return eachDayOfInterval({
+            start: startOfWeek(monthStart),
+            end: endOfWeek(addDays(startOfWeek(monthStart), 41))
+        }).slice(0, 42);
+    }, [monthStart]);
+
+    // Active Days for Card View (only days in month with episodes)
+    const activeDays = useMemo(() => {
+        return eachDayOfInterval({ start: monthStart, end: monthEnd }).filter(day => {
+            const dateKey = format(day, 'yyyy-MM-dd');
+            const dayEps = episodes[dateKey] || [];
+            return dayEps.some(ep => {
+                if (settings.hideTheatrical && ep.is_movie && ep.release_type === 'theatrical') return false;
+                if (settings.ignoreSpecials && ep.season_number === 0) return false;
+                if (!showTV && !ep.is_movie) return false;
+                if (!showMovies && ep.is_movie) return false;
+                const isBlacklisted = (settings.hiddenItems || []).some(h => h.id === ep.show_id);
+                if (isBlacklisted && !showHidden) return false;
+                return true;
+            });
+        });
+    }, [monthStart, monthEnd, episodes, settings, showTV, showMovies, showHidden]);
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -44,22 +95,17 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         const dayEps = episodes[dateKey] || [];
         
         return dayEps.filter(ep => {
-            // Respect Global Settings
             if (settings.hideTheatrical && ep.is_movie && ep.release_type === 'theatrical') return false;
             if (settings.ignoreSpecials && ep.season_number === 0) return false;
-            
-            // Apply Header Filters
             if (!showTV && !ep.is_movie) return false;
             if (!showMovies && ep.is_movie) return false;
-
-            // Hidden Items Logic
             const isBlacklisted = (settings.hiddenItems || []).some(h => h.id === ep.show_id);
             if (isBlacklisted && !showHidden) return false;
-
             return true;
         });
     };
 
+    // --- GRID COMPONENTS ---
     const SingleEpisodeCell: React.FC<{ ep: Episode }> = ({ ep }) => {
         const imageUrl = getImageUrl(ep.poster_path);
         const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
@@ -111,10 +157,10 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
-            {/* Header Redesign */}
-            <header className="h-16 shrink-0 border-b border-white/5 flex items-center bg-zinc-950/40 z-[60]">
+            {/* Header */}
+            <header className="h-16 shrink-0 border-b border-white/5 flex items-center bg-zinc-950/40 z-[60] backdrop-blur-md sticky top-0">
                 {/* Date Display */}
-                <div className="flex-1 flex flex-col justify-center px-6 border-r border-white/5 h-full">
+                <div className="flex-1 flex flex-col justify-center px-6 border-r border-white/5 h-full min-w-[120px]">
                      <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest leading-none mb-1">{format(calendarDate, 'yyyy')}</span>
                      <span className="text-xl font-black text-white uppercase tracking-tighter leading-none">{format(calendarDate, 'MMMM')}</span>
                 </div>
@@ -123,7 +169,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 <div className="flex h-full">
                     <button 
                         onClick={() => setCalendarDate(subMonths(calendarDate, 1))} 
-                        className="w-16 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-r border-white/5"
+                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-r border-white/5"
                         title="Previous Month"
                     >
                         <ChevronLeft className="w-5 h-5" />
@@ -131,25 +177,34 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     
                     <button 
                         onClick={() => { setCalendarDate(new Date()); onSelectDay(new Date()); }} 
-                        className="px-6 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-indigo-400 hover:bg-white/5 transition-colors border-r border-white/5"
+                        className="px-4 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-indigo-400 hover:bg-white/5 transition-colors border-r border-white/5"
                     >
                         Today
                     </button>
 
                     <button 
                         onClick={() => setCalendarDate(addMonths(calendarDate, 1))} 
-                        className="w-16 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-r border-white/5"
+                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-r border-white/5"
                         title="Next Month"
                     >
                         <ChevronRight className="w-5 h-5" />
                     </button>
                 </div>
 
-                {/* Filter & View Toggles */}
+                {/* View Switcher (Visible on Mobile) */}
+                <button
+                    onClick={() => setViewMode(viewMode === 'grid' ? 'cards' : 'grid')}
+                    className="w-14 h-full flex items-center justify-center border-r border-white/5 text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
+                    title="Toggle View"
+                >
+                    {viewMode === 'grid' ? <AlignJustify className="w-5 h-5" /> : <LayoutGrid className="w-5 h-5" />}
+                </button>
+
+                {/* Filter Toggles */}
                 <div className="flex h-full relative" ref={filterRef}>
                     <button 
                         onClick={() => setIsFilterOpen(!isFilterOpen)}
-                        className={`w-16 h-full flex items-center justify-center border-r border-white/5 transition-colors ${isFilterOpen ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+                        className={`w-14 h-full flex items-center justify-center border-r border-white/5 transition-colors ${isFilterOpen ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
                         title="Filters"
                     >
                         <Filter className="w-4 h-4" />
@@ -187,38 +242,150 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 </div>
             </header>
 
-            <div className="grid grid-cols-7 border-b border-white/5 bg-zinc-950/10 shrink-0">
-                {weekDays.map(day => (
-                    <div key={day} className="py-2 text-center text-[9px] font-black text-zinc-600 uppercase tracking-[0.25em] border-r border-white/5 last:border-r-0">
-                        {day}
-                    </div>
-                ))}
-            </div>
-
-            <div className="flex-1 grid grid-cols-7 grid-rows-6 min-h-0 bg-[#020202]">
-                {dateRange.map((day, idx) => {
-                    const isToday = isSameDay(day, new Date());
-                    const isActive = isSameDay(day, selectedDay);
-                    const isCurrentMonth = isSameMonth(day, monthStart);
-                    const dayEps = getEpisodesForDay(day);
-                    return (
-                        <div key={day.toISOString()} onClick={() => onSelectDay(day)} className={`relative border-r border-b border-white/5 flex flex-col group/cell overflow-hidden transition-all duration-300 cursor-pointer ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''} ${idx >= 35 ? 'border-b-0' : ''} ${isCurrentMonth ? 'bg-transparent' : 'bg-white/[0.01] opacity-20'} ${isActive ? 'bg-white/[0.04]' : 'hover:z-10 hover:bg-white/[0.02]'}`}>
-                            <div className="absolute top-2 right-2 z-50">
-                                <span className={`text-[10px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded ${isToday ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' : isCurrentMonth ? (isActive ? 'text-white' : 'text-zinc-600 group-hover/cell:text-zinc-300') : 'text-zinc-800'} transition-colors`}>{format(day, 'dd')}</span>
+            {/* --- VIEW CONTENT --- */}
+            {viewMode === 'grid' ? (
+                <>
+                    <div className="grid grid-cols-7 border-b border-white/5 bg-zinc-950/10 shrink-0">
+                        {weekDays.map(day => (
+                            <div key={day} className="py-2 text-center text-[9px] font-black text-zinc-600 uppercase tracking-[0.25em] border-r border-white/5 last:border-r-0">
+                                {day}
                             </div>
-                            {dayEps.length === 1 ? (
-                                <SingleEpisodeCell ep={dayEps[0]} />
-                            ) : dayEps.length > 1 ? (
-                                <div className="flex-1 flex flex-col p-2 pt-8">
-                                    <div className="flex-1 space-y-0.5 overflow-hidden">{dayEps.slice(0, 4).map(ep => <MultiEpisodeItem key={`${ep.show_id}-${ep.id}`} ep={ep} />)}</div>
-                                    {dayEps.length > 4 && <div className="mt-auto py-1 border-t border-white/5"><span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest block text-center group-hover/cell:text-indigo-400 transition-colors">+{dayEps.length - 4} more</span></div>}
+                        ))}
+                    </div>
+
+                    <div className="flex-1 grid grid-cols-7 grid-rows-6 min-h-0 bg-[#020202]">
+                        {gridDays.map((day, idx) => {
+                            const isTodayDate = isSameDay(day, new Date());
+                            const isActive = isSameDay(day, selectedDay);
+                            const isCurrentMonth = isSameMonth(day, monthStart);
+                            const dayEps = getEpisodesForDay(day);
+                            return (
+                                <div key={day.toISOString()} onClick={() => onSelectDay(day)} className={`relative border-r border-b border-white/5 flex flex-col group/cell overflow-hidden transition-all duration-300 cursor-pointer ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''} ${idx >= 35 ? 'border-b-0' : ''} ${isCurrentMonth ? 'bg-transparent' : 'bg-white/[0.01] opacity-20'} ${isActive ? 'bg-white/[0.04]' : 'hover:z-10 hover:bg-white/[0.02]'}`}>
+                                    <div className="absolute top-2 right-2 z-50">
+                                        <span className={`text-[10px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded ${isTodayDate ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' : isCurrentMonth ? (isActive ? 'text-white' : 'text-zinc-600 group-hover/cell:text-zinc-300') : 'text-zinc-800'} transition-colors`}>{format(day, 'dd')}</span>
+                                    </div>
+                                    {dayEps.length === 1 ? (
+                                        <SingleEpisodeCell ep={dayEps[0]} />
+                                    ) : dayEps.length > 1 ? (
+                                        <div className="flex-1 flex flex-col p-2 pt-8">
+                                            <div className="flex-1 space-y-0.5 overflow-hidden">{dayEps.slice(0, 4).map(ep => <MultiEpisodeItem key={`${ep.show_id}-${ep.id}`} ep={ep} />)}</div>
+                                            {dayEps.length > 4 && <div className="mt-auto py-1 border-t border-white/5"><span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest block text-center group-hover/cell:text-indigo-400 transition-colors">+{dayEps.length - 4} more</span></div>}
+                                        </div>
+                                    ) : (<div className="flex-1" />)}
+                                    {isActive && <div className="absolute inset-0 border-[2px] border-indigo-500/80 pointer-events-none z-40 shadow-[inset_0_0_15px_rgba(99,102,241,0.1)]" />}
                                 </div>
-                            ) : (<div className="flex-1" />)}
-                            {isActive && <div className="absolute inset-0 border-[2px] border-indigo-500/80 pointer-events-none z-40 shadow-[inset_0_0_15px_rgba(99,102,241,0.1)]" />}
+                            );
+                        })}
+                    </div>
+                </>
+            ) : (
+                // --- CARD VIEW (FEED) ---
+                <div 
+                    ref={cardScrollRef}
+                    className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8 pb-32"
+                >
+                    {activeDays.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full opacity-30">
+                            <CalendarIcon className="w-16 h-16 text-zinc-500 mb-4" />
+                            <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest">No Events Found</p>
                         </div>
-                    );
-                })}
-            </div>
+                    ) : (
+                        activeDays.map(day => {
+                            const eps = getEpisodesForDay(day);
+                            const isTodayDate = isToday(day);
+                            
+                            return (
+                                <div key={day.toISOString()} id={isTodayDate ? 'v2-card-today' : undefined} className="space-y-4">
+                                    {/* Sticky Day Header */}
+                                    <div className={`sticky top-0 z-40 flex items-center justify-between py-2 backdrop-blur-xl border-b border-white/5 -mx-6 px-6 ${isTodayDate ? 'bg-indigo-900/20 border-indigo-500/30' : 'bg-[#020202]/80'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-2xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-400' : 'text-zinc-200'}`}>{format(day, 'dd')}</span>
+                                            <div className="flex flex-col leading-none">
+                                                <span className={`text-[10px] font-black uppercase tracking-widest ${isTodayDate ? 'text-indigo-300' : 'text-zinc-500'}`}>{format(day, 'EEEE')}</span>
+                                                <span className="text-[10px] text-zinc-600 font-mono">{format(day, 'MMMM')}</span>
+                                            </div>
+                                        </div>
+                                        {isTodayDate && <span className="text-[9px] font-bold bg-indigo-600 text-white px-2 py-1 rounded uppercase tracking-wide">Today</span>}
+                                    </div>
+
+                                    {/* Cards */}
+                                    <div className="grid gap-4">
+                                        {eps.map(ep => {
+                                            const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+                                            const isWatched = interactions[watchedKey]?.is_watched;
+                                            const imageUrl = getImageUrl(ep.show_backdrop_path || ep.still_path || ep.poster_path);
+
+                                            return (
+                                                <div 
+                                                    key={`${ep.show_id}-${ep.id}`} 
+                                                    onClick={() => onSelectDay(day)}
+                                                    className={`
+                                                        relative overflow-hidden rounded-2xl bg-zinc-900 border border-white/5 group transition-all duration-300
+                                                        ${isWatched ? 'opacity-50 grayscale' : 'hover:scale-[1.02] hover:border-white/10 hover:shadow-2xl'}
+                                                    `}
+                                                >
+                                                    {/* Backdrop Image */}
+                                                    <div className="aspect-[21/9] w-full relative">
+                                                        <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                                                        
+                                                        {/* Top Badges */}
+                                                        <div className="absolute top-3 right-3 flex gap-2">
+                                                            {ep.is_movie && (
+                                                                <span className="bg-black/50 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-bold text-white uppercase tracking-wider">
+                                                                    {ep.release_type === 'theatrical' ? 'Cinema' : 'Movie'}
+                                                                </span>
+                                                            )}
+                                                            <div className="bg-black/50 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-bold text-white uppercase tracking-wider flex items-center gap-1">
+                                                                <Clock className="w-3 h-3" /> {format(new Date(ep.air_date), 'MMM d')}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Content Body */}
+                                                    <div className="p-4 relative">
+                                                        <div className="flex justify-between items-start gap-4">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2 mb-1 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                                                                    {ep.is_movie ? 'Premiere' : `S${ep.season_number} • E${ep.episode_number}`}
+                                                                </div>
+                                                                <h3 className="text-lg font-bold text-white leading-tight mb-1 truncate">{ep.show_name}</h3>
+                                                                <p className="text-sm text-zinc-400 truncate">{ep.name}</p>
+                                                            </div>
+                                                            
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (ep.show_id) {
+                                                                        ep.is_movie ? toggleWatched(ep.show_id, 'movie') : toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
+                                                                    }
+                                                                }}
+                                                                className={`
+                                                                    w-12 h-12 rounded-full flex items-center justify-center transition-all border
+                                                                    ${isWatched ? 'bg-zinc-800 text-emerald-500 border-zinc-700' : 'bg-white text-black border-white hover:bg-zinc-200'}
+                                                                `}
+                                                            >
+                                                                <Check className="w-5 h-5" />
+                                                            </button>
+                                                        </div>
+                                                        
+                                                        {/* Optional Overview if expanded or space permits? Keep minimal for cards. */}
+                                                        {ep.overview && (
+                                                            <p className="mt-3 text-xs text-zinc-500 line-clamp-2 leading-relaxed border-t border-white/5 pt-3">
+                                                                {ep.overview}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            )}
         </div>
     );
 };
