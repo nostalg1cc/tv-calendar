@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, format, isSameMonth, addMonths, subMonths, addDays, isSameDay, isToday
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Filter, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, AlignJustify, Ticket, List as ListIcon, Smartphone } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, AlignJustify, Ticket, List as ListIcon, Smartphone, Layers } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
@@ -175,6 +175,61 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         );
     };
 
+    const GroupedEpisodeCell = ({ groups }: { groups: Episode[][] }) => {
+        return (
+            <div className="absolute inset-0 p-2 pt-8 flex flex-col gap-1.5">
+                {groups.slice(0, 3).map((group, idx) => {
+                    const first = group[0];
+                    const count = group.length;
+                    const posterSrc = getImageUrl(first.poster_path);
+                    
+                    // Simple check: if all watched, render grouped as watched
+                    const allWatched = group.every(ep => {
+                        const key = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+                        return interactions[key]?.is_watched;
+                    });
+
+                    return (
+                        <div key={`${first.show_id}-${idx}`} className="flex items-center gap-2 group/item">
+                            <div className="w-5 h-7 rounded-[2px] bg-zinc-900 overflow-hidden shrink-0 border border-white/5 relative">
+                                <img src={posterSrc} className={`w-full h-full object-cover ${allWatched ? 'grayscale opacity-50' : ''}`} alt="" />
+                                {allWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-3 h-3 text-emerald-500" /></div>}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className={`text-[9px] font-bold truncate leading-none mb-0.5 ${allWatched ? 'text-zinc-600 line-through' : 'text-zinc-300 group-hover/item:text-white'}`}>
+                                    {first.show_name}
+                                </p>
+                                <div className="flex items-center gap-1.5">
+                                    {first.is_movie ? (
+                                        <span className={`text-[7px] font-black uppercase tracking-wider ${first.release_type === 'theatrical' ? 'text-pink-500' : 'text-emerald-500'}`}>
+                                            {first.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                                        </span>
+                                    ) : (
+                                        count > 1 ? (
+                                            <span className="text-[7px] font-bold bg-white/10 text-white px-1 rounded flex items-center gap-1">
+                                                <Layers className="w-2 h-2" /> {count} EP
+                                            </span>
+                                        ) : (
+                                            <span className="text-[7px] font-mono text-zinc-500">S{first.season_number} E{first.episode_number}</span>
+                                        )
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+                
+                {groups.length > 3 && (
+                    <div className="mt-auto pt-1 border-t border-white/5">
+                        <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest block text-center">
+                            +{groups.length - 3} MORE
+                        </span>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
             {/* Header */}
@@ -281,39 +336,29 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                             const isActive = isSameDay(day, selectedDay);
                             const isCurrentMonth = isSameMonth(day, monthStart);
                             const dayEps = getEpisodesForDay(day);
+                            
+                            // Group logic
+                            const groupedEps = dayEps.reduce((acc, ep) => {
+                                const key = ep.show_id || ep.id;
+                                if (!acc[key]) acc[key] = [];
+                                acc[key].push(ep);
+                                return acc;
+                            }, {} as Record<number, Episode[]>);
+                            const groups = Object.values(groupedEps);
+                            const totalGroups = groups.length;
+
                             return (
                                 <div key={day.toISOString()} onClick={() => onSelectDay(day)} className={`relative border-r border-b border-white/5 flex flex-col group/cell overflow-hidden transition-all duration-300 cursor-pointer ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''} ${idx >= 35 ? 'border-b-0' : ''} ${isCurrentMonth ? 'bg-transparent' : 'bg-white/[0.01] opacity-20'} ${isActive ? 'bg-white/[0.04]' : 'hover:z-10 hover:bg-white/[0.02]'}`}>
                                     <div className="absolute top-2 right-2 z-50">
                                         <span className={`text-[10px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded ${isTodayDate ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' : isCurrentMonth ? (isActive ? 'text-white' : 'text-zinc-600 group-hover/cell:text-zinc-300') : 'text-zinc-800'} transition-colors`}>{format(day, 'dd')}</span>
                                     </div>
                                     
-                                    {dayEps.length === 1 ? (
-                                        <SingleEpisodeCell ep={dayEps[0]} />
-                                    ) : dayEps.length > 1 ? (
-                                        <div className="absolute inset-0 p-2 pt-8 flex flex-col gap-1">
-                                            {dayEps.slice(0, 3).map(ep => {
-                                                const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
-                                                const isWatched = interactions[watchedKey]?.is_watched;
-                                                const imgUrl = getImageUrl(ep.poster_path);
-                                                
-                                                return (
-                                                    <div key={`${ep.show_id}-${ep.id}`} className="flex items-center gap-2">
-                                                        <div className="w-4 h-6 rounded-sm bg-zinc-900 overflow-hidden shrink-0 border border-white/5">
-                                                            <img src={imgUrl} className={`w-full h-full object-cover ${isWatched ? 'grayscale opacity-50' : ''}`} alt="" />
-                                                        </div>
-                                                        <span className={`text-[9px] font-bold truncate leading-none ${isWatched ? 'text-zinc-600 line-through' : 'text-zinc-400 group-hover/cell:text-white'}`}>
-                                                            {ep.show_name}
-                                                        </span>
-                                                    </div>
-                                                )
-                                            })}
-                                            {dayEps.length > 3 && (
-                                                <div className="mt-auto text-[8px] font-black text-zinc-700 text-center uppercase tracking-widest">
-                                                    +{dayEps.length - 3} More
-                                                </div>
-                                            )}
-                                        </div>
+                                    {totalGroups === 1 && groups[0].length === 1 ? (
+                                        <SingleEpisodeCell ep={groups[0][0]} />
+                                    ) : totalGroups > 0 ? (
+                                        <GroupedEpisodeCell groups={groups} />
                                     ) : null}
+                                    
                                     {isActive && <div className="absolute inset-0 border-[2px] border-indigo-500/80 pointer-events-none z-40 shadow-[inset_0_0_15px_rgba(99,102,241,0.1)]" />}
                                 </div>
                             );
@@ -334,15 +379,15 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                             <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest">No Events Found</p>
                         </div>
                     ) : (
-                        <div className="pb-32">
+                        <div className="pb-32 pt-2">
                             {activeDays.map(day => {
                                 const eps = getEpisodesForDay(day);
                                 const isTodayDate = isToday(day);
                                 
                                 return (
                                     <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined}>
-                                        {/* Sticky Day Header - Seamless with OLED bg */}
-                                        <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-3 px-6 flex items-center justify-between">
+                                        {/* Sticky Day Header - Reduced gap */}
+                                        <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-2 px-6 flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <span className={`text-xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-400' : 'text-white'}`}>{format(day, 'dd')}</span>
                                                 <div className="flex flex-col leading-none">
@@ -354,7 +399,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                         </div>
 
                                         {/* Cards Container */}
-                                        <div className="px-4 py-4 grid gap-4">
+                                        <div className="px-4 py-3 grid gap-4">
                                             {eps.map(ep => {
                                                 const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                                                 const isWatched = interactions[watchedKey]?.is_watched;
