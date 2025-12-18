@@ -952,7 +952,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   settings: settingsToSync, 
                   updated_at: new Date().toISOString() 
               }).eq('id', user.id).then(({error}) => { 
-                  if(error) console.error("Failed to sync settings", error); 
+                  if(error) {
+                      console.error("Failed to sync settings:", error);
+                      // Fallback: If JSONB update fails, try stringify (DB compatibility)
+                      supabase.from('profiles').update({ 
+                        settings: JSON.stringify(settingsToSync), 
+                        updated_at: new Date().toISOString() 
+                      }).eq('id', user.id).then(({error: retryError}) => {
+                          if (retryError) console.error("Retry sync failed:", retryError);
+                      });
+                  }
               }); 
           }
           

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Settings, ShieldCheck, Palette, User, Globe, EyeOff, Layout, Bell, Monitor, Cloud, LogOut, RefreshCw, X, ChevronLeft } from 'lucide-react';
+import { Settings, ShieldCheck, Palette, User, Globe, EyeOff, Layout, Bell, Monitor, Cloud, LogOut, RefreshCw, X, ChevronLeft, Signal, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 interface V2SettingsModalProps {
@@ -11,13 +11,25 @@ interface V2SettingsModalProps {
 type TabId = 'general' | 'account' | 'design' | 'spoiler';
 
 const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) => {
-    const { settings, updateSettings, user, logout, hardRefreshCalendar, isSyncing } = useAppContext();
+    const { settings, updateSettings, user, logout, hardRefreshCalendar, isSyncing, testConnection } = useAppContext();
     const [activeTab, setActiveTab] = useState<TabId>('general');
     
     // Mobile View State: 'menu' | 'content'
     const [mobileView, setMobileView] = useState<'menu' | 'content'>('menu');
 
+    // Connection Test State
+    const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+    const [isTesting, setIsTesting] = useState(false);
+
     if (!isOpen) return null;
+
+    const handleConnectionTest = async () => {
+        setIsTesting(true);
+        setTestResult(null);
+        const res = await testConnection();
+        setTestResult(res);
+        setIsTesting(false);
+    };
 
     const Toggle = ({ active, onToggle, label, description }: { active: boolean; onToggle: () => void; label: string; description?: string }) => (
         <div className="flex items-center justify-between py-4 group/toggle cursor-pointer" onClick={onToggle}>
@@ -115,17 +127,53 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                 
                                 <div className="pt-4 border-t border-white/5">
                                     <h3 className="text-sm font-black text-zinc-600 uppercase tracking-widest mb-4">Data Management</h3>
-                                    <button 
-                                        onClick={() => { if(confirm("This will delete your local cache and re-download all calendar data. Continue?")) hardRefreshCalendar(); }}
-                                        disabled={isSyncing}
-                                        className="w-full bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-300 hover:text-white p-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-between group"
-                                    >
-                                        <span className="flex items-center gap-3">
-                                            <RefreshCw className={`w-4 h-4 text-indigo-500 ${isSyncing ? 'animate-spin' : ''}`} />
-                                            Force Refresh Calendar
-                                        </span>
-                                        <span className="text-xs text-zinc-600 group-hover:text-zinc-500">Rebuild Database</span>
-                                    </button>
+                                    
+                                    <div className="space-y-3">
+                                        <button 
+                                            onClick={() => { if(confirm("This will delete your local cache and re-download all calendar data. Continue?")) hardRefreshCalendar(); }}
+                                            disabled={isSyncing}
+                                            className="w-full bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-300 hover:text-white p-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-between group"
+                                        >
+                                            <span className="flex items-center gap-3">
+                                                <RefreshCw className={`w-4 h-4 text-indigo-500 ${isSyncing ? 'animate-spin' : ''}`} />
+                                                Force Refresh Calendar
+                                            </span>
+                                            <span className="text-xs text-zinc-600 group-hover:text-zinc-500">Rebuild Database</span>
+                                        </button>
+
+                                        {/* Diagnostic Tool */}
+                                        <button 
+                                            onClick={handleConnectionTest}
+                                            disabled={isTesting}
+                                            className={`
+                                                w-full border p-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-between group
+                                                ${testResult 
+                                                    ? (testResult.success ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-red-500/5 border-red-500/20 text-red-400')
+                                                    : 'bg-zinc-900 hover:bg-zinc-800 border-white/5 text-zinc-300 hover:text-white'}
+                                            `}
+                                        >
+                                            <span className="flex items-center gap-3">
+                                                {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Signal className="w-4 h-4 text-indigo-500" />}
+                                                Test Database Connection
+                                            </span>
+                                            <span className="text-xs opacity-60">
+                                                {testResult ? (testResult.success ? 'Success' : 'Failed') : 'Check Sync'}
+                                            </span>
+                                        </button>
+                                        
+                                        {testResult && !testResult.success && (
+                                            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs font-mono text-red-400 break-all">
+                                                <div className="flex items-center gap-2 mb-1 font-bold"><AlertTriangle className="w-3 h-3" /> Error Details:</div>
+                                                {testResult.message}
+                                            </div>
+                                        )}
+                                        {testResult && testResult.success && (
+                                            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+                                                <div className="flex items-center gap-2 font-bold"><CheckCircle2 className="w-3 h-3" /> Connection Healthy</div>
+                                                Your app is successfully reading and writing to the cloud.
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div>
