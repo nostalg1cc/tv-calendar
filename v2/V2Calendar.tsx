@@ -145,15 +145,26 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         const isWatched = interactions[watchedKey]?.is_watched;
 
         return (
-            <div className="absolute inset-0 w-full h-full">
-                <img 
-                    src={imageUrl} 
-                    className={`w-full h-full object-cover transition-all duration-500 ${isWatched ? 'grayscale opacity-30' : 'opacity-60 group-hover/cell:scale-110 group-hover/cell:opacity-40'}`}
-                    alt=""
+            <div className="absolute inset-0 w-full h-full bg-[#050505] overflow-hidden">
+                {/* Blur Pillar Background */}
+                <div 
+                    className="absolute inset-0 bg-cover bg-center blur-xl opacity-30 scale-110" 
+                    style={{ backgroundImage: `url(${imageUrl})` }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-[#000000]/20 to-transparent" />
                 
-                <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col justify-end h-full">
+                {/* Main Poster - Preserving Aspect Ratio */}
+                <div className="absolute inset-0 p-1.5 flex items-center justify-center">
+                    <img 
+                        src={imageUrl} 
+                        className={`max-w-full max-h-full object-contain shadow-2xl relative z-10 ${isWatched ? 'grayscale opacity-50' : 'opacity-100'}`}
+                        alt=""
+                    />
+                </div>
+
+                {/* Gradient Overlay for Text */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent z-20 pointer-events-none" />
+                
+                <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col justify-end h-full z-30 pointer-events-none">
                     <h4 className={`text-[10px] font-black uppercase tracking-tight leading-tight line-clamp-2 mb-1 ${isWatched ? 'text-zinc-600 line-through' : 'text-white drop-shadow-md'}`}>
                         {ep.show_name}
                     </h4>
@@ -495,9 +506,9 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
                                         <div className="divide-y divide-white/5">
                                             {eps.map(ep => {
+                                                const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
                                                 const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                                                 const isWatched = interactions[watchedKey]?.is_watched;
-                                                const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
 
                                                 return (
                                                     <div 
