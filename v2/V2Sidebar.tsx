@@ -1,9 +1,9 @@
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
     Calendar, Compass, List, Settings, 
-    LayoutPanelLeft, Minimize2, Search, User, Menu
+    LayoutPanelLeft, Minimize2, Search, User, Menu, LogOut, X, RefreshCw, ChevronRight
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
@@ -13,11 +13,23 @@ interface V2SidebarProps {
 }
 
 const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) => {
-    const { settings, updateSettings, user, logout } = useAppContext();
+    const { settings, updateSettings, user, logout, hardRefreshCalendar } = useAppContext();
     const mode = settings.v2SidebarMode || 'fixed';
     const location = useLocation();
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const drawerRef = useRef<HTMLDivElement>(null);
     
     const isActive = (path: string) => location.pathname.includes(path);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (drawerRef.current && !drawerRef.current.contains(event.target as Node)) {
+                setIsUserMenuOpen(false);
+            }
+        };
+        if (isUserMenuOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isUserMenuOpen]);
 
     const menuItems = [
         { id: 'v2-calendar', to: '/calendar', icon: Calendar, label: 'Calendar' },
@@ -120,33 +132,120 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                 </div>
             </nav>
 
-            {/* MOBILE NAV PILL (Hidden on Desktop) */}
-            <div className="md:hidden fixed bottom-6 left-0 right-0 z-[80] flex justify-center px-4 pointer-events-none safe-area-bottom">
-                <div className="pointer-events-auto bg-[#0A0A0A]/90 backdrop-blur-2xl border border-white/10 rounded-full px-6 py-3 flex items-center gap-6 shadow-2xl shadow-black ring-1 ring-white/5">
-                    {menuItems.map(item => {
-                        const active = isActive(item.to);
-                        const Icon = item.icon;
-                        return (
-                            <Link 
-                                key={item.id} 
-                                to={item.to}
-                                className={`flex flex-col items-center justify-center w-10 h-10 transition-all ${active ? 'text-indigo-500 scale-110' : 'text-zinc-500'}`}
-                            >
-                                <Icon className={`w-6 h-6 ${active ? 'fill-current' : 'stroke-2'}`} />
-                            </Link>
-                        );
-                    })}
-                    
-                    <div className="w-px h-6 bg-white/10" />
-                    
-                    <button 
-                        onClick={onOpenSettings}
-                        className="flex flex-col items-center justify-center w-10 h-10 text-zinc-500 active:text-white transition-colors"
+            {/* MOBILE FLOATING DOCK (Hidden on Desktop) */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 z-[80] px-4 pb-[env(safe-area-inset-bottom,20px)] pt-4 pointer-events-none">
+                <div className="pointer-events-auto w-full max-w-sm mx-auto bg-black/80 backdrop-blur-3xl border border-white/10 rounded-2xl flex items-center justify-between px-2 py-3 shadow-2xl shadow-black/80">
+                    {/* Calendar */}
+                    <Link 
+                        to="/calendar" 
+                        className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-300 active:scale-90 ${isActive('/calendar') ? 'text-indigo-500' : 'text-zinc-500 hover:text-zinc-300'}`}
                     >
-                        <User className="w-6 h-6" />
+                        <Calendar className={`w-6 h-6 ${isActive('/calendar') ? 'fill-current' : 'stroke-2'}`} />
+                        <span className="text-[9px] font-medium mt-1">Calendar</span>
+                    </Link>
+
+                    {/* Discover */}
+                    <Link 
+                        to="/discover" 
+                        className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-300 active:scale-90 ${isActive('/discover') ? 'text-indigo-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                        <Compass className={`w-6 h-6 ${isActive('/discover') ? 'fill-current' : 'stroke-2'}`} />
+                        <span className="text-[9px] font-medium mt-1">Discover</span>
+                    </Link>
+
+                    {/* Search (Center Action) */}
+                    <button 
+                        onClick={onOpenSearch}
+                        className="flex flex-col items-center justify-center w-12 h-12 bg-white/10 rounded-full text-white active:scale-90 transition-all border border-white/10 shadow-lg shadow-white/5 mx-1"
+                    >
+                        <Search className="w-5 h-5 stroke-[2.5px]" />
+                    </button>
+
+                    {/* Library */}
+                    <Link 
+                        to="/library" 
+                        className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-300 active:scale-90 ${isActive('/library') ? 'text-indigo-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                        <List className={`w-6 h-6 ${isActive('/library') ? 'fill-current' : 'stroke-2'}`} />
+                        <span className="text-[9px] font-medium mt-1">Library</span>
+                    </Link>
+
+                    {/* User */}
+                    <button 
+                        onClick={() => setIsUserMenuOpen(true)}
+                        className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-300 active:scale-90 ${isUserMenuOpen ? 'text-indigo-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                        <User className={`w-6 h-6 ${isUserMenuOpen ? 'fill-current' : 'stroke-2'}`} />
+                        <span className="text-[9px] font-medium mt-1">Me</span>
                     </button>
                 </div>
             </div>
+
+            {/* MOBILE USER DRAWER */}
+            {isUserMenuOpen && (
+                <div className="md:hidden fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-fade-in flex flex-col justify-end">
+                    <div 
+                        ref={drawerRef}
+                        className="bg-[#09090b] border-t border-white/10 rounded-t-[2.5rem] p-6 pb-[calc(env(safe-area-inset-bottom,20px)+2rem)] shadow-2xl animate-enter"
+                    >
+                        <div className="w-12 h-1 bg-zinc-800 rounded-full mx-auto mb-6" />
+                        
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-600/20">
+                                {user?.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-white">{user?.username}</h3>
+                                <p className="text-sm text-zinc-500 font-medium">{user?.isCloud ? 'Cloud Account' : 'Local Device'}</p>
+                            </div>
+                            <button onClick={() => setIsUserMenuOpen(false)} className="ml-auto p-3 rounded-full bg-zinc-900 text-zinc-400 hover:text-white">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-3">
+                            <button 
+                                onClick={() => { setIsUserMenuOpen(false); onOpenSettings && onOpenSettings(); }}
+                                className="w-full flex items-center gap-4 p-4 bg-zinc-900/50 hover:bg-zinc-900 rounded-2xl border border-white/5 transition-colors group"
+                            >
+                                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                                    <Settings className="w-5 h-5" />
+                                </div>
+                                <div className="text-left flex-1">
+                                    <div className="text-sm font-bold text-white">Settings</div>
+                                    <div className="text-xs text-zinc-500">Preferences, Sync & Account</div>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-zinc-600" />
+                            </button>
+
+                            <button 
+                                onClick={() => { if(confirm("Force Refresh Calendar?")) hardRefreshCalendar(); }}
+                                className="w-full flex items-center gap-4 p-4 bg-zinc-900/50 hover:bg-zinc-900 rounded-2xl border border-white/5 transition-colors group"
+                            >
+                                <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                                    <RefreshCw className="w-5 h-5" />
+                                </div>
+                                <div className="text-left flex-1">
+                                    <div className="text-sm font-bold text-white">Sync Data</div>
+                                    <div className="text-xs text-zinc-500">Refresh content from TMDB</div>
+                                </div>
+                            </button>
+
+                            <button 
+                                onClick={logout}
+                                className="w-full flex items-center gap-4 p-4 bg-red-500/5 hover:bg-red-500/10 rounded-2xl border border-red-500/10 transition-colors group mt-4"
+                            >
+                                <div className="p-2 bg-red-500/10 text-red-500 rounded-xl">
+                                    <LogOut className="w-5 h-5" />
+                                </div>
+                                <div className="text-left flex-1">
+                                    <div className="text-sm font-bold text-red-400">Log Out</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

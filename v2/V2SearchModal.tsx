@@ -10,6 +10,72 @@ interface V2SearchModalProps {
     onClose: () => void;
 }
 
+interface ShowCardProps {
+    show: TVShow; 
+    onAdd: (e: React.MouseEvent, s: TVShow) => void; 
+    isTracked: boolean; 
+    isRec?: boolean; 
+    onHoverSpecial: (active: boolean) => void;
+}
+
+const ShowCard: React.FC<ShowCardProps> = ({ show, onAdd, isTracked, isRec = false, onHoverSpecial }) => {
+    const isStrangerThings = show.id === 66732 || show.name.toLowerCase() === 'stranger things';
+
+    return (
+        <div 
+            className="group relative flex flex-col gap-3 cursor-pointer"
+            onMouseEnter={() => isStrangerThings && onHoverSpecial(true)}
+            onMouseLeave={() => isStrangerThings && onHoverSpecial(false)}
+        >
+            <div className={`relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border border-white/5 shadow-2xl transition-all duration-300 ${isTracked ? 'opacity-60' : 'group-hover:-translate-y-2 group-hover:shadow-indigo-900/20'} ${isRec ? 'ring-1 ring-indigo-500/30' : ''}`}>
+                <img 
+                    src={getImageUrl(show.poster_path)} 
+                    alt="" 
+                    className={`w-full h-full object-cover transition-transform duration-700 ${isStrangerThings ? 'group-hover:rotate-180' : 'group-hover:scale-110'}`}
+                    loading="lazy"
+                />
+                
+                {/* Overlay */}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
+                    <div className="text-center mb-4 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                        <div className="flex items-center justify-center gap-1 text-yellow-400 text-xs font-black mb-1">
+                            <Star className="w-3 h-3 fill-current" /> {show.vote_average.toFixed(1)}
+                        </div>
+                        <p className="text-[10px] text-zinc-400 font-medium line-clamp-3">{show.overview}</p>
+                    </div>
+                    
+                    <button 
+                        onClick={(e) => !isTracked && onAdd(e, show)}
+                        disabled={isTracked}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform hover:scale-110 shadow-xl ${isTracked ? 'bg-zinc-800 text-zinc-500' : 'bg-white text-black'}`}
+                    >
+                        {isTracked ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                    </button>
+                </div>
+
+                {/* Rec Badge */}
+                {isRec && (
+                    <div className="absolute top-2 left-2 px-2 py-1 bg-indigo-600 rounded text-[8px] font-black text-white uppercase tracking-widest shadow-lg">
+                        Pick
+                    </div>
+                )}
+            </div>
+
+            <div className="px-1">
+                <h4 className={`text-sm font-bold leading-tight line-clamp-1 group-hover:text-indigo-400 transition-colors ${isTracked ? 'text-zinc-500 line-through' : 'text-white'}`}>
+                    {show.name}
+                </h4>
+                <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] font-mono text-zinc-600">{show.first_air_date?.split('-')[0] || 'TBA'}</span>
+                    {show.media_type === 'movie' && (
+                        <span className="text-[8px] font-black uppercase tracking-wider text-zinc-700 border border-zinc-800 px-1 rounded">Movie</span>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
     const { addToWatchlist, allTrackedShows, settings, setReminderCandidate } = useAppContext();
     const [query, setQuery] = useState('');
@@ -192,64 +258,6 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                                 </div>
                             )}
                         </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const ShowCard = ({ show, onAdd, isTracked, isRec = false, onHoverSpecial }: { show: TVShow, onAdd: (e: React.MouseEvent, s: TVShow) => void, isTracked: boolean, isRec?: boolean, onHoverSpecial: (active: boolean) => void }) => {
-    const isStrangerThings = show.id === 66732 || show.name.toLowerCase() === 'stranger things';
-
-    return (
-        <div 
-            className="group relative flex flex-col gap-3 cursor-pointer"
-            onMouseEnter={() => isStrangerThings && onHoverSpecial(true)}
-            onMouseLeave={() => isStrangerThings && onHoverSpecial(false)}
-        >
-            <div className={`relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border border-white/5 shadow-2xl transition-all duration-300 ${isTracked ? 'opacity-60' : 'group-hover:-translate-y-2 group-hover:shadow-indigo-900/20'} ${isRec ? 'ring-1 ring-indigo-500/30' : ''}`}>
-                <img 
-                    src={getImageUrl(show.poster_path)} 
-                    alt="" 
-                    className={`w-full h-full object-cover transition-transform duration-700 ${isStrangerThings ? 'group-hover:rotate-180' : 'group-hover:scale-110'}`}
-                    loading="lazy"
-                />
-                
-                {/* Overlay */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
-                    <div className="text-center mb-4 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                        <div className="flex items-center justify-center gap-1 text-yellow-400 text-xs font-black mb-1">
-                            <Star className="w-3 h-3 fill-current" /> {show.vote_average.toFixed(1)}
-                        </div>
-                        <p className="text-[10px] text-zinc-400 font-medium line-clamp-3">{show.overview}</p>
-                    </div>
-                    
-                    <button 
-                        onClick={(e) => !isTracked && onAdd(e, show)}
-                        disabled={isTracked}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform hover:scale-110 shadow-xl ${isTracked ? 'bg-zinc-800 text-zinc-500' : 'bg-white text-black'}`}
-                    >
-                        {isTracked ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                    </button>
-                </div>
-
-                {/* Rec Badge */}
-                {isRec && (
-                    <div className="absolute top-2 left-2 px-2 py-1 bg-indigo-600 rounded text-[8px] font-black text-white uppercase tracking-widest shadow-lg">
-                        Pick
-                    </div>
-                )}
-            </div>
-
-            <div className="px-1">
-                <h4 className={`text-sm font-bold leading-tight line-clamp-1 group-hover:text-indigo-400 transition-colors ${isTracked ? 'text-zinc-500 line-through' : 'text-white'}`}>
-                    {show.name}
-                </h4>
-                <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] font-mono text-zinc-600">{show.first_air_date?.split('-')[0] || 'TBA'}</span>
-                    {show.media_type === 'movie' && (
-                        <span className="text-[8px] font-black uppercase tracking-wider text-zinc-700 border border-zinc-800 px-1 rounded">Movie</span>
                     )}
                 </div>
             </div>
