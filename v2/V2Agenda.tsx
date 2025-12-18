@@ -110,7 +110,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {ep.is_movie ? (
-                                            ep.release_type === 'theatrical' ? <Ticket className="w-2.5 h-2.5 text-pink-500" /> : <MonitorPlay className="w-2.5 h-2.5 text-emerald-500" />
+                                            ep.release_type === 'theatrical' ? <Ticket className="w-2.5 h-2.5 text-pink-400" /> : <MonitorPlay className="w-2.5 h-2.5 text-emerald-400" />
                                         ) : null}
                                         <p className={`text-[9px] font-mono uppercase tracking-tighter truncate ${isDescCensored ? 'text-zinc-700 italic' : 'text-zinc-500'}`}>{subText}</p>
                                     </div>
