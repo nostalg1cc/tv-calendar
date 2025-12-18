@@ -133,8 +133,8 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
             </nav>
 
             {/* MOBILE FLOATING DOCK (Hidden on Desktop) */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 z-[80] px-4 pb-[env(safe-area-inset-bottom,20px)] pt-4 pointer-events-none">
-                <div className="pointer-events-auto w-full max-w-sm mx-auto bg-black/80 backdrop-blur-3xl border border-white/10 rounded-2xl flex items-center justify-between px-2 py-3 shadow-2xl shadow-black/80">
+            <div className="md:hidden fixed bottom-6 left-0 right-0 z-[80] px-6 pointer-events-none flex justify-center pb-[env(safe-area-inset-bottom,0px)]">
+                <div className="pointer-events-auto w-full max-w-sm bg-black/60 backdrop-blur-3xl backdrop-saturate-150 border border-white/10 rounded-full px-2 py-3 flex items-center justify-between shadow-2xl shadow-black/50">
                     {/* Calendar */}
                     <Link 
                         to="/calendar" 
@@ -153,12 +153,13 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                         <span className="text-[9px] font-medium mt-1">Discover</span>
                     </Link>
 
-                    {/* Search (Center Action) */}
+                    {/* Search (Standard) */}
                     <button 
                         onClick={onOpenSearch}
-                        className="flex flex-col items-center justify-center w-12 h-12 bg-white/10 rounded-full text-white active:scale-90 transition-all border border-white/10 shadow-lg shadow-white/5 mx-1"
+                        className="flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-300 active:scale-90 text-zinc-500 hover:text-zinc-300"
                     >
-                        <Search className="w-5 h-5 stroke-[2.5px]" />
+                        <Search className="w-6 h-6 stroke-2" />
+                        <span className="text-[9px] font-medium mt-1">Search</span>
                     </button>
 
                     {/* Library */}
