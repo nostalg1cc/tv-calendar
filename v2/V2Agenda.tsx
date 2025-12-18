@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { Check, CalendarDays, Play, History, MoreVertical, Eye, EyeOff, Ticket, MonitorPlay } from 'lucide-react';
+import { Check, CalendarDays, Play, History, EyeOff, Ticket, MonitorPlay } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
