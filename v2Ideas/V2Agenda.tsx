@@ -1,0 +1,189 @@
+
+import React from 'react';
+import { format } from 'date-fns';
+import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle } from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
+import { Episode } from '../types';
+import { getImageUrl } from '../services/tmdb';
+
+interface V2AgendaProps {
+    selectedDay: Date;
+    onPlayTrailer?: (showId: number, mediaType: 'tv' | 'movie', episode?: Episode) => void;
+}
+
+const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer }) => {
+    const { episodes, settings, interactions, toggleEpisodeWatched, toggleWatched, markHistoryWatched } = useAppContext();
+    
+    const dateKey = format(selectedDay, 'yyyy-MM-dd');
+    const dayEps = (episodes[dateKey] || []).filter(ep => {
+        if (settings.hideTheatrical && ep.is_movie && ep.release_type === 'theatrical') return false;
+        if (settings.ignoreSpecials && ep.season_number === 0) return false;
+        return true;
+    });
+
+    // Group episodes by show_id to create cleaner cards for show marathons
+    const groupedEps = dayEps.reduce((acc, ep) => {
+        const key = ep.show_id || ep.id;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(ep);
+        return acc;
+    }, {} as Record<number, Episode[]>);
+
+    const GroupedShowCard: React.FC<{ eps: Episode[] }> = ({ eps }) => {
+        const firstEp = eps[0];
+        const { spoilerConfig } = settings;
+        
+        // Check if any episode in this group is unwatched (spoiler target)
+        const hasUnwatched = eps.some(ep => !interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched);
+        
+        // Determine preview image based on spoiler mode: Blur vs Series Banner
+        const stillUrl = getImageUrl(firstEp.still_path || firstEp.poster_path);
+        const bannerUrl = getImageUrl(firstEp.show_backdrop_path || firstEp.poster_path);
+        
+        const isSpoilerProtected = hasUnwatched && spoilerConfig.images;
+        const displayImageUrl = (isSpoilerProtected && spoilerConfig.replacementMode === 'banner') ? bannerUrl : stillUrl;
+
+        return (
+            <div className="w-full bg-zinc-950 border-b border-white/5 flex flex-col group/card">
+                {/* Horizontal Header Banner */}
+                <div className="bg-zinc-900/40 px-4 py-2 border-y border-white/5 flex items-center justify-between">
+                    <h4 className="text-[10px] font-black text-zinc-300 uppercase tracking-[0.15em] truncate pr-4">
+                        {firstEp.show_name || firstEp.name}
+                    </h4>
+                    <div className="flex items-center gap-1 shrink-0">
+                         {firstEp.is_movie ? (
+                            <span className="text-[8px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 border border-indigo-500/20 rounded mr-2">Movie</span>
+                         ) : (
+                            <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 bg-white/5 px-1.5 py-0.5 border border-white/5 rounded mr-2">{eps.length} EP</span>
+                         )}
+                         <button 
+                            onClick={() => onPlayTrailer?.(firstEp.show_id || firstEp.id, firstEp.is_movie ? 'movie' : 'tv')}
+                            className="p-1.5 text-zinc-600 hover:text-white transition-colors"
+                            title="Play Trailer"
+                         >
+                            <PlayCircle className="w-3.5 h-3.5" />
+                         </button>
+                    </div>
+                </div>
+
+                {/* Main Visual Component with Spoiler Logic */}
+                <div className="relative aspect-video w-full overflow-hidden bg-zinc-900">
+                    <img 
+                        src={displayImageUrl} 
+                        alt="" 
+                        className={`w-full h-full object-cover transition-all duration-700 
+                            ${isSpoilerProtected && spoilerConfig.replacementMode === 'blur' ? 'blur-2xl scale-110 opacity-30' : 'opacity-60 group-hover/card:opacity-90'}
+                        `}
+                    />
+                    
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                    
+                    {isSpoilerProtected && spoilerConfig.replacementMode === 'blur' && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <EyeOff className="w-6 h-6 text-zinc-800" />
+                        </div>
+                    )}
+                </div>
+
+                {/* Sub-Item List (Individual Episodes or Releases) */}
+                <div className="flex flex-col">
+                    {eps.map((ep) => {
+                        const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+                        const isWatched = interactions[watchedKey]?.is_watched;
+                        
+                        // Respect Spoiler Settings for text
+                        const isTextCensored = !isWatched && spoilerConfig.title;
+                        const isDescCensored = !isWatched && spoilerConfig.overview;
+
+                        const titleText = isTextCensored ? `Episode ${ep.episode_number}` : (ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema Premiere' : 'Digital Release') : ep.name);
+                        const subText = isDescCensored ? 'Description hidden' : (ep.is_movie ? ep.overview : `S${ep.season_number} E${ep.episode_number}`);
+
+                        return (
+                            <div 
+                                key={`${ep.show_id}-${ep.id}`}
+                                className={`
+                                    px-4 py-3 border-b border-white/[0.03] last:border-b-0 flex items-center justify-between gap-4
+                                    ${isWatched ? 'opacity-30' : 'hover:bg-white/[0.02]'}
+                                    transition-all
+                                `}
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className={`text-[11px] font-bold truncate leading-none ${isTextCensored ? 'text-zinc-600' : 'text-zinc-200'}`}>
+                                            {titleText}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {ep.is_movie && (
+                                            ep.release_type === 'theatrical' 
+                                                ? <Ticket className="w-2.5 h-2.5 text-pink-500" />
+                                                : <MonitorPlay className="w-2.5 h-2.5 text-emerald-500" />
+                                        )}
+                                        <p className={`text-[9px] font-mono uppercase tracking-tighter truncate ${isDescCensored ? 'text-zinc-700 italic' : 'text-zinc-500'}`}>
+                                            {subText}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                    {!ep.is_movie && (
+                                        <button 
+                                            onClick={() => ep.show_id && markHistoryWatched(ep.show_id, ep.season_number, ep.episode_number)}
+                                            className="p-2 text-zinc-700 hover:text-emerald-500 transition-colors"
+                                            title="Mark all previous episodes as watched"
+                                        >
+                                            <History className="w-3.5 h-3.5" />
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={() => ep.show_id && (ep.is_movie ? toggleWatched(ep.show_id, 'movie') : toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number))}
+                                        className={`p-2 transition-all ${isWatched ? 'text-emerald-500' : 'text-zinc-600 hover:text-white'}`}
+                                        title={isWatched ? "Mark unwatched" : "Mark watched"}
+                                    >
+                                        <Check className={`w-4 h-4 ${isWatched ? 'stroke-[3px]' : 'stroke-2'}`} />
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <aside className="w-[320px] hidden xl:flex flex-col bg-[#050505] border-l border-white/5 shrink-0 z-20">
+            {/* Scrollable Content Area */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {dayEps.length > 0 ? (
+                    <div className="flex flex-col">
+                        {Object.values(groupedEps).map((group, idx) => (
+                            <GroupedShowCard key={idx} eps={group} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center p-10 text-center opacity-50">
+                        <CalendarDays className="w-8 h-8 text-zinc-800 mb-4 stroke-[1px]" />
+                        <h4 className="text-[10px] font-black text-zinc-700 uppercase tracking-widest mb-1">Clear Horizon</h4>
+                        <p className="text-[9px] text-zinc-800 font-medium uppercase tracking-tighter">
+                            No scheduled tracking for this day
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* Footer Status Bar */}
+            <footer className="px-6 py-4 border-t border-white/5 bg-zinc-950/40">
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Database Pulse</span>
+                    <span className="text-[9px] font-mono text-emerald-600">LIVE</span>
+                </div>
+                <div className="h-[2px] w-full bg-zinc-900 overflow-hidden rounded-full">
+                    <div className="h-full bg-indigo-500 w-[85%] shadow-[0_0_10px_rgba(99,102,241,0.4)] animate-pulse" />
+                </div>
+            </footer>
+        </aside>
+    );
+};
+
+export default V2Agenda;

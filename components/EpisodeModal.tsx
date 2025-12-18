@@ -312,11 +312,16 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
         />
     )}
 
-    {trailerEp && (
+    {trailerEp && trailerEp.show_id && (
         <TrailerModal 
             isOpen={!!trailerEp}
             onClose={() => setTrailerEp(null)} 
-            item={trailerEp}
+            item={{
+                showId: trailerEp.show_id,
+                mediaType: trailerEp.is_movie ? 'movie' : 'tv',
+                episode: trailerEp.is_movie ? undefined : trailerEp,
+                show_name: trailerEp.show_name
+            }}
         />
     )}
     </>

@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
-import { List, Trash2, Check, MonitorPlay } from 'lucide-react';
+import { List, Trash2, Check, Filter, Tv, Film, MonitorPlay } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { getImageUrl } from '../services/tmdb';
 
-const WatchlistPage: React.FC = () => {
+const V2Library: React.FC = () => {
     const { watchlist, interactions, removeFromWatchlist, toggleWatched } = useAppContext();
     const [filter, setFilter] = useState<'all' | 'tv' | 'movie'>('all');
 
@@ -15,14 +15,14 @@ const WatchlistPage: React.FC = () => {
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#020202] overflow-y-auto custom-scrollbar">
-            <header className="px-8 md:px-12 py-10 shrink-0 border-b border-white/5 bg-zinc-950/20 backdrop-blur-md sticky top-0 z-50">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <header className="px-12 py-10 shrink-0 border-b border-white/5 bg-zinc-950/20 backdrop-blur-md sticky top-0 z-50">
+                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <List className="w-8 h-8 text-indigo-500" />
                         <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Manifest</h1>
                     </div>
                     
-                    <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5 self-start md:self-auto">
+                    <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5">
                         {['all', 'tv', 'movie'].map(f => (
                             <button 
                                 key={f} 
@@ -36,7 +36,7 @@ const WatchlistPage: React.FC = () => {
                 </div>
             </header>
 
-            <div className="px-8 md:px-12 py-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+            <div className="px-12 py-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
                 {filteredItems.map(item => {
                     const isWatched = interactions[`${item.media_type}-${item.id}`]?.is_watched;
                     return (
@@ -79,4 +79,4 @@ const WatchlistPage: React.FC = () => {
     );
 };
 
-export default WatchlistPage;
+export default V2Library;

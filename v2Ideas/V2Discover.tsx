@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
-import { Search, Sparkles, Tv, Film, Loader2 } from 'lucide-react';
+import { Search, Sparkles, TrendingUp, Tv, Film, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { searchShows, getPopularShows } from '../services/tmdb';
 import { TVShow } from '../types';
 
-const DiscoverPage: React.FC = () => {
+const V2Discover: React.FC = () => {
     const { addToWatchlist, allTrackedShows } = useAppContext();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<TVShow[]>([]);
@@ -32,10 +32,10 @@ const DiscoverPage: React.FC = () => {
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#020202] overflow-y-auto custom-scrollbar">
-            <header className="px-8 md:px-12 py-10 shrink-0">
+            <header className="px-12 py-10 shrink-0">
                 <div className="flex items-center gap-4 mb-8">
                     <Sparkles className="w-8 h-8 text-indigo-500" />
-                    <h1 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter">Exploration</h1>
+                    <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Exploration</h1>
                 </div>
 
                 <form onSubmit={handleSearch} className="max-w-3xl relative group">
@@ -50,7 +50,7 @@ const DiscoverPage: React.FC = () => {
                 </form>
             </header>
 
-            <div className="px-8 md:px-12 pb-20">
+            <div className="px-12 pb-20">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-4">
                         <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
@@ -93,4 +93,4 @@ const DiscoverPage: React.FC = () => {
     );
 };
 
-export default DiscoverPage;
+export default V2Discover;

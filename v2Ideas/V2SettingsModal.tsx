@@ -3,14 +3,14 @@ import React, { useState } from 'react';
 import { Settings, ShieldCheck, Palette, User, Globe, EyeOff, Layout, Bell, Monitor, Cloud, LogOut, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
-interface SettingsModalProps {
+interface V2SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
 type TabId = 'general' | 'account' | 'design' | 'spoiler';
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) => {
     const { settings, updateSettings, user, logout, hardRefreshCalendar, isSyncing } = useAppContext();
     const [activeTab, setActiveTab] = useState<TabId>('general');
 
@@ -38,26 +38,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12" onClick={onClose}>
             <div className="absolute inset-0 bg-black/80 backdrop-blur-xl animate-fade-in" />
-            <div className="relative bg-[#080808] border border-white/5 w-full max-w-4xl h-full max-h-[700px] flex flex-col md:flex-row overflow-hidden rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-enter" onClick={e => e.stopPropagation()}>
-                <div className="w-full md:w-64 border-r border-white/5 bg-zinc-950/30 flex flex-col shrink-0">
+            <div className="relative bg-[#080808] border border-white/5 w-full max-w-4xl h-full max-h-[700px] flex overflow-hidden rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-enter" onClick={e => e.stopPropagation()}>
+                <div className="w-64 border-r border-white/5 bg-zinc-950/30 flex flex-col shrink-0">
                     <div className="p-8">
                         <h2 className="text-xl font-black text-white uppercase tracking-tighter">System</h2>
                         <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest mt-1">Version 2.5.0</p>
                     </div>
-                    
-                    {/* Horizontal scroll for mobile */}
-                    <nav className="flex-1 px-4 space-y-1 flex md:block overflow-x-auto hide-scrollbar md:overflow-visible">
+                    <nav className="flex-1 px-4 space-y-1">
                         {TABS.map(tab => (
-                            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-sm font-bold whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600/10 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>
+                            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-sm font-bold ${activeTab === tab.id ? 'bg-indigo-600/10 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>
                                 <tab.icon className="w-4 h-4" />{tab.label}
                             </button>
                         ))}
                     </nav>
-                    <div className="p-6 hidden md:block"><button onClick={onClose} className="w-full py-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 font-bold rounded-2xl transition-all text-sm">Close</button></div>
-                    <button onClick={onClose} className="md:hidden absolute top-4 right-4 p-2 bg-black/50 rounded-full text-white">✕</button>
+                    <div className="p-6"><button onClick={onClose} className="w-full py-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 font-bold rounded-2xl transition-all text-sm">Close</button></div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-8 md:p-12 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
                     {activeTab === 'general' && (
                         <div className="animate-fade-in space-y-8">
                             <div>
@@ -186,4 +183,4 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     );
 };
 
-export default SettingsModal;
+export default V2SettingsModal;

@@ -91,6 +91,7 @@ export interface AppSettings {
       overview: boolean;
       title: boolean;
       includeMovies: boolean; 
+      replacementMode?: 'blur' | 'banner';
   };
   hideTheatrical: boolean;
   ignoreSpecials: boolean; 
@@ -112,6 +113,8 @@ export interface AppSettings {
   appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system'; // New Font Option
   reminderStrategy: 'ask' | 'always' | 'never'; // New Reminder Preference
   hiddenItems: { id: number; name: string }[]; // Blacklist for deleted items to prevent Trakt re-sync
+  v2SidebarMode?: 'fixed' | 'collapsed'; // New Sidebar preference
+  autoSync?: boolean; // New Auto Sync preference
 }
 
 export interface SubscribedList {

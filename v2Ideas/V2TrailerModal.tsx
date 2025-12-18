@@ -1,38 +1,36 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Video as VideoIcon, Play } from 'lucide-react';
+import { X, Loader2, Video as VideoIcon, ExternalLink, Play } from 'lucide-react';
 import { Video, Episode } from '../types';
 import { getVideos } from '../services/tmdb';
 
-interface TrailerModalProps {
+interface V2TrailerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  item: { showId: number; mediaType: 'tv' | 'movie'; episode?: Episode; show_name?: string } | null;
+  showId: number;
+  mediaType: 'tv' | 'movie';
+  episode?: Episode;
 }
 
-const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) => {
+const V2TrailerModal: React.FC<V2TrailerModalProps> = ({ isOpen, onClose, showId, mediaType, episode }) => {
   const [videos, setVideos] = useState<Video[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen && item) {
+    if (isOpen) {
         loadVideos();
-    } else {
-        setVideos([]);
-        setSelectedVideo(null);
     }
-  }, [isOpen, item]);
+  }, [isOpen, showId, mediaType, episode]);
 
   const loadVideos = async () => {
-      if (!item) return;
       setLoading(true);
       try {
           let results: Video[] = [];
-          if (item.episode) {
-              results = await getVideos(item.mediaType, item.showId, item.episode.season_number, item.episode.episode_number);
+          if (episode) {
+              results = await getVideos(mediaType, showId, episode.season_number, episode.episode_number);
           } else {
-              results = await getVideos(item.mediaType, item.showId);
+              results = await getVideos(mediaType, showId);
           }
           
           setVideos(results);
@@ -47,7 +45,7 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
       }
   };
 
-  if (!isOpen || !item) return null;
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-12 bg-black/95 backdrop-blur-3xl animate-fade-in" onClick={onClose}>
@@ -55,6 +53,7 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
             className="bg-black border border-white/5 w-full max-w-6xl aspect-video rounded-[3rem] shadow-[0_0_120px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden relative group/modal"
             onClick={e => e.stopPropagation()}
         >
+            {/* Minimal Close Handle */}
             <button 
                 onClick={onClose} 
                 className="absolute top-8 right-8 p-3 bg-white/5 hover:bg-white/10 backdrop-blur-2xl rounded-full text-white transition-all z-50 opacity-0 group-hover/modal:opacity-100"
@@ -86,6 +85,7 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
                 )}
             </div>
 
+            {/* Clean Selector Strip */}
             {videos.length > 1 && !loading && (
                 <div className="absolute bottom-10 left-10 right-10 flex gap-3 overflow-x-auto hide-scrollbar z-40 bg-black/40 backdrop-blur-3xl p-3 rounded-3xl border border-white/5 opacity-0 group-hover/modal:opacity-100 transition-opacity">
                     {videos.map(v => (
@@ -105,4 +105,4 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
   );
 };
 
-export default TrailerModal;
+export default V2TrailerModal;
