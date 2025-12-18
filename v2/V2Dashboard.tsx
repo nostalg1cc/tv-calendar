@@ -15,29 +15,37 @@ const V2Dashboard: React.FC = () => {
     const { calendarDate, setCalendarDate } = useAppContext();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [trailerTarget, setTrailerTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', episode?: Episode} | null>(null);
+    const [isMobileAgendaOpen, setIsMobileAgendaOpen] = useState(false);
 
     const handlePlayTrailer = (showId: number, mediaType: 'tv' | 'movie', episode?: Episode) => {
         setTrailerTarget({ showId, mediaType, episode });
     };
 
+    const handleDateSelect = (date: Date) => {
+        setCalendarDate(date);
+        setIsMobileAgendaOpen(true);
+    };
+
     return (
         <div className="flex h-screen w-screen bg-[#020202] text-zinc-100 overflow-hidden font-sans selection:bg-indigo-500/30">
-            {/* Column 1: V2 Sidebar */}
+            {/* Navigation (Sidebar on Desktop, Pill on Mobile) */}
             <V2Sidebar onOpenSettings={() => setIsSettingsOpen(true)} />
 
             {/* Main Area with dynamic sub-routes */}
             <Routes>
                 <Route path="calendar" element={
                     <>
-                        <main className="flex-1 flex flex-col min-w-0 h-full">
+                        <main className="flex-1 flex flex-col min-w-0 h-full relative z-0">
                             <V2Calendar 
                                 selectedDay={calendarDate} 
-                                onSelectDay={setCalendarDate} 
+                                onSelectDay={handleDateSelect} 
                             />
                         </main>
                         <V2Agenda 
                             selectedDay={calendarDate} 
                             onPlayTrailer={handlePlayTrailer}
+                            isOpen={isMobileAgendaOpen}
+                            onClose={() => setIsMobileAgendaOpen(false)}
                         />
                     </>
                 } />
