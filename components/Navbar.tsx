@@ -1,183 +1,304 @@
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-    Calendar, Compass, List, Settings, 
-    LayoutPanelLeft, Minimize2, Search, 
-    User as UserIcon
-} from 'lucide-react';
+import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import SettingsModal from './SettingsModal';
 
 const Navbar: React.FC = () => {
-    const { settings, updateSettings, user, logout, setIsSearchOpen } = useAppContext();
-    const mode = settings.v2SidebarMode || 'fixed';
-    const location = useLocation();
-    const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
-    
-    const isActive = (path: string) => location.pathname === path;
+  const { user, logout, setIsSearchOpen, settings } = useAppContext();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  
+  // Persist sidebar state
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+      try {
+          return localStorage.getItem('tv_calendar_sidebar_collapsed') === 'true';
+      } catch {
+          return false;
+      }
+  });
 
-    const menuItems = [
-        { id: 'v2-calendar', to: '/', icon: Calendar, label: 'Calendar' },
-        { id: 'v2-discover', to: '/discover', icon: Compass, label: 'Discovery' },
-        { id: 'v2-library', to: '/watchlist', icon: List, label: 'My Library' },
-    ];
+  const location = useLocation();
+  const menuRef = useRef<HTMLDivElement>(null);
 
-    const sidebarWidth = mode === 'collapsed' ? '72px' : '240px';
+  useEffect(() => {
+      localStorage.setItem('tv_calendar_sidebar_collapsed', String(isCollapsed));
+  }, [isCollapsed]);
 
-    const NavItem: React.FC<{ to: string; icon: any; label: string; onClick?: () => void; active?: boolean; }> = ({ to, icon: Icon, label, onClick, active: forceActive }) => {
-        const active = forceActive ?? isActive(to);
-        const isSlim = mode === 'collapsed';
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    if (isUserMenuOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isUserMenuOpen]);
 
-        const content = (
-            <div 
-                className={`
-                    group flex items-center gap-4 px-3 py-2.5 rounded-lg transition-all duration-200 relative mx-2
-                    ${active 
-                        ? 'text-white' 
-                        : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04]'}
-                    ${isSlim ? 'justify-center' : ''}
-                `}
+  if (!user) return null;
+
+  const isActive = (path: string) => location.pathname === path;
+  const isPillLayout = settings.mobileNavLayout === 'pill';
+  
+  // Desktop Sidebar Item
+  const DesktopNavItem = ({ to, icon: Icon, label, onClick }: { to?: string, icon: any, label: string, onClick?: () => void }) => {
+      const active = to ? isActive(to) : false;
+      const baseClasses = `
+          group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 mb-1 w-full
+          ${active 
+              ? 'bg-indigo-600/10 text-indigo-400 font-medium' 
+              : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.03]'}
+          ${isCollapsed ? 'justify-center' : ''}
+      `;
+
+      const content = (
+          <>
+            <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+            {!isCollapsed && <span className="text-sm truncate">{label}</span>}
+            {active && !isCollapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />}
+            {active && isCollapsed && <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />}
+          </>
+      );
+
+      if (onClick) {
+          return (
+            <button onClick={onClick} className={baseClasses} title={isCollapsed ? label : ''}>
+                {content}
+            </button>
+          );
+      }
+      return (
+        <Link to={to!} className={baseClasses} title={isCollapsed ? label : ''}>
+            {content}
+        </Link>
+      );
+  };
+
+  return (
+    <>
+      {/* DESKTOP SIDEBAR (Visible md+) */}
+      <nav className={`hidden md:flex flex-col bg-[var(--bg-main)] border-r border-[var(--border-color)] h-full shrink-0 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
+        
+        {/* Navigation Links */}
+        <div className="flex-1 px-4 overflow-y-auto pt-8 scrollbar-hide">
+            <div className="mb-6">
+                {!isCollapsed && <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 transition-opacity">Menu</p>}
+                <DesktopNavItem to="/" icon={Calendar} label="Calendar" />
+                <DesktopNavItem to="/discover" icon={Compass} label="Discover" />
+                <DesktopNavItem to="/watchlist" icon={List} label="My Library" />
+            </div>
+
+            <div>
+                {!isCollapsed && <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 transition-opacity">Tools</p>}
+                <DesktopNavItem icon={Search} label="Quick Search" onClick={() => setIsSearchOpen(true)} />
+                <DesktopNavItem to="/reminders" icon={Bell} label="Reminders" />
+                <DesktopNavItem icon={Settings} label="Settings" onClick={() => setIsSettingsOpen(true)} />
+            </div>
+        </div>
+
+        {/* User Footer & Toggle */}
+        <div className="p-4 border-t border-[var(--border-color)] flex flex-col gap-2">
+            <button 
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="self-end p-2 text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-white/5 mb-2"
+                title={isCollapsed ? "Expand" : "Collapse"}
             >
-                <Icon className={`w-5 h-5 shrink-0 transition-transform ${active ? 'scale-110' : 'group-hover:scale-105'}`} strokeWidth={active ? 2.5 : 2} />
-                
-                {!isSlim && (
-                    <span className={`text-[13px] tracking-wide ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
-                )}
-                
-                {active && !isSlim && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-indigo-500 rounded-r-full shadow-[0_0_12px_rgba(99,102,241,0.5)]" />
-                )}
+                {isCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </button>
 
-                {isSlim && (
-                    <div className="absolute left-full ml-4 px-3 py-1.5 bg-zinc-900 border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-all z-[110] whitespace-nowrap shadow-xl">
-                        {label}
-                    </div>
+            <div className={`flex items-center gap-3 p-2 rounded-xl bg-white/[0.03] border border-[var(--border-color)] ${isCollapsed ? 'justify-center p-0 border-none bg-transparent' : ''}`}>
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold text-xs shrink-0">
+                    {user.username.charAt(0).toUpperCase()}
+                </div>
+                {!isCollapsed && (
+                    <>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{user.username}</p>
+                            <p className="text-[10px] text-slate-500 truncate">{user.isCloud ? 'Cloud Sync' : 'Local Mode'}</p>
+                        </div>
+                        <button 
+                            onClick={logout}
+                            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+                            title="Logout"
+                        >
+                            <LogOut className="w-4 h-4" />
+                        </button>
+                    </>
                 )}
             </div>
-        );
+        </div>
+      </nav>
 
-        if (onClick) return <button onClick={onClick} className="w-full text-left outline-none">{content}</button>;
-        return <Link to={to} className="block outline-none">{content}</Link>;
-    };
-
-    return (
-        <>
-            {/* --- DESKTOP SIDEBAR --- */}
-            <nav 
-                style={{ 
-                    width: sidebarWidth,
-                    transition: 'width 0.4s cubic-bezier(0.2, 0, 0, 1)'
-                }}
-                className="hidden md:flex flex-col bg-[#050505] border-r border-white/5 shrink-0 overflow-hidden h-full z-30"
-            >
-                <div className={`h-16 flex items-center shrink-0 border-b border-white/5 ${mode === 'collapsed' ? 'justify-center' : 'px-6'}`}>
-                    {mode === 'collapsed' ? (
-                        <div className="w-8 h-8 rounded bg-white flex items-center justify-center text-black font-black text-xs">TV</div>
-                    ) : (
-                        <h1 className="text-sm font-black text-white tracking-[0.2em] uppercase">TV<span className="text-zinc-600">CAL</span></h1>
-                    )}
-                </div>
-
-                <div className="flex-1 py-6 space-y-1">
-                    {menuItems.map(item => (
-                        <NavItem 
-                            key={item.id} 
-                            to={item.to} 
-                            icon={item.icon} 
-                            label={item.label} 
-                        />
-                    ))}
-                    
-                    <div className="my-2 mx-4 h-px bg-white/5" />
-                    
-                    <NavItem 
-                        to="#" 
-                        icon={Search} 
-                        label="Quick Search" 
-                        onClick={() => setIsSearchOpen(true)} 
-                    />
-                </div>
-
-                <div className="mt-auto border-t border-white/5 bg-zinc-950/30">
-                    <div className="p-2 space-y-1">
-                        <NavItem 
-                            to="#" 
-                            icon={Settings} 
-                            label="Settings" 
-                            onClick={() => setIsSettingsOpen(true)}
-                        />
-                        
-                        <button 
-                            onClick={() => updateSettings({ v2SidebarMode: mode === 'fixed' ? 'collapsed' : 'fixed' })}
-                            className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-lg text-zinc-600 hover:text-white hover:bg-white/[0.04] transition-colors ${mode === 'collapsed' ? 'justify-center' : ''}`}
-                        >
-                            {mode === 'fixed' ? <Minimize2 className="w-5 h-5" /> : <LayoutPanelLeft className="w-5 h-5" />}
-                            {mode === 'fixed' && <span className="text-[13px] font-medium">Collapse</span>}
-                        </button>
+      {/* MOBILE BOTTOM NAV (Visible < md) */}
+      
+      {!isPillLayout ? (
+          // --- V1: STANDARD FIXED BAR ---
+          <div 
+            className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-main)]/95 backdrop-blur-xl border-t border-[var(--border-color)] z-50 transition-transform duration-300 safe-area-bottom"
+          >
+              <div className="flex items-center justify-between px-2 h-16">
+                <MobileTab to="/" icon={Calendar} label="Calendar" active={isActive('/')} />
+                <MobileTab to="/discover" icon={Compass} label="Discover" active={isActive('/discover')} />
+                
+                <button 
+                    onClick={() => setIsSearchOpen(true)}
+                    className="flex flex-col items-center justify-center w-16 h-full"
+                >
+                    <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-900/50 mb-1 active:scale-95 transition-transform">
+                        <Search className="w-5 h-5" />
                     </div>
-
-                    <div className="p-4 border-t border-white/5">
-                        <div className={`flex items-center gap-3 ${mode === 'collapsed' ? 'justify-center' : ''}`}>
-                            <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-400 shrink-0">
-                                {user?.username.charAt(0).toUpperCase()}
-                            </div>
-                            {mode === 'fixed' && (
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-[13px] font-bold text-white truncate leading-none mb-1">{user?.username}</p>
-                                    <button onClick={logout} className="text-[10px] text-zinc-500 hover:text-red-400 font-medium uppercase tracking-wide flex items-center gap-1">
-                                        Log Out
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </nav>
-
-            {/* --- MOBILE PILL NAVIGATION --- */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none flex justify-center px-4 mb-3 pb-[env(safe-area-inset-bottom,12px)]">
-              <div className="pointer-events-auto bg-black/80 backdrop-blur-3xl border border-white/10 rounded-full px-7 py-3.5 flex items-center gap-7 shadow-2xl shadow-black/80 safe-area-bottom ring-1 ring-white/5">
+                    <span className="text-[9px] font-medium text-slate-400">Search</span>
+                </button>
+                
+                <MobileTab to="/watchlist" icon={List} label="Library" active={isActive('/watchlist')} />
+                
+                <button 
+                    onClick={() => setIsUserMenuOpen(true)}
+                    className={`flex flex-col items-center justify-center w-full max-w-[4rem] h-full gap-1 ${isUserMenuOpen ? 'text-indigo-400' : 'text-slate-500'}`}
+                >
+                     <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${isUserMenuOpen ? 'border-indigo-500 bg-indigo-500/20' : 'border-slate-600 bg-slate-800'}`}>
+                        <span className="text-[10px] font-bold">{user.username.charAt(0).toUpperCase()}</span>
+                     </div>
+                     <span className="text-[10px] font-medium">Profile</span>
+                </button>
+              </div>
+          </div>
+      ) : (
+          // --- V2: FLOATING PILL ---
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none flex justify-center px-4 mb-3 pb-[env(safe-area-inset-bottom,12px)]">
+              <div className="pointer-events-auto bg-zinc-950/70 backdrop-blur-3xl border border-white/10 rounded-full px-7 py-3.5 flex items-center gap-7 shadow-2xl shadow-black/50 safe-area-bottom ring-1 ring-white/5">
                   <Link 
                     to="/" 
-                    className={`relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300 ${isActive('/') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`
+                        relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
+                        ${isActive('/') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}
+                    `}
                   >
                       <Calendar className={`w-6 h-6 ${isActive('/') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
                   </Link>
                   
                   <Link 
                     to="/discover" 
-                    className={`relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300 ${isActive('/discover') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`
+                        relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
+                        ${isActive('/discover') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}
+                    `}
                   >
                       <Compass className={`w-6 h-6 ${isActive('/discover') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
                   </Link>
 
+                  {/* Search Button (Normal Style) */}
                   <button 
                     onClick={() => setIsSearchOpen(true)} 
-                    className="relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300 text-zinc-500 hover:text-zinc-300"
+                    className={`
+                        relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
+                        text-zinc-500 hover:text-zinc-300
+                    `}
                   >
                       <Search className="w-6 h-6 stroke-2" />
                   </button>
 
                   <Link 
                     to="/watchlist" 
-                    className={`relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300 ${isActive('/watchlist') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`
+                        relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
+                        ${isActive('/watchlist') ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}
+                    `}
                   >
                       <List className={`w-6 h-6 ${isActive('/watchlist') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
                   </Link>
 
                   <button 
-                    onClick={() => setIsSettingsOpen(true)} 
-                    className={`relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300 ${isSettingsOpen ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    onClick={() => setIsUserMenuOpen(true)} 
+                    className={`
+                        relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
+                        ${isUserMenuOpen ? 'text-indigo-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}
+                    `}
                   >
-                      <UserIcon className={`w-6 h-6 ${isSettingsOpen ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                      <UserIcon className={`w-6 h-6 ${isUserMenuOpen ? 'stroke-[2.5px]' : 'stroke-2'}`} />
                   </button>
               </div>
-            </div>
+          </div>
+      )}
 
-            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-        </>
-    );
+      {/* MOBILE USER MENU DRAWER */}
+      {isUserMenuOpen && (
+          <div className="md:hidden fixed inset-0 z-[60] flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
+              <div 
+                ref={menuRef}
+                className="bg-zinc-900 border-t border-zinc-800 rounded-t-3xl p-6 pb-28 shadow-2xl animate-enter"
+              >
+                  <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-900/30">
+                              <span className="text-lg font-bold">{user.username.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div>
+                              <h3 className="font-bold text-white text-lg">{user.username}</h3>
+                              <p className="text-zinc-500 text-xs flex items-center gap-1.5">
+                                  {user.isCloud ? <div className="w-2 h-2 rounded-full bg-emerald-500" /> : <div className="w-2 h-2 rounded-full bg-orange-500" />}
+                                  {user.isCloud ? 'Cloud Account' : 'Local Device'}
+                              </p>
+                          </div>
+                      </div>
+                      <button 
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="p-2 bg-zinc-800 rounded-full text-zinc-400 hover:text-white"
+                      >
+                          <X className="w-5 h-5" />
+                      </button>
+                  </div>
+
+                  <div className="space-y-3">
+                      <Link 
+                         to="/reminders"
+                         onClick={() => setIsUserMenuOpen(false)}
+                         className="w-full bg-zinc-800/50 hover:bg-zinc-800 p-4 rounded-xl flex items-center gap-4 text-zinc-200 transition-colors border border-zinc-800"
+                      >
+                         <Bell className="w-5 h-5 text-amber-400" />
+                         <div className="flex-1 text-left font-medium">Notifications & Reminders</div>
+                      </Link>
+
+                      <button 
+                        onClick={() => { setIsUserMenuOpen(false); setIsSettingsOpen(true); }}
+                        className="w-full bg-zinc-800/50 hover:bg-zinc-800 p-4 rounded-xl flex items-center gap-4 text-zinc-200 transition-colors border border-zinc-800"
+                      >
+                          <Settings className="w-5 h-5 text-indigo-400" />
+                          <div className="flex-1 text-left font-medium">Settings & Sync</div>
+                      </button>
+                      
+                      <button 
+                        onClick={() => { window.location.reload(); }}
+                        className="w-full bg-zinc-800/50 hover:bg-zinc-800 p-4 rounded-xl flex items-center gap-4 text-zinc-200 transition-colors border border-zinc-800"
+                      >
+                          <RefreshCw className="w-5 h-5 text-emerald-400" />
+                          <div className="flex-1 text-left font-medium">Force Refresh</div>
+                      </button>
+
+                      <button 
+                        onClick={logout}
+                        className="w-full bg-red-500/10 hover:bg-red-500/20 p-4 rounded-xl flex items-center gap-4 text-red-400 transition-colors border border-red-500/10"
+                      >
+                          <LogOut className="w-5 h-5" />
+                          <div className="flex-1 text-left font-medium">Log Out</div>
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+      
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+    </>
+  );
 };
+
+const MobileTab = ({ to, icon: Icon, label, active }: { to: string, icon: any, label: string, active: boolean }) => (
+    <Link to={to} className={`flex flex-col items-center justify-center w-full max-w-[4rem] h-full gap-1 active:scale-95 transition-transform ${active ? 'text-indigo-400' : 'text-slate-500'}`}>
+        {/* Removed fill-current to fix look on mobile active state */}
+        <Icon className={`w-5 h-5 ${active ? 'text-indigo-400 stroke-2' : 'stroke-2'}`} />
+        <span className="text-[9px] font-medium">{label}</span>
+    </Link>
+);
 
 export default Navbar;

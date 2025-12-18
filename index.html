@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TV Calendar</title>
-    <meta name="theme-color" content="#020202">
+    <meta name="theme-color" content="#09090b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/manifest.json">
@@ -44,8 +44,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
     <style>
       :root {
-        --bg-main: #020202; /* V2 Darker Base */
-        --bg-panel: #09090b; /* V2 Panel */
+        --bg-main: #09090b; /* Zinc 950 */
+        --bg-panel: #18181b; /* Zinc 900 */
         --border-color: rgba(255, 255, 255, 0.08);
         --font-main: 'Inter';
         
@@ -53,7 +53,7 @@
         --text-main: #e4e4e7; /* Zinc 200 */
         --text-muted: #a1a1aa; /* Zinc 400 */
 
-        /* Default Indigo Theme Values */
+        /* Default Indigo Theme Values (prevents FOUC) */
         --theme-50: 238 242 255;
         --theme-100: 224 231 255;
         --theme-200: 199 210 254;
@@ -75,10 +75,62 @@
       body[data-font="system"] { --font-main: system-ui, -apple-system, sans-serif; }
 
       /* --- Base Themes --- */
+      
+      /* Cosmic (Default) */
       body[data-base-theme="cosmic"] {
-        --bg-main: #020202;
-        --bg-panel: #050505;
-        --border-color: rgba(255, 255, 255, 0.05);
+        --bg-main: #09090b; /* Zinc 950 */
+        --bg-panel: #18181b; /* Zinc 900 */
+        --border-color: rgba(255, 255, 255, 0.08);
+        --text-main: #e4e4e7;
+        --text-muted: #a1a1aa;
+      }
+
+      /* OLED (Blackout) */
+      body[data-base-theme="oled"] {
+        --bg-main: #000000;
+        --bg-panel: #111111;
+        --border-color: #222222;
+        --text-main: #e4e4e7;
+        --text-muted: #a1a1aa;
+      }
+      body[data-base-theme="oled"] .surface-card {
+        background-color: #0A0A0A;
+      }
+
+      /* Midnight (Deep Blue) */
+      body[data-base-theme="midnight"] {
+        --bg-main: #020617; /* Slate 950 */
+        --bg-panel: #0f172a; /* Slate 900 */
+        --border-color: rgba(255, 255, 255, 0.08);
+        --text-main: #e2e8f0;
+        --text-muted: #94a3b8;
+      }
+
+      /* Forest (Deep Green) */
+      body[data-base-theme="forest"] {
+        --bg-main: #020904; 
+        --bg-panel: #05190b; 
+        --border-color: rgba(255, 255, 255, 0.08);
+        --text-main: #e2e8f0;
+        --text-muted: #94a3b8;
+      }
+
+      /* Dawn (Soft Dark) */
+      body[data-base-theme="dawn"] {
+        --bg-main: #27272a; /* Zinc 800 */
+        --bg-panel: #3f3f46; /* Zinc 700 */
+        --border-color: rgba(255, 255, 255, 0.1);
+        --text-main: #f4f4f5;
+        --text-muted: #d4d4d8;
+      }
+
+      /* Light (Day Mode) */
+      body[data-base-theme="light"] {
+        --bg-main: #f4f4f5; /* Zinc 100 */
+        --bg-panel: #ffffff; /* White */
+        --border-color: #e4e4e7; /* Zinc 200 */
+        --text-main: #18181b; /* Zinc 900 */
+        --text-muted: #71717a; /* Zinc 500 */
       }
       
       body {
@@ -92,28 +144,99 @@
         transition: background-color 0.5s ease, color 0.5s ease;
       }
       
-      /* New V2 Utilities */
-      .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
+      /* New Production Standard Utilities */
+      .surface-base {
+        background-color: var(--bg-main);
       }
-      .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
+      
+      .surface-panel {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border-color);
       }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 99px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.2);
+      /* Add mild backdrop blur only in dark modes */
+      body:not([data-base-theme="light"]) .surface-panel {
+         background-color: rgba(24, 24, 27, 0.8);
+         backdrop-filter: blur(16px);
+         -webkit-backdrop-filter: blur(16px);
       }
 
+      .surface-card {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        transition: all 0.2s ease-out;
+      }
+      /* Dark mode card override for transparency */
+      body:not([data-base-theme="light"]) .surface-card {
+        background-color: rgba(39, 39, 42, 0.4); /* Zinc 800 alpha */
+      }
+
+      .surface-card:hover {
+        border-color: rgba(var(--theme-500), 0.5); /* Indigo hint */
+      }
+      body:not([data-base-theme="light"]) .surface-card:hover {
+         background-color: rgba(39, 39, 42, 0.8);
+      }
+      
+      /* Ambient Background Blurs (Only on Dark Themes) */
+      body:not([data-base-theme="oled"]):not([data-base-theme="light"])::before {
+        content: "";
+        position: fixed;
+        top: -20vh;
+        left: -20vw;
+        width: 70vw;
+        height: 70vh;
+        background: radial-gradient(circle, rgba(var(--theme-500), 0.06) 0%, rgba(0,0,0,0) 70%); /* Theme tint */
+        filter: blur(120px);
+        z-index: -1;
+        pointer-events: none;
+        animation: float 20s ease-in-out infinite alternate;
+      }
+
+      body:not([data-base-theme="oled"]):not([data-base-theme="light"])::after {
+        content: "";
+        position: fixed;
+        bottom: -20vh;
+        right: -20vw;
+        width: 70vw;
+        height: 70vh;
+        background: radial-gradient(circle, rgba(var(--theme-300), 0.04) 0%, rgba(0,0,0,0) 70%); /* Theme secondary tint */
+        filter: blur(120px);
+        z-index: -1;
+        pointer-events: none;
+        animation: float-delayed 25s ease-in-out infinite alternate;
+      }
+
+      @keyframes float {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(10%, 10%); }
+      }
+      @keyframes float-delayed {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(-10%, -10%); }
+      }
+
+      /* Refined Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #71717a;
+      }
+      
       .hide-scrollbar::-webkit-scrollbar {
-          display: none;
+        display: none;
       }
       .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
       
       .safe-area-bottom {
@@ -121,20 +244,12 @@
       }
 
       /* Animations */
-      @keyframes fade-in {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      .animate-fade-in {
-        animation: fade-in 0.4s ease-out forwards;
-      }
-      
-      @keyframes enter {
-        from { opacity: 0; transform: scale(0.95) translateY(10px); }
-        to { opacity: 1; transform: scale(1) translateY(0); }
+      @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
       }
       .animate-enter {
-        animation: enter 0.4s cubic-bezier(0.2, 0, 0, 1) forwards;
+        animation: fade-in-up 0.4s ease-out forwards;
       }
     </style>
   <script type="importmap">

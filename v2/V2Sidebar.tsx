@@ -3,25 +3,27 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
     Calendar, Compass, List, Settings, 
-    LayoutPanelLeft, Minimize2, Search
+    ArrowLeft, LayoutPanelLeft, Minimize2, 
+    LogOut, Search
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { V2SidebarMode } from '../types';
 
 interface V2SidebarProps {
     onOpenSettings?: () => void;
 }
 
 const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
-    const { settings, updateSettings, user, logout, setIsSearchOpen } = useAppContext();
+    const { settings, updateSettings, user, logout } = useAppContext();
     const mode = settings.v2SidebarMode || 'fixed';
     const location = useLocation();
     
     const isActive = (path: string) => location.pathname === path;
 
     const menuItems = [
-        { id: 'v2-calendar', to: '/calendar', icon: Calendar, label: 'Calendar' },
-        { id: 'v2-discover', to: '/discover', icon: Compass, label: 'Discovery' },
-        { id: 'v2-library', to: '/library', icon: List, label: 'My Library' },
+        { id: 'v2-calendar', to: '/v2/calendar', icon: Calendar, label: 'Calendar' },
+        { id: 'v2-discover', to: '/v2/discover', icon: Compass, label: 'Discovery' },
+        { id: 'v2-library', to: '/v2/library', icon: List, label: 'My Library' },
     ];
 
     const sidebarWidth = mode === 'collapsed' ? '72px' : '240px';
@@ -98,7 +100,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                     to="#" 
                     icon={Search} 
                     label="Quick Search" 
-                    onClick={() => setIsSearchOpen(true)} 
+                    onClick={() => {}} 
                 />
             </div>
 

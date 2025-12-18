@@ -43,8 +43,6 @@ const V2Dashboard: React.FC = () => {
                 } />
                 <Route path="discover" element={<V2Discover />} />
                 <Route path="library" element={<V2Library />} />
-                {/* Redirect root to calendar */}
-                <Route path="/" element={<Navigate to="calendar" replace />} />
                 <Route path="*" element={<Navigate to="calendar" replace />} />
             </Routes>
 
