@@ -4,9 +4,10 @@ import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, format, isSameMonth, addMonths, subMonths, addDays, isSameDay
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Filter, Layers, LayoutGrid, Check, Tv, Film, Ticket, MonitorPlay } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, Layers, LayoutGrid, Check, Tv, Film, Ticket, MonitorPlay, Plus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
+import { getImageUrl } from '../services/tmdb';
 
 const V2Calendar: React.FC = () => {
     const { calendarDate, setCalendarDate, episodes, settings, interactions } = useAppContext();
@@ -30,32 +31,66 @@ const V2Calendar: React.FC = () => {
         });
     };
 
-    const EpisodeItem: React.FC<{ ep: Episode }> = ({ ep }) => {
+    const SingleEpisodeCell: React.FC<{ ep: Episode; isToday: boolean }> = ({ ep, isToday }) => {
+        const imageUrl = getImageUrl(ep.poster_path);
         const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
         const isWatched = interactions[watchedKey]?.is_watched;
-        
-        return (
-            <div 
-                className={`
-                    group/item flex items-center gap-2 py-1 px-1.5 rounded-md transition-all cursor-pointer
-                    ${isWatched ? 'opacity-30' : 'hover:bg-white/5'}
-                `}
-            >
-                {/* Status indicator */}
-                <div className={`w-1 h-1 rounded-full shrink-0 ${isWatched ? 'bg-zinc-600' : ep.is_movie ? 'bg-pink-500' : 'bg-indigo-500'}`} />
-                
-                <span className={`text-[10px] font-medium truncate flex-1 ${isWatched ? 'text-zinc-600' : 'text-zinc-300 group-hover/item:text-white'}`}>
-                    {ep.show_name || ep.name}
-                </span>
 
-                <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                    {isWatched ? (
-                        <Check className="w-2.5 h-2.5 text-emerald-500" />
-                    ) : ep.is_movie ? (
-                        ep.release_type === 'theatrical' ? <Ticket className="w-2.5 h-2.5 text-pink-500" /> : <MonitorPlay className="w-2.5 h-2.5 text-emerald-500" />
-                    ) : (
-                        <span className="text-[8px] font-mono text-zinc-500">S{ep.season_number}</span>
-                    )}
+        return (
+            <div className={`relative w-full h-full overflow-hidden transition-all duration-500 group/hero ${isWatched ? 'grayscale-[0.8] opacity-50' : ''}`}>
+                {/* Background Pillar Fill (Blurred) */}
+                <div 
+                    className="absolute inset-0 bg-cover bg-center blur-xl scale-110 opacity-40" 
+                    style={{ backgroundImage: `url(${imageUrl})` }}
+                />
+                
+                {/* Sharp Poster (Contained) */}
+                <img 
+                    src={imageUrl} 
+                    alt="" 
+                    className="absolute inset-0 w-full h-full object-contain z-10 drop-shadow-2xl transition-transform duration-700 group-hover/hero:scale-[1.03]"
+                />
+
+                {/* Bottom Info Gradient */}
+                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black via-black/40 to-transparent z-20" />
+                
+                <div className="absolute bottom-0 left-0 right-0 p-2.5 z-30 pointer-events-none">
+                    <h4 className="text-[11px] font-black text-white leading-tight line-clamp-1 uppercase tracking-tight mb-0.5 group-hover/hero:text-indigo-300 transition-colors">
+                        {ep.show_name || ep.name}
+                    </h4>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-mono text-zinc-400">
+                            {ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema' : 'Digital') : `S${ep.season_number} E${ep.episode_number}`}
+                        </span>
+                        {isWatched && <Check className="w-2.5 h-2.5 text-emerald-500" />}
+                    </div>
+                </div>
+
+                {/* Status Indicator */}
+                {!isWatched && (
+                    <div className={`absolute top-2 left-2 z-40 w-1.5 h-1.5 rounded-full ${ep.is_movie ? 'bg-pink-500' : 'bg-indigo-500'} shadow-[0_0_8px_rgba(0,0,0,0.5)]`} />
+                )}
+            </div>
+        );
+    };
+
+    const MultiEpisodeItem: React.FC<{ ep: Episode }> = ({ ep }) => {
+        const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+        const isWatched = interactions[watchedKey]?.is_watched;
+        const imageUrl = getImageUrl(ep.poster_path);
+
+        return (
+            <div className={`flex items-center gap-2 py-1 px-1 rounded-lg transition-all ${isWatched ? 'opacity-30' : 'hover:bg-white/[0.04]'}`}>
+                <div className="w-5 h-7 rounded-[3px] overflow-hidden bg-zinc-800 shrink-0 border border-white/5">
+                    <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[9px] font-bold text-zinc-300 truncate leading-none mb-1">{ep.show_name || ep.name}</p>
+                    <div className="flex items-center gap-1">
+                        <span className="text-[8px] font-mono text-zinc-600 uppercase">
+                            {ep.is_movie ? 'Movie' : `S${ep.season_number}E${ep.episode_number}`}
+                        </span>
+                    </div>
                 </div>
             </div>
         );
@@ -117,7 +152,7 @@ const V2Calendar: React.FC = () => {
             </div>
 
             {/* Grid Container */}
-            <div className="flex-1 grid grid-cols-7 grid-rows-6 relative group/grid">
+            <div className="flex-1 grid grid-cols-7 grid-rows-6 relative">
                 {dateRange.map((day, idx) => {
                     const isToday = isSameDay(day, new Date());
                     const isCurrentMonth = isSameMonth(day, monthStart);
@@ -130,42 +165,50 @@ const V2Calendar: React.FC = () => {
                                 relative border-r border-b border-white/5 flex flex-col group/cell overflow-hidden transition-all duration-300
                                 ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''}
                                 ${idx >= 35 ? 'border-b-0' : ''}
-                                ${isCurrentMonth ? 'bg-transparent' : 'bg-white/[0.01] opacity-30'}
-                                hover:bg-white/[0.02]
+                                ${isCurrentMonth ? 'bg-transparent' : 'bg-white/[0.01] opacity-20'}
+                                hover:z-10 hover:shadow-2xl hover:bg-white/[0.02]
                             `}
                         >
-                            <div className="p-3 pb-1 flex items-start justify-between">
+                            {/* Cell Header (Always visible) */}
+                            <div className="absolute top-2 right-2 z-50">
                                 <span className={`
                                     text-[11px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded
                                     ${isToday 
-                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
+                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' 
                                         : isCurrentMonth ? 'text-zinc-500 group-hover/cell:text-zinc-300' : 'text-zinc-800'}
                                     transition-colors
                                 `}>
                                     {format(day, 'dd')}
                                 </span>
-                                {dayEps.length > 0 && !isToday && (
-                                    <span className="text-[9px] font-black text-zinc-700 group-hover/cell:text-zinc-500 transition-colors">
-                                        {dayEps.length}
-                                    </span>
-                                )}
-                            </div>
-                            
-                            {/* Inner Content Area */}
-                            <div className="flex-1 px-2 pb-2 mt-1 space-y-0.5 overflow-y-auto hide-scrollbar select-none">
-                                {dayEps.slice(0, 5).map(ep => (
-                                    <EpisodeItem key={`${ep.show_id}-${ep.id}`} ep={ep} />
-                                ))}
-                                {dayEps.length > 5 && (
-                                    <div className="px-1.5 py-1 text-[8px] font-black text-zinc-600 uppercase tracking-widest text-center group-hover/cell:text-zinc-400">
-                                        + {dayEps.length - 5} more
-                                    </div>
-                                )}
                             </div>
 
-                            {/* Today Glow */}
+                            {dayEps.length === 1 ? (
+                                <SingleEpisodeCell ep={dayEps[0]} isToday={isToday} />
+                            ) : dayEps.length > 1 ? (
+                                <div className="flex-1 flex flex-col p-2 pt-8">
+                                    <div className="flex-1 space-y-1 overflow-hidden">
+                                        {dayEps.slice(0, 3).map(ep => (
+                                            <MultiEpisodeItem key={`${ep.show_id}-${ep.id}`} ep={ep} />
+                                        ))}
+                                    </div>
+                                    {dayEps.length > 3 && (
+                                        <div className="mt-auto pt-2">
+                                            <div className="w-full bg-indigo-500/10 border border-indigo-500/20 rounded-md py-1 text-center group-hover/cell:bg-indigo-500/20 transition-colors">
+                                                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                                                    + {dayEps.length - 3} more
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                // Empty state
+                                <div className="flex-1" />
+                            )}
+
+                            {/* Today Active Indicator */}
                             {isToday && (
-                                <div className="absolute inset-x-0 top-0 h-[2px] bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                                <div className="absolute inset-0 border-2 border-indigo-500/50 pointer-events-none z-40" />
                             )}
                         </div>
                     );
