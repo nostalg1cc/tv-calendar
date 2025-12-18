@@ -11,34 +11,21 @@ import { getImageUrl } from '../services/tmdb';
 import { Episode } from '../types';
 
 const CalendarPage: React.FC = () => {
-  const { episodes, loading, isSyncing, settings, updateSettings, refreshEpisodes, loadArchivedEvents, interactions, toggleEpisodeWatched, toggleWatched, calendarScrollPos, setCalendarScrollPos, calendarDate, setCalendarDate } = useAppContext();
-  
-  // Using global context date for persistence
-  const currentDate = calendarDate;
-  const setCurrentDate = setCalendarDate;
-
+  const { episodes, loading, isSyncing, settings, updateSettings, refreshEpisodes, loadArchivedEvents, interactions, toggleEpisodeWatched, toggleWatched, calendarScrollPos, setCalendarScrollPos } = useAppContext();
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isFirstMount = useRef(true);
 
   // Local Filter State
   const [showTV, setShowTV] = useState(true);
   const [showMovies, setShowMovies] = useState(true);
 
-  // Navigation handlers reset scroll to allow auto-positioning logic to run
-  const prevMonth = () => {
-      setCalendarScrollPos(0);
-      setCurrentDate(subMonths(currentDate, 1));
-  };
-  const nextMonth = () => {
-      setCalendarScrollPos(0);
-      setCurrentDate(addMonths(currentDate, 1));
-  };
-  const goToToday = () => {
-      setCalendarScrollPos(0);
-      setCurrentDate(new Date());
-  };
+  const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
+  const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
+  const goToToday = () => setCurrentDate(new Date());
 
   // Check if we are in "Archived" territory (more than 1 year ago)
   const isArchivedDate = currentDate < subYears(new Date(), 1);
@@ -117,7 +104,7 @@ const CalendarPage: React.FC = () => {
       }
   };
 
-  // Scroll Persistence & Auto-Scroll Logic
+  // Scroll Persistence Logic
   useLayoutEffect(() => {
       const container = scrollContainerRef.current;
       if (!container) return;
@@ -131,16 +118,13 @@ const CalendarPage: React.FC = () => {
           if (viewMode !== 'grid') {
               const el = document.getElementById('today-anchor');
               if (el) {
-                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              } else {
-                  // Ensure top if no today anchor found
-                  container.scrollTop = 0;
+                  el.scrollIntoView({ behavior: 'auto', block: 'center' });
               }
           }
       }
-  }, [viewMode, currentDate, activeDays.length]); // Re-run on view/month change or data load
+  }, [viewMode, currentDate]); // Re-run on view change or month change
 
-  // Save Scroll Position on Scroll Event
+  // Save Scroll Position on Unmount
   useEffect(() => {
       const container = scrollContainerRef.current;
       const handleScroll = () => {

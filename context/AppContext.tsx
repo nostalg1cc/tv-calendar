@@ -64,11 +64,9 @@ interface AppContextType {
   closeMobileWarning: (suppressFuture: boolean) => void;
   reloadAccount: () => Promise<void>;
 
-  // Calendar Persistence
+  // Calendar Scroll Persistence
   calendarScrollPos: number;
   setCalendarScrollPos: (pos: number) => void;
-  calendarDate: Date;
-  setCalendarDate: (date: Date) => void;
 
   // Trakt
   traktAuth: (clientId: string, clientSecret: string) => Promise<any>;
@@ -168,7 +166,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   // Navigation State
   const [calendarScrollPos, setCalendarScrollPos] = useState(0);
-  const [calendarDate, setCalendarDate] = useState(new Date());
 
   // Manual Overrides Memory - IMPORTANT for preserving user choices over sync
   const manualOverridesRef = useRef<Record<string, boolean>>({});
@@ -922,7 +919,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       reminderCandidate, setReminderCandidate,
       reloadAccount,
       calendarScrollPos, setCalendarScrollPos,
-      calendarDate, setCalendarDate,
       interactions, toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
       traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData,
       fullSyncRequired, performFullSync
