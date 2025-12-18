@@ -650,7 +650,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               if (!ep.air_date) return;
               
               // Force type assertion for safety after null check
-              const airDateStr: string = ep.air_date;
+              const airDateStr = ep.air_date as string;
               const dateKey = getAdjustedDate(airDateStr, (allTrackedShows.find(s=>s.id === ep.show_id))?.origin_country);
               
               if (!finalEpisodesMap[dateKey]) finalEpisodesMap[dateKey] = [];
