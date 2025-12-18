@@ -2,24 +2,20 @@
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
-
-// --- V2 Components (Active) ---
-import V2Dashboard from './v2/V2Dashboard';
-import FullSyncModal from './components/FullSyncModal';
+import Navbar from './components/Navbar';
+import CalendarPage from './pages/CalendarPage';
+import SearchPage from './pages/SearchPage';
+import WatchlistPage from './pages/WatchlistPage';
+import DiscoverPage from './pages/DiscoverPage';
+import LoginPage from './pages/LoginPage';
+import RemindersPage from './pages/RemindersPage';
+import SearchModal from './components/SearchModal';
+import MobileAddWarning from './components/MobileAddWarning';
 import AskReminderModal from './components/AskReminderModal';
 import ReminderConfigModal from './components/ReminderConfigModal';
-
-// --- V1 Components (Legacy/Obsolete) ---
-import Navbar from './obsolete/components/Navbar';
-import CalendarPage from './obsolete/pages/CalendarPage';
-import SearchPage from './obsolete/pages/SearchPage';
-import WatchlistPage from './obsolete/pages/WatchlistPage';
-import DiscoverPage from './obsolete/pages/DiscoverPage';
-import RemindersPage from './obsolete/pages/RemindersPage';
-import SearchModal from './obsolete/components/SearchModal';
-import MobileAddWarning from './obsolete/components/MobileAddWarning';
-
-import LoginPage from './pages/LoginPage';
+import FullSyncModal from './components/FullSyncModal';
+import V2Dashboard from './v2/V2Dashboard';
+import { TVShow, Episode } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAppContext();
@@ -134,4 +130,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-        
