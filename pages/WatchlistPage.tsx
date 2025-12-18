@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Trash2, Star, Tv, ArrowUpDown, Clock, AlertCircle, Film, Filter, Link as LinkIcon, ListPlus, Search, Eye, EyeOff, Check, StarOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -30,8 +31,12 @@ const WatchlistPage: React.FC = () => {
     const today = new Date().toISOString().split('T')[0];
     const allEpisodes = Object.values(episodes).flat() as Episode[];
     const showEpisodes = allEpisodes.filter(ep => ep.show_id === showId && ep.air_date && ep.air_date >= today);
-    showEpisodes.sort((a, b) => a.air_date.localeCompare(b.air_date));
-    return showEpisodes.length > 0 ? showEpisodes[0].air_date : null;
+    showEpisodes.sort((a, b) => {
+        const dateA = a.air_date || '';
+        const dateB = b.air_date || '';
+        return dateA.localeCompare(dateB);
+    });
+    return showEpisodes.length > 0 ? (showEpisodes[0].air_date || null) : null;
   };
 
   const processedList = useMemo(() => {
