@@ -1,10 +1,10 @@
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, format, isSameMonth, addMonths, subMonths, addDays, isSameDay
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Filter, Layers, LayoutGrid, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, Layers, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
@@ -15,8 +15,23 @@ interface V2CalendarProps {
 }
 
 const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => {
-    const { calendarDate, setCalendarDate, episodes, settings, interactions } = useAppContext();
+    const { calendarDate, setCalendarDate, episodes, settings, updateSettings, interactions } = useAppContext();
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
     
+    // Local visibility filters (could be global settings, but kept local for rapid UX)
+    const [showTV, setShowTV] = useState(true);
+    const [showMovies, setShowMovies] = useState(true);
+    const [showHidden, setShowHidden] = useState(false);
+
+    const filterRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (filterRef.current && !filterRef.current.contains(e.target as Node)) setIsFilterOpen(false);
+        };
+        if (isFilterOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isFilterOpen]);
+
     const monthStart = startOfMonth(calendarDate);
     const dateRange = eachDayOfInterval({
         start: startOfWeek(monthStart),
@@ -30,8 +45,18 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         const dayEps = episodes[dateKey] || [];
         
         return dayEps.filter(ep => {
+            // Respect Global Settings first
             if (settings.hideTheatrical && ep.is_movie && ep.release_type === 'theatrical') return false;
             if (settings.ignoreSpecials && ep.season_number === 0) return false;
+            
+            // Apply Dynamic UI Filters
+            if (!showTV && !ep.is_movie) return false;
+            if (!showMovies && ep.is_movie) return false;
+            
+            // Check if hidden by blacklist (unless showHidden is on)
+            const isBlacklisted = (settings.hiddenItems || []).some(h => h.id === ep.show_id);
+            if (isBlacklisted && !showHidden) return false;
+
             return true;
         });
     };
@@ -95,7 +120,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
-            <header className="h-20 shrink-0 border-b border-white/5 flex items-center justify-between px-8 bg-zinc-950/20 backdrop-blur-md z-10">
+            <header className="h-20 shrink-0 border-b border-white/5 flex items-center justify-between px-8 bg-zinc-950/20 backdrop-blur-md z-[60]">
                 <div className="flex items-center gap-6">
                     <h2 className="text-2xl font-black text-white tracking-tighter uppercase flex items-baseline">
                         {format(calendarDate, 'MMMM')} 
@@ -132,9 +157,54 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                             <Layers className="w-3.5 h-3.5" />
                         </button>
                     </div>
-                    <button className="p-2.5 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all rounded-xl border border-white/5">
-                        <Filter className="w-3.5 h-3.5" />
-                    </button>
+                    
+                    <div className="relative" ref={filterRef}>
+                        <button 
+                            onClick={() => setIsFilterOpen(!isFilterOpen)}
+                            className={`p-2.5 transition-all rounded-xl border border-white/5 ${isFilterOpen ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'}`}
+                        >
+                            <Filter className="w-3.5 h-3.5" />
+                        </button>
+                        
+                        {isFilterOpen && (
+                            <div className="absolute top-full right-0 mt-3 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-enter">
+                                <div className="p-3">
+                                    <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3">Calendar Filters</h4>
+                                    <div className="space-y-1">
+                                        <button 
+                                            onClick={() => setShowTV(!showTV)}
+                                            className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${showTV ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}
+                                        >
+                                            <div className="flex items-center gap-3"><Tv className="w-3.5 h-3.5" />TV Series</div>
+                                            {showTV && <Check className="w-3 h-3 text-indigo-400" />}
+                                        </button>
+                                        <button 
+                                            onClick={() => setShowMovies(!showMovies)}
+                                            className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${showMovies ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}
+                                        >
+                                            <div className="flex items-center gap-3"><Film className="w-3.5 h-3.5" />Movies</div>
+                                            {showMovies && <Check className="w-3 h-3 text-indigo-400" />}
+                                        </button>
+                                        <div className="h-px bg-white/5 my-2" />
+                                        <button 
+                                            onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })}
+                                            className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${!settings.hideTheatrical ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}
+                                        >
+                                            <div className="flex items-center gap-3"><MonitorPlay className="w-3.5 h-3.5" />Digital & Home</div>
+                                            {!settings.hideTheatrical && <Check className="w-3 h-3 text-indigo-400" />}
+                                        </button>
+                                        <button 
+                                            onClick={() => setShowHidden(!showHidden)}
+                                            className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${showHidden ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}
+                                        >
+                                            <div className="flex items-center gap-3">{showHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}Ignored Items</div>
+                                            {showHidden && <Check className="w-3 h-3 text-indigo-400" />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </header>
 

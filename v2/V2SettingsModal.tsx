@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 // Added LogOut to imports to fix 'Cannot find name LogOut' error
-import { X, Settings, ShieldCheck, Palette, User, Globe, EyeOff, Layout, Bell, Monitor, Cloud, LogOut } from 'lucide-react';
+import { X, Settings, ShieldCheck, Palette, User, Globe, EyeOff, Layout, Bell, Monitor, Cloud, LogOut, Image, Blur as BlurIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 interface V2SettingsModalProps {
@@ -219,11 +219,40 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                             
                             <div className="space-y-2 divide-y divide-white/5">
                                 <Toggle 
-                                    label="Blur Previews" 
-                                    description="Heavily blur episode still-frames until the episode is marked as watched."
+                                    label="Protect Episode Images" 
+                                    description="Hide still-frames until the episode is marked as watched."
                                     active={!!settings.spoilerConfig.images} 
                                     onToggle={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, images: !settings.spoilerConfig.images } })} 
                                 />
+                                
+                                {settings.spoilerConfig.images && (
+                                    <div className="py-4 animate-enter">
+                                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-4">Replacement Mode</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button 
+                                                onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'blur' } })}
+                                                className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${settings.spoilerConfig.replacementMode === 'blur' ? 'border-indigo-500 bg-zinc-900 text-indigo-400' : 'border-white/5 text-zinc-500 hover:text-zinc-300'}`}
+                                            >
+                                                <EyeOff className="w-4 h-4" />
+                                                <div className="text-left">
+                                                    <div className="text-xs font-bold uppercase tracking-tight">Heavy Blur</div>
+                                                    <div className="text-[9px] opacity-60">Pixelated Still</div>
+                                                </div>
+                                            </button>
+                                            <button 
+                                                onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'banner' } })}
+                                                className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${settings.spoilerConfig.replacementMode === 'banner' ? 'border-indigo-500 bg-zinc-900 text-indigo-400' : 'border-white/5 text-zinc-500 hover:text-zinc-300'}`}
+                                            >
+                                                <Layout className="w-4 h-4" />
+                                                <div className="text-left">
+                                                    <div className="text-xs font-bold uppercase tracking-tight">Show Banner</div>
+                                                    <div className="text-[9px] opacity-60">Generic Art</div>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <Toggle 
                                     label="Censor Titles" 
                                     description="Replace episode names with generic labels (e.g. Episode 4)."

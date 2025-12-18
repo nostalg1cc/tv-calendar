@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { Check, CalendarDays, Play, History, MoreVertical, Eye, EyeOff } from 'lucide-react';
+import { Check, CalendarDays, Play, History, MoreVertical, Eye, EyeOff, Ticket, MonitorPlay } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
@@ -30,9 +30,12 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
 
     const GroupedShowCard: React.FC<{ eps: Episode[] }> = ({ eps }) => {
         const firstEp = eps[0];
-        const imageUrl = getImageUrl(firstEp.still_path || firstEp.poster_path);
         const { spoilerConfig } = settings;
-
+        
+        // Determine preview image based on spoiler replacement mode
+        const episodeImageUrl = getImageUrl(firstEp.still_path || firstEp.poster_path);
+        const bannerImageUrl = getImageUrl(firstEp.show_backdrop_path || firstEp.poster_path);
+        
         return (
             <div className="w-full bg-zinc-950 border-b border-white/5 flex flex-col group/card">
                 {/* Horizontal Banner Header */}
@@ -49,18 +52,21 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
                     </div>
                 </div>
 
-                {/* Episode Preview Still with Blur Option */}
+                {/* Episode Preview with Blur vs Banner Option */}
                 <div className="relative aspect-video w-full overflow-hidden bg-black">
-                    <img 
-                        src={imageUrl} 
-                        alt="" 
-                        className={`
-                            w-full h-full object-cover transition-all duration-500
-                            ${spoilerConfig.images ? 'blur-2xl scale-110 opacity-30' : 'opacity-60 group-hover/card:opacity-80'}
-                        `} 
-                    />
+                    {eps.some(ep => !interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched) && spoilerConfig.images ? (
+                        spoilerConfig.replacementMode === 'banner' ? (
+                            <img src={bannerImageUrl} alt="" className="w-full h-full object-cover opacity-60 transition-opacity" />
+                        ) : (
+                            <img src={episodeImageUrl} alt="" className="w-full h-full object-cover blur-2xl scale-110 opacity-30 transition-opacity" />
+                        )
+                    ) : (
+                        <img src={episodeImageUrl} alt="" className="w-full h-full object-cover opacity-60 group-hover/card:opacity-80 transition-opacity duration-500" />
+                    )}
+                    
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-                    {spoilerConfig.images && (
+                    
+                    {eps.some(ep => !interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched) && spoilerConfig.images && spoilerConfig.replacementMode === 'blur' && (
                         <div className="absolute inset-0 flex items-center justify-center">
                             <EyeOff className="w-6 h-6 text-zinc-700 opacity-50" />
                         </div>
@@ -80,7 +86,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
                         
                         const displayOverview = (!isWatched && spoilerConfig.overview)
                             ? 'Overview hidden to prevent spoilers.'
-                            : (ep.is_movie ? '2024 Release' : `Season ${ep.season_number} • Episode ${ep.episode_number}`);
+                            : (ep.is_movie ? (ep.overview || '2024 Feature Release') : `Season ${ep.season_number} • Episode ${ep.episode_number}`);
 
                         return (
                             <div 
@@ -95,9 +101,16 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
                                     <p className={`text-[11px] font-bold truncate leading-none mb-1.5 ${(!isWatched && spoilerConfig.title) ? 'text-zinc-500' : 'text-zinc-200'}`}>
                                         {displayName}
                                     </p>
-                                    <p className={`text-[9px] font-mono uppercase tracking-tighter ${(!isWatched && spoilerConfig.overview) ? 'text-zinc-600' : 'text-zinc-500'}`}>
-                                        {displayOverview}
-                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        {ep.is_movie && (
+                                            ep.release_type === 'theatrical' 
+                                                ? <Ticket className="w-2.5 h-2.5 text-pink-500" />
+                                                : <MonitorPlay className="w-2.5 h-2.5 text-emerald-500" />
+                                        )}
+                                        <p className={`text-[9px] font-mono uppercase tracking-tighter truncate ${(!isWatched && spoilerConfig.overview) ? 'text-zinc-600' : 'text-zinc-500'}`}>
+                                            {displayOverview}
+                                        </p>
+                                    </div>
                                 </div>
 
                                 {/* Action Bar */}

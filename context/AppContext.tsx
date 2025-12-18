@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback, useRef } from 'react';
 import { User, TVShow, Episode, AppSettings, SubscribedList, Reminder, Interaction, TraktProfile, V2SidebarMode } from '../types';
 import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails, setApiToken } from '../services/tmdb';
@@ -94,8 +95,9 @@ const COUNTRY_TIMEZONES: Record<string, string> = {
     'IN': 'Asia/Kolkata',
 };
 
+// Fixed missing replacementMode property in DEFAULT_SETTINGS
 const DEFAULT_SETTINGS: AppSettings = {
-  spoilerConfig: { images: false, overview: false, title: false, includeMovies: false },
+  spoilerConfig: { images: false, overview: false, title: false, includeMovies: false, replacementMode: 'blur' },
   hideTheatrical: false,
   ignoreSpecials: false,
   recommendationsEnabled: true,
@@ -182,14 +184,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // Legacy migration
           if ('spoilerMode' in synced) {
               const oldMode = synced.spoilerMode;
-              if (oldMode === 'images') synced.spoilerConfig = { images: true, overview: false, title: false };
-              else if (oldMode === 'description') synced.spoilerConfig = { images: true, overview: true, title: false };
-              else if (oldMode === 'redacted') synced.spoilerConfig = { images: true, overview: true, title: true };
-              else synced.spoilerConfig = { images: false, overview: false, title: false };
+              if (oldMode === 'images') synced.spoilerConfig = { images: true, overview: false, title: false, replacementMode: 'blur' };
+              else if (oldMode === 'description') synced.spoilerConfig = { images: true, overview: true, title: false, replacementMode: 'blur' };
+              else if (oldMode === 'redacted') synced.spoilerConfig = { images: true, overview: true, title: true, replacementMode: 'blur' };
+              else synced.spoilerConfig = { images: false, overview: false, title: false, replacementMode: 'blur' };
               delete synced.spoilerMode;
           }
           if (!synced.spoilerConfig) synced.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig;
           if (synced.spoilerConfig.includeMovies === undefined) synced.spoilerConfig.includeMovies = false;
+          // Fixed missing replacementMode in migration
+          if (synced.spoilerConfig.replacementMode === undefined) synced.spoilerConfig.replacementMode = 'blur';
+
           if (!synced.appDesign) synced.appDesign = 'default';
           
           // New Settings Init
@@ -709,6 +714,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (mergedSettings.hiddenIds && !mergedSettings.hiddenItems) { mergedSettings.hiddenItems = mergedSettings.hiddenIds.map((id: number) => ({ id, name: 'Unknown Show' })); delete mergedSettings.hiddenIds; }
           if (!mergedSettings.hiddenItems) mergedSettings.hiddenItems = []; 
           if (!mergedSettings.v2SidebarMode) mergedSettings.v2SidebarMode = 'fixed';
+          // Fixed missing replacementMode in cloud settings migration
+          if (mergedSettings.spoilerConfig.replacementMode === undefined) mergedSettings.spoilerConfig.replacementMode = 'blur';
           
           setSettings(mergedSettings); } const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); if (remoteWatchlist) { const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; setWatchlist(loadedWatchlist); } const { data: remoteSubs } = await supabase.from('subscriptions').select('*'); if (remoteSubs) { const loadedLists: SubscribedList[] = []; for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) { console.error(e); } } setSubscribedLists(loadedLists); } 
           
@@ -753,7 +760,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const reloadAccount = async () => { if (isSyncing) return; setLoading(true); try { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); if (user?.isCloud && supabase) { const { data: { session } } = await supabase.auth.getSession(); if (session) { await loginCloud(session); } else { logout(); } } else { await refreshEpisodes(true); } } catch (e) { console.error("Reload failed", e); setLoading(false); } };
   const updateUserKey = async (apiKey: string) => { if (user) { const updatedUser = { ...user, tmdbKey: apiKey }; setUser(updatedUser); setApiToken(apiKey); if (user.isCloud && supabase) { await supabase.from('profiles').update({ tmdb_key: apiKey }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } };
   const updateSettings = async (newSettings: Partial<AppSettings>) => { setSettings(prev => { const updated = { ...prev, ...newSettings, compactCalendar: true }; const localKeys = ['viewMode', 'mobileNavLayout']; const localPrefs = getLocalPrefs(); const prefsToSaveLocally: any = { ...localPrefs }; let hasLocalChanges = false; localKeys.forEach(k => { if (k in newSettings) { prefsToSaveLocally[k] = newSettings[k as keyof AppSettings]; hasLocalChanges = true; } }); if (hasLocalChanges) { localStorage.setItem('tv_calendar_local_prefs', JSON.stringify(prefsToSaveLocally)); } const settingsToSync = { ...updated }; localKeys.forEach(k => delete (settingsToSync as any)[k]); if (user?.isCloud && supabase) { supabase.from('profiles').update({ settings: settingsToSync }).eq('id', user.id).then(); } localStorage.setItem('tv_calendar_settings', JSON.stringify(settingsToSync)); return updated; }); };
-  const logout = async () => { if (user?.isCloud && supabase) { await supabase.auth.signOut(); } setUser(null); localStorage.removeItem('tv_calendar_user'); del(DB_KEY_EPISODES); del(DB_KEY_META); setWatchlist([]); setSubscribedLists([]); setEpisodes({}); setReminders([]); setInteractions({}); localStorage.removeItem('tv_calendar_interactions'); };
+  const logout = async () => { if (user?.isCloud && supabase) { await supabase.auth.signOut(); } setUser(null); localStorage.removeItem('tv_calendar_user'); del(DB_KEY_EPISODES); del(DB_KEY_META); setWatchlist([]); setSubscribedLists([]); setEpisodes({}); setReminders([]); setInteractions([]); localStorage.removeItem('tv_calendar_interactions'); };
   const addReminder = async (reminder: Reminder) => { const newReminder = { ...reminder, id: reminder.id || crypto.randomUUID() }; setReminders(prev => [...prev, newReminder]); if (user?.isCloud && supabase) { await supabase.from('reminders').insert({ user_id: user.id, tmdb_id: reminder.tmdb_id, media_type: reminder.media_type, scope: reminder.scope, episode_season: reminder.episode_season, episode_number: reminder.episode_number, offset_minutes: reminder.offset_minutes }); } await requestNotificationPermission(); };
   const removeReminder = async (id: string) => { setReminders(prev => prev.filter(r => r.id !== id)); if (user?.isCloud && supabase) { await supabase.from('reminders').delete().eq('id', id); } };
   const requestNotificationPermission = async () => { if (!('Notification' in window)) { alert('This browser does not support desktop notifications'); return false; } if (Notification.permission === 'granted') return true; const permission = await Notification.requestPermission(); return permission === 'granted'; };

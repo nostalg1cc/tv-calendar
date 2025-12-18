@@ -1,4 +1,5 @@
 
+
 export interface TVShow {
   id: number;
   name: string; // Used for Title (Movie) or Name (TV)
@@ -85,6 +86,18 @@ export interface CalendarDay {
   isToday: boolean;
 }
 
+// Added missing Reminder interface definition
+export interface Reminder {
+  id?: string;
+  tmdb_id: number;
+  media_type: 'tv' | 'movie';
+  show_name: string;
+  scope: 'all' | 'episode' | 'movie_theatrical' | 'movie_digital';
+  episode_season?: number;
+  episode_number?: number;
+  offset_minutes: number;
+}
+
 export type V2SidebarMode = 'fixed' | 'collapsed';
 
 export interface AppSettings {
@@ -92,7 +105,8 @@ export interface AppSettings {
       images: boolean;
       overview: boolean;
       title: boolean;
-      includeMovies: boolean; 
+      includeMovies: boolean;
+      replacementMode: 'blur' | 'banner'; // New: Choice between blur and seasonal banner
   };
   hideTheatrical: boolean;
   ignoreSpecials: boolean; 
@@ -122,17 +136,6 @@ export interface SubscribedList {
   name: string;
   item_count: number;
   items: TVShow[];
-}
-
-export interface Reminder {
-  id?: string;
-  tmdb_id: number;
-  media_type: 'tv' | 'movie';
-  show_name?: string; // For display
-  scope: 'all' | 'episode' | 'movie_theatrical' | 'movie_digital';
-  episode_season?: number;
-  episode_number?: number;
-  offset_minutes: number; // 0 = On day, 1440 = 1 Day Before
 }
 
 export interface Interaction {
