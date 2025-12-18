@@ -646,7 +646,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                       } else { 
                           // Fetch latest show details to get current seasons
                           let details = item;
-                          try { details = await getShowDetails(item.id); } catch(e) {}
+                          try { details = await getShowDetails(item.id); } catch(e) {
+                              console.warn(`Failed to fetch show details for ${item.name}`, e);
+                          }
                           
                           const seasonsMeta = details.seasons || []; 
                           
@@ -671,13 +673,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                           if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: details.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false }); 
                                       }); 
                                   } 
-                              } catch (e) {} 
+                              } catch (e) {
+                                  console.warn(`Failed to fetch season ${sMeta.season_number} for ${item.name}`, e);
+                              } 
                           } 
                           
                           incomingEpisodes.push(...mergeNewEpisodes(batchEpisodes, details.origin_country));
                       } 
                       if (item.media_type === 'movie') { incomingEpisodes.push(...mergeNewEpisodes(batchEpisodes, item.origin_country)); }
-                  } catch (error) {} 
+                  } catch (error) {
+                       console.error(`Error processing item ${item.name}`, error);
+                  } 
               })); 
               processedCount += currentBatchSize; 
               setSyncProgress(prev => ({ ...prev, current: Math.min(processedCount, uniqueItems.length) })); 
@@ -701,7 +707,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setEpisodes(finalEpisodesMap);
           await set(DB_KEY_EPISODES, finalEpisodesMap); 
           await set(DB_KEY_META, Date.now()); 
-      } catch (e) {} finally { setLoading(false); setIsSyncing(false); } 
+      } catch (e) { console.error("Refresh Episodes Error", e); } finally { setLoading(false); setIsSyncing(false); } 
   }, [user, allTrackedShows, watchlist, fullSyncRequired, settings.timeShift, settings.timezone, settings.autoSync, settings.ignoreSpecials]);
 
   const hardRefreshCalendar = async () => {
@@ -715,6 +721,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // 3. Force Fetch
     await refreshEpisodes(true);
   };
+
+  // Initial Data Load
+  useEffect(() => {
+      if (user) {
+          refreshEpisodes();
+      }
+  }, [user?.tmdbKey, user?.isCloud]);
 
   const login = (username: string, apiKey: string) => { const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false }; setUser(newUser); setApiToken(apiKey); localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); };
   

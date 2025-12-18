@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw, Bell, PanelLeftClose, PanelLeftOpen, Sparkles } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import SettingsModal from './SettingsModal';
 
@@ -87,6 +87,7 @@ const Navbar: React.FC = () => {
                 <DesktopNavItem to="/" icon={Calendar} label="Calendar" />
                 <DesktopNavItem to="/discover" icon={Compass} label="Discover" />
                 <DesktopNavItem to="/watchlist" icon={List} label="My Library" />
+                <DesktopNavItem to="/v2/calendar" icon={Sparkles} label="Try V2 Dashboard" />
             </div>
 
             <div>
@@ -251,6 +252,15 @@ const Navbar: React.FC = () => {
                   </div>
 
                   <div className="space-y-3">
+                      <Link 
+                         to="/v2/calendar"
+                         onClick={() => setIsUserMenuOpen(false)}
+                         className="w-full bg-indigo-500/10 hover:bg-indigo-500/20 p-4 rounded-xl flex items-center gap-4 text-indigo-300 transition-colors border border-indigo-500/20"
+                      >
+                         <Sparkles className="w-5 h-5 text-indigo-400" />
+                         <div className="flex-1 text-left font-medium">Try V2 Dashboard</div>
+                      </Link>
+
                       <Link 
                          to="/reminders"
                          onClick={() => setIsUserMenuOpen(false)}
