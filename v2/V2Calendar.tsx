@@ -9,7 +9,12 @@ import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
 
-const V2Calendar: React.FC = () => {
+interface V2CalendarProps {
+    selectedDay: Date;
+    onSelectDay: (date: Date) => void;
+}
+
+const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => {
     const { calendarDate, setCalendarDate, episodes, settings, interactions } = useAppContext();
     
     const monthStart = startOfMonth(calendarDate);
@@ -31,29 +36,23 @@ const V2Calendar: React.FC = () => {
         });
     };
 
-    const SingleEpisodeCell: React.FC<{ ep: Episode; isToday: boolean }> = ({ ep }) => {
+    const SingleEpisodeCell: React.FC<{ ep: Episode }> = ({ ep }) => {
         const imageUrl = getImageUrl(ep.poster_path);
         const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
         const isWatched = interactions[watchedKey]?.is_watched;
 
         return (
             <div className={`relative w-full h-full overflow-hidden transition-all duration-500 group/hero ${isWatched ? 'grayscale opacity-40' : ''}`}>
-                {/* Background Pillar Fill (Blurred) */}
                 <div 
                     className="absolute inset-0 bg-cover bg-center blur-2xl scale-110 opacity-30" 
                     style={{ backgroundImage: `url(${imageUrl})` }}
                 />
-                
-                {/* Sharp Poster (Contained) - Removed hover scale */}
                 <img 
                     src={imageUrl} 
                     alt="" 
                     className="absolute inset-0 w-full h-full object-contain z-10 drop-shadow-2xl transition-opacity duration-700"
                 />
-
-                {/* Bottom Info Gradient */}
                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black via-black/60 to-transparent z-20" />
-                
                 <div className="absolute bottom-0 left-0 right-0 p-3 z-30 pointer-events-none">
                     <h4 className="text-[10px] font-black text-white leading-tight line-clamp-1 uppercase tracking-tight mb-0.5 group-hover/hero:text-indigo-300 transition-colors">
                         {ep.show_name || ep.name}
@@ -65,8 +64,6 @@ const V2Calendar: React.FC = () => {
                         {isWatched && <Check className="w-2 h-2 text-emerald-500" />}
                     </div>
                 </div>
-
-                {/* Status Indicator */}
                 {!isWatched && (
                     <div className={`absolute top-2 left-2 z-40 w-1 h-1 rounded-full ${ep.is_movie ? 'bg-pink-500' : 'bg-indigo-500'} shadow-[0_0_8px_rgba(0,0,0,0.5)]`} />
                 )}
@@ -98,7 +95,6 @@ const V2Calendar: React.FC = () => {
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
-            {/* Calendar Header / Toolbar */}
             <header className="h-20 shrink-0 border-b border-white/5 flex items-center justify-between px-8 bg-zinc-950/20 backdrop-blur-md z-10">
                 <div className="flex items-center gap-6">
                     <h2 className="text-2xl font-black text-white tracking-tighter uppercase flex items-baseline">
@@ -113,7 +109,7 @@ const V2Calendar: React.FC = () => {
                             <ChevronLeft className="w-3.5 h-3.5" />
                         </button>
                         <button 
-                            onClick={() => setCalendarDate(new Date())}
+                            onClick={() => { setCalendarDate(new Date()); onSelectDay(new Date()); }}
                             className="px-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-indigo-400 transition-colors"
                         >
                             Today
@@ -142,7 +138,6 @@ const V2Calendar: React.FC = () => {
                 </div>
             </header>
 
-            {/* Weekdays Labels */}
             <div className="grid grid-cols-7 border-b border-white/5 bg-zinc-950/10 shrink-0">
                 {weekDays.map(day => (
                     <div key={day} className="py-2.5 text-center text-[9px] font-black text-zinc-600 uppercase tracking-[0.25em] border-r border-white/5 last:border-r-0">
@@ -151,31 +146,31 @@ const V2Calendar: React.FC = () => {
                 ))}
             </div>
 
-            {/* Grid Container - Flex 1 and Grid Rows ensure it fits viewport */}
             <div className="flex-1 grid grid-cols-7 grid-rows-6 min-h-0 bg-[#020202]">
                 {dateRange.map((day, idx) => {
                     const isToday = isSameDay(day, new Date());
+                    const isActive = isSameDay(day, selectedDay);
                     const isCurrentMonth = isSameMonth(day, monthStart);
                     const dayEps = getEpisodesForDay(day);
                     
                     return (
                         <div 
                             key={day.toISOString()} 
+                            onClick={() => onSelectDay(day)}
                             className={`
-                                relative border-r border-b border-white/5 flex flex-col group/cell overflow-hidden transition-all duration-300
+                                relative border-r border-b border-white/5 flex flex-col group/cell overflow-hidden transition-all duration-300 cursor-pointer
                                 ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''}
                                 ${idx >= 35 ? 'border-b-0' : ''}
                                 ${isCurrentMonth ? 'bg-transparent' : 'bg-white/[0.01] opacity-20'}
-                                hover:z-10 hover:bg-white/[0.02]
+                                ${isActive ? 'bg-white/[0.04]' : 'hover:z-10 hover:bg-white/[0.02]'}
                             `}
                         >
-                            {/* Cell Header (Always visible) */}
                             <div className="absolute top-2 right-2 z-50">
                                 <span className={`
                                     text-[10px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded
                                     ${isToday 
                                         ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' 
-                                        : isCurrentMonth ? 'text-zinc-600 group-hover/cell:text-zinc-300' : 'text-zinc-800'}
+                                        : isCurrentMonth ? (isActive ? 'text-white' : 'text-zinc-600 group-hover/cell:text-zinc-300') : 'text-zinc-800'}
                                     transition-colors
                                 `}>
                                     {format(day, 'dd')}
@@ -183,7 +178,7 @@ const V2Calendar: React.FC = () => {
                             </div>
 
                             {dayEps.length === 1 ? (
-                                <SingleEpisodeCell ep={dayEps[0]} isToday={isToday} />
+                                <SingleEpisodeCell ep={dayEps[0]} />
                             ) : dayEps.length > 1 ? (
                                 <div className="flex-1 flex flex-col p-2 pt-8">
                                     <div className="flex-1 space-y-0.5 overflow-hidden">
@@ -200,13 +195,11 @@ const V2Calendar: React.FC = () => {
                                     )}
                                 </div>
                             ) : (
-                                // Empty state
                                 <div className="flex-1" />
                             )}
 
-                            {/* Today Active Indicator */}
-                            {isToday && (
-                                <div className="absolute inset-0 border-[1.5px] border-indigo-500/50 pointer-events-none z-40" />
+                            {isActive && (
+                                <div className="absolute inset-0 border-[2px] border-indigo-500/80 pointer-events-none z-40 shadow-[inset_0_0_15px_rgba(99,102,241,0.1)]" />
                             )}
                         </div>
                     );
