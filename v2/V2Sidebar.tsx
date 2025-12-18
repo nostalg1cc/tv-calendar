@@ -24,54 +24,53 @@ const V2Sidebar: React.FC = () => {
     ];
 
     const menuItems = [
-        { id: 'v2-home', to: '/v2', icon: LayoutGrid, label: 'Dashboard' },
         { id: 'v2-calendar', to: '/v2/calendar', icon: Calendar, label: 'Calendar' },
         { id: 'v2-discover', to: '/v2/discover', icon: Compass, label: 'Discover' },
         { id: 'v2-library', to: '/v2/library', icon: List, label: 'My Library' },
     ];
 
-    // Sidebar Style Calculations
-    const sidebarWidth = mode === 'collapsed' ? '84px' : '280px';
+    // Sidebar Widths
+    const sidebarWidth = mode === 'collapsed' ? '64px' : '240px';
     
-    // Floating logic
+    // Floating logic: Slide off almost entirely (only a 4px strip remains)
     const isFloating = mode === 'floating';
     const floatClasses = isFloating 
-        ? `fixed left-4 top-4 bottom-4 z-[100] rounded-[2.5rem] shadow-2xl shadow-black/50 border border-white/10 backdrop-blur-3xl transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] ${isHovered ? 'translate-x-0 opacity-100' : '-translate-x-[calc(100%-2rem)] opacity-40 hover:opacity-100'}` 
+        ? `fixed left-0 top-0 bottom-0 z-[100] shadow-2xl shadow-black/50 border-r border-white/10 backdrop-blur-3xl transition-all duration-500 ease-[cubic-bezier(0.2,0,0,1)] ${isHovered ? 'translate-x-0 opacity-100' : '-translate-x-[calc(100%-4px)] opacity-60'}` 
         : `relative border-r border-white/5`;
 
-    // Fix for TS error: explicit typing as React.FC to handle reserved 'key' prop correctly during mapping
-    const NavItem: React.FC<{ to: string; icon: any; label: string }> = ({ to, icon: Icon, label }) => {
+    const NavItem: React.FC<{ to: string; icon: any; label: string; onClick?: () => void }> = ({ to, icon: Icon, label, onClick }) => {
         const active = isActive(to);
-        return (
-            <Link 
-                to={to}
+        const content = (
+            <div 
                 className={`
-                    group flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 relative
+                    group flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 relative
                     ${active 
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
-                        : 'text-zinc-500 hover:text-white hover:bg-white/5'}
+                        ? 'bg-indigo-600/10 text-indigo-400 font-medium' 
+                        : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.03]'}
                     ${mode === 'collapsed' ? 'justify-center' : ''}
                 `}
             >
-                <Icon className={`w-6 h-6 shrink-0 ${active ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-300'}`} />
+                <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-indigo-400' : 'text-zinc-500 group-hover:text-zinc-300'}`} />
                 {mode !== 'collapsed' && (
-                    <span className="text-sm font-semibold tracking-tight">{label}</span>
+                    <span className="text-[13px] tracking-tight">{label}</span>
                 )}
-                {active && mode !== 'collapsed' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white" />}
+                {active && mode !== 'collapsed' && <div className="ml-auto w-1 h-1 rounded-full bg-indigo-500" />}
                 
-                {/* Tooltip for Collapsed */}
                 {mode === 'collapsed' && (
-                    <div className="absolute left-full ml-4 px-3 py-2 bg-zinc-900 border border-white/10 text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-[110] whitespace-nowrap shadow-xl">
+                    <div className="absolute left-full ml-3 px-2 py-1 bg-zinc-900 border border-white/10 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-150 z-[110] whitespace-nowrap shadow-xl">
                         {label}
                     </div>
                 )}
-            </Link>
+            </div>
         );
+
+        if (onClick) return <button onClick={onClick} className="w-full text-left">{content}</button>;
+        return <Link to={to} className="block">{content}</Link>;
     };
 
     return (
         <nav 
-            style={{ width: isFloating ? '280px' : sidebarWidth }}
+            style={{ width: isFloating ? '240px' : sidebarWidth }}
             className={`
                 flex flex-col bg-zinc-950 transition-all duration-500 ease-in-out shrink-0 overflow-visible
                 ${floatClasses}
@@ -79,31 +78,19 @@ const V2Sidebar: React.FC = () => {
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* Header: Branding & Toggle */}
-            <div className={`p-6 flex items-center gap-4 ${mode === 'collapsed' ? 'flex-col p-4' : 'justify-between'}`}>
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30 group cursor-pointer active:scale-95 transition-transform">
-                        <Zap className="w-6 h-6 text-white group-hover:animate-pulse" />
-                    </div>
-                    {mode !== 'collapsed' && (
-                        <div className="flex flex-col leading-none">
-                            <span className="text-lg font-black tracking-tighter text-white">TV CAL</span>
-                            <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Version 2.0</span>
-                        </div>
-                    )}
-                </div>
-
+            {/* Header: Simplified Exit */}
+            <div className={`p-4 flex items-center ${mode === 'collapsed' ? 'justify-center' : 'justify-end'}`}>
                 <Link 
                     to="/" 
-                    className={`p-2 rounded-xl bg-white/5 text-zinc-500 hover:text-white hover:bg-white/10 transition-all ${mode === 'collapsed' ? 'mt-2' : ''}`}
+                    className="p-1.5 rounded-lg bg-white/5 text-zinc-600 hover:text-white hover:bg-white/10 transition-all"
                     title="Exit V2"
                 >
-                    <ArrowLeft className="w-5 h-5" />
+                    <ArrowLeft className="w-3.5 h-3.5" />
                 </Link>
             </div>
 
             {/* Navigation Section */}
-            <div className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto hide-scrollbar">
+            <div className="flex-1 px-3 space-y-1 mt-2 overflow-y-auto hide-scrollbar">
                 {menuItems.map(item => (
                     <NavItem 
                         key={item.id} 
@@ -113,64 +100,71 @@ const V2Sidebar: React.FC = () => {
                     />
                 ))}
                 
-                <div className={`h-px bg-white/5 my-6 ${mode === 'collapsed' ? 'mx-2' : 'mx-4'}`} />
+                <NavItem 
+                    to="#" 
+                    icon={Search} 
+                    label="Quick Search" 
+                    onClick={() => {}} 
+                />
+
+                <div className={`h-px bg-white/5 my-4 ${mode === 'collapsed' ? 'mx-1' : 'mx-2'}`} />
                 
-                <button 
-                    onClick={() => {}} // Global search coming soon
-                    className={`
-                        group flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 relative w-full
-                        text-zinc-500 hover:text-white hover:bg-white/5
-                        ${mode === 'collapsed' ? 'justify-center' : ''}
-                    `}
-                >
-                    <Search className="w-6 h-6 shrink-0 text-zinc-500 group-hover:text-zinc-300" />
-                    {mode !== 'collapsed' && <span className="text-sm font-semibold tracking-tight">Search</span>}
-                </button>
+                <NavItem 
+                    to="/v2/notifications" 
+                    icon={Bell} 
+                    label="Notifications" 
+                />
             </div>
 
-            {/* Footer: Mode Switches & User */}
-            <div className="mt-auto p-4 space-y-4">
-                {/* Mode Switcher */}
+            {/* Footer Area */}
+            <div className="mt-auto p-3 space-y-3">
+                {/* Settings Item - Placed above User info per request */}
+                <NavItem 
+                    to="/v2/settings" 
+                    icon={Settings} 
+                    label="Settings" 
+                />
+
+                {/* Mode Switcher - Compact */}
                 <div className={`
-                    bg-zinc-900/50 p-1 rounded-2xl flex border border-white/5
-                    ${mode === 'collapsed' ? 'flex-col gap-1' : ''}
+                    bg-zinc-900/40 p-0.5 rounded-xl flex border border-white/5
+                    ${mode === 'collapsed' ? 'flex-col' : ''}
                 `}>
                     {modes.map(m => (
                         <button
                             key={m.id}
                             onClick={() => updateSettings({ v2SidebarMode: m.id })}
                             className={`
-                                flex-1 flex items-center justify-center gap-2 py-2 rounded-xl transition-all duration-300
-                                ${mode === m.id ? 'bg-zinc-800 text-white shadow-inner' : 'text-zinc-600 hover:text-zinc-400'}
+                                flex-1 flex items-center justify-center py-1.5 rounded-lg transition-all duration-200
+                                ${mode === m.id ? 'bg-zinc-800 text-zinc-200 shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}
                             `}
                             title={m.label}
                         >
-                            <m.icon className="w-4 h-4" />
-                            {mode !== 'collapsed' && <span className="text-[10px] font-bold uppercase tracking-widest">{m.label}</span>}
+                            <m.icon className="w-3 h-3" />
                         </button>
                     ))}
                 </div>
 
-                {/* User Card */}
+                {/* User Card - Slimmer */}
                 <div className={`
-                    bg-gradient-to-br from-zinc-900 to-zinc-950 p-4 rounded-3xl border border-white/5 shadow-xl transition-all duration-500
-                    ${mode === 'collapsed' ? 'flex flex-col items-center justify-center p-2' : 'flex items-center gap-4'}
+                    bg-zinc-900/40 p-2.5 rounded-2xl border border-white/5 shadow-lg transition-all duration-300
+                    ${mode === 'collapsed' ? 'flex flex-col items-center justify-center' : 'flex items-center gap-3'}
                 `}>
-                    <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm shrink-0 border border-indigo-500/10">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-[10px] shrink-0 border border-indigo-500/10">
                         {user?.username.charAt(0).toUpperCase()}
                     </div>
                     {mode !== 'collapsed' && (
                         <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-white truncate">{user?.username}</p>
-                            <p className="text-[9px] font-mono text-zinc-600 truncate uppercase">Premium</p>
+                            <p className="text-[11px] font-bold text-zinc-300 truncate leading-tight">{user?.username}</p>
+                            <p className="text-[9px] font-mono text-zinc-600 truncate uppercase tracking-tighter">Verified</p>
                         </div>
                     )}
                     {mode !== 'collapsed' && (
                         <button 
                             onClick={logout}
-                            className="p-1.5 text-zinc-700 hover:text-red-400 transition-colors"
+                            className="p-1 text-zinc-600 hover:text-red-400 transition-colors"
                         >
-                            <LogOut className="w-4 h-4" />
+                            <LogOut className="w-3.5 h-3.5" />
                         </button>
                     )}
                 </div>
@@ -178,8 +172,8 @@ const V2Sidebar: React.FC = () => {
             
             {/* Trigger Strip for Floating Mode */}
             {isFloating && !isHovered && (
-                <div className="absolute right-0 top-0 bottom-0 w-8 flex items-center justify-center cursor-pointer pointer-events-auto">
-                    <ChevronRight className="w-4 h-4 text-white/20" />
+                <div className="absolute right-0 top-0 bottom-0 w-1 flex items-center justify-center pointer-events-none">
+                    <div className="w-0.5 h-12 bg-white/10 rounded-full" />
                 </div>
             )}
         </nav>
