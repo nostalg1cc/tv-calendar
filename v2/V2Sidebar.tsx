@@ -14,16 +14,16 @@ interface V2SidebarProps {
 }
 
 const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
-    const { settings, updateSettings, user, logout } = useAppContext();
+    const { settings, updateSettings, user, logout, setIsSearchOpen } = useAppContext();
     const mode = settings.v2SidebarMode || 'fixed';
     const location = useLocation();
     
     const isActive = (path: string) => location.pathname === path;
 
     const menuItems = [
-        { id: 'v2-calendar', to: '/v2/calendar', icon: Calendar, label: 'Calendar' },
-        { id: 'v2-discover', to: '/v2/discover', icon: Compass, label: 'Discovery' },
-        { id: 'v2-library', to: '/v2/library', icon: List, label: 'My Library' },
+        { id: 'v2-calendar', to: '/calendar', icon: Calendar, label: 'Calendar' },
+        { id: 'v2-discover', to: '/discover', icon: Compass, label: 'Discovery' },
+        { id: 'v2-library', to: '/library', icon: List, label: 'My Library' },
     ];
 
     const sidebarWidth = mode === 'collapsed' ? '72px' : '240px';
@@ -100,7 +100,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                     to="#" 
                     icon={Search} 
                     label="Quick Search" 
-                    onClick={() => {}} 
+                    onClick={() => setIsSearchOpen(true)} 
                 />
             </div>
 
