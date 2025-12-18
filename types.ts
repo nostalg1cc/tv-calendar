@@ -10,7 +10,7 @@ export interface TVShow {
   number_of_seasons?: number;
   media_type: 'tv' | 'movie'; // distinct type
   origin_country?: string[]; // Added for Timezone Logic
-  seasons?: { season_number: number; poster_path: string | null; episode_count: number; air_date?: string }[]; // Added for metadata caching
+  seasons?: { season_number: number; poster_path: string | null; episode_count: number }[]; // Added for metadata caching
 }
 
 export interface Episode {
@@ -18,7 +18,7 @@ export interface Episode {
   name: string;
   overview: string;
   vote_average: number;
-  air_date?: string; // Made optional to prevent TS errors on initial fetch before validation
+  air_date: string;
   episode_number: number;
   season_number: number;
   still_path: string | null;
@@ -85,15 +85,12 @@ export interface CalendarDay {
   isToday: boolean;
 }
 
-export type V2SidebarMode = 'fixed' | 'collapsed';
-
 export interface AppSettings {
   spoilerConfig: {
       images: boolean;
       overview: boolean;
       title: boolean;
       includeMovies: boolean; 
-      replacementMode?: 'blur' | 'banner';
   };
   hideTheatrical: boolean;
   ignoreSpecials: boolean; 
@@ -115,8 +112,6 @@ export interface AppSettings {
   appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system'; // New Font Option
   reminderStrategy: 'ask' | 'always' | 'never'; // New Reminder Preference
   hiddenItems: { id: number; name: string }[]; // Blacklist for deleted items to prevent Trakt re-sync
-  v2SidebarMode?: V2SidebarMode;
-  autoSync: boolean; // New: Toggle for automatic calendar fetching
 }
 
 export interface SubscribedList {
