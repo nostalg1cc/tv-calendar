@@ -8,12 +8,14 @@ import V2SettingsModal from './V2SettingsModal';
 import V2TrailerModal from './V2TrailerModal';
 import V2Discover from './V2Discover';
 import V2Library from './V2Library';
+import V2SearchModal from './V2SearchModal';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 
 const V2Dashboard: React.FC = () => {
     const { calendarDate, setCalendarDate } = useAppContext();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [trailerTarget, setTrailerTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', episode?: Episode} | null>(null);
     const [isMobileAgendaOpen, setIsMobileAgendaOpen] = useState(false);
 
@@ -29,7 +31,10 @@ const V2Dashboard: React.FC = () => {
     return (
         <div className="flex h-screen w-screen bg-[#020202] text-zinc-100 overflow-hidden font-sans selection:bg-indigo-500/30">
             {/* Navigation (Sidebar on Desktop, Pill on Mobile) */}
-            <V2Sidebar onOpenSettings={() => setIsSettingsOpen(true)} />
+            <V2Sidebar 
+                onOpenSettings={() => setIsSettingsOpen(true)} 
+                onOpenSearch={() => setIsSearchOpen(true)}
+            />
 
             {/* Main Area with dynamic sub-routes */}
             <Routes>
@@ -56,6 +61,7 @@ const V2Dashboard: React.FC = () => {
 
             {/* V2 Specific Modal Overlays */}
             <V2SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+            <V2SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
             
             {trailerTarget && (
                 <V2TrailerModal 

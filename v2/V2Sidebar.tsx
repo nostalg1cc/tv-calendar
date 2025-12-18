@@ -9,9 +9,10 @@ import { useAppContext } from '../context/AppContext';
 
 interface V2SidebarProps {
     onOpenSettings?: () => void;
+    onOpenSearch?: () => void;
 }
 
-const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
+const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) => {
     const { settings, updateSettings, user, logout } = useAppContext();
     const mode = settings.v2SidebarMode || 'fixed';
     const location = useLocation();
@@ -88,7 +89,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                         <NavItem key={item.id} to={item.to} icon={item.icon} label={item.label} />
                     ))}
                     <div className="my-2 mx-4 h-px bg-white/5" />
-                    <NavItem to="#" icon={Search} label="Quick Search" onClick={() => {}} />
+                    <NavItem to="#" icon={Search} label="Quick Search" onClick={onOpenSearch} />
                 </div>
 
                 {/* Footer Controls */}
