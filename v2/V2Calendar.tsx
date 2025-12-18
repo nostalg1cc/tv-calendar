@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, format, isSameMonth, addMonths, subMonths, addDays, isSameDay, isToday
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Filter, Layers, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, AlignJustify } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, Layers, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, AlignJustify, Ticket } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
@@ -16,7 +16,11 @@ interface V2CalendarProps {
 const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => {
     const { calendarDate, setCalendarDate, episodes, settings, updateSettings, interactions, toggleWatched, toggleEpisodeWatched } = useAppContext();
     const [isFilterOpen, setIsFilterOpen] = useState(false);
-    const [viewMode, setViewMode] = useState<'grid' | 'cards'>('grid');
+    
+    // Initialize view mode based on screen size directly
+    const [viewMode, setViewMode] = useState<'grid' | 'cards'>(() => 
+        window.innerWidth < 768 ? 'cards' : 'grid'
+    );
     
     // Local filters
     const [showTV, setShowTV] = useState(true);
@@ -26,29 +30,26 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     const filterRef = useRef<HTMLDivElement>(null);
     const cardScrollRef = useRef<HTMLDivElement>(null);
 
-    // Auto-switch to cards on mobile mount
+    // Auto-switch to cards on resize if needed
     useEffect(() => {
         const handleResize = () => {
-            if (window.innerWidth < 768) {
-                // Only switch if user hasn't manually set it? For now enforce default as requested.
-                // We'll just set it on mount or resize to mobile if it's 'grid'
-                if (viewMode === 'grid') setViewMode('cards');
+            if (window.innerWidth < 768 && viewMode === 'grid') {
+                setViewMode('cards');
             }
         };
-        // Initial check
-        if (window.innerWidth < 768) setViewMode('cards');
-        
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    }, [viewMode]);
 
     // Scroll to today in Card View
     useEffect(() => {
         if (viewMode === 'cards' && cardScrollRef.current) {
-            const todayEl = document.getElementById('v2-card-today');
-            if (todayEl) {
-                todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+            setTimeout(() => {
+                const todayEl = document.getElementById('v2-card-today');
+                if (todayEl) {
+                    todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
         }
     }, [viewMode, calendarDate]);
 
@@ -121,9 +122,16 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                         {ep.show_name || ep.name}
                     </h4>
                     <div className="flex items-center gap-1.5">
-                        <span className="text-[8px] font-mono text-zinc-500">
-                            {ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema' : 'Digital') : `S${ep.season_number} E${ep.episode_number}`}
-                        </span>
+                        {ep.is_movie ? (
+                            <span className={`text-[8px] font-bold uppercase tracking-wider flex items-center gap-1 ${ep.release_type === 'theatrical' ? 'text-pink-400' : 'text-emerald-400'}`}>
+                                {ep.release_type === 'theatrical' ? <Ticket className="w-2.5 h-2.5" /> : <MonitorPlay className="w-2.5 h-2.5" />}
+                                {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                            </span>
+                        ) : (
+                            <span className="text-[8px] font-mono text-zinc-500">
+                                S{ep.season_number} E{ep.episode_number}
+                            </span>
+                        )}
                         {isWatched && <Check className="w-2 h-2 text-emerald-500" />}
                     </div>
                 </div>
@@ -147,13 +155,37 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     <p className="text-[9px] font-bold text-zinc-400 truncate leading-none mb-0.5 group-hover/cell:text-zinc-200 transition-colors">{ep.show_name || ep.name}</p>
                     <div className="flex items-center gap-1">
                         <span className="text-[7px] font-mono text-zinc-600 uppercase">
-                            {ep.is_movie ? 'Movie' : `S${ep.season_number}E${ep.episode_number}`}
+                            {ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema' : 'Digital') : `S${ep.season_number}E${ep.episode_number}`}
                         </span>
                     </div>
                 </div>
             </div>
         );
     };
+
+    // --- CARD BADGE COMPONENT ---
+    const ReleaseBadge = ({ ep }: { ep: Episode }) => {
+        if (!ep.is_movie) {
+            return (
+                 <span className="bg-black/60 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-black text-white uppercase tracking-wider">
+                    S{ep.season_number} • E{ep.episode_number}
+                </span>
+            );
+        }
+
+        const isTheatrical = ep.release_type === 'theatrical';
+        return (
+            <span className={`
+                flex items-center gap-1.5 px-2 py-1 rounded border backdrop-blur-md text-[9px] font-black uppercase tracking-wider
+                ${isTheatrical 
+                    ? 'bg-pink-500/20 text-pink-200 border-pink-500/30' 
+                    : 'bg-emerald-500/20 text-emerald-200 border-emerald-500/30'}
+            `}>
+                {isTheatrical ? <Ticket className="w-3 h-3" /> : <MonitorPlay className="w-3 h-3" />}
+                {isTheatrical ? 'Cinema' : 'Digital'}
+            </span>
+        );
+    }
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
@@ -331,11 +363,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                         
                                                         {/* Top Badges */}
                                                         <div className="absolute top-3 right-3 flex gap-2">
-                                                            {ep.is_movie && (
-                                                                <span className="bg-black/50 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-bold text-white uppercase tracking-wider">
-                                                                    {ep.release_type === 'theatrical' ? 'Cinema' : 'Movie'}
-                                                                </span>
-                                                            )}
+                                                            <ReleaseBadge ep={ep} />
                                                             <div className="bg-black/50 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-bold text-white uppercase tracking-wider flex items-center gap-1">
                                                                 <Clock className="w-3 h-3" /> {format(new Date(ep.air_date), 'MMM d')}
                                                             </div>
@@ -346,9 +374,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                     <div className="p-4 relative">
                                                         <div className="flex justify-between items-start gap-4">
                                                             <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-2 mb-1 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
-                                                                    {ep.is_movie ? 'Premiere' : `S${ep.season_number} • E${ep.episode_number}`}
-                                                                </div>
                                                                 <h3 className="text-lg font-bold text-white leading-tight mb-1 truncate">{ep.show_name}</h3>
                                                                 <p className="text-sm text-zinc-400 truncate">{ep.name}</p>
                                                             </div>
@@ -368,13 +393,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                                 <Check className="w-5 h-5" />
                                                             </button>
                                                         </div>
-                                                        
-                                                        {/* Optional Overview if expanded or space permits? Keep minimal for cards. */}
-                                                        {ep.overview && (
-                                                            <p className="mt-3 text-xs text-zinc-500 line-clamp-2 leading-relaxed border-t border-white/5 pt-3">
-                                                                {ep.overview}
-                                                            </p>
-                                                        )}
                                                     </div>
                                                 </div>
                                             );

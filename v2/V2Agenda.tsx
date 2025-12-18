@@ -57,7 +57,10 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                     </h4>
                     <div className="flex items-center gap-1 shrink-0">
                          {firstEp.is_movie ? (
-                            <span className="text-[8px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 border border-indigo-500/20 rounded mr-2">Movie</span>
+                            <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border mr-2 flex items-center gap-1 ${firstEp.release_type === 'theatrical' ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                                {firstEp.release_type === 'theatrical' ? <Ticket className="w-2.5 h-2.5" /> : <MonitorPlay className="w-2.5 h-2.5" />}
+                                {firstEp.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                            </span>
                          ) : (
                             <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 bg-white/5 px-1.5 py-0.5 border border-white/5 rounded mr-2">{eps.length} EP</span>
                          )}
@@ -106,7 +109,9 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                                         <p className={`text-[11px] font-bold truncate leading-none ${isTextCensored ? 'text-zinc-600' : 'text-zinc-200'}`}>{titleText}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {ep.is_movie && (ep.release_type === 'theatrical' ? <Ticket className="w-2.5 h-2.5 text-pink-500" /> : <MonitorPlay className="w-2.5 h-2.5 text-emerald-500" />)}
+                                        {ep.is_movie ? (
+                                            ep.release_type === 'theatrical' ? <Ticket className="w-2.5 h-2.5 text-pink-500" /> : <MonitorPlay className="w-2.5 h-2.5 text-emerald-500" />
+                                        ) : null}
                                         <p className={`text-[9px] font-mono uppercase tracking-tighter truncate ${isDescCensored ? 'text-zinc-700 italic' : 'text-zinc-500'}`}>{subText}</p>
                                     </div>
                                 </div>
