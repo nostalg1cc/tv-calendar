@@ -117,7 +117,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                     ))}
                 </div>
 
-                {/* User Info Section (Above Settings) */}
+                {/* User Info Section (Freed from backgrounds and borders) */}
                 <div className={`
                     bg-transparent p-2.5 rounded-2xl transition-all group/user
                     ${mode === 'collapsed' ? 'flex flex-col items-center' : 'flex items-center gap-3'}

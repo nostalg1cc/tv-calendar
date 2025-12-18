@@ -122,18 +122,24 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 <div className="flex items-center gap-3">
                     {/* Navigation Moved to Right */}
                     <div className="flex items-center bg-zinc-900/50 rounded-xl p-1 border border-white/5 mr-2">
-                        <button onClick={() => setCalendarDate(subMonths(calendarDate, 1))} className="p-1.5 hover:bg-white/5 text-zinc-500 hover:text-white transition-all rounded-lg"><ChevronLeft className="w-4 h-4" /></button>
-                        <button onClick={() => { setCalendarDate(new Date()); onSelectDay(new Date()); }} className="px-3 text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:text-indigo-400 transition-colors">This Week</button>
-                        <button onClick={() => setCalendarDate(addMonths(calendarDate, 1))} className="p-1.5 hover:bg-white/5 text-zinc-500 hover:text-white transition-all rounded-lg"><ChevronRight className="w-4 h-4" /></button>
+                        <button onClick={() => setCalendarDate(subMonths(calendarDate, 1))} className="p-1.5 hover:bg-white/5 text-zinc-500 hover:text-white transition-all rounded-lg" title="Previous Month">
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => { setCalendarDate(new Date()); onSelectDay(new Date()); }} className="px-3 text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:text-indigo-400 transition-colors">
+                            This Week
+                        </button>
+                        <button onClick={() => setCalendarDate(addMonths(calendarDate, 1))} className="p-1.5 hover:bg-white/5 text-zinc-500 hover:text-white transition-all rounded-lg" title="Next Month">
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
                     </div>
 
                     <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5">
-                        <button className="p-1.5 bg-zinc-800 text-white rounded-lg"><LayoutGrid className="w-3.5 h-3.5" /></button>
-                        <button className="p-1.5 text-zinc-500 hover:text-zinc-300 transition-colors"><Layers className="w-3.5 h-3.5" /></button>
+                        <button className="p-1.5 bg-zinc-800 text-white rounded-lg" title="Grid View"><LayoutGrid className="w-3.5 h-3.5" /></button>
+                        <button className="p-1.5 text-zinc-500 hover:text-zinc-300 transition-colors" title="Stack View"><Layers className="w-3.5 h-3.5" /></button>
                     </div>
                     
                     <div className="relative" ref={filterRef}>
-                        <button onClick={() => setIsFilterOpen(!isFilterOpen)} className={`p-2 transition-all rounded-xl border border-white/5 ${isFilterOpen ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'}`}><Filter className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setIsFilterOpen(!isFilterOpen)} className={`p-2 transition-all rounded-xl border border-white/5 ${isFilterOpen ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'}`} title="Filters"><Filter className="w-3.5 h-3.5" /></button>
                         
                         {isFilterOpen && (
                             <div className="absolute top-full right-0 mt-3 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-enter">
