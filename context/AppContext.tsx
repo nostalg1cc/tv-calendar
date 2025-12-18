@@ -1,12 +1,11 @@
 
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { User, TVShow, Episode, AppSettings, SubscribedList, Reminder, Interaction, TraktProfile } from '../types';
-import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, getListDetails, setApiToken } from '../services/tmdb';
-import { get, set, del } from 'idb-keyval';
-import { format, subYears, parseISO, isSameDay, subMinutes, addDays } from 'date-fns';
-import LZString from 'lz-string';
+import { getShowDetails, getSeasonDetails, getMovieDetails, getMovieReleaseDates, setApiToken } from '../services/tmdb';
+import { get, set } from 'idb-keyval';
+import { format, parseISO, addDays } from 'date-fns';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
-import { getDeviceCode, pollToken, getWatchedHistory, getTraktProfile, getShowProgress, syncHistory } from '../services/trakt';
+import { getDeviceCode, pollToken, getWatchedHistory, syncHistory } from '../services/trakt';
 
 interface AppContextType {
   user: User | null;
@@ -33,31 +32,25 @@ interface AppContextType {
   hardRefreshCalendar: () => Promise<void>;
   requestNotificationPermission: () => Promise<boolean>;
   
-  // Full Sync State
   fullSyncRequired: boolean;
   performFullSync: () => Promise<void>;
 
-  // Reminders
   reminders: Reminder[];
   addReminder: (reminder: Reminder) => Promise<void>;
   removeReminder: (id: string) => Promise<void>;
   
-  // Interactions
   interactions: Record<string, Interaction>; 
   toggleWatched: (id: number, mediaType: 'tv' | 'movie') => Promise<void>;
   toggleEpisodeWatched: (showId: number, season: number, episode: number) => Promise<void>;
   markHistoryWatched: (showId: number, season: number, episode: number) => Promise<void>;
   setRating: (id: number, mediaType: 'tv' | 'movie', rating: number) => Promise<void>;
 
-  // Reminder UI State
   reminderCandidate: TVShow | Episode | null;
   setReminderCandidate: (item: TVShow | Episode | null) => void;
 
-  // Trailer UI State (Global)
   trailerTarget: { showId: number; mediaType: 'tv' | 'movie'; episode?: Episode } | null;
   setTrailerTarget: (target: { showId: number; mediaType: 'tv' | 'movie'; episode?: Episode } | null) => void;
   
-  // Calendar State
   calendarDate: Date;
   setCalendarDate: (date: Date) => void;
 
@@ -73,11 +66,9 @@ interface AppContextType {
   closeMobileWarning: (suppressFuture: boolean) => void;
   reloadAccount: () => Promise<void>;
 
-  // Calendar Scroll Persistence
   calendarScrollPos: number;
   setCalendarScrollPos: (pos: number) => void;
 
-  // Trakt
   traktAuth: (clientId: string, clientSecret: string) => Promise<any>;
   traktPoll: (deviceCode: string, clientId: string, clientSecret: string) => Promise<any>;
   saveTraktToken: (tokenData: any) => Promise<void>;
@@ -152,12 +143,10 @@ const getLocalPrefs = (): Partial<AppSettings> => {
   }
 };
 
-// Helper to get offset in minutes for a timezone
 const getTimezoneOffsetMinutes = (timeZone: string): number => {
     try {
         const now = new Date();
         const str = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).format(now);
-        // Extracts GMT-05:00 or GMT+01:00
         const match = str.match(/GMT([+-])(\d{2}):(\d{2})/);
         if (match) {
             const sign = match[1] === '+' ? 1 : -1;
@@ -186,60 +175,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [trailerTarget, setTrailerTarget] = useState<{ showId: number; mediaType: 'tv' | 'movie'; episode?: Episode } | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileWarningOpen, setIsMobileWarningOpen] = useState(false);
-  const [settings, setSettings] = useState<AppSettings>(() => ({ ...DEFAULT_SETTINGS, ...getLocalPrefs() }));
   
-  // Calendar State
+  // Initialize settings with robust defaults
+  const [settings, setSettings] = useState<AppSettings>(() => {
+      const local = getLocalPrefs();
+      return { ...DEFAULT_SETTINGS, ...local, spoilerConfig: { ...DEFAULT_SETTINGS.spoilerConfig, ...(local.spoilerConfig || {}) } };
+  });
+  
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [calendarScrollPos, setCalendarScrollPos] = useState(0);
 
-  // Initialization
-  useEffect(() => {
-      const init = async () => {
-          // Check for mobile warning suppression
-          const suppressed = localStorage.getItem('mobile_warning_suppressed');
-          if (!suppressed && /Mobi|Android/i.test(navigator.userAgent)) {
-             setIsMobileWarningOpen(true);
-          }
+  const updateSettings = (newSettings: Partial<AppSettings>) => {
+      setSettings(prev => {
+          const next = { ...prev, ...newSettings };
+          // Persist immediately
+          localStorage.setItem('tv_calendar_local_prefs', JSON.stringify(next));
+          return next;
+      });
+  };
 
-          // Apply Theme
-          applyTheme(settings);
-
-          // Auth Check
-          const savedUser = localStorage.getItem('tv_calendar_user');
-          if (savedUser) {
-              const u = JSON.parse(savedUser);
-              if (u.isAuthenticated) {
-                  setUser(u);
-                  setApiToken(u.tmdbKey);
-                  loadLocalData();
-                  
-                  // Check cloud session if configured
-                  if (isSupabaseConfigured()) {
-                      const { data: { session } } = await supabase!.auth.getSession();
-                      if (session) {
-                          // Ensure we are in cloud mode
-                          if (!u.isCloud) {
-                              const cloudUser = { ...u, isCloud: true, id: session.user.id, email: session.user.email };
-                              setUser(cloudUser);
-                              localStorage.setItem('tv_calendar_user', JSON.stringify(cloudUser));
-                          }
-                      }
-                  }
-              }
-          }
-      };
-      init();
-  }, []);
-
-  // Theme Applicator
   const applyTheme = (s: AppSettings) => {
-      // Font
       document.body.setAttribute('data-font', s.appFont || 'inter');
-      
-      // Base Theme (Cosmic, OLED, etc)
       document.body.setAttribute('data-base-theme', s.baseTheme || 'cosmic');
 
-      // Accent Color
       if (s.theme === 'custom' && s.customThemeColor) {
           const palette = generatePaletteFromHex(s.customThemeColor);
           Object.entries(palette).forEach(([shade, value]) => {
@@ -250,7 +208,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               document.documentElement.style.setProperty(`--theme-${shade}`, value);
           });
       } else {
-           // Default Indigo
            Object.entries(THEMES['default']).forEach(([shade, value]) => {
               document.documentElement.style.setProperty(`--theme-${shade}`, value);
           });
@@ -259,12 +216,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => {
       applyTheme(settings);
-      localStorage.setItem('tv_calendar_local_prefs', JSON.stringify(settings));
   }, [settings]);
-
-  const updateSettings = (newSettings: Partial<AppSettings>) => {
-      setSettings(prev => ({ ...prev, ...newSettings }));
-  };
 
   const loadLocalData = async () => {
        try {
@@ -279,12 +231,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
            setReminders(r);
            setInteractions(i);
            setEpisodes(e);
-           
-           // Background refresh if stale
-           const meta = await get(DB_KEY_META);
-           if (!meta || (Date.now() - meta.lastUpdated > CACHE_DURATION)) {
-               refreshEpisodes();
-           }
        } catch (e) {
            console.error("Load error", e);
        }
@@ -303,7 +249,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const listShows = subscribedLists.flatMap(l => l.items);
       const unique = new Map();
       [...watchlist, ...listShows].forEach(s => unique.set(s.id, s));
-      // Filter out hidden items
       if (settings.hiddenItems) {
           settings.hiddenItems.forEach(h => unique.delete(h.id));
       }
@@ -316,28 +261,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsSyncing(true);
       
       try {
-          // Flatten all shows
           const shows = allTrackedShows;
           setSyncProgress({ current: 0, total: shows.length });
           
           const newEpisodes: Record<string, Episode[]> = {};
           let completed = 0;
 
-          // Helper to process show
           const processShow = async (show: TVShow) => {
               try {
                   if (show.media_type === 'movie') {
-                       // Movie Logic
                        const releaseDates = await getMovieReleaseDates(show.id);
-                       
                        releaseDates.forEach(rd => {
-                           // Apply timezone adjustment? 
-                           // Movies usually have global release dates, but we can treat them as events.
                            const dateKey = rd.date;
                            if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
-                           
                            newEpisodes[dateKey].push({
-                               id: show.id, // Movie ID
+                               id: show.id, 
                                name: show.name,
                                overview: show.overview,
                                vote_average: show.vote_average,
@@ -353,8 +291,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                release_type: rd.type
                            });
                        });
-
-                       // Fallback if no specific release dates found but we have a generic one
                        if (releaseDates.length === 0 && show.first_air_date) {
                            const dateKey = show.first_air_date;
                            if (!newEpisodes[dateKey]) newEpisodes[dateKey] = [];
@@ -372,16 +308,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                 show_name: show.name,
                                 show_backdrop_path: show.backdrop_path,
                                 is_movie: true,
-                                release_type: 'digital' // Assume digital/generic
+                                release_type: 'digital'
                            });
                        }
-
                   } else {
-                      // TV Logic
-                      // We need full details including seasons
                       const fullShow = await getShowDetails(show.id);
-                      
-                      // Calculate offset if enabled
                       let offsetMinutes = 0;
                       if (settings.timeShift && fullShow.origin_country?.[0]) {
                           const originTz = COUNTRY_TIMEZONES[fullShow.origin_country[0]];
@@ -389,25 +320,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           if (originTz && localTz) {
                               const originOffset = getTimezoneOffsetMinutes(originTz);
                               const localOffset = getTimezoneOffsetMinutes(localTz);
-                              if (localOffset - originOffset > 300) { // > 5 hours ahead
-                                  offsetMinutes = 1440; // Add 1 day
-                              }
+                              if (localOffset - originOffset > 300) offsetMinutes = 1440;
                           }
                       }
-
                       const seasons = fullShow.seasons || [];
                       for (const season of seasons) {
                           if (season.season_number > 0 || !settings.ignoreSpecials) {
                               const seasonDetails = await getSeasonDetails(show.id, season.season_number);
                               seasonDetails.episodes.forEach(ep => {
                                   if (ep.air_date) {
-                                      // Apply Shift
                                       let finalDate = ep.air_date;
                                       if (offsetMinutes > 0) {
                                           const d = parseISO(ep.air_date);
                                           finalDate = format(addDays(d, 1), 'yyyy-MM-dd');
                                       }
-
                                       if (!newEpisodes[finalDate]) newEpisodes[finalDate] = [];
                                       newEpisodes[finalDate].push({
                                           ...ep,
@@ -431,7 +357,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               }
           };
 
-          // Process in batches
           const BATCH_SIZE = 5;
           for (let i = 0; i < shows.length; i += BATCH_SIZE) {
               await Promise.all(shows.slice(i, i + BATCH_SIZE).map(processShow));
@@ -449,15 +374,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const login = (username: string, apiKey: string) => {
-      const u: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false };
-      setUser(u);
-      setApiToken(apiKey);
-      localStorage.setItem('tv_calendar_user', JSON.stringify(u));
-      loadLocalData();
+      try {
+          const u: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false };
+          setApiToken(apiKey);
+          localStorage.setItem('tv_calendar_user', JSON.stringify(u));
+          setUser(u);
+          loadLocalData().then(() => {
+              // Trigger a background refresh after login
+              get(DB_KEY_META).then(meta => {
+                  if (!meta || (Date.now() - meta.lastUpdated > CACHE_DURATION)) {
+                      refreshEpisodes();
+                  }
+              });
+          });
+      } catch (e) {
+          console.error("Login failed", e);
+          alert("Login failed to persist. Please try again.");
+      }
   };
 
   const loginCloud = async (session: any) => {
-      // Stub for cloud login structure
+      // Stub
   };
 
   const logout = () => {
@@ -487,7 +424,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const newHidden = [...(settings.hiddenItems || []), { id: show.id, name: show.name }];
           updateSettings({ hiddenItems: newHidden });
           
-          // Also remove from manual watchlist if present
           const newWatchlist = watchlist.filter(s => s.id !== id);
           setWatchlist(newWatchlist);
           saveLocalData(newWatchlist, subscribedLists, episodes, reminders, interactions);
@@ -503,16 +439,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const key = `${mediaType}-${id}`;
       const currentInteraction = interactions[key];
       const current = currentInteraction?.is_watched || false;
-      
-      const base: Interaction = currentInteraction || {
+      const newInteraction: Interaction = {
+          rating: 0,
+          ...currentInteraction,
           tmdb_id: id,
           media_type: mediaType,
-          rating: 0,
-          is_watched: false
-      };
-
-      const newInteraction: Interaction = {
-          ...base,
           is_watched: !current,
           watched_at: !current ? new Date().toISOString() : undefined
       };
@@ -526,29 +457,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const key = `episode-${showId}-${season}-${episode}`;
       const currentInteraction = interactions[key];
       const current = currentInteraction?.is_watched || false;
-      
-      const base: Interaction = currentInteraction || {
+      const newInteraction: Interaction = {
+          rating: 0,
+          ...currentInteraction,
           tmdb_id: showId,
           media_type: 'episode',
           season_number: season,
           episode_number: episode,
-          rating: 0,
-          is_watched: false
-      };
-
-      const newInteraction: Interaction = {
-          ...base,
           is_watched: !current,
           watched_at: !current ? new Date().toISOString() : undefined
       };
-
       const newInteractions = { ...interactions, [key]: newInteraction };
       setInteractions(newInteractions);
       await saveLocalData(watchlist, subscribedLists, episodes, reminders, newInteractions);
   };
   
   const markHistoryWatched = async (showId: number, season: number, episode: number) => {
-      // Find all episodes before this one
       const allEps = Object.values(episodes).flat().filter(e => e.show_id === showId);
       const targetEps = allEps.filter(e => {
           if (e.season_number < season) return true;
@@ -560,20 +484,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       targetEps.forEach(e => {
           const key = `episode-${e.show_id}-${e.season_number}-${e.episode_number}`;
           const existing = newInteractions[key];
-          
-          const base: Interaction = existing || {
-              tmdb_id: showId,
-              media_type: 'episode',
-              season_number: e.season_number,
-              episode_number: e.episode_number,
-              rating: 0,
-              is_watched: false
-          };
-
           newInteractions[key] = { 
-              ...base,
+              rating: 0,
+              ...existing,
+              tmdb_id: showId, 
+              media_type: 'episode', 
+              season_number: e.season_number, 
+              episode_number: e.episode_number, 
               is_watched: true, 
-              watched_at: base.watched_at || new Date().toISOString() 
+              watched_at: existing?.watched_at || new Date().toISOString() 
           };
       });
       setInteractions(newInteractions);
@@ -601,7 +520,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
-  // Mock implementations for missing features to prevent errors
   const batchAddShows = (shows: TVShow[]) => { /* ... */ };
   const batchSubscribe = (lists: SubscribedList[]) => { /* ... */ };
   const subscribeToList = async (listId: string) => { /* ... */ };
@@ -617,11 +535,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const processSyncPayload = () => {};
   const closeMobileWarning = () => setIsMobileWarningOpen(false);
   const reloadAccount = async () => { window.location.reload(); };
-  const traktAuth = async () => ({});
-  const traktPoll = async () => ({});
+  
+  const traktAuth = async (clientId: string, clientSecret: string) => {
+      return await getDeviceCode(clientId);
+  };
+  
+  const traktPoll = async (deviceCode: string, clientId: string, clientSecret: string) => {
+      return await pollToken(deviceCode, clientId, clientSecret);
+  };
+  
   const saveTraktToken = async () => {};
   const disconnectTrakt = async () => {};
   const syncTraktData = async () => {};
+
+  // Initialization
+  useEffect(() => {
+      const init = async () => {
+          const suppressed = localStorage.getItem('mobile_warning_suppressed');
+          if (!suppressed && /Mobi|Android/i.test(navigator.userAgent)) {
+             setIsMobileWarningOpen(true);
+          }
+
+          applyTheme(settings);
+
+          const savedUser = localStorage.getItem('tv_calendar_user');
+          if (savedUser) {
+              const u = JSON.parse(savedUser);
+              if (u.isAuthenticated) {
+                  setUser(u);
+                  setApiToken(u.tmdbKey);
+                  loadLocalData().then(() => {
+                      get(DB_KEY_META).then(meta => {
+                          if (!meta || (Date.now() - meta.lastUpdated > CACHE_DURATION)) {
+                              refreshEpisodes();
+                          }
+                      });
+                  });
+              }
+          }
+      };
+      init();
+  }, []);
 
   return (
     <AppContext.Provider value={{
