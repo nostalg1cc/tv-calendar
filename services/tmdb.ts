@@ -34,15 +34,16 @@ const getAccessToken = (): string => {
 class RequestQueue {
     private queue: Array<() => Promise<void>> = [];
     private activeRequests = 0;
-    private maxConcurrent = 3; // Low concurrency to be safe
+    private maxConcurrent = 3; // Keep low to avoid hitting 40 req/10s limit instantly
     private lastRequestTime = 0;
-    private minDelay = 250; // Minimum 250ms between requests (approx 4 req/sec max)
+    private minDelay = 250; // Minimum 250ms spacing (~4 req/sec max)
 
     add<T>(fn: () => Promise<T>): Promise<T> {
         return new Promise<T>((resolve, reject) => {
             const task = async () => {
                 this.activeRequests++;
                 try {
+                    // Spacing Logic
                     const now = Date.now();
                     const timeSinceLast = now - this.lastRequestTime;
                     if (timeSinceLast < this.minDelay) {
@@ -75,86 +76,57 @@ const apiQueue = new RequestQueue();
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Internal fetch wrapper that handles the actual network call and retries
+const executeFetch = async <T>(endpoint: string, params: Record<string, string>, token: string, retries: number): Promise<T> => {
+    let urlString = `${BASE_URL}${endpoint}`;
+    if (endpoint.startsWith('/4')) {
+        urlString = `https://api.themoviedb.org${endpoint}`;
+    }
+
+    const url = new URL(urlString);
+    Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+
+    const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+            'accept': 'application/json',
+            'Authorization': `Bearer ${token}`
+        }
+    });
+
+    if (!response.ok) {
+        // Rate Limit Handling
+        if (response.status === 429 && retries > 0) {
+            console.warn(`Rate limit hit for ${endpoint}. Backing off...`);
+            const retryHeader = response.headers.get('Retry-After');
+            const waitTime = retryHeader ? (parseInt(retryHeader) * 1000) + 500 : 2000;
+            
+            await wait(waitTime);
+            return executeFetch(endpoint, params, token, retries - 1);
+        }
+
+        // Server Error Handling
+        if (response.status >= 500 && retries > 0) {
+            await wait(1000);
+            return executeFetch(endpoint, params, token, retries - 1);
+        }
+
+        if (response.status === 401) throw new Error("Invalid API Key.");
+        
+        throw new Error(`TMDB API Error: ${response.status}`);
+    }
+
+    return response.json();
+};
+
 const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {}, retries = 3): Promise<T> => {
   const token = getAccessToken();
   if (!token) {
     throw new Error("Missing TMDB API Key. Please update it in Settings.");
   }
 
-  return apiQueue.add(async () => {
-      let urlString = `${BASE_URL}${endpoint}`;
-      if (endpoint.startsWith('/4')) {
-        urlString = `https://api.themoviedb.org${endpoint}`;
-      }
-
-      const url = new URL(urlString);
-      Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
-
-      try {
-          const response = await fetch(url.toString(), {
-            method: 'GET',
-            headers: {
-              'accept': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          });
-
-          if (!response.ok) {
-            // Rate Limiting Logic: 429 Too Many Requests
-            if (response.status === 429 && retries > 0) {
-                console.warn(`Rate limit hit for ${endpoint}. Backing off...`);
-                const retryAfter = response.headers.get('Retry-After');
-                // Force a longer wait if we hit a 429 despite our queue
-                const delay = retryAfter ? parseInt(retryAfter) * 1000 : 2000; 
-                await wait(delay + 500); // Add buffer
-                // Recursively call fetchTMDB, bypassing the queue wrapper to avoid double-queueing
-                // NOTE: We need to be careful here. For simplicity, we just throw to retry at a higher level 
-                // or we accept we might block the queue. 
-                // Better approach: simple recursion inside the queue context.
-                return fetchTMDB_Direct(endpoint, params, token, retries - 1);
-            }
-
-            if (response.status === 401) throw new Error("Invalid API Key.");
-            if (response.status >= 500 && retries > 0) {
-                 await wait(1000);
-                 return fetchTMDB_Direct(endpoint, params, token, retries - 1);
-            }
-
-            throw new Error(`TMDB API Error: ${response.status}`);
-          }
-          return response.json();
-
-      } catch (error: any) {
-          if (retries > 0 && !error.message?.includes("Invalid API Key")) {
-              await wait(1500);
-              return fetchTMDB_Direct(endpoint, params, token, retries - 1);
-          }
-          throw error;
-      }
-  });
-};
-
-// Internal helper to retry without re-queueing
-const fetchTMDB_Direct = async <T>(endpoint: string, params: Record<string, string>, token: string, retries: number): Promise<T> => {
-    // Basic fetch copy for retries
-    let urlString = `${BASE_URL}${endpoint}`;
-    if (endpoint.startsWith('/4')) urlString = `https://api.themoviedb.org${endpoint}`;
-    const url = new URL(urlString);
-    Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
-
-    const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: { 'accept': 'application/json', 'Authorization': `Bearer ${token}` }
-    });
-
-    if (!response.ok) {
-        if (retries > 0 && (response.status === 429 || response.status >= 500)) {
-             await wait(2000);
-             return fetchTMDB_Direct(endpoint, params, token, retries - 1);
-        }
-        throw new Error(`TMDB API Error: ${response.status}`);
-    }
-    return response.json();
+  // Wrap execution in the queue
+  return apiQueue.add(() => executeFetch<T>(endpoint, params, token, retries));
 };
 
 export const getShowDetails = async (id: number): Promise<TVShow> => {

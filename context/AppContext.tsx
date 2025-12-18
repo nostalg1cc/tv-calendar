@@ -657,8 +657,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           // 4. The very last season (to catch TBA episodes)
                           const seasonsToFetch = seasonsMeta.filter((s, index) => {
                               if (s.season_number === 0) return !settings.ignoreSpecials;
-                              if (!s.air_date) return true; // TBA season
+                              if (!s.air_date) return true; // TBA season (likely active)
                               const sDate = parseISO(s.air_date);
+                              // Simple date check
                               return sDate >= sixMonthsAgo || index === seasonsMeta.length - 1;
                           });
 
@@ -673,8 +674,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                               } catch (e) {} 
                           } 
                           
-                          // If we skipped seasons, we should probably keep existing cache for those seasons?
-                          // For now, this logic prioritizes the calendar view.
                           incomingEpisodes.push(...mergeNewEpisodes(batchEpisodes, details.origin_country));
                       } 
                       if (item.media_type === 'movie') { incomingEpisodes.push(...mergeNewEpisodes(batchEpisodes, item.origin_country)); }
@@ -684,23 +683,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               setSyncProgress(prev => ({ ...prev, current: Math.min(processedCount, uniqueItems.length) })); 
           } 
           
-          // Rebuild map from incoming + existing (if preserving history is needed, we'd need complex merging)
-          // Since we are "Smart Syncing", we might miss old episodes. 
-          // Ideally, we merge incoming into currentEps.
-          
-          // 1. Create a map of existing episodes
+          // --- Intelligent Cache Merging ---
           const finalEpisodesMap: Record<string, Episode[]> = { ...currentEps };
           
-          // 2. Iterate incoming and update/insert
-          // Note: This naive merge appends. We need to replace specific episodes if they exist to update info.
-          // However, grouping by Date makes this hard.
-          // Better Strategy: Rebuild the map for the *shows we just fetched*.
-          
-          // To allow "Smart Sync" to work alongside "Historical Data", we shouldn't delete old data from the map
-          // unless we know for sure it's invalid.
-          // But cleaning up is also good.
-          
-          // Let's go with: Merge incoming into the map.
           incomingEpisodes.forEach(ep => {
               if(!ep.air_date) return;
               const dateKey = getAdjustedDate(ep.air_date, (allTrackedShows.find(s=>s.id === ep.show_id))?.origin_country);

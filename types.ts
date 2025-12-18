@@ -1,5 +1,4 @@
 
-
 export interface TVShow {
   id: number;
   name: string; // Used for Title (Movie) or Name (TV)
