@@ -39,7 +39,8 @@ const V2Sidebar: React.FC = () => {
         ? `fixed left-4 top-4 bottom-4 z-[100] rounded-[2.5rem] shadow-2xl shadow-black/50 border border-white/10 backdrop-blur-3xl transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] ${isHovered ? 'translate-x-0 opacity-100' : '-translate-x-[calc(100%-2rem)] opacity-40 hover:opacity-100'}` 
         : `relative border-r border-white/5`;
 
-    const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
+    // Fix for TS error: explicit typing as React.FC to handle reserved 'key' prop correctly during mapping
+    const NavItem: React.FC<{ to: string; icon: any; label: string }> = ({ to, icon: Icon, label }) => {
         const active = isActive(to);
         return (
             <Link 
@@ -103,7 +104,6 @@ const V2Sidebar: React.FC = () => {
 
             {/* Navigation Section */}
             <div className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto hide-scrollbar">
-                {/* Fix: Line 106 - pass props explicitly to NavItem to avoid extra properties from spread */}
                 {menuItems.map(item => (
                     <NavItem 
                         key={item.id} 
