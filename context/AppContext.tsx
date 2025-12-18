@@ -63,6 +63,7 @@ interface AppContextType {
   isMobileWarningOpen: boolean;
   closeMobileWarning: (suppressFuture: boolean) => void;
   reloadAccount: () => Promise<void>;
+  hardRefreshCalendar: () => Promise<void>;
 
   // Calendar Persistence
   calendarScrollPos: number;
@@ -116,7 +117,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   appFont: 'inter',
   reminderStrategy: 'ask',
   hiddenItems: [],
-  v2SidebarMode: 'fixed'
+  v2SidebarMode: 'fixed',
+  autoSync: true
 };
 
 export const THEMES: Record<string, Record<string, string>> = {
@@ -200,6 +202,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (!synced.reminderStrategy) synced.reminderStrategy = 'ask';
           if (synced.timeShift === undefined) synced.timeShift = false;
           if (!synced.v2SidebarMode) synced.v2SidebarMode = 'fixed';
+          if (synced.autoSync === undefined) synced.autoSync = true;
           
           // Migrate hiddenIds (number[]) to hiddenItems (object[])
           if (synced.hiddenIds && !synced.hiddenItems) {
@@ -577,16 +580,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const refreshEpisodes = useCallback(async (force = false) => { 
       if (fullSyncRequired) return; 
       if (!user || (!user.tmdbKey && !user.isCloud)) { setLoading(false); return; } 
+      
+      // Auto-Sync Logic Check
+      const shouldSync = settings.autoSync || force;
+      
       const lastUpdate = await get<number>(DB_KEY_META); 
       const now = Date.now(); 
-      if (!user.isCloud && !force && lastUpdate && (now - lastUpdate < CACHE_DURATION)) { 
+
+      // If we have cache and shouldn't sync, or cache is fresh enough and not forced
+      if (!shouldSync || (!user.isCloud && !force && lastUpdate && (now - lastUpdate < CACHE_DURATION))) { 
           const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); 
           if (cachedEps && Object.keys(cachedEps).length > 0) { 
               setEpisodes(cachedEps); 
               setLoading(false); 
               return; 
           } 
+          // If no cache but we have shows, we must sync anyway if it's the first load
+          if (allTrackedShows.length > 0 && shouldSync) {
+              // Proceed to sync
+          } else {
+              setLoading(false);
+              return;
+          }
       } 
+      
       const itemsToProcess = [...allTrackedShows]; 
       if (itemsToProcess.length === 0) { setEpisodes({}); setLoading(false); return; } 
       if (Object.keys(episodes).length === 0) setLoading(true); 
@@ -650,11 +667,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setEpisodes(current => { set(DB_KEY_EPISODES, current); return current; }); 
           await set(DB_KEY_META, Date.now()); 
       } catch (e) {} finally { setLoading(false); setIsSyncing(false); } 
-  }, [user, allTrackedShows, watchlist, fullSyncRequired, settings.timeShift, settings.timezone]);
+  }, [user, allTrackedShows, watchlist, fullSyncRequired, settings.timeShift, settings.timezone, settings.autoSync]);
+
+  const hardRefreshCalendar = async () => {
+    // 1. Clear IndexedDB
+    await del(DB_KEY_EPISODES);
+    await del(DB_KEY_META);
+    
+    // 2. Clear State
+    setEpisodes({});
+    
+    // 3. Force Fetch
+    await refreshEpisodes(true);
+  };
 
   const login = (username: string, apiKey: string) => { const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false }; setUser(newUser); setApiToken(apiKey); localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); };
   
-  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile, fullSyncCompleted: profile.full_sync_completed }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) { const local = getLocalPrefs(); const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; if (mergedSettings.timeShift === undefined) mergedSettings.timeShift = false; if (!mergedSettings.v2SidebarMode) mergedSettings.v2SidebarMode = 'fixed';
+  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile, fullSyncCompleted: profile.full_sync_completed }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) { const local = getLocalPrefs(); const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; if (mergedSettings.timeShift === undefined) mergedSettings.timeShift = false; if (!mergedSettings.v2SidebarMode) mergedSettings.v2SidebarMode = 'fixed'; if (mergedSettings.autoSync === undefined) mergedSettings.autoSync = true;
           if (mergedSettings.hiddenIds && !mergedSettings.hiddenItems) { mergedSettings.hiddenItems = mergedSettings.hiddenIds.map((id: number) => ({ id, name: 'Unknown Show' })); delete mergedSettings.hiddenIds; }
           if (!mergedSettings.hiddenItems) mergedSettings.hiddenItems = []; 
           setSettings(mergedSettings); } const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); if (remoteWatchlist) { const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; setWatchlist(loadedWatchlist); } const { data: remoteSubs } = await supabase.from('subscriptions').select('*'); if (remoteSubs) { const loadedLists: SubscribedList[] = []; for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) {} } setSubscribedLists(loadedLists); } 
@@ -823,7 +852,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       calendarDate, setCalendarDate,
       interactions, toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
       traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData,
-      fullSyncRequired, performFullSync
+      fullSyncRequired, performFullSync,
+      hardRefreshCalendar
     }}>
       {children}
     </AppContext.Provider>

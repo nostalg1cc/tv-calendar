@@ -116,6 +116,7 @@ export interface AppSettings {
   reminderStrategy: 'ask' | 'always' | 'never'; // New Reminder Preference
   hiddenItems: { id: number; name: string }[]; // Blacklist for deleted items to prevent Trakt re-sync
   v2SidebarMode?: V2SidebarMode;
+  autoSync: boolean; // New: Toggle for automatic calendar fetching
 }
 
 export interface SubscribedList {

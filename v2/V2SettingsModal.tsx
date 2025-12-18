@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Settings, ShieldCheck, Palette, User, Globe, EyeOff, Layout, Bell, Monitor, Cloud, LogOut } from 'lucide-react';
+import { Settings, ShieldCheck, Palette, User, Globe, EyeOff, Layout, Bell, Monitor, Cloud, LogOut, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 interface V2SettingsModalProps {
@@ -11,7 +11,7 @@ interface V2SettingsModalProps {
 type TabId = 'general' | 'account' | 'design' | 'spoiler';
 
 const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) => {
-    const { settings, updateSettings, user, logout } = useAppContext();
+    const { settings, updateSettings, user, logout, hardRefreshCalendar, isSyncing } = useAppContext();
     const [activeTab, setActiveTab] = useState<TabId>('general');
 
     if (!isOpen) return null;
@@ -60,11 +60,28 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                             <div>
                                 <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-6">Core Preferences</h3>
                                 <div className="space-y-2 divide-y divide-white/5">
+                                    <Toggle label="Automatic Calendar Sync" description="Fetch new episodes on load." active={!!settings.autoSync} onToggle={() => updateSettings({ autoSync: !settings.autoSync })} />
                                     <Toggle label="Smart Timezone Shift" description="Adjust release dates based on origin broadcast times." active={!!settings.timeShift} onToggle={() => updateSettings({ timeShift: !settings.timeShift })} />
                                     <Toggle label="Ignore Specials" description="Hide Season 0 content." active={!!settings.ignoreSpecials} onToggle={() => updateSettings({ ignoreSpecials: !settings.ignoreSpecials })} />
                                     <Toggle label="Hide Theatrical" description="Only show streaming releases for movies." active={!!settings.hideTheatrical} onToggle={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} />
                                 </div>
                             </div>
+                            
+                            <div className="pt-4 border-t border-white/5">
+                                <h3 className="text-sm font-black text-zinc-600 uppercase tracking-widest mb-4">Data Management</h3>
+                                <button 
+                                    onClick={() => { if(confirm("This will delete your local cache and re-download all calendar data. Continue?")) hardRefreshCalendar(); }}
+                                    disabled={isSyncing}
+                                    className="w-full bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-300 hover:text-white p-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-between group"
+                                >
+                                    <span className="flex items-center gap-3">
+                                        <RefreshCw className={`w-4 h-4 text-indigo-500 ${isSyncing ? 'animate-spin' : ''}`} />
+                                        Force Refresh Calendar
+                                    </span>
+                                    <span className="text-xs text-zinc-600 group-hover:text-zinc-500">Rebuild Database</span>
+                                </button>
+                            </div>
+
                             <div>
                                 <h3 className="text-sm font-black text-zinc-600 uppercase tracking-widest mb-4">Region</h3>
                                 <div className="bg-zinc-900/50 p-4 rounded-2xl border border-white/5 flex items-center justify-between">

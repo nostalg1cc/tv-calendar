@@ -111,68 +111,79 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
-            <header className="h-16 shrink-0 border-b border-white/5 flex items-center justify-between px-8 bg-zinc-950/20 backdrop-blur-md z-[60]">
-                <div className="flex items-center gap-4">
-                    <h2 className="text-xl font-black text-white tracking-tighter uppercase flex items-baseline">
-                        {format(calendarDate, 'MMMM')} 
-                        <span className="text-zinc-700 font-mono font-light ml-2 text-base">{format(calendarDate, 'yyyy')}</span>
-                    </h2>
+            {/* Header Redesign */}
+            <header className="h-16 shrink-0 border-b border-white/5 flex items-center bg-zinc-950/40 z-[60]">
+                {/* Date Display */}
+                <div className="flex-1 flex flex-col justify-center px-6 border-r border-white/5 h-full">
+                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest leading-none mb-1">{format(calendarDate, 'yyyy')}</span>
+                     <span className="text-xl font-black text-white uppercase tracking-tighter leading-none">{format(calendarDate, 'MMMM')}</span>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    {/* Navigation Moved to Right for better layout flow */}
-                    <div className="flex items-center bg-zinc-900/50 rounded-xl p-1 border border-white/5 mr-2">
-                        <button onClick={() => setCalendarDate(subMonths(calendarDate, 1))} className="p-1.5 hover:bg-white/5 text-zinc-500 hover:text-white transition-all rounded-lg" title="Previous">
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => { setCalendarDate(new Date()); onSelectDay(new Date()); }} className="px-3 text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:text-indigo-400 transition-colors">
-                            This Week
-                        </button>
-                        <button onClick={() => setCalendarDate(addMonths(calendarDate, 1))} className="p-1.5 hover:bg-white/5 text-zinc-500 hover:text-white transition-all rounded-lg" title="Next">
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
-                    </div>
-
-                    <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5">
-                        <button className="p-1.5 bg-zinc-800 text-white rounded-lg" title="Grid View"><LayoutGrid className="w-3.5 h-3.5" /></button>
-                        <button className="p-1.5 text-zinc-500 hover:text-zinc-300 transition-colors" title="Stack View"><Layers className="w-3.5 h-3.5" /></button>
-                    </div>
+                {/* Navigation Group */}
+                <div className="flex h-full">
+                    <button 
+                        onClick={() => setCalendarDate(subMonths(calendarDate, 1))} 
+                        className="w-16 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-r border-white/5"
+                        title="Previous Month"
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
                     
-                    <div className="relative" ref={filterRef}>
-                        <button onClick={() => setIsFilterOpen(!isFilterOpen)} className={`p-2 transition-all rounded-xl border border-white/5 ${isFilterOpen ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'}`} title="Filters">
-                            <Filter className="w-3.5 h-3.5" />
-                        </button>
-                        
-                        {isFilterOpen && (
-                            <div className="absolute top-full right-0 mt-3 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-enter">
-                                <div className="p-2">
-                                    <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 px-3">Calendar Filters</h4>
-                                    <div className="space-y-1">
-                                        <button onClick={() => setShowTV(!showTV)} className={`w-full flex items-center justify-between p-2.5 rounded-xl text-[11px] font-bold transition-all ${showTV ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
-                                            <div className="flex items-center gap-3"><Tv className="w-3.5 h-3.5" /> TV Series</div>
-                                            {showTV && <Check className="w-3 h-3" />}
-                                        </button>
-                                        <button onClick={() => setShowMovies(!showMovies)} className={`w-full flex items-center justify-between p-2.5 rounded-xl text-[11px] font-bold transition-all ${showMovies ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
-                                            <div className="flex items-center gap-3"><Film className="w-3.5 h-3.5" /> Movies</div>
-                                            {showMovies && <Check className="w-3 h-3" />}
-                                        </button>
-                                        
-                                        <div className="h-px bg-white/5 my-2 mx-2" />
-                                        
-                                        <button onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} className={`w-full flex items-center justify-between p-2.5 rounded-xl text-[11px] font-bold transition-all ${!settings.hideTheatrical ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
-                                            <div className="flex items-center gap-3"><MonitorPlay className="w-3.5 h-3.5" /> Digital Only</div>
-                                            {!settings.hideTheatrical && <Check className="w-3 h-3" />}
-                                        </button>
-                                        
-                                        <button onClick={() => setShowHidden(!showHidden)} className={`w-full flex items-center justify-between p-2.5 rounded-xl text-[11px] font-bold transition-all ${showHidden ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
-                                            <div className="flex items-center gap-3">{showHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} Hidden Items</div>
-                                            {showHidden && <Check className="w-3 h-3" />}
-                                        </button>
-                                    </div>
+                    <button 
+                        onClick={() => { setCalendarDate(new Date()); onSelectDay(new Date()); }} 
+                        className="px-6 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-indigo-400 hover:bg-white/5 transition-colors border-r border-white/5"
+                    >
+                        Today
+                    </button>
+
+                    <button 
+                        onClick={() => setCalendarDate(addMonths(calendarDate, 1))} 
+                        className="w-16 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-r border-white/5"
+                        title="Next Month"
+                    >
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Filter & View Toggles */}
+                <div className="flex h-full relative" ref={filterRef}>
+                    <button 
+                        onClick={() => setIsFilterOpen(!isFilterOpen)}
+                        className={`w-16 h-full flex items-center justify-center border-r border-white/5 transition-colors ${isFilterOpen ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+                        title="Filters"
+                    >
+                        <Filter className="w-4 h-4" />
+                    </button>
+
+                     {isFilterOpen && (
+                        <div className="absolute top-full right-0 mt-0 w-64 bg-zinc-950 border border-white/10 rounded-bl-2xl shadow-2xl p-2 z-[100] animate-enter">
+                            <div className="p-2">
+                                <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 px-3">Calendar Filters</h4>
+                                <div className="space-y-1">
+                                    <button onClick={() => setShowTV(!showTV)} className={`w-full flex items-center justify-between p-3 rounded-xl text-[11px] font-bold transition-all ${showTV ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
+                                        <div className="flex items-center gap-3"><Tv className="w-3.5 h-3.5" /> TV Series</div>
+                                        {showTV && <Check className="w-3 h-3" />}
+                                    </button>
+                                    <button onClick={() => setShowMovies(!showMovies)} className={`w-full flex items-center justify-between p-3 rounded-xl text-[11px] font-bold transition-all ${showMovies ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
+                                        <div className="flex items-center gap-3"><Film className="w-3.5 h-3.5" /> Movies</div>
+                                        {showMovies && <Check className="w-3 h-3" />}
+                                    </button>
+                                    
+                                    <div className="h-px bg-white/5 my-2 mx-2" />
+                                    
+                                    <button onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} className={`w-full flex items-center justify-between p-3 rounded-xl text-[11px] font-bold transition-all ${!settings.hideTheatrical ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
+                                        <div className="flex items-center gap-3"><MonitorPlay className="w-3.5 h-3.5" /> Digital Only</div>
+                                        {!settings.hideTheatrical && <Check className="w-3 h-3" />}
+                                    </button>
+                                    
+                                    <button onClick={() => setShowHidden(!showHidden)} className={`w-full flex items-center justify-between p-3 rounded-xl text-[11px] font-bold transition-all ${showHidden ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
+                                        <div className="flex items-center gap-3">{showHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} Hidden Items</div>
+                                        {showHidden && <Check className="w-3 h-3" />}
+                                    </button>
                                 </div>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </header>
 
