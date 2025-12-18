@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { Check, CalendarDays, Play, History, EyeOff, Ticket, MonitorPlay, PlayCircle } from 'lucide-react';
+import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
@@ -130,7 +130,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer }) => {
                                         <button 
                                             onClick={() => ep.show_id && markHistoryWatched(ep.show_id, ep.season_number, ep.episode_number)}
                                             className="p-2 text-zinc-700 hover:text-emerald-500 transition-colors"
-                                            title="Mark past as watched"
+                                            title="Mark all previous episodes as watched"
                                         >
                                             <History className="w-3.5 h-3.5" />
                                         </button>

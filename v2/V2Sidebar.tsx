@@ -117,12 +117,12 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                     ))}
                 </div>
 
-                {/* User Info Section (Freed from backgrounds and borders) */}
+                {/* User Info Section (Minimal, no background) */}
                 <div className={`
                     bg-transparent p-2.5 rounded-2xl transition-all group/user
                     ${mode === 'collapsed' ? 'flex flex-col items-center' : 'flex items-center gap-3'}
                 `}>
-                    <div className="w-9 h-9 flex items-center justify-center font-black text-lg shrink-0 text-white">
+                    <div className="w-9 h-9 flex items-center justify-center font-black text-lg shrink-0 text-white select-none">
                         {user?.username.charAt(0).toUpperCase()}
                     </div>
                     {mode !== 'collapsed' && (
