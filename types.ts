@@ -85,7 +85,7 @@ export interface CalendarDay {
   isToday: boolean;
 }
 
-export type V2SidebarMode = 'fixed' | 'collapsed' | 'floating';
+export type V2SidebarMode = 'fixed' | 'collapsed';
 
 export interface AppSettings {
   spoilerConfig: {
