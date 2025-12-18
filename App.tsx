@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import LoginPage from './pages/LoginPage';
 import MobileAddWarning from './components/MobileAddWarning';
