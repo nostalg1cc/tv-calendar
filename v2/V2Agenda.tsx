@@ -86,7 +86,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay }) => {
                         
                         const displayOverview = (!isWatched && spoilerConfig.overview)
                             ? 'Overview hidden to prevent spoilers.'
-                            : (ep.is_movie ? (ep.overview || '2024 Feature Release') : `Season ${ep.season_number} • Episode ${ep.episode_number}`);
+                            : (ep.is_movie ? (ep.overview || 'Feature Film Release') : `Season ${ep.season_number} • Episode ${ep.episode_number}`);
 
                         return (
                             <div 

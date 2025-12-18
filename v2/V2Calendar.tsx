@@ -46,10 +46,15 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         return dayEps.filter(ep => {
             if (settings.hideTheatrical && ep.is_movie && ep.release_type === 'theatrical') return false;
             if (settings.ignoreSpecials && ep.season_number === 0) return false;
+            
+            // Media Type Filters
             if (!showTV && !ep.is_movie) return false;
             if (!showMovies && ep.is_movie) return false;
+
+            // Hidden Blacklist Logic
             const isBlacklisted = (settings.hiddenItems || []).some(h => h.id === ep.show_id);
             if (isBlacklisted && !showHidden) return false;
+
             return true;
         });
     };
@@ -126,16 +131,56 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     
                     <div className="relative" ref={filterRef}>
                         <button onClick={() => setIsFilterOpen(!isFilterOpen)} className={`p-2.5 transition-all rounded-xl border border-white/5 ${isFilterOpen ? 'bg-indigo-500 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'}`}><Filter className="w-3.5 h-3.5" /></button>
+                        
                         {isFilterOpen && (
                             <div className="absolute top-full right-0 mt-3 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-enter">
                                 <div className="p-3">
-                                    <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3">Calendar Filters</h4>
+                                    <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 px-2">Display Filter</h4>
                                     <div className="space-y-1">
-                                        <button onClick={() => setShowTV(!showTV)} className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${showTV ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}><div className="flex items-center gap-3"><Tv className="w-3.5 h-3.5" />TV Series</div>{showTV && <Check className="w-3 h-3 text-indigo-400" />}</button>
-                                        <button onClick={() => setShowMovies(!showMovies)} className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${showMovies ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}><div className="flex items-center gap-3"><Film className="w-3.5 h-3.5" />Movies</div>{showMovies && <Check className="w-3 h-3 text-indigo-400" />}</button>
-                                        <div className="h-px bg-white/5 my-2" />
-                                        <button onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${!settings.hideTheatrical ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}><div className="flex items-center gap-3"><MonitorPlay className="w-3.5 h-3.5" />Digital & Home</div>{!settings.hideTheatrical && <Check className="w-3 h-3 text-indigo-400" />}</button>
-                                        <button onClick={() => setShowHidden(!showHidden)} className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${showHidden ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}><div className="flex items-center gap-3">{showHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}Ignored Items</div>{showHidden && <Check className="w-3 h-3 text-indigo-400" />}</button>
+                                        <button 
+                                            onClick={() => setShowTV(!showTV)}
+                                            className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${showTV ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <Tv className="w-3.5 h-3.5" />
+                                                TV Series
+                                            </div>
+                                            {showTV && <Check className="w-3 h-3 text-indigo-400" />}
+                                        </button>
+                                        <button 
+                                            onClick={() => setShowMovies(!showMovies)}
+                                            className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${showMovies ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <Film className="w-3.5 h-3.5" />
+                                                Movies
+                                            </div>
+                                            {showMovies && <Check className="w-3 h-3 text-indigo-400" />}
+                                        </button>
+
+                                        <div className="h-px bg-white/5 my-2 mx-2" />
+
+                                        <button 
+                                            onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })}
+                                            className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${!settings.hideTheatrical ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <MonitorPlay className="w-3.5 h-3.5" />
+                                                Home/Digital Only
+                                            </div>
+                                            {!settings.hideTheatrical && <Check className="w-3 h-3 text-indigo-400" />}
+                                        </button>
+
+                                        <button 
+                                            onClick={() => setShowHidden(!showHidden)}
+                                            className={`w-full flex items-center justify-between p-2 rounded-lg text-[11px] font-bold transition-all ${showHidden ? 'bg-white/5 text-white' : 'text-zinc-600 hover:bg-white/[0.02]'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                {showHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                                Hidden Items
+                                            </div>
+                                            {showHidden && <Check className="w-3 h-3 text-indigo-400" />}
+                                        </button>
                                     </div>
                                 </div>
                             </div>

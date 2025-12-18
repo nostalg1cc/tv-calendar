@@ -136,12 +136,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const manualOverridesRef = useRef<Record<string, boolean>>({});
   const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fix: Explicitly type allTrackedShows to avoid unknown[] property errors downstream
+  // Fix: Use spread operator on iterator to avoid unknown[] inference issues in type assignment
   const allTrackedShows = useMemo<TVShow[]>(() => {
     const map = new Map<number, TVShow>();
     watchlist.forEach(s => map.set(s.id, s));
     subscribedLists.forEach(l => l.items.forEach(s => { if (!map.has(s.id)) map.set(s.id, s); }));
-    return Array.from(map.values());
+    return [...map.values()];
   }, [watchlist, subscribedLists]);
 
   useEffect(() => {
@@ -290,7 +290,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); 
       if (cached && Object.keys(cached).length > 0) { setEpisodes(cached); setLoading(false); return; } 
     } 
-    const uniqueItems: TVShow[] = Array.from(new Map(allTrackedShows.map((item: TVShow) => [item.id, item])).values());
+    // Fix: Use spread operator and explicit generic parameters for Map to avoid unknown[] inference from iterator conversion
+    const uniqueItems: TVShow[] = [...new Map<number, TVShow>(allTrackedShows.map((item: TVShow) => [item.id, item])).values()];
     if (uniqueItems.length === 0) { setEpisodes({}); setLoading(false); return; } 
     if (Object.keys(episodes).length === 0) setLoading(true); 
     setIsSyncing(true); 
@@ -370,13 +371,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const saveTraktToken = async (tokenData: any) => { if (!user) return; try { const profile = await getTraktProfile(tokenData.access_token); const updatedUser: User = { ...user, traktToken: { ...tokenData, created_at: Date.now() / 1000 }, traktProfile: profile }; setUser(updatedUser); if (user.isCloud && supabase) await supabase.from('profiles').update({ trakt_token: updatedUser.traktToken, trakt_profile: profile }).eq('id', user.id); } catch (e) {} };
   const disconnectTrakt = async () => { if (!user) return; const updatedUser = { ...user, traktToken: undefined, traktProfile: undefined }; setUser(updatedUser); if (user.isCloud && supabase) await supabase.from('profiles').update({ trakt_token: null, trakt_profile: null }).eq('id', user.id); };
 
-  // Fix: Explicitly cast history results and item types in syncTraktData to resolve unknown[] assignment errors
+  // Sync Trakt data in the background
   const syncTraktData = async (background = false) => { 
     if (!user?.traktToken) return; 
     if (!background) setLoading(true); 
     setIsSyncing(true); 
     try { 
       const token = user.traktToken.access_token; 
+      // Fix: Cast promise result to any[] explicitly to avoid inference errors
       const historyResults = (await Promise.all([getWatchedHistory(token, 'movies'), getWatchedHistory(token, 'shows')])) as any[]; 
       const movieHistory = historyResults[0] || [];
       
@@ -401,13 +403,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const markHistoryWatched = async (sid: number, s: number, e: number) => { setIsSyncing(true); try { const show = await getShowDetails(sid); const epsToMark: Interaction[] = []; for (let si = 1; si <= s; si++) { try { const sData = await getSeasonDetails(sid, si); sData.episodes.forEach(ep => { if (ep.season_number < s || (ep.season_number === s && ep.episode_number <= e)) { epsToMark.push({ tmdb_id: sid, media_type: 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: true, rating: 0, watched_at: new Date().toISOString() }); } }); } catch (err) {} } setInteractions(prev => { const next = { ...prev }; epsToMark.forEach(i => { const key = `episode-${sid}-${i.season_number}-${i.episode_number}`; if (!next[key]?.is_watched) next[key] = i; }); return next; }); if (user?.isCloud && supabase) { for (let i = 0; i < epsToMark.length; i += 100) await supabase.from('watched_items').upsert(epsToMark.slice(i, i + 100).map(item => ({ user_id: user.id, ...item })), { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); } } catch (e) {} finally { setIsSyncing(false); } };
   const setRating = async (id: number, mt: 'tv' | 'movie', r: number) => { const key = `${mt}-${id}`; const updated = { ...(interactions[key] || { tmdb_id: id, media_type: mt, is_watched: false }), rating: r }; setInteractions(prev => ({ ...prev, [key]: updated })); if (user?.isCloud) await saveRatingToCloud(updated); };
 
-  // Fix: Explicitly type uniqueItems as TVShow[] to resolve unknown property access errors in migration loop
-  const performFullSync = async () => { if (!user?.isCloud || !supabase || !user.id) return; setIsSyncing(true); setLoading(true); try { const uniqueItems: TVShow[] = Array.from(new Map(allTrackedShows.map(item => [item.id, item])).values()); setSyncProgress({ current: 0, total: uniqueItems.length }); await supabase.from('user_calendar_events').delete().eq('user_id', user.id); let fullEps: Episode[] = []; for (const item of uniqueItems) { try { if (item.media_type === 'movie') { (await getMovieReleaseDates(item.id)).forEach(rel => fullEps.push({ id: item.id * 1000, name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type })); } else { const details = await getShowDetails(item.id); for (const sMeta of (details.seasons || [])) { const sData = await getSeasonDetails(item.id, sMeta.season_number); sData.episodes.forEach(ep => { if (ep.air_date) fullEps.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false }); }); } } } catch (e) {} setSyncProgress(p => ({ ...p, current: p.current + 1 })); } if (fullEps.length > 0) await saveToCloudCalendar(fullEps, user.id); await supabase.from('profiles').update({ full_sync_completed: true }).eq('id', user.id); const map: Record<string, Episode[]> = {}; fullEps.forEach(ep => { if (!ep.air_date) return; if (!map[ep.air_date]) map[ep.air_date] = []; map[ep.air_date].push(ep); }); setEpisodes(map); setFullSyncRequired(false); } catch (e) {} finally { setIsSyncing(false); setLoading(false); } };
+  // Perform full library sync
+  const performFullSync = async () => { if (!user?.isCloud || !supabase || !user.id) return; setIsSyncing(true); setLoading(true); try { 
+    // Fix: Use spread operator on iterator and explicit Map typing to avoid unknown[] assignment errors
+    const uniqueItems: TVShow[] = [...new Map<number, TVShow>(allTrackedShows.map(item => [item.id, item])).values()]; 
+    setSyncProgress({ current: 0, total: uniqueItems.length }); await supabase.from('user_calendar_events').delete().eq('user_id', user.id); let fullEps: Episode[] = []; for (const item of uniqueItems) { try { if (item.media_type === 'movie') { (await getMovieReleaseDates(item.id)).forEach(rel => fullEps.push({ id: item.id * 1000, name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type })); } else { const details = await getShowDetails(item.id); for (const sMeta of (details.seasons || [])) { const sData = await getSeasonDetails(item.id, sMeta.season_number); sData.episodes.forEach(ep => { if (ep.air_date) fullEps.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false }); }); } } } catch (e) {} setSyncProgress(p => ({ ...p, current: p.current + 1 })); } if (fullEps.length > 0) await saveToCloudCalendar(fullEps, user.id); await supabase.from('profiles').update({ full_sync_completed: true }).eq('id', user.id); const map: Record<string, Episode[]> = {}; fullEps.forEach(ep => { if (!ep.air_date) return; if (!map[ep.air_date]) map[ep.air_date] = []; map[ep.air_date].push(ep); }); setEpisodes(map); setFullSyncRequired(false); } catch (e) {} finally { setIsSyncing(false); setLoading(false); } };
   
   const loadCloudCalendar = async (uid: string) => { if (!supabase) return; const oneYearAgo = subYears(new Date(), 1).toISOString(); try { const { data } = await supabase.from('user_calendar_events').select('*').eq('user_id', uid).gte('air_date', oneYearAgo); if (data) { const map: Record<string, Episode[]> = {}; data.forEach((row: any) => { const k = row.air_date; if (!k) return; if (!map[k]) map[k] = []; map[k].push({ id: row.id, show_id: row.tmdb_id, show_name: row.title, name: row.episode_name || row.title, overview: row.overview || '', vote_average: row.vote_average || 0, air_date: row.air_date, episode_number: row.episode_number, season_number: row.season_number, still_path: row.backdrop_path, poster_path: row.poster_path, is_movie: row.media_type === 'movie', release_type: row.release_type }); }); setEpisodes(map); await set(DB_KEY_EPISODES, map); } } catch (e) {} };
   const loadArchivedEvents = async () => { if (!user?.isCloud || !supabase || !user.id) return; setLoading(true); try { const oneYearAgo = subYears(new Date(), 1).toISOString(); const { data } = await supabase.from('user_calendar_events').select('*').eq('user_id', user.id).lt('air_date', oneYearAgo); if (data) setEpisodes(prev => { const next = { ...prev }; data.forEach((row: any) => { const k = row.air_date; if (!k) return; if (!next[k]) next[k] = []; next[k].push({ id: row.id, show_id: row.tmdb_id, show_name: row.title, name: row.episode_name || row.title, overview: row.overview || '', vote_average: row.vote_average || 0, air_date: row.air_date, episode_number: row.episode_number, season_number: row.season_number, still_path: row.backdrop_path, poster_path: row.poster_path, is_movie: row.media_type === 'movie', release_type: row.release_type }); }); return next; }); } catch (e) {} finally { setLoading(false); } };
   
-  // Fix: Type-cast mapping variable ep to any to resolve unknown property errors in cloud row generation
+  // Save calendar to cloud
   const saveToCloudCalendar = async (list: Episode[], uid: string) => { 
     if (!supabase || list.length === 0) return; 
     const rows = (list as Episode[]).map((ep: any) => ({ 

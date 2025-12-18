@@ -118,20 +118,41 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                 <p className="text-sm text-zinc-500">Hide content for episodes you haven't watched.</p>
                             </div>
                             <div className="space-y-2 divide-y divide-white/5">
-                                <Toggle label="Protect Episode Images" description="Hide stills until watched." active={!!settings.spoilerConfig.images} onToggle={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, images: !settings.spoilerConfig.images } })} />
+                                <Toggle 
+                                    label="Protect Episode Images" 
+                                    description="Hide stills until watched." 
+                                    active={!!settings.spoilerConfig.images} 
+                                    onToggle={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, images: !settings.spoilerConfig.images } })} 
+                                />
+                                
                                 {settings.spoilerConfig.images && (
-                                    <div className="py-4 animate-enter">
-                                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-4">Replacement Mode</label>
+                                    <div className="py-4 px-2 animate-enter">
+                                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-4">Thumbnail Protection Mode</label>
                                         <div className="grid grid-cols-2 gap-3">
-                                            <button onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'blur' } })} className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${settings.spoilerConfig.replacementMode === 'blur' ? 'border-indigo-500 bg-zinc-900 text-indigo-400' : 'border-white/5 text-zinc-500 hover:text-zinc-300'}`}>
-                                                <EyeOff className="w-4 h-4" /><div className="text-left"><div className="text-xs font-bold uppercase tracking-tight">Heavy Blur</div><div className="text-[9px] opacity-60">Pixelated Still</div></div>
+                                            <button 
+                                                onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'blur' } })}
+                                                className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${settings.spoilerConfig.replacementMode === 'blur' ? 'border-indigo-500 bg-zinc-900 text-indigo-400 shadow-lg shadow-indigo-500/10' : 'border-white/5 text-zinc-500 hover:text-zinc-300'}`}
+                                            >
+                                                <EyeOff className="w-4 h-4" />
+                                                <div className="text-left">
+                                                    <div className="text-xs font-bold uppercase tracking-tight">Blur Original</div>
+                                                    <div className="text-[9px] opacity-60">Heavy Pixel Filter</div>
+                                                </div>
                                             </button>
-                                            <button onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'banner' } })} className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${settings.spoilerConfig.replacementMode === 'banner' ? 'border-indigo-500 bg-zinc-900 text-indigo-400' : 'border-white/5 text-zinc-500 hover:text-zinc-300'}`}>
-                                                <Layout className="w-4 h-4" /><div className="text-left"><div className="text-xs font-bold uppercase tracking-tight">Show Banner</div><div className="text-[9px] opacity-60">Generic Art</div></div>
+                                            <button 
+                                                onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'banner' } })}
+                                                className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${settings.spoilerConfig.replacementMode === 'banner' ? 'border-indigo-500 bg-zinc-900 text-indigo-400 shadow-lg shadow-indigo-500/10' : 'border-white/5 text-zinc-500 hover:text-zinc-300'}`}
+                                            >
+                                                <Layout className="w-4 h-4" />
+                                                <div className="text-left">
+                                                    <div className="text-xs font-bold uppercase tracking-tight">Series Banner</div>
+                                                    <div className="text-[9px] opacity-60">Generic Show Art</div>
+                                                </div>
                                             </button>
                                         </div>
                                     </div>
                                 )}
+
                                 <Toggle label="Censor Titles" description="Replace names with generic labels." active={!!settings.spoilerConfig.title} onToggle={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, title: !settings.spoilerConfig.title } })} />
                                 <Toggle label="Redact Overviews" description="Hide episode descriptions." active={!!settings.spoilerConfig.overview} onToggle={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, overview: !settings.spoilerConfig.overview } })} />
                                 <Toggle label="Protect Movies" description="Apply filters to movie releases." active={!!settings.spoilerConfig.includeMovies} onToggle={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, includeMovies: !settings.spoilerConfig.includeMovies } })} />
