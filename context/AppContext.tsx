@@ -545,7 +545,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 for (let i = 0; i < epsToMark.length; i += dbBatchSize) { 
                     const batch = epsToMark.slice(i, i + dbBatchSize).map(item => ({ 
                         user_id: user.id, 
-                        tmdb_id: item.tmdb_id,
+                        tmdb_id: item.tmdb_id, 
                         media_type: item.media_type,
                         season_number: item.season_number,
                         episode_number: item.episode_number,
@@ -733,14 +733,94 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const login = (username: string, apiKey: string) => { const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false }; setUser(newUser); setApiToken(apiKey); localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); };
   
-  const loginCloud = async (session: any) => { if (!supabase) return; const { user: authUser } = session; const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); if (profile) { const newUser: User = { id: authUser.id, username: profile.username || authUser.email, email: authUser.email, tmdbKey: profile.tmdb_key || '', isAuthenticated: true, isCloud: true, traktToken: profile.trakt_token, traktProfile: profile.trakt_profile, fullSyncCompleted: profile.full_sync_completed }; if (user && user.id && user.id !== authUser.id) { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); } setUser(newUser); setApiToken(newUser.tmdbKey); if (profile.settings) { const local = getLocalPrefs(); const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; if (mergedSettings.timeShift === undefined) mergedSettings.timeShift = false; if (!mergedSettings.v2SidebarMode) mergedSettings.v2SidebarMode = 'fixed'; if (mergedSettings.autoSync === undefined) mergedSettings.autoSync = true; if (!mergedSettings.v2LibraryLayout) mergedSettings.v2LibraryLayout = 'grid';
-          if (mergedSettings.hiddenIds && !mergedSettings.hiddenItems) { mergedSettings.hiddenItems = mergedSettings.hiddenIds.map((id: number) => ({ id, name: 'Unknown Show' })); delete mergedSettings.hiddenIds; }
-          if (!mergedSettings.hiddenItems) mergedSettings.hiddenItems = []; 
-          setSettings(mergedSettings); } const { data: remoteWatchlist } = await supabase.from('watchlist').select('*'); if (remoteWatchlist) { const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; setWatchlist(loadedWatchlist); } const { data: remoteSubs } = await supabase.from('subscriptions').select('*'); if (remoteSubs) { const loadedLists: SubscribedList[] = []; for (const sub of remoteSubs) { try { const listDetails = await getListDetails(sub.list_id); loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); } catch (e) {} } setSubscribedLists(loadedLists); } 
-          const { data: remoteInteractions } = await supabase.from('interactions').select('*'); 
-          const { data: remoteManual } = await supabase.from('watched_items').select('*'); 
+  const loginCloud = async (session: any) => { 
+      if (!supabase) return; 
+      const { user: authUser } = session; 
+      const { data: profile } = await supabase.from('profiles').select('username, tmdb_key, settings, trakt_token, trakt_profile, full_sync_completed').eq('id', authUser.id).single(); 
+      
+      if (profile) { 
+          const newUser: User = { 
+              id: authUser.id, 
+              username: profile.username || authUser.email, 
+              email: authUser.email, 
+              tmdbKey: profile.tmdb_key || '', 
+              isAuthenticated: true, 
+              isCloud: true, 
+              traktToken: profile.trakt_token, 
+              traktProfile: profile.trakt_profile, 
+              fullSyncCompleted: profile.full_sync_completed 
+          }; 
+          
+          if (user && user.id && user.id !== authUser.id) { 
+              await del(DB_KEY_EPISODES); 
+              await del(DB_KEY_META); 
+              setEpisodes({}); 
+          } 
+          
+          // CRITICAL: Set API token first so fetches work
+          setApiToken(newUser.tmdbKey); 
+          
+          if (profile.settings) { 
+              const local = getLocalPrefs(); 
+              const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; 
+              
+              // Defaults
+              if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; 
+              if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; 
+              if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; 
+              if (!mergedSettings.baseTheme) mergedSettings.baseTheme = 'cosmic'; 
+              if (!mergedSettings.appFont) mergedSettings.appFont = 'inter'; 
+              if (!mergedSettings.reminderStrategy) mergedSettings.reminderStrategy = 'ask'; 
+              if (mergedSettings.timeShift === undefined) mergedSettings.timeShift = false; 
+              if (!mergedSettings.v2SidebarMode) mergedSettings.v2SidebarMode = 'fixed'; 
+              if (mergedSettings.autoSync === undefined) mergedSettings.autoSync = true; 
+              if (!mergedSettings.v2LibraryLayout) mergedSettings.v2LibraryLayout = 'grid';
+              
+              if (mergedSettings.hiddenIds && !mergedSettings.hiddenItems) { 
+                  mergedSettings.hiddenItems = mergedSettings.hiddenIds.map((id: number) => ({ id, name: 'Unknown Show' })); 
+                  delete mergedSettings.hiddenIds; 
+              }
+              if (!mergedSettings.hiddenItems) mergedSettings.hiddenItems = []; 
+              
+              setSettings(mergedSettings); 
+          } 
+          
+          // PARALLEL DATA FETCH
+          const [
+              { data: remoteWatchlist },
+              { data: remoteSubs },
+              { data: remoteInteractions },
+              { data: remoteManual },
+              { data: remoteReminders }
+          ] = await Promise.all([
+               supabase.from('watchlist').select('*'),
+               supabase.from('subscriptions').select('*'),
+               supabase.from('interactions').select('*'),
+               supabase.from('watched_items').select('*'),
+               supabase.from('reminders').select('*')
+          ]);
+
+          if (remoteWatchlist) { 
+              const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; 
+              setWatchlist(loadedWatchlist); 
+          } 
+
+          if (remoteSubs) { 
+              const loadedLists: SubscribedList[] = []; 
+              // Note: This loop might still be a bottleneck, but necessary for content.
+              // In a real optimized app, we'd store list items in DB or load on demand.
+              for (const sub of remoteSubs) { 
+                  try { 
+                      const listDetails = await getListDetails(sub.list_id); 
+                      loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length }); 
+                  } catch (e) {} 
+              } 
+              setSubscribedLists(loadedLists); 
+          } 
+          
           const intMap: Record<string, Interaction> = {}; 
           const manualMap: Record<string, boolean> = {};
+          
           if (remoteInteractions) { 
               (remoteInteractions as any[]).forEach((i) => { 
                   let key = i.media_type === 'episode' ? `episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}` : `${i.media_type}-${i.tmdb_id}`;
@@ -751,16 +831,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               (remoteManual as any[]).forEach((m) => {
                   let key = m.media_type === 'episode' ? `episode-${m.tmdb_id}-${m.season_number}-${m.episode_number}` : `${m.media_type}-${m.tmdb_id}`;
                   manualMap[key] = m.is_watched;
+                  // Priority: Manual > Interaction/Trakt
                   if (intMap[key]) { intMap[key].is_watched = m.is_watched; } else { intMap[key] = { tmdb_id: m.tmdb_id, media_type: m.media_type, is_watched: m.is_watched, rating: 0, season_number: m.season_number, episode_number: m.episode_number, watched_at: m.watched_at }; }
               });
           }
+          
           setInteractions(intMap); 
-          manualOverridesRef.current = manualMap; 
-          const { data: remoteReminders } = await supabase.from('reminders').select('*'); if (remoteReminders) { setReminders(remoteReminders.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes }))); } if (!profile.full_sync_completed) { setFullSyncRequired(true); setLoading(false); } else { setLoading(true); if (newUser.id) { const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); if (cached) setEpisodes(cached); await loadCloudCalendar(newUser.id); } setLoading(false); } } };
+          manualOverridesRef.current = manualMap; // CRITICAL: Set this before enabling user sync effects
+          
+          if (remoteReminders) { 
+              setReminders(remoteReminders.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes }))); 
+          } 
+          
+          if (!profile.full_sync_completed) { 
+              setFullSyncRequired(true); 
+          } else { 
+              if (newUser.id) { 
+                  const cached = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); 
+                  if (cached) setEpisodes(cached); 
+                  await loadCloudCalendar(newUser.id); 
+              } 
+          } 
+
+          // FINALLY set user to trigger app logic
+          setUser(newUser); 
+          setLoading(false); 
+      } 
+  };
   
   const reloadAccount = async () => { if (isSyncing) return; setLoading(true); try { await del(DB_KEY_EPISODES); await del(DB_KEY_META); setEpisodes({}); if (user?.isCloud && supabase) { const { data: { session } } = await supabase.auth.getSession(); if (session) await loginCloud(session); else logout(); } else { await refreshEpisodes(true); } } catch (e) { setLoading(false); } };
   const updateUserKey = async (apiKey: string) => { if (user) { const updatedUser = { ...user, tmdbKey: apiKey }; setUser(updatedUser); setApiToken(apiKey); if (user.isCloud && supabase) { await supabase.from('profiles').update({ tmdb_key: apiKey }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } };
-  const updateSettings = async (newSettings: Partial<AppSettings>) => { setSettings(prev => { const updated = { ...prev, ...newSettings }; const localKeys = ['viewMode', 'mobileNavLayout', 'v2SidebarMode']; const localPrefs = getLocalPrefs(); const prefsToSaveLocally: any = { ...localPrefs }; let hasLocalChanges = false; localKeys.forEach(k => { if (k in newSettings) { prefsToSaveLocally[k] = newSettings[k as keyof AppSettings]; hasLocalChanges = true; } }); if (hasLocalChanges) localStorage.setItem('tv_calendar_local_prefs', JSON.stringify(prefsToSaveLocally)); const settingsToSync = { ...updated }; localKeys.forEach(k => delete (settingsToSync as any)[k]); if (user?.isCloud && supabase) supabase.from('profiles').update({ settings: settingsToSync }).eq('id', user.id).then(); localStorage.setItem('tv_calendar_settings', JSON.stringify(settingsToSync)); return updated; }); };
+  const updateSettings = async (newSettings: Partial<AppSettings>) => { setSettings(prev => { const updated = { ...prev, ...newSettings }; const localKeys = ['viewMode', 'mobileNavLayout', 'v2SidebarMode']; const localPrefs = getLocalPrefs(); const prefsToSaveLocally: any = { ...localPrefs }; let hasLocalChanges = false; localKeys.forEach(k => { if (k in newSettings) { prefsToSaveLocally[k] = newSettings[k as keyof AppSettings]; hasLocalChanges = true; } }); if (hasLocalChanges) localStorage.setItem('tv_calendar_local_prefs', JSON.stringify(prefsToSaveLocally)); const settingsToSync = { ...updated }; localKeys.forEach(k => delete (settingsToSync as any)[k]); if (user?.isCloud && supabase && user.id) supabase.from('profiles').update({ settings: settingsToSync }).eq('id', user.id).then(({error}) => { if(error) console.error("Failed to sync settings", error); }); localStorage.setItem('tv_calendar_settings', JSON.stringify(settingsToSync)); return updated; }); };
   const logout = async () => { if (user?.isCloud && supabase) await supabase.auth.signOut(); setUser(null); localStorage.removeItem('tv_calendar_user'); del(DB_KEY_EPISODES); del(DB_KEY_META); setWatchlist([]); setSubscribedLists([]); setEpisodes({}); setReminders([]); setInteractions({}); localStorage.removeItem('tv_calendar_interactions'); };
   const addReminder = async (reminder: Reminder) => { const newReminder = { ...reminder, id: reminder.id || crypto.randomUUID() }; setReminders(prev => [...prev, newReminder]); if (user?.isCloud && supabase) { await supabase.from('reminders').insert({ user_id: user.id, tmdb_id: reminder.tmdb_id, media_type: reminder.media_type, scope: reminder.scope, episode_season: reminder.episode_season, episode_number: reminder.episode_number, offset_minutes: reminder.offset_minutes }); } await requestNotificationPermission(); };
   const removeReminder = async (id: string) => { setReminders(prev => prev.filter(r => r.id !== id)); if (user?.isCloud && supabase) await supabase.from('reminders').delete().eq('id', id); };
