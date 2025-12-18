@@ -1,4 +1,4 @@
 
 import React from 'react';
-// V1 Reminders Page is deprecated.
+// Legacy Component Scorched
 export default function RemindersPage() { return null; }

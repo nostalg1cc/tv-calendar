@@ -1,4 +1,4 @@
 
 import React from 'react';
-// V1 Navbar is deprecated.
+// Legacy Component Scorched
 export default function Navbar() { return null; }

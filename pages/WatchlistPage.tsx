@@ -1,4 +1,4 @@
 
 import React from 'react';
-// V1 Watchlist Page is deprecated.
+// Legacy Component Scorched
 export default function WatchlistPage() { return null; }

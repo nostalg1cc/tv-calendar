@@ -1,4 +1,4 @@
 
 import React from 'react';
-// V1 Calendar Page is deprecated.
+// Legacy Component Scorched
 export default function CalendarPage() { return null; }

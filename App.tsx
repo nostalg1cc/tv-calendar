@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import LoginPage from './pages/LoginPage';
 import MobileAddWarning from './components/MobileAddWarning';
@@ -11,7 +11,7 @@ import SearchModal from './components/SearchModal';
 import V2Dashboard from './v2/V2Dashboard';
 
 const AppRoutes: React.FC = () => {
-    const { user, settings, reminderCandidate, setReminderCandidate } = useAppContext();
+    const { user, reminderCandidate, setReminderCandidate } = useAppContext();
     const [isConfigOpen, setIsConfigOpen] = useState(false);
 
     if (!user) {
