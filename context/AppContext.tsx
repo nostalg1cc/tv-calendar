@@ -80,18 +80,13 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Timezone map for major countries to use as origin estimation
+// Timezone map for origin estimation
 const COUNTRY_TIMEZONES: Record<string, string> = {
-    'US': 'America/New_York',
-    'GB': 'Europe/London',
-    'JP': 'Asia/Tokyo',
-    'KR': 'Asia/Seoul',
-    'CA': 'America/Toronto',
-    'AU': 'Australia/Sydney',
-    'DE': 'Europe/Berlin',
-    'FR': 'Europe/Paris',
-    'BR': 'America/Sao_Paulo',
-    'IN': 'Asia/Kolkata',
+    'US': 'America/New_York', 'CA': 'America/Toronto', 'GB': 'Europe/London', 'IE': 'Europe/Dublin',
+    'JP': 'Asia/Tokyo', 'KR': 'Asia/Seoul', 'CN': 'Asia/Shanghai', 'AU': 'Australia/Sydney', 'NZ': 'Pacific/Auckland',
+    'DE': 'Europe/Berlin', 'FR': 'Europe/Paris', 'ES': 'Europe/Madrid', 'IT': 'Europe/Rome', 'NL': 'Europe/Amsterdam',
+    'BR': 'America/Sao_Paulo', 'MX': 'America/Mexico_City', 'AR': 'America/Argentina/Buenos_Aires',
+    'IN': 'Asia/Kolkata', 'RU': 'Europe/Moscow', 'ZA': 'Africa/Johannesburg'
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -338,22 +333,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
           const newMap: Record<string, Episode[]> = {};
           
-          // Optimization: Create lookup for origins to avoid O(N^2)
-          const originMap = new Map<number, string[]>();
-          allTrackedShows.forEach(s => {
-             if (s.origin_country) originMap.set(s.id, s.origin_country);
-          });
-
           allEps.forEach(ep => {
               if (!ep.air_date) return;
-              const origin = ep.show_id ? originMap.get(ep.show_id) : undefined;
-              
-              // Use logic directly here to ensure latest settings closure
-              // (Though dependency array handles this, redundant code for safety)
-              const dateKey = getAdjustedDate(ep.air_date, origin);
+              // Use metadata attached to the episode itself
+              const dateKey = getAdjustedDate(ep.air_date, ep.origin_country);
               
               if (!newMap[dateKey]) newMap[dateKey] = [];
-              // Prevent duplicates if something weird happens
               if (!newMap[dateKey].some(e => e.id === ep.id)) {
                   newMap[dateKey].push(ep);
               }
@@ -364,7 +349,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
           return newMap;
       });
-  }, [settings.timeShift, settings.timezone, allTrackedShows, getAdjustedDate]);
+  }, [settings.timeShift, settings.timezone, getAdjustedDate]);
 
 
   const traktAuth = async (clientId: string, clientSecret: string) => { return await getDeviceCode(clientId); };
@@ -659,10 +644,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // Merge logic: Don't replace state, merge into it
           const currentEps = cachedEps || {};
 
-          const mergeNewEpisodes = (newEps: Episode[], originCountries?: string[]) => { 
-              // We'll update the state at the end or in chunks to avoid UI lag
-              // For now, let's collect them in a temporary map and merge later
-              return newEps;
+          // Helper to inject origin data into episodes
+          const enhanceEpisodes = (newEps: Episode[], origin?: string[]): Episode[] => {
+              return newEps.map(ep => ({
+                  ...ep,
+                  origin_country: origin // Explicitly attach origin for shifting logic
+              }));
           }; 
 
           let processedCount = 0; 
@@ -678,15 +665,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               await Promise.all(batch.map(async (item) => { 
                   try { 
                       const batchEpisodes: Episode[] = [];
+                      
+                      // Always fetch details to get origin_country if missing in item
+                      // Note: We don't save this back to watchlist state to avoid huge re-renders/storage writes
+                      // but we use it for the episode generation.
+                      let origin = item.origin_country;
+                      let details = item;
+
                       if (item.media_type === 'movie') { 
+                          if (!origin) {
+                               const fullMovie = await getMovieDetails(item.id);
+                               origin = fullMovie.origin_country;
+                          }
                           const releaseDates = await getMovieReleaseDates(item.id); 
                           releaseDates.forEach(rel => { 
                               batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); 
                           }); 
                       } else { 
-                          // Fetch latest show details to get current seasons
-                          let details = item;
-                          try { details = await getShowDetails(item.id); } catch(e) {
+                          // Fetch latest show details to get current seasons AND origin
+                          try { 
+                              details = await getShowDetails(item.id); 
+                              origin = details.origin_country;
+                          } catch(e) {
                               console.warn(`Failed to fetch show details for ${item.name}`, e);
                           }
                           
@@ -717,10 +717,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                   console.warn(`Failed to fetch season ${sMeta.season_number} for ${item.name}`, e);
                               } 
                           } 
-                          
-                          incomingEpisodes.push(...mergeNewEpisodes(batchEpisodes, details.origin_country));
                       } 
-                      if (item.media_type === 'movie') { incomingEpisodes.push(...mergeNewEpisodes(batchEpisodes, item.origin_country)); }
+                      
+                      incomingEpisodes.push(...enhanceEpisodes(batchEpisodes, origin));
+
                   } catch (error) {
                        console.error(`Error processing item ${item.name}`, error);
                   } 
@@ -732,16 +732,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // --- Intelligent Cache Merging ---
           const finalEpisodesMap: Record<string, Episode[]> = { ...currentEps };
           
-          // Create origin map for optimization during large re-sorts
-          const originMap = new Map<number, string[]>();
-          allTrackedShows.forEach(s => {
-             if (s.origin_country) originMap.set(s.id, s.origin_country);
-          });
-
           incomingEpisodes.forEach(ep => {
               if(!ep.air_date) return;
-              const origin = ep.show_id ? originMap.get(ep.show_id) : undefined;
-              const dateKey = getAdjustedDate(ep.air_date, origin);
+              
+              // Now we have origin_country on the episode object itself!
+              const dateKey = getAdjustedDate(ep.air_date, ep.origin_country);
               
               if (!finalEpisodesMap[dateKey]) finalEpisodesMap[dateKey] = [];
               
@@ -805,10 +800,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // CRITICAL: Set API token first so fetches work
           setApiToken(newUser.tmdbKey); 
           
+          // --- PARSING SETTINGS ---
+          // The CSV shows settings as a JSON string, ensure safe parsing
           if (profile.settings) { 
+              let parsedSettings = profile.settings;
+              if (typeof parsedSettings === 'string') {
+                  try { parsedSettings = JSON.parse(parsedSettings); } catch (e) { console.warn("Failed to parse settings JSON string"); }
+              }
+
               const local = getLocalPrefs(); 
               // Respect saved settings but apply defaults
-              const mergedSettings = { ...DEFAULT_SETTINGS, ...profile.settings, ...local }; 
+              const mergedSettings = { ...DEFAULT_SETTINGS, ...parsedSettings, ...local }; 
               
               // Validate structure
               if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; 
@@ -840,7 +842,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           ]);
 
           if (remoteWatchlist) { 
-              const loadedWatchlist = remoteWatchlist.map((item: any) => ({ id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type, number_of_seasons: item.number_of_seasons })) as TVShow[]; 
+              const loadedWatchlist = remoteWatchlist.map((item: any) => ({ 
+                  id: item.tmdb_id, // CRITICAL: Map DB tmdb_id to app 'id'
+                  name: item.name, 
+                  poster_path: item.poster_path, 
+                  backdrop_path: item.backdrop_path, 
+                  overview: item.overview, 
+                  first_air_date: item.first_air_date, 
+                  vote_average: item.vote_average, 
+                  media_type: item.media_type 
+              })) as TVShow[]; 
               setWatchlist(loadedWatchlist); 
           } 
 
@@ -860,7 +871,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
           if (remoteInteractions) { 
               (remoteInteractions as any[]).forEach((i) => { 
-                  let key = i.media_type === 'episode' ? `episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}` : `${i.media_type}-${i.tmdb_id}`;
+                  let key;
+                  if (i.media_type === 'episode') {
+                      // CRITICAL: Ensure key matches {episode}-{showId}-{season}-{episode}
+                      // i.tmdb_id in the DB for episodes corresponds to the SHOW ID based on SQL schema
+                      key = `episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}`;
+                  } else {
+                      key = `${i.media_type}-${i.tmdb_id}`;
+                  }
                   intMap[key] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at }; 
               }); 
           } 

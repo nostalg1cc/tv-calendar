@@ -30,6 +30,7 @@ export interface Episode {
   is_movie?: boolean; // Flag to identify movies in mixed lists
   release_type?: 'theatrical' | 'digital'; // Specific release type for movies
   backdrop_path?: string | null; // For movies or specific episode styling
+  origin_country?: string[]; // Critical for Time Shifting
 }
 
 export interface Season {
