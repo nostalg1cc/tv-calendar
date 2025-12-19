@@ -1,11 +1,12 @@
 
 import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle, X, ChevronDown, RefreshCw, Cloud, HardDrive, Database } from 'lucide-react';
+import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle, X, ChevronDown, RefreshCw, Cloud, HardDrive, CheckCheck, Loader2 } from 'lucide-react';
 import { useStore } from '../store';
-import { Episode } from '../types';
-import { getImageUrl } from '../services/tmdb';
+import { Episode, WatchedItem } from '../types';
+import { getImageUrl, getShowDetails } from '../services/tmdb';
 import { useCalendarEpisodes } from '../hooks/useQueries';
+import toast from 'react-hot-toast';
 
 interface V2AgendaProps {
     selectedDay: Date;
@@ -15,8 +16,9 @@ interface V2AgendaProps {
 }
 
 const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen, onClose }) => {
-    const { settings, history: interactions, toggleWatched, isSyncing, user, triggerCloudSync } = useStore();
+    const { settings, history: interactions, toggleWatched, markManyWatched, isSyncing, user, triggerCloudSync } = useStore();
     const { episodes } = useCalendarEpisodes(selectedDay);
+    const [markingShowId, setMarkingShowId] = useState<number | null>(null);
     
     // Prevent body scroll when drawer is open on mobile
     useEffect(() => {
@@ -39,6 +41,54 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
         acc[key].push(ep);
         return acc;
     }, {} as Record<number, Episode[]>);
+
+    const handleMarkPrevious = async (ep: Episode) => {
+        if (!ep.show_id || markingShowId) return;
+        setMarkingShowId(ep.show_id);
+        
+        try {
+            const details = await getShowDetails(ep.show_id);
+            const itemsToMark: WatchedItem[] = [];
+            
+            // Mark all up to and including this episode
+            const targetSeason = ep.season_number;
+            const targetEpisode = ep.episode_number;
+
+            details.seasons?.forEach(s => {
+                if (s.season_number === 0 && settings.ignoreSpecials) return;
+                
+                if (s.season_number < targetSeason) {
+                    for(let i=1; i <= s.episode_count; i++) {
+                        itemsToMark.push({
+                            tmdb_id: ep.show_id!,
+                            media_type: 'episode',
+                            season_number: s.season_number,
+                            episode_number: i,
+                            is_watched: true
+                        });
+                    }
+                } else if (s.season_number === targetSeason) {
+                    for(let i=1; i <= targetEpisode; i++) {
+                        itemsToMark.push({
+                            tmdb_id: ep.show_id!,
+                            media_type: 'episode',
+                            season_number: s.season_number,
+                            episode_number: i,
+                            is_watched: true
+                        });
+                    }
+                }
+            });
+
+            markManyWatched(itemsToMark);
+            toast.success(`Marked ${itemsToMark.length} episodes as watched`);
+        } catch (e) {
+            console.error(e);
+            toast.error("Failed to update history");
+        } finally {
+            setMarkingShowId(null);
+        }
+    };
 
     const GroupedShowCard: React.FC<{ eps: Episode[] }> = ({ eps }) => {
         const firstEp = eps[0];
@@ -104,6 +154,8 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                         const titleText = isTextCensored ? `Episode ${ep.episode_number}` : (ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema Premiere' : 'Digital Release') : ep.name);
                         const subText = isDescCensored ? 'Description hidden' : (ep.is_movie ? ep.overview : `S${ep.season_number} E${ep.episode_number}`);
 
+                        const isMarking = markingShowId === ep.show_id;
+
                         return (
                             <div 
                                 key={`${ep.show_id}-${ep.id}`}
@@ -121,7 +173,20 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
-                                    <button onClick={() => ep.show_id && toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched })} className={`p-2 transition-all ${isWatched ? 'text-emerald-500' : 'text-zinc-600 hover:text-white'}`}>
+                                    {!ep.is_movie && !isWatched && (
+                                        <button 
+                                            onClick={() => handleMarkPrevious(ep)}
+                                            disabled={isMarking}
+                                            className="p-2 text-zinc-600 hover:text-indigo-400 transition-colors"
+                                            title="Mark Previous Watched"
+                                        >
+                                            {isMarking ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />}
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={() => ep.show_id && toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched })} 
+                                        className={`p-2 transition-all ${isWatched ? 'text-emerald-500' : 'text-zinc-600 hover:text-white'}`}
+                                    >
                                         <Check className={`w-4 h-4 ${isWatched ? 'stroke-[3px]' : 'stroke-2'}`} />
                                     </button>
                                 </div>

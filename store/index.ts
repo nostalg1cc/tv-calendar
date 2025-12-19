@@ -33,6 +33,7 @@ interface State {
     addToWatchlist: (show: TVShow) => void;
     removeFromWatchlist: (id: number) => void;
     toggleWatched: (item: Partial<WatchedItem> & { tmdb_id: number; media_type: 'tv' | 'movie' | 'episode' }) => void;
+    markManyWatched: (items: WatchedItem[]) => void;
     setRating: (id: number, mediaType: 'tv' | 'movie' | 'episode', rating: number) => void;
     
     addReminder: (reminder: Reminder) => Promise<void>;
@@ -189,6 +190,45 @@ export const useStore = create<State>()(
                     
                     return { history: nextHistory };
                 });
+            },
+
+            markManyWatched: (items) => {
+                 set((state) => {
+                    const nextHistory = { ...state.history };
+                    const now = new Date().toISOString();
+                    const cloudUpserts: any[] = [];
+                    
+                    items.forEach(item => {
+                        const key = item.media_type === 'episode'
+                            ? `episode-${item.tmdb_id}-${item.season_number}-${item.episode_number}`
+                            : `${item.media_type}-${item.tmdb_id}`;
+                        
+                        // Only update if not already watched
+                        if (!nextHistory[key]?.is_watched) {
+                             const newItem = { ...item, is_watched: true, watched_at: now };
+                             nextHistory[key] = newItem;
+                             
+                             if (state.user?.is_cloud) {
+                                 cloudUpserts.push({
+                                    user_id: state.user.id,
+                                    tmdb_id: item.tmdb_id,
+                                    media_type: item.media_type,
+                                    season_number: item.season_number ?? -1,
+                                    episode_number: item.episode_number ?? -1,
+                                    is_watched: true,
+                                    watched_at: now,
+                                    updated_at: now
+                                 });
+                             }
+                        }
+                    });
+
+                    if (cloudUpserts.length > 0) {
+                         supabase?.from('interactions').upsert(cloudUpserts, { onConflict: 'user_id,tmdb_id,media_type,season_number,episode_number' }).then();
+                    }
+                    
+                    return { history: nextHistory };
+                 });
             },
 
             setRating: (id, mediaType, rating) => {

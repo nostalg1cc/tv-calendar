@@ -96,16 +96,19 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
     // Scroll to today logic
     useEffect(() => {
+        if (isLoading) return;
+
         if ((viewMode === 'cards' || viewMode === 'list') && cardScrollRef.current) {
-            // Slight delay to ensure DOM render
-            setTimeout(() => {
+            // Slight delay to ensure DOM render after data fetch or view change
+            const timer = setTimeout(() => {
                 const todayEl = document.getElementById('v2-today-anchor');
                 if (todayEl) {
                     todayEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             }, 100);
+            return () => clearTimeout(timer);
         }
-    }, [viewMode, calendarDate, activeDays]); 
+    }, [viewMode, calendarDate, isLoading]); // Re-run when view changes or loading finishes
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -418,7 +421,11 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 const groupedEps = groupEpisodes(dayEps);
                                 
                                 return (
-                                    <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined}>
+                                    <div 
+                                        key={day.toISOString()} 
+                                        id={isTodayDate ? 'v2-today-anchor' : undefined}
+                                        className="scroll-mt-32"
+                                    >
                                         <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-2 px-6 flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <span className={`text-xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-400' : 'text-white'}`}>{format(day, 'dd')}</span>
@@ -539,7 +546,11 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 const isTodayDate = isToday(day);
                                 
                                 return (
-                                    <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined}>
+                                    <div 
+                                        key={day.toISOString()} 
+                                        id={isTodayDate ? 'v2-today-anchor' : undefined}
+                                        className="scroll-mt-32"
+                                    >
                                         <div className="sticky top-0 z-40 bg-[#020202] border-b border-white/5 py-2 px-4 flex items-center gap-4">
                                             <span className={`text-sm font-black w-8 text-center ${isTodayDate ? 'text-indigo-500' : 'text-zinc-500'}`}>{format(day, 'dd')}</span>
                                             <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{format(day, 'EEEE')}</span>

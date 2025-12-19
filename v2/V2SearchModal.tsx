@@ -62,7 +62,11 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                             {results.map(show => {
                                 const isTracked = watchlist.some(s => s.id === show.id);
                                 return (
-                                    <div key={show.id} className="group relative flex flex-col gap-3 cursor-pointer" onClick={() => !isTracked && handleAdd({} as any, show)}>
+                                    <div 
+                                        key={show.id} 
+                                        className="group relative flex flex-col gap-3 cursor-pointer" 
+                                        onClick={(e) => !isTracked && handleAdd(e, show)}
+                                    >
                                         <div className="relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border border-white/5 shadow-2xl transition-all duration-300">
                                             <img src={getImageUrl(show.poster_path)} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
                                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
