@@ -57,7 +57,8 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                                     show_name: show.name,
                                     is_movie: false,
                                     show_backdrop_path: details.backdrop_path,
-                                    poster_path: e.still_path 
+                                    poster_path: details.poster_path, // Use main show poster for calendar grid
+                                    season1_poster_path: sData.poster_path // Fallback for specific season art if enabled
                                 });
                             });
                         } catch (e) {

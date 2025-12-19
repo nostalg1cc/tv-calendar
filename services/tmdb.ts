@@ -18,6 +18,16 @@ export const setApiToken = (token: string) => {
 const getAccessToken = (): string => {
   if (memoryApiToken) return memoryApiToken;
   try {
+    // Attempt to read from new V2 store
+    const v2Store = localStorage.getItem('tv_calendar_v2_store');
+    if (v2Store) {
+        const parsed = JSON.parse(v2Store);
+        if (parsed.state && parsed.state.user && parsed.state.user.tmdb_key) {
+            return parsed.state.user.tmdb_key;
+        }
+    }
+
+    // Fallback to legacy store
     const userStr = localStorage.getItem('tv_calendar_user');
     if (userStr) {
       const user = JSON.parse(userStr);
