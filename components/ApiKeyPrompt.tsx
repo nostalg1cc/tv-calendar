@@ -24,21 +24,17 @@ const ApiKeyPrompt: React.FC = () => {
         setApiToken(cleanKey);
 
         // 2. Update Store
+        // This update will trigger React re-renders and enable queries in hooks/useQueries.ts
         const updatedUser = { ...user, tmdb_key: cleanKey };
         login(updatedUser);
         
-        // 3. Persist to Cloud if applicable
+        // 3. Persist to Cloud if applicable (non-blocking)
         if (user.is_cloud && supabase) {
-            await supabase.from('profiles').update({ tmdb_key: cleanKey }).eq('id', user.id);
+            supabase.from('profiles').update({ tmdb_key: cleanKey }).eq('id', user.id).then();
         }
 
         setIsSaved(true);
-        
-        // Force a small delay then reload to ensure all React Query hooks pick up the new key cleanly
-        // if they were previously disabled or errored.
-        setTimeout(() => {
-            window.location.reload();
-        }, 500);
+        // No reload needed; app is reactive.
     };
 
     if (isSaved) return null;

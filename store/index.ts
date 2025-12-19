@@ -79,11 +79,28 @@ export const useStore = create<State>()(
             importBackup: (data) => console.log("Import not implemented", data),
             processSyncPayload: (payload) => console.log("Sync not implemented", payload),
 
-            login: (user) => {
-                set({ user, isAuthenticated: true });
-                // Immediately set token if available in local object
-                if (user.tmdb_key) setApiToken(user.tmdb_key);
-                if (user.is_cloud) get().triggerCloudSync();
+            login: (newUser) => {
+                set((state) => {
+                    // Safety check: Prevent overwriting the API key if the incoming user object (e.g. from session)
+                    // doesn't have it, but we already do in local state for the same user.
+                    let finalUser = newUser;
+                    if (state.user && state.user.id === newUser.id) {
+                         if (!finalUser.tmdb_key && state.user.tmdb_key) {
+                             finalUser = { ...finalUser, tmdb_key: state.user.tmdb_key };
+                         }
+                    }
+
+                    // Set token in memory immediately for API calls
+                    if (finalUser.tmdb_key) setApiToken(finalUser.tmdb_key);
+                    
+                    // Trigger background sync if cloud user
+                    if (finalUser.is_cloud) {
+                        // We use a timeout to let the state update settle before triggering the async sync
+                        setTimeout(() => get().triggerCloudSync(), 0);
+                    }
+
+                    return { user: finalUser, isAuthenticated: true };
+                });
             },
 
             logout: () => {
