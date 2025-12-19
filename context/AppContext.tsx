@@ -767,6 +767,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
+  useEffect(() => {
+      if (!user) {
+          setLoading(false);
+      } else {
+          refreshEpisodes();
+      }
+  }, [user, refreshEpisodes]);
+
   useEffect(() => { if (!user) return; const checkReminders = () => { if (Notification.permission !== 'granted') return; const now = new Date(); const notifiedKey = 'tv_calendar_notified_events'; const notifiedEvents = JSON.parse(localStorage.getItem(notifiedKey) || '{}'); const allEpisodes = Object.values(episodes).flat() as Episode[]; reminders.forEach(rule => { let candidates: Episode[] = []; if (rule.scope === 'all') candidates = allEpisodes.filter(e => e.show_id === rule.tmdb_id && e.air_date); else if (rule.scope === 'episode') candidates = allEpisodes.filter(e => e.show_id === rule.tmdb_id && e.season_number === rule.episode_season && e.episode_number === rule.episode_number); else if (rule.scope.startsWith('movie')) { candidates = allEpisodes.filter(e => e.show_id === rule.tmdb_id && e.is_movie); if (rule.scope === 'movie_theatrical') candidates = candidates.filter(e => e.release_type === 'theatrical'); else if (rule.scope === 'movie_digital') candidates = candidates.filter(e => e.release_type === 'digital'); } candidates.forEach(ep => { if (!ep.air_date) return; const releaseDate = parseISO(ep.air_date); if (rule.offset_minutes === 0) { if (isSameDay(now, releaseDate)) triggerNotification(ep, rule, notifiedEvents); } else { const triggerDate = subMinutes(releaseDate, rule.offset_minutes); if (isSameDay(now, triggerDate)) triggerNotification(ep, rule, notifiedEvents); } }); }); localStorage.setItem(notifiedKey, JSON.stringify(notifiedEvents)); }; const triggerNotification = (ep: Episode, rule: Reminder, history: any) => { const key = `${rule.id}-${ep.id}-${new Date().toDateString()}`; if (history[key]) return; const title = ep.is_movie ? ep.name : ep.show_name; const body = ep.is_movie ? `${ep.release_type === 'theatrical' ? 'In Theaters' : 'Digital Release'} today!` : `S${ep.season_number}E${ep.episode_number} "${ep.name}" is airing!`; new Notification(title || 'TV Calendar', { body, icon: '/vite.svg', tag: key }); history[key] = Date.now(); }; const interval = setInterval(checkReminders, 60000); checkReminders(); return () => clearInterval(interval); }, [reminders, episodes, user]);
 
   return (
