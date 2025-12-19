@@ -7,11 +7,28 @@ import V2SettingsModal from './V2SettingsModal';
 import V2SearchModal from './V2SearchModal';
 import V2Discover from './V2Discover';
 import V2Library from './V2Library';
+import V2Agenda from './V2Agenda';
+import V2TrailerModal from './V2TrailerModal';
 
 const V2Dashboard: React.FC = () => {
     const [calendarDate, setCalendarDate] = useState(new Date());
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    
+    // For Agenda Mobile Toggle
+    const [isAgendaOpen, setIsAgendaOpen] = useState(false);
+    
+    // Trailer Modal State lifted for global access from agenda
+    const [trailerTarget, setTrailerTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', episode?: any} | null>(null);
+
+    const handlePlayTrailer = (showId: number, mediaType: 'tv' | 'movie', episode?: any) => {
+        setTrailerTarget({ showId, mediaType, episode });
+    };
+
+    const handleDateSelect = (date: Date) => {
+        setCalendarDate(date);
+        setIsAgendaOpen(true); // Auto-open agenda on mobile when date selected
+    };
 
     return (
         <div className="flex h-screen w-screen bg-[#020202] text-zinc-100 overflow-hidden font-sans selection:bg-indigo-500/30">
@@ -22,12 +39,22 @@ const V2Dashboard: React.FC = () => {
 
             <Routes>
                 <Route path="calendar" element={
-                    <main className="flex-1 flex flex-col min-w-0 h-full relative z-0">
-                        <V2Calendar 
+                    <div className="flex-1 flex h-full overflow-hidden relative">
+                        <main className="flex-1 flex flex-col min-w-0 h-full relative z-0">
+                            <V2Calendar 
+                                selectedDay={calendarDate} 
+                                onSelectDay={handleDateSelect} 
+                            />
+                        </main>
+                        
+                        {/* Desktop Agenda Sidebar / Mobile Sheet */}
+                        <V2Agenda 
                             selectedDay={calendarDate} 
-                            onSelectDay={setCalendarDate} 
+                            onPlayTrailer={handlePlayTrailer}
+                            isOpen={isAgendaOpen}
+                            onClose={() => setIsAgendaOpen(false)}
                         />
-                    </main>
+                    </div>
                 } />
                 <Route path="discover" element={<V2Discover />} />
                 <Route path="library" element={<V2Library />} />
@@ -36,6 +63,16 @@ const V2Dashboard: React.FC = () => {
 
             {isSettingsOpen && <V2SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />}
             {isSearchOpen && <V2SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />}
+            
+            {trailerTarget && (
+                <V2TrailerModal 
+                    isOpen={!!trailerTarget} 
+                    onClose={() => setTrailerTarget(null)} 
+                    showId={trailerTarget.showId} 
+                    mediaType={trailerTarget.mediaType} 
+                    episode={trailerTarget.episode} 
+                />
+            )}
         </div>
     );
 };

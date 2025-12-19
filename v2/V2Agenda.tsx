@@ -1,7 +1,7 @@
 
 import React, { useEffect } from 'react';
 import { format } from 'date-fns';
-import { Check, CalendarDays, Ticket, MonitorPlay, PlayCircle, ChevronDown } from 'lucide-react';
+import { Check, CalendarDays, Ticket, MonitorPlay, PlayCircle, ChevronDown, X } from 'lucide-react';
 import { useStore } from '../store';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
@@ -18,9 +18,12 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
     const { settings, history, toggleWatched } = useStore();
     const { episodes } = useCalendarEpisodes(selectedDay);
     
+    // Lock scroll on body when mobile agenda is open
     useEffect(() => {
-        if (window.innerWidth < 1280) {
-            document.body.style.overflow = isOpen ? 'hidden' : '';
+        if (window.innerWidth < 1280 && isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
         }
         return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
@@ -74,7 +77,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                             <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 bg-white/5 px-1.5 py-0.5 border border-white/5 rounded mr-2">{eps.length} EP</span>
                          )}
                          <button 
-                            onClick={() => onPlayTrailer?.(firstEp.show_id || firstEp.id, firstEp.is_movie ? 'movie' : 'tv')}
+                            onClick={() => onPlayTrailer?.(firstEp.show_id || firstEp.id, firstEp.is_movie ? 'movie' : 'tv', firstEp)}
                             className="p-1.5 text-zinc-600 hover:text-white transition-colors"
                             title="Play Trailer"
                          >
@@ -142,43 +145,57 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
 
     return (
         <>
+            {/* Mobile Backdrop */}
             {isOpen && (
                 <div 
-                    className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[90] xl:hidden animate-fade-in"
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] xl:hidden animate-fade-in"
                     onClick={onClose}
                 />
             )}
 
+            {/* Agenda Panel */}
             <aside className={`
                 flex flex-col bg-[#050505] z-[100] overflow-hidden
                 xl:w-[320px] xl:border-l xl:border-white/5 xl:shrink-0 xl:relative xl:h-full xl:translate-y-0 xl:rounded-none xl:border-t-0
-                fixed bottom-0 left-0 right-0 h-[80vh] rounded-t-[2.5rem] border-t border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.9)] transition-transform duration-300 cubic-bezier(0.2, 0, 0, 1)
+                fixed bottom-0 left-0 right-0 h-[85vh] rounded-t-[2rem] border-t border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.9)] 
+                transition-transform duration-300 cubic-bezier(0.2, 0, 0, 1)
                 ${isOpen ? 'translate-y-0' : 'translate-y-[110%] xl:translate-y-0'}
             `}>
-                <div className="xl:hidden shrink-0 pt-4 pb-2 px-6 flex items-center justify-between bg-zinc-950 border-b border-white/5 relative">
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-zinc-800 rounded-full" />
-                    <div className="mt-4">
-                        <h2 className="text-lg font-black text-white">{format(selectedDay, 'EEEE')}</h2>
+                {/* Mobile Header */}
+                <div className="xl:hidden shrink-0 pt-4 pb-2 px-6 flex items-center justify-between bg-zinc-950/80 backdrop-blur-md border-b border-white/5 sticky top-0 z-10">
+                    <div className="w-10 h-1 rounded-full bg-white/10 absolute top-2 left-1/2 -translate-x-1/2" />
+                    <div className="mt-2">
+                        <h2 className="text-lg font-black text-white leading-tight">{format(selectedDay, 'EEEE')}</h2>
                         <p className="text-xs text-zinc-500 font-medium">{format(selectedDay, 'MMMM do')}</p>
                     </div>
-                    <button onClick={onClose} className="p-2 bg-zinc-900 rounded-full text-zinc-400 mt-2">
+                    <button onClick={onClose} className="p-2 bg-white/5 rounded-full text-zinc-400 hover:text-white mt-2">
                         <ChevronDown className="w-5 h-5" />
                     </button>
+                </div>
+                
+                {/* Desktop Header */}
+                <div className="hidden xl:flex shrink-0 h-16 border-b border-white/5 items-center justify-between px-6 bg-[#050505]/80 backdrop-blur-md">
+                     <div>
+                        <h2 className="text-sm font-black text-white uppercase tracking-wider">{format(selectedDay, 'EEEE')}</h2>
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{format(selectedDay, 'MMM do')}</p>
+                     </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#050505]">
                     {dayEps.length > 0 ? (
-                        <div className="flex flex-col pb-10 xl:pb-0">
+                        <div className="flex flex-col pb-20 xl:pb-0">
                             {Object.values(groupedEps).map((group, idx) => (
                                 <GroupedShowCard key={idx} eps={group} />
                             ))}
                         </div>
                     ) : (
-                        <div className="h-full flex flex-col items-center justify-center p-10 text-center opacity-50">
-                            <CalendarDays className="w-12 h-12 text-zinc-800 mb-4 stroke-[1px]" />
-                            <h4 className="text-xs font-black text-zinc-700 uppercase tracking-widest mb-1">Clear Horizon</h4>
-                            <p className="text-[10px] text-zinc-800 font-medium uppercase tracking-tighter">
-                                No scheduled tracking for {format(selectedDay, 'MMMM d')}
+                        <div className="h-full flex flex-col items-center justify-center p-10 text-center opacity-40">
+                            <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-4 border border-white/5">
+                                <CalendarDays className="w-8 h-8 text-zinc-700" />
+                            </div>
+                            <h4 className="text-xs font-black text-zinc-600 uppercase tracking-widest mb-1">No Events</h4>
+                            <p className="text-[10px] text-zinc-700 font-medium max-w-[150px] leading-relaxed">
+                                Nothing scheduled for {format(selectedDay, 'MMM d')}
                             </p>
                         </div>
                     )}
