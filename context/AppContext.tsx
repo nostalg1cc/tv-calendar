@@ -581,25 +581,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loadArchivedEvents = async () => { if (!user?.isCloud || !supabase || !user.id) return; setLoading(true); try { const oneYearAgo = subYears(new Date(), 1).toISOString(); const { data, error } = await supabase.from('user_calendar_events').select('*').eq('user_id', user.id).lt('air_date', oneYearAgo); if (error) throw error; if (data && data.length > 0) { setEpisodes(prev => { const next = { ...prev }; data.forEach((row: any) => { const dateKey = row.air_date; if (!dateKey) return; if (!next[dateKey]) next[dateKey] = []; const exists = next[dateKey].some(e => e.show_id === row.tmdb_id && e.season_number === row.season_number && e.episode_number === row.episode_number); if (!exists) { next[dateKey].push(mapDbToEpisode(row)); } }); return next; }); } } catch (e) { console.error("Archive load failed", e); } finally { setLoading(false); } };
   const saveToCloudCalendar = async (episodesList: Episode[], userId: string) => { 
       if (!supabase || episodesList.length === 0) return; 
-      // Fixed payload to remove 'episode_name' which caused 400 errors
-      const rows = episodesList.map(ep => ({ 
-          user_id: userId, 
-          tmdb_id: ep.show_id || ep.id, 
-          media_type: ep.is_movie ? 'movie' : 'tv', 
-          season_number: ep.season_number ?? -1, 
-          episode_number: ep.episode_number ?? -1, 
-          title: ep.show_name || ep.name || '', 
-          // episode_name: ep.name || '', // REMOVED CAUSING 400
-          overview: ep.overview || '', 
-          air_date: ep.air_date, 
-          poster_path: ep.poster_path || null, 
-          backdrop_path: ep.still_path || null, 
-          vote_average: ep.vote_average || 0, 
-          release_type: ep.release_type || null 
-      })); 
+      
+      const rows = episodesList.map(ep => {
+          // Adjust episode number for digital movies to prevent PK conflict with theatrical
+          let epNum = ep.episode_number ?? -1;
+          if (ep.is_movie && ep.release_type === 'digital') {
+              epNum = 2;
+          }
+
+          return { 
+            user_id: userId, 
+            tmdb_id: ep.show_id || ep.id, 
+            media_type: ep.is_movie ? 'movie' : 'tv', 
+            season_number: ep.season_number ?? -1, 
+            episode_number: epNum, 
+            title: ep.show_name || ep.name || '', 
+            overview: ep.overview || '', 
+            air_date: ep.air_date, 
+            poster_path: ep.poster_path || null, 
+            backdrop_path: ep.still_path || null, 
+            vote_average: ep.vote_average || 0, 
+            release_type: ep.release_type || null 
+          };
+      }); 
+
+      // Deduplicate rows based on conflict columns
+      const uniqueRowsMap = new Map();
+      rows.forEach(row => {
+          const key = `${row.user_id}_${row.tmdb_id}_${row.media_type}_${row.season_number}_${row.episode_number}`;
+          if (!uniqueRowsMap.has(key)) {
+              uniqueRowsMap.set(key, row);
+          }
+      });
+      const uniqueRows = Array.from(uniqueRowsMap.values());
+
       const batchSize = 100; 
-      for (let i = 0; i < rows.length; i += batchSize) { 
-          const batch = rows.slice(i, i + batchSize); 
+      for (let i = 0; i < uniqueRows.length; i += batchSize) { 
+          const batch = uniqueRows.slice(i, i + batchSize); 
           const { error } = await supabase.from('user_calendar_events').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); 
           if (error) console.error('Supabase Upsert Failed:', error.message); 
       } 
