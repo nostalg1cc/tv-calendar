@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Trash2, Star, Tv, ArrowUpDown, Clock, AlertCircle, Film, Filter, Link as LinkIcon, ListPlus, Search, Eye, EyeOff, Check, StarOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -215,7 +216,7 @@ const WatchlistPage: React.FC = () => {
         {visibleItems.map((show) => {
           const nextAirDate = getNextEpisodeDate(show.id);
           const isManual = allTrackedShows.some(s => s.id === show.id);
-          const foundList = subscribedLists.find(l => l.items.some(i => i.id === show.id));
+          const foundList = subscribedLists.find((l: any) => l.items.some((i: any) => i.id === show.id));
           const interact = interactions[`${show.media_type}-${show.id}`];
           const isWatched = interact?.is_watched;
           
