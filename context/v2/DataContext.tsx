@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
-import { TVShow, SubscribedList, Reminder, Interaction, Episode } from '../../types';
+import { TVShow, SubscribedList, Reminder, Interaction, Episode, AppSettings } from '../../types';
 import { supabase } from '../../services/supabase';
 import { getListDetails, getMovieDetails, getShowDetails, getSeasonDetails, getMovieReleaseDates } from '../../services/tmdb';
 import { useAuth } from './AuthContext';
@@ -7,6 +7,16 @@ import { useSettings } from './SettingsContext';
 import { getWatchedHistory, syncHistory } from '../../services/trakt';
 import { subMonths, parseISO } from 'date-fns';
 import { del, set } from 'idb-keyval';
+
+interface DataExport {
+    version: string;
+    timestamp: string;
+    watchlist: TVShow[];
+    subscribedLists: SubscribedList[];
+    interactions: Record<string, Interaction>;
+    reminders: Reminder[];
+    settings: AppSettings;
+}
 
 interface DataContextType {
     watchlist: TVShow[];
@@ -33,9 +43,16 @@ interface DataContextType {
     performFullSync: (allTrackedShows: TVShow[]) => Promise<void>;
     saveToCloudCalendar: (episodes: Episode[]) => Promise<void>;
     
+    // New Data Management
+    exportData: () => DataExport;
+    importData: (data: DataExport) => Promise<void>;
+    clearAccountData: () => Promise<void>;
+
     isSyncing: boolean;
     dataLoading: boolean;
-    loadingStatus: string; // New: Text description of current task
+    setDataLoading: (v: boolean) => void;
+    loadingStatus: string;
+    setLoadingStatus: (v: string) => void;
     syncProgress: { current: number; total: number };
     fullSyncRequired: boolean;
     setFullSyncRequired: (val: boolean) => void;
@@ -44,7 +61,7 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const { user } = useAuth();
+    const { user, disconnectTrakt } = useAuth();
     const { settings, updateSettings } = useSettings();
     
     const [watchlist, setWatchlist] = useState<TVShow[]>([]);
@@ -396,6 +413,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const performFullSync = async (allTrackedShows: TVShow[]) => {
         if (!user?.isCloud || !supabase) return;
         setIsSyncing(true);
+        setDataLoading(true); // Triggers the global loading screen
         try {
             setLoadingStatus("Cleaning old calendar data...");
             await del('tv_calendar_episodes_v2'); 
@@ -448,6 +466,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             alert("Sync failed. Please try again.");
         } finally {
             setIsSyncing(false);
+            setDataLoading(false);
             setLoadingStatus("Ready");
         }
     };
@@ -470,6 +489,117 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
+    // --- Data Management ---
+
+    const exportData = (): DataExport => {
+        return {
+            version: '2.5',
+            timestamp: new Date().toISOString(),
+            watchlist,
+            subscribedLists,
+            interactions,
+            reminders,
+            settings
+        };
+    };
+
+    const importData = async (data: DataExport) => {
+        setIsSyncing(true);
+        setLoadingStatus("Importing data...");
+        try {
+            if (data.watchlist) await batchAddShows(data.watchlist);
+            if (data.subscribedLists) await batchSubscribe(data.subscribedLists);
+            if (data.reminders) {
+                 for (const rem of data.reminders) await addReminder(rem);
+            }
+            if (data.interactions) {
+                const newInteractions = { ...interactions, ...data.interactions };
+                setInteractions(newInteractions);
+                // Background sync interaction to cloud
+                if (user?.isCloud && supabase) {
+                    const rows = Object.values(data.interactions).map(i => ({
+                         user_id: user.id,
+                         tmdb_id: i.tmdb_id,
+                         media_type: i.media_type,
+                         is_watched: i.is_watched,
+                         rating: i.rating,
+                         season_number: i.season_number ?? -1,
+                         episode_number: i.episode_number ?? -1,
+                         watched_at: i.watched_at,
+                         updated_at: new Date().toISOString()
+                    }));
+                    
+                    // Upsert in chunks
+                    for (let i = 0; i < rows.length; i += 50) {
+                         await supabase.from('interactions').upsert(rows.slice(i, i+50), { onConflict: 'user_id,tmdb_id,media_type,season_number,episode_number' });
+                    }
+                }
+            }
+            if (data.settings) {
+                updateSettings(data.settings);
+            }
+        } catch (e) {
+            console.error("Import failed", e);
+            throw e;
+        } finally {
+            setIsSyncing(false);
+            setLoadingStatus("Ready");
+        }
+    };
+
+    const clearAccountData = async () => {
+        setDataLoading(true);
+        setLoadingStatus("Factory resetting account...");
+        try {
+            if (user?.isCloud && supabase) {
+                // Try to use RPC function if available (Faster)
+                const { error } = await supabase.rpc('delete_user_data');
+                
+                if (error) {
+                    console.warn("RPC delete failed, falling back to manual deletes", error);
+                    // Fallback to manual table deletes
+                    await Promise.all([
+                        supabase.from('watchlist').delete().eq('user_id', user.id),
+                        supabase.from('subscriptions').delete().eq('user_id', user.id),
+                        supabase.from('interactions').delete().eq('user_id', user.id),
+                        supabase.from('reminders').delete().eq('user_id', user.id),
+                        supabase.from('user_calendar_events').delete().eq('user_id', user.id),
+                        supabase.from('profiles').update({ 
+                            full_sync_completed: false, 
+                            trakt_token: null, 
+                            trakt_profile: null 
+                        }).eq('id', user.id)
+                    ]);
+                }
+                
+                // Disconnect local trakt state via Auth context helper
+                await disconnectTrakt();
+            }
+
+            // Clear Local State
+            setWatchlist([]);
+            setSubscribedLists([]);
+            setInteractions({});
+            setReminders([]);
+            setFullSyncRequired(false);
+            
+            // Clear local storage / IDB caches
+            localStorage.removeItem('tv_calendar_watchlist');
+            localStorage.removeItem('tv_calendar_subscribed_lists');
+            localStorage.removeItem('tv_calendar_reminders');
+            localStorage.removeItem('tv_calendar_interactions');
+            await del('tv_calendar_episodes_v2');
+            await del('tv_calendar_meta_v2');
+
+        } catch (e) {
+            console.error("Reset failed", e);
+            alert("Failed to fully reset account. Please try again.");
+        } finally {
+            setDataLoading(false);
+            setLoadingStatus("Ready");
+        }
+    };
+
     return (
         <DataContext.Provider value={{
             watchlist, subscribedLists, reminders, interactions,
@@ -478,7 +608,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             addReminder, removeReminder,
             toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
             syncTraktData, performFullSync, saveToCloudCalendar,
-            isSyncing, dataLoading, loadingStatus, syncProgress, fullSyncRequired, setFullSyncRequired
+            exportData, importData, clearAccountData,
+            isSyncing, dataLoading, setDataLoading, loadingStatus, setLoadingStatus, syncProgress, fullSyncRequired, setFullSyncRequired
         }}>
             {children}
         </DataContext.Provider>

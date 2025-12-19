@@ -66,8 +66,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const loginCloud = async (session: any) => {
         if (!supabase) return;
-        setLoading(true);
+        
         const { user: authUser } = session;
+
+        // Optimization: If we already have this user loaded, do not re-fetch/re-render.
+        // This prevents the "Loading..." screen from flashing when switching tabs/focusing window.
+        if (user && user.id === authUser.id) {
+            if (loading) setLoading(false);
+            return;
+        }
+
+        setLoading(true);
         
         try {
             let { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();

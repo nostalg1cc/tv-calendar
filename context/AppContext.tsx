@@ -31,7 +31,7 @@ export const useAppContext = () => {
       addToWatchlist, removeFromWatchlist, batchAddShows, subscribeToList, unsubscribeFromList, batchSubscribe,
       addReminder, removeReminder, toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
       syncTraktData, performFullSync, saveToCloudCalendar, 
-      isSyncing, syncProgress, fullSyncRequired, setFullSyncRequired, dataLoading, loadingStatus
+      isSyncing, syncProgress, fullSyncRequired, setFullSyncRequired, dataLoading, setDataLoading, loadingStatus, setLoadingStatus
   } = useData();
   const { episodes, calendarDate, setCalendarDate, refreshEpisodes, loadArchivedEvents, loading: calendarLoading } = useCalendar();
   const { isSearchOpen, setIsSearchOpen, isMobileWarningOpen, closeMobileWarning, calendarScrollPos, setCalendarScrollPos, reminderCandidate, setReminderCandidate } = useUI();
@@ -57,7 +57,15 @@ export const useAppContext = () => {
   };
 
   const hardRefreshCalendar = async () => {
-      await refreshEpisodes(true);
+      // Trigger full loading screen for "Force Refresh"
+      setDataLoading(true);
+      setLoadingStatus("Refreshing calendar...");
+      try {
+        await refreshEpisodes(true);
+      } finally {
+        setDataLoading(false);
+        setLoadingStatus("Ready");
+      }
   };
 
   const reloadAccount = async () => {
