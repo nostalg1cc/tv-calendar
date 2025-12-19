@@ -3,11 +3,12 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, format, isSameMonth, addMonths, subMonths, addDays, isSameDay, isToday
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Filter, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, Ticket, List as ListIcon, Smartphone, Layers } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, Ticket, List as ListIcon, Smartphone, Layers, Search, X } from 'lucide-react';
 import { useStore } from '../store';
 import { useCalendarEpisodes } from '../hooks/useQueries';
 import { Episode } from '../types';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
+import CalendarSearchModal from '../components/CalendarSearchModal';
 
 interface V2CalendarProps {
     selectedDay: Date;
@@ -19,10 +20,8 @@ type ViewMode = 'grid' | 'cards' | 'list';
 const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => {
     const { settings, updateSettings, history: interactions, toggleWatched, calendarDate, setCalendarDate } = useStore();
     
-    // Fetch data using the hook
     const { episodes: rawEpisodes, isLoading, isRefetching } = useCalendarEpisodes(calendarDate);
     
-    // Transform to map for the calendar logic: { "YYYY-MM-DD": Episode[] }
     const episodes = useMemo(() => {
         const map: Record<string, Episode[]> = {};
         rawEpisodes.forEach(ep => {
@@ -35,8 +34,8 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     }, [rawEpisodes]);
 
     const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false); // Local Calendar Search
     
-    // Initialize view mode based on screen size or settings
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         if (window.innerWidth < 768) return 'cards';
         return (settings.viewMode as ViewMode) || 'grid';
@@ -50,7 +49,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     const filterRef = useRef<HTMLDivElement>(null);
     const cardScrollRef = useRef<HTMLDivElement>(null);
 
-    // Auto-switch to cards on resize if transitioning to mobile
     useEffect(() => {
         const handleResize = () => {
             if (window.innerWidth < 768 && viewMode === 'grid') {
@@ -61,7 +59,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         return () => window.removeEventListener('resize', handleResize);
     }, [viewMode]);
 
-    // Persist view mode changes
     const handleViewChange = (mode: ViewMode) => {
         setViewMode(mode);
         updateSettings({ viewMode: mode });
@@ -70,7 +67,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     const monthStart = startOfMonth(calendarDate);
     const monthEnd = endOfMonth(calendarDate);
     
-    // Grid Days: 6 weeks (42 days)
     const gridDays = useMemo(() => {
         return eachDayOfInterval({
             start: startOfWeek(monthStart),
@@ -78,7 +74,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         }).slice(0, 42);
     }, [monthStart]);
 
-    // Active Days for Card View (only days in month with episodes)
     const activeDays = useMemo(() => {
         return eachDayOfInterval({ start: monthStart, end: monthEnd }).filter(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
@@ -94,12 +89,9 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         });
     }, [monthStart, monthEnd, episodes, settings, showTV, showMovies, showHidden]);
 
-    // Scroll to today logic
     useEffect(() => {
         if (isLoading) return;
-
         if ((viewMode === 'cards' || viewMode === 'list') && cardScrollRef.current) {
-            // Slight delay to ensure DOM render after data fetch or view change
             const timer = setTimeout(() => {
                 const todayEl = document.getElementById('v2-today-anchor');
                 if (todayEl) {
@@ -108,7 +100,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
             }, 100);
             return () => clearTimeout(timer);
         }
-    }, [viewMode, calendarDate, isLoading]); // Re-run when view changes or loading finishes
+    }, [viewMode, calendarDate, isLoading]);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -154,6 +146,23 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         else handleViewChange('grid');
     };
 
+    const FilterToggle = ({ label, active, onClick, icon: Icon }: any) => (
+        <button 
+            onClick={onClick}
+            className={`w-full flex items-center justify-between p-3 rounded-xl transition-all border ${active ? 'bg-indigo-600/10 border-indigo-500/30 text-indigo-300' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'}`}
+        >
+            <div className="flex items-center gap-3">
+                <div className={`p-1.5 rounded-lg ${active ? 'bg-indigo-500/20 text-indigo-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                    <Icon className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold">{label}</span>
+            </div>
+            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${active ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-zinc-700'}`}>
+                {active && <Check className="w-3 h-3" />}
+            </div>
+        </button>
+    );
+
     // --- SUB-COMPONENTS ---
 
     const ReleaseBadge = ({ ep }: { ep: Episode }) => {
@@ -186,13 +195,10 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
         return (
             <div className="absolute inset-0 w-full h-full bg-[#050505] overflow-hidden group/cell-item">
-                {/* Blur Pillar Background */}
                 <div 
                     className="absolute inset-0 bg-cover bg-center blur-xl opacity-30 scale-110" 
                     style={{ backgroundImage: `url(${imageUrl})` }}
                 />
-                
-                {/* Main Poster - Full Height, Centered, No Padding */}
                 <div className="absolute inset-0 flex items-center justify-center">
                     <img 
                         src={imageUrl} 
@@ -200,10 +206,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                         alt=""
                     />
                 </div>
-
-                {/* Gradient Overlay for Text */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent z-20 pointer-events-none" />
-                
                 <div className="absolute bottom-0 left-0 right-0 p-2 flex flex-col justify-end h-full z-30 pointer-events-none">
                     <h4 className={`text-[10px] font-black uppercase tracking-tight leading-tight line-clamp-2 mb-1 drop-shadow-md ${isWatched ? 'text-zinc-500 line-through' : 'text-white'}`}>
                         {ep.show_name}
@@ -313,16 +316,25 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                         <ChevronRight className="w-5 h-5" />
                     </button>
                 </div>
-
-                <button
-                    onClick={cycleViewMode}
-                    className="w-14 h-full flex items-center justify-center border-r border-white/5 text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
-                    title="Toggle View"
-                >
-                    {viewMode === 'grid' && <LayoutGrid className="w-5 h-5" />}
-                    {viewMode === 'cards' && <Smartphone className="w-5 h-5" />}
-                    {viewMode === 'list' && <ListIcon className="w-5 h-5" />}
-                </button>
+                
+                <div className="flex h-full border-r border-white/5">
+                     <button
+                        onClick={cycleViewMode}
+                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
+                        title="Toggle View"
+                    >
+                        {viewMode === 'grid' && <LayoutGrid className="w-5 h-5" />}
+                        {viewMode === 'cards' && <Smartphone className="w-5 h-5" />}
+                        {viewMode === 'list' && <ListIcon className="w-5 h-5" />}
+                    </button>
+                    <button
+                        onClick={() => setIsSearchOpen(true)}
+                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
+                        title="Search in Calendar"
+                    >
+                        <Search className="w-5 h-5" />
+                    </button>
+                </div>
 
                 <div className="flex h-full relative" ref={filterRef}>
                     <button 
@@ -334,28 +346,20 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     </button>
 
                      {isFilterOpen && (
-                        <div className="absolute top-full right-0 mt-0 w-64 bg-zinc-950 border border-white/10 rounded-bl-2xl shadow-2xl p-2 z-[100] animate-enter">
-                            <div className="p-2">
-                                <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 px-3">Calendar Filters</h4>
-                                <div className="space-y-1">
-                                    <button onClick={() => setShowTV(!showTV)} className={`w-full flex items-center justify-between p-3 rounded-xl text-[11px] font-bold transition-all ${showTV ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
-                                        <div className="flex items-center gap-3"><Tv className="w-3.5 h-3.5" /> TV Series</div>
-                                        {showTV && <Check className="w-3 h-3" />}
-                                    </button>
-                                    <button onClick={() => setShowMovies(!showMovies)} className={`w-full flex items-center justify-between p-3 rounded-xl text-[11px] font-bold transition-all ${showMovies ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
-                                        <div className="flex items-center gap-3"><Film className="w-3.5 h-3.5" /> Movies</div>
-                                        {showMovies && <Check className="w-3 h-3" />}
-                                    </button>
-                                    <div className="h-px bg-white/5 my-2 mx-2" />
-                                    <button onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} className={`w-full flex items-center justify-between p-3 rounded-xl text-[11px] font-bold transition-all ${!settings.hideTheatrical ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
-                                        <div className="flex items-center gap-3"><MonitorPlay className="w-3.5 h-3.5" /> Digital Only</div>
-                                        {!settings.hideTheatrical && <Check className="w-3 h-3" />}
-                                    </button>
-                                    <button onClick={() => setShowHidden(!showHidden)} className={`w-full flex items-center justify-between p-3 rounded-xl text-[11px] font-bold transition-all ${showHidden ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:bg-white/5'}`}>
-                                        <div className="flex items-center gap-3">{showHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} Hidden Items</div>
-                                        {showHidden && <Check className="w-3 h-3" />}
-                                    </button>
-                                </div>
+                        <div className="absolute top-full right-4 mt-4 w-72 bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[100] animate-enter overflow-hidden">
+                            <div className="p-4 border-b border-white/5 bg-zinc-900/50">
+                                <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Filter className="w-3 h-3" /> View Options
+                                </h4>
+                            </div>
+                            <div className="p-3 space-y-2">
+                                <FilterToggle label="TV Series" icon={Tv} active={showTV} onClick={() => setShowTV(!showTV)} />
+                                <FilterToggle label="Movies" icon={Film} active={showMovies} onClick={() => setShowMovies(!showMovies)} />
+                                
+                                <div className="h-px bg-white/5 my-1" />
+                                
+                                <FilterToggle label="Digital Releases Only" icon={MonitorPlay} active={settings.hideTheatrical} onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} />
+                                <FilterToggle label="Show Hidden Items" icon={EyeOff} active={showHidden} onClick={() => setShowHidden(!showHidden)} />
                             </div>
                         </div>
                     )}
@@ -620,6 +624,9 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     )}
                 </div>
             )}
+
+            {/* Calendar Local Search Modal */}
+            <CalendarSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
         </div>
     );
 };
