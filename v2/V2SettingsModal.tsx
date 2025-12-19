@@ -44,20 +44,12 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const handleSaveKey = async () => {
         if (user) {
             const updatedUser = { ...user, tmdb_key: localApiKey };
+            login(updatedUser); // Update local store
+            setApiToken(localApiKey); // Update service
             
-            // 1. Update local store
-            login(updatedUser); 
-            
-            // 2. Update service memory
-            setApiToken(localApiKey); 
-            
-            // 3. Update Cloud Database
             if (user.is_cloud && supabase) {
-                try {
-                    await supabase.from('profiles').update({ tmdb_key: localApiKey }).eq('id', user.id);
-                } catch (e) {
-                    console.error("Failed to sync key to cloud", e);
-                }
+                // Explicitly save the key to the profile table
+                await supabase.from('profiles').update({ tmdb_key: localApiKey }).eq('id', user.id);
             }
         }
     };

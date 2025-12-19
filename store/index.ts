@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { AppSettings, DEFAULT_SETTINGS, TVShow, User, WatchedItem, Reminder } from '../types';
@@ -80,6 +81,7 @@ export const useStore = create<State>()(
 
             login: (user) => {
                 set({ user, isAuthenticated: true });
+                // Immediately set token if available in local object
                 if (user.tmdb_key) setApiToken(user.tmdb_key);
                 if (user.is_cloud) get().triggerCloudSync();
             },
@@ -214,7 +216,18 @@ export const useStore = create<State>()(
                 set({ isSyncing: true });
                 try {
                     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-                    if (profile?.settings) set(s => ({ settings: { ...s.settings, ...profile.settings } }));
+                    if (profile) {
+                         // Hydrate Settings
+                        if (profile.settings) {
+                            set(s => ({ settings: { ...s.settings, ...profile.settings } }));
+                        }
+                        
+                        // Hydrate TMDB Key - CRITICAL for persistence
+                        if (profile.tmdb_key) {
+                            set(s => ({ user: { ...s.user!, tmdb_key: profile.tmdb_key } }));
+                            setApiToken(profile.tmdb_key);
+                        }
+                    }
 
                     const { data: watchlist } = await supabase.from('watchlist').select('*');
                     if (watchlist) {
