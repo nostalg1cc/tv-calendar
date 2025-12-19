@@ -31,7 +31,7 @@ export const useAppContext = () => {
       addToWatchlist, removeFromWatchlist, batchAddShows, subscribeToList, unsubscribeFromList, batchSubscribe,
       addReminder, removeReminder, toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
       syncTraktData, performFullSync, saveToCloudCalendar, 
-      isSyncing, syncProgress, fullSyncRequired, setFullSyncRequired
+      isSyncing, syncProgress, fullSyncRequired, setFullSyncRequired, dataLoading, loadingStatus
   } = useData();
   const { episodes, calendarDate, setCalendarDate, refreshEpisodes, loadArchivedEvents, loading: calendarLoading } = useCalendar();
   const { isSearchOpen, setIsSearchOpen, isMobileWarningOpen, closeMobileWarning, calendarScrollPos, setCalendarScrollPos, reminderCandidate, setReminderCandidate } = useUI();
@@ -83,13 +83,14 @@ export const useAppContext = () => {
 
   return {
       // Auth
-      user, login, loginCloud, logout, updateUserKey, loading: authLoading,
+      user, login, loginCloud, logout, updateUserKey, loading: authLoading || dataLoading,
       
       // Data
       watchlist, addToWatchlist, removeFromWatchlist, unhideShow, batchAddShows, batchSubscribe,
       subscribedLists, subscribeToList, unsubscribeFromList, allTrackedShows,
       reminders, addReminder, removeReminder,
       interactions, toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
+      loadingStatus, // New: Exposed status text
       
       // Calendar
       episodes, calendarDate, setCalendarDate, refreshEpisodes, loadArchivedEvents, 

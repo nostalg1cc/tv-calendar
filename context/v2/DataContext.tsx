@@ -35,6 +35,7 @@ interface DataContextType {
     
     isSyncing: boolean;
     dataLoading: boolean;
+    loadingStatus: string; // New: Text description of current task
     syncProgress: { current: number; total: number };
     fullSyncRequired: boolean;
     setFullSyncRequired: (val: boolean) => void;
@@ -53,6 +54,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     const [isSyncing, setIsSyncing] = useState(false);
     const [dataLoading, setDataLoading] = useState(true);
+    const [loadingStatus, setLoadingStatus] = useState("Initializing...");
     const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
     const [fullSyncRequired, setFullSyncRequired] = useState(false);
     
@@ -71,33 +73,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         const loadData = async () => {
             setDataLoading(true);
+            setLoadingStatus("Connecting to cloud...");
+            
             try {
                 if (user.isCloud && supabase) {
-                    // Cloud Load
-                    const [wRes, sRes, iRes, rRes] = await Promise.all([
-                        supabase.from('watchlist').select('*'),
-                        supabase.from('subscriptions').select('*'),
+                    // 1. Fetch Interactions & Reminders (Fast, database only)
+                    setLoadingStatus("Syncing history & reminders...");
+                    const [iRes, rRes] = await Promise.all([
                         supabase.from('interactions').select('*'),
                         supabase.from('reminders').select('*')
                     ]);
-
-                    if (wRes.data) {
-                        setWatchlist(wRes.data.map((item: any) => ({
-                            id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type
-                        })));
-                    }
-                    
-                    if (sRes.data) {
-                        // Parallel fetch for speed
-                        const listPromises = sRes.data.map(async (sub: any) => {
-                             try {
-                                 const listDetails = await getListDetails(sub.list_id);
-                                 return { id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length };
-                             } catch (e) { return null; }
-                        });
-                        const results = await Promise.all(listPromises);
-                        setSubscribedLists(results.filter((l): l is SubscribedList => l !== null));
-                    }
 
                     if (iRes.data) {
                         const map: Record<string, Interaction> = {};
@@ -112,10 +97,45 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         setReminders(rRes.data.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes })));
                     }
 
+                    // 2. Fetch Watchlist (Database only, no external API yet)
+                    setLoadingStatus("Loading library...");
+                    const wRes = await supabase.from('watchlist').select('*');
+                    if (wRes.data) {
+                         setWatchlist(wRes.data.map((item: any) => ({
+                            id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type
+                        })));
+                    }
+
+                    // 3. Fetch Subscriptions (Heavy External API calls)
+                    setLoadingStatus("Fetching lists...");
+                    const sRes = await supabase.from('subscriptions').select('*');
+                    
+                    if (sRes.data && sRes.data.length > 0) {
+                        setSyncProgress({ current: 0, total: sRes.data.length });
+                        
+                        const fetchedLists: SubscribedList[] = [];
+                        
+                        // We fetch these sequentially or in small batches to update the UI progress
+                        // and to avoid obliterating the TMDB rate limit immediately
+                        for (let i = 0; i < sRes.data.length; i++) {
+                            const sub = sRes.data[i];
+                            setLoadingStatus(`Syncing list: ${sub.name || 'Unknown'}...`);
+                            try {
+                                const listDetails = await getListDetails(sub.list_id);
+                                fetchedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length });
+                            } catch (e) {
+                                console.warn(`Failed to fetch list ${sub.list_id}`, e);
+                            }
+                            setSyncProgress({ current: i + 1, total: sRes.data.length });
+                        }
+                        setSubscribedLists(fetchedLists);
+                    }
+
                     if (!user.fullSyncCompleted) setFullSyncRequired(true);
 
                 } else {
                     // Local Load
+                    setLoadingStatus("Loading local storage...");
                     try {
                         setWatchlist(JSON.parse(localStorage.getItem('tv_calendar_watchlist') || '[]'));
                         setSubscribedLists(JSON.parse(localStorage.getItem('tv_calendar_subscribed_lists') || '[]'));
@@ -125,7 +145,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 }
             } catch (e) {
                 console.error("Data Load Error", e);
+                setLoadingStatus("Error loading data.");
             } finally {
+                setLoadingStatus("Ready");
                 setDataLoading(false);
             }
         };
@@ -180,11 +202,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const subscribeToList = async (listId: string) => {
         if (subscribedLists.some(l => l.id === listId)) return;
-        const details = await getListDetails(listId);
-        const newList = { id: listId, name: details.name, items: details.items, item_count: details.items.length };
-        setSubscribedLists(prev => [...prev, newList]);
-        if (user?.isCloud && supabase) {
-            await supabase.from('subscriptions').upsert({ user_id: user.id, list_id: listId, name: details.name, item_count: details.items.length }, { onConflict: 'user_id, list_id' });
+        setIsSyncing(true);
+        setLoadingStatus("Fetching list details...");
+        try {
+            const details = await getListDetails(listId);
+            const newList = { id: listId, name: details.name, items: details.items, item_count: details.items.length };
+            setSubscribedLists(prev => [...prev, newList]);
+            if (user?.isCloud && supabase) {
+                await supabase.from('subscriptions').upsert({ user_id: user.id, list_id: listId, name: details.name, item_count: details.items.length }, { onConflict: 'user_id, list_id' });
+            }
+        } finally {
+            setIsSyncing(false);
+            setLoadingStatus("Ready");
         }
     };
 
@@ -285,6 +314,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const markHistoryWatched = async (showId: number, targetSeason: number, targetEpisode: number) => {
         setIsSyncing(true);
+        setLoadingStatus("Updating history...");
         try {
             const show = await getShowDetails(showId);
             const seasons = show.seasons || [];
@@ -316,7 +346,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const dbBatch = epsToMark.map(item => ({ user_id: user.id, tmdb_id: item.tmdb_id, media_type: item.media_type, season_number: item.season_number, episode_number: item.episode_number, is_watched: true, watched_at: item.watched_at, updated_at: new Date().toISOString() }));
                 for(let i=0; i<dbBatch.length; i+=100) await supabase.from('interactions').upsert(dbBatch.slice(i, i+100), { onConflict: 'user_id,tmdb_id,media_type,season_number,episode_number' });
             }
-        } catch (e) { console.error(e); } finally { setIsSyncing(false); }
+        } catch (e) { console.error(e); } finally { 
+            setIsSyncing(false); 
+            setLoadingStatus("Ready");
+        }
     };
 
     const setRating = async (id: number, mediaType: 'tv' | 'movie', rating: number) => {
@@ -364,6 +397,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (!user?.isCloud || !supabase) return;
         setIsSyncing(true);
         try {
+            setLoadingStatus("Cleaning old calendar data...");
             await del('tv_calendar_episodes_v2'); 
             await del('tv_calendar_meta_v2'); 
             await supabase.from('user_calendar_events').delete().eq('user_id', user.id);
@@ -372,6 +406,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             let processed = 0;
             const batchSize = 5;
             
+            setLoadingStatus("Building new calendar cache...");
             for (let i = 0; i < allTrackedShows.length; i += batchSize) {
                 const batch = allTrackedShows.slice(i, i + batchSize);
                 const batchEpisodes: Episode[] = [];
@@ -402,6 +437,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 if (batchEpisodes.length > 0) await saveToCloudCalendar(batchEpisodes);
                 processed += batch.length;
                 setSyncProgress({ current: processed, total: allTrackedShows.length });
+                setLoadingStatus(`Processed ${processed} of ${allTrackedShows.length} items...`);
             }
             
             await supabase.from('profiles').update({ full_sync_completed: true, last_full_sync: new Date().toISOString() }).eq('id', user.id);
@@ -412,17 +448,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             alert("Sync failed. Please try again.");
         } finally {
             setIsSyncing(false);
+            setLoadingStatus("Ready");
         }
     };
     
     const syncTraktData = async (background = false) => {
         if (!user?.traktToken) return;
-        if (!background) setIsSyncing(true);
+        if (!background) {
+            setIsSyncing(true);
+            setLoadingStatus("Syncing Trakt...");
+        }
         try {
             const token = user.traktToken.access_token;
             await Promise.all([getWatchedHistory(token, 'movies'), getWatchedHistory(token, 'shows')]);
             // Placeholder for future Trakt 2-way sync
-        } catch (e) { console.error(e); } finally { if (!background) setIsSyncing(false); }
+        } catch (e) { console.error(e); } finally { 
+            if (!background) {
+                setIsSyncing(false);
+                setLoadingStatus("Ready");
+            }
+        }
     };
 
     return (
@@ -433,7 +478,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             addReminder, removeReminder,
             toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
             syncTraktData, performFullSync, saveToCloudCalendar,
-            isSyncing, dataLoading, syncProgress, fullSyncRequired, setFullSyncRequired
+            isSyncing, dataLoading, loadingStatus, syncProgress, fullSyncRequired, setFullSyncRequired
         }}>
             {children}
         </DataContext.Provider>

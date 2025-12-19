@@ -16,7 +16,7 @@ import ReminderConfigModal from './components/ReminderConfigModal';
 import FullSyncModal from './components/FullSyncModal';
 import MigrationModal from './components/MigrationModal';
 import V2Dashboard from './v2/V2Dashboard';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Terminal, CheckCircle2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAppContext();
@@ -90,15 +90,71 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     )
 }
 
+const StartupScreen: React.FC = () => {
+    const { loadingStatus, syncProgress } = useAppContext();
+    const pct = syncProgress.total > 0 ? Math.round((syncProgress.current / syncProgress.total) * 100) : 0;
+
+    return (
+        <div className="h-screen w-screen bg-[#050505] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+             {/* Background Matrix Effect (Subtle) */}
+             <div className="absolute inset-0 bg-[linear-gradient(rgba(20,20,20,0)_1px,transparent_1px),linear-gradient(90deg,rgba(20,20,20,0)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20 pointer-events-none" />
+
+             <div className="relative z-10 w-full max-w-sm animate-fade-in-up">
+                 <div className="mb-8 flex justify-center">
+                     <div className="relative">
+                         <div className="w-16 h-16 bg-zinc-900 rounded-2xl flex items-center justify-center border border-zinc-800 shadow-2xl">
+                             <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                         </div>
+                         <div className="absolute -bottom-2 -right-2 bg-indigo-600 rounded-lg p-1.5 shadow-lg border border-[#050505]">
+                             <Terminal className="w-3 h-3 text-white" />
+                         </div>
+                     </div>
+                 </div>
+
+                 <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6 backdrop-blur-xl shadow-2xl">
+                     <div className="flex justify-between items-center mb-4">
+                         <span className="text-xs font-black text-zinc-500 uppercase tracking-widest">System Boot</span>
+                         <span className="text-xs font-mono text-indigo-400">{pct > 0 ? `${pct}%` : 'INIT'}</span>
+                     </div>
+                     
+                     <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden mb-6">
+                         <div 
+                            className="h-full bg-indigo-500 transition-all duration-300 ease-out relative" 
+                            style={{ width: `${pct > 0 ? pct : 5}%` }}
+                         >
+                            <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                         </div>
+                     </div>
+
+                     <div className="space-y-3">
+                         <div className="flex items-center gap-3 text-sm text-zinc-300">
+                             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                             <span>Authentication</span>
+                         </div>
+                         <div className="flex items-center gap-3 text-sm text-zinc-300">
+                             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                             <span>Database Connection</span>
+                         </div>
+                         <div className="flex items-center gap-3 text-sm text-white font-medium animate-pulse">
+                             <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" />
+                             <span>{loadingStatus || "Loading resources..."}</span>
+                         </div>
+                     </div>
+                 </div>
+
+                 <p className="text-center text-[10px] text-zinc-600 font-mono mt-8 uppercase tracking-widest">
+                     TV Calendar v2.5.0
+                 </p>
+             </div>
+        </div>
+    );
+};
+
 const AppRoutes: React.FC = () => {
     const { user, loading } = useAppContext();
 
     if (loading) {
-        return (
-            <div className="h-screen w-screen bg-black flex items-center justify-center">
-                <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
-            </div>
-        );
+        return <StartupScreen />;
     }
 
     return (
