@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle, X, ChevronDown, RefreshCw, Cloud, HardDrive } from 'lucide-react';
+import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle, X, ChevronDown, RefreshCw, Cloud, HardDrive, Database } from 'lucide-react';
 import { useStore } from '../store';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
@@ -184,18 +184,20 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                     )}
                 </div>
 
-                {/* Desktop Status Bar (Hidden on Mobile) */}
-                <footer className="hidden xl:flex items-center justify-between px-6 py-4 border-t border-white/5 bg-zinc-950/40">
-                    <div className="flex items-center gap-2.5">
+                {/* Status Bar / Controls */}
+                <footer className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-white/5 bg-zinc-950/40">
+                    <div className="flex items-center gap-3">
+                         {/* Connection Status Icon */}
                         {user?.is_cloud ? (
-                            <div className={`p-1.5 rounded-full ${isSyncing ? 'bg-indigo-500/10 text-indigo-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                                <Cloud className={`w-3 h-3 ${isSyncing ? 'animate-pulse' : ''}`} />
-                            </div>
+                             <div className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all ${isSyncing ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+                                <Cloud className={`w-4 h-4 ${isSyncing ? 'text-indigo-400 animate-pulse' : 'text-emerald-400'}`} />
+                             </div>
                         ) : (
-                            <div className="p-1.5 rounded-full bg-orange-500/10 text-orange-400">
-                                <HardDrive className="w-3 h-3" />
-                            </div>
+                             <div className="w-8 h-8 rounded-full flex items-center justify-center border border-orange-500/20 bg-orange-500/10">
+                                <HardDrive className="w-4 h-4 text-orange-400" />
+                             </div>
                         )}
+                        
                         <div className="flex flex-col">
                             <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400">
                                 {user?.is_cloud ? 'Cloud Sync' : 'Local Storage'}
@@ -209,8 +211,8 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                     <button 
                         onClick={() => user?.is_cloud ? triggerCloudSync() : window.location.reload()}
                         disabled={isSyncing}
-                        className="p-2 text-zinc-500 hover:text-white transition-colors rounded-lg hover:bg-white/5"
-                        title="Refresh Data"
+                        className="flex items-center justify-center w-10 h-10 rounded-xl bg-zinc-800 border border-white/5 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all active:scale-95"
+                        title={user?.is_cloud ? "Force Cloud Sync" : "Reload Page"}
                     >
                         <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
                     </button>

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Key, ChevronRight, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
+import { supabase } from '../services/supabase';
 
 const ApiKeyPrompt: React.FC = () => {
     const { user, login, settings } = useStore();
@@ -10,21 +11,34 @@ const ApiKeyPrompt: React.FC = () => {
     const [showKey, setShowKey] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
 
-    // If key exists in user object, don't show
-    if (user?.tmdb_key) return null;
+    // If key exists in user object, don't show.
+    // Also check if we have a user at all. This component usually lives in protected routes,
+    // so user should exist.
+    if (!user || user.tmdb_key) return null;
 
-    const handleSave = () => {
-        if (!key.trim()) return;
+    const handleSave = async () => {
+        const cleanKey = key.trim();
+        if (!cleanKey) return;
 
-        // Update Store
-        if (user) {
-            const updatedUser = { ...user, tmdb_key: key.trim() };
-            login(updatedUser);
-            setApiToken(key.trim());
-            setIsSaved(true);
-            
-            // Allow animation to play before unmounting (controlled by parent or state check)
+        // 1. Update In-Memory Token Service immediately
+        setApiToken(cleanKey);
+
+        // 2. Update Store
+        const updatedUser = { ...user, tmdb_key: cleanKey };
+        login(updatedUser);
+        
+        // 3. Persist to Cloud if applicable
+        if (user.is_cloud && supabase) {
+            await supabase.from('profiles').update({ tmdb_key: cleanKey }).eq('id', user.id);
         }
+
+        setIsSaved(true);
+        
+        // Force a small delay then reload to ensure all React Query hooks pick up the new key cleanly
+        // if they were previously disabled or errored.
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
     };
 
     if (isSaved) return null;

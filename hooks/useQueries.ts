@@ -6,15 +6,22 @@ import { useStore } from '../store';
 import { parseISO, subMonths, addMonths } from 'date-fns';
 
 export const useShowData = (showId: number, mediaType: 'tv' | 'movie') => {
+    const user = useStore(state => state.user);
+    // Only run if we have a key (either in user object or legacy check)
+    const hasKey = !!user?.tmdb_key;
+
     return useQuery({
         queryKey: ['media', mediaType, showId],
         queryFn: async () => mediaType === 'movie' ? getMovieDetails(showId) : getShowDetails(showId),
-        staleTime: 1000 * 60 * 60 * 24, 
+        staleTime: 1000 * 60 * 60 * 24,
+        enabled: hasKey && !!showId,
     });
 };
 
 export const useCalendarEpisodes = (targetDate: Date) => {
     const watchlist = useStore(state => state.watchlist);
+    const user = useStore(state => state.user);
+    const hasKey = !!user?.tmdb_key;
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({
@@ -69,7 +76,8 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                 }
             },
             staleTime: 1000 * 60 * 60 * 6, // 6 hours cache
-            enabled: !!show.id
+            enabled: hasKey && !!show.id, // CRITICAL: Don't fetch until key is present
+            retry: 1
         }))
     });
 
