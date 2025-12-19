@@ -1,11 +1,10 @@
-import React, { createContext, useContext, useEffect, useRef } from 'react';
+import React from 'react';
 import { User, TVShow, Episode, AppSettings, SubscribedList, Reminder, Interaction } from '../types';
 import { useSettings } from './v2/SettingsContext';
 import { useAuth } from './v2/AuthContext';
 import { useData } from './v2/DataContext';
 import { useCalendar } from './v2/CalendarContext';
 import { useUI } from './v2/UIContext';
-import { setApiToken } from '../services/tmdb';
 
 export const THEMES: Record<string, Record<string, string>> = {
   default: { 500: '99, 102, 241' }, // Indigo
@@ -23,84 +22,21 @@ export const generatePaletteFromHex = (hex: string) => {
     return { 500: rgb };
 };
 
-// --- TYPES (Legacy Interface Match) ---
-interface AppContextType {
-  user: User | null;
-  login: (username: string, apiKey: string) => void;
-  loginCloud: (session: any) => Promise<void>;
-  logout: () => void;
-  updateUserKey: (apiKey: string) => void;
-  watchlist: TVShow[]; 
-  subscribedLists: SubscribedList[];
-  allTrackedShows: TVShow[]; 
-  episodes: Record<string, Episode[]>; 
-  reminders: Reminder[];
-  interactions: Record<string, Interaction>; 
-  addToWatchlist: (show: TVShow) => Promise<void>;
-  removeFromWatchlist: (showId: number) => void;
-  unhideShow: (showId: number) => void;
-  batchAddShows: (shows: TVShow[]) => void; 
-  batchSubscribe: (lists: SubscribedList[]) => void; 
-  subscribeToList: (listId: string) => Promise<void>;
-  unsubscribeFromList: (listId: string) => void;
-  loading: boolean; // CRITICAL: Auth Loading ONLY
-  isRefreshing: boolean; // New: Data refreshing state
-  isSyncing: boolean; 
-  syncProgress: { current: number; total: number }; 
-  refreshEpisodes: (force?: boolean) => Promise<void>;
-  loadArchivedEvents: () => Promise<void>;
-  fullSyncRequired: boolean;
-  performFullSync: (config?: Partial<AppSettings>) => Promise<void>;
-  hardRefreshCalendar: () => Promise<void>;
-  reloadAccount: () => Promise<void>;
-  toggleWatched: (id: number, mediaType: 'tv' | 'movie') => Promise<void>;
-  toggleEpisodeWatched: (showId: number, season: number, episode: number) => Promise<void>;
-  markHistoryWatched: (showId: number, season: number, episode: number) => Promise<void>;
-  setRating: (id: number, mediaType: 'tv' | 'movie', rating: number) => Promise<void>;
-  addReminder: (reminder: Reminder) => Promise<void>;
-  removeReminder: (id: string) => Promise<void>;
-  requestNotificationPermission: () => Promise<boolean>;
-  reminderCandidate: TVShow | Episode | null;
-  setReminderCandidate: (item: TVShow | Episode | null) => void;
-  isSearchOpen: boolean;
-  setIsSearchOpen: (isOpen: boolean) => void;
-  isMobileWarningOpen: boolean;
-  closeMobileWarning: (suppressFuture: boolean) => void;
-  calendarScrollPos: number;
-  setCalendarScrollPos: (pos: number) => void;
-  calendarDate: Date;
-  setCalendarDate: (date: Date) => void;
-  settings: AppSettings;
-  updateSettings: (newSettings: Partial<AppSettings>) => void;
-  importBackup: (data: any) => void;
-  uploadBackupToCloud: (data: any) => Promise<void>;
-  getSyncPayload: () => string;
-  processSyncPayload: (payload: string) => void;
-  testConnection: () => Promise<{ read: boolean; write: boolean; message: string }>;
-  traktAuth: (clientId: string, clientSecret: string) => Promise<any>;
-  traktPoll: (deviceCode: string, clientId: string, clientSecret: string) => Promise<any>;
-  saveTraktToken: (tokenData: any) => Promise<void>;
-  disconnectTrakt: () => Promise<void>;
-  syncTraktData: (background?: boolean) => Promise<void>;
-}
-
-const AppContext = createContext<AppContextType | undefined>(undefined);
-
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Consume V2 Contexts
+// This hook composes all V2 hooks into a single interface for legacy components
+export const useAppContext = () => {
   const { settings, updateSettings } = useSettings();
   const { user, login, logout, loginCloud, updateUserKey, traktAuth, traktPoll, saveTraktToken, disconnectTrakt, authLoading } = useAuth();
   const { 
       watchlist, subscribedLists, reminders, interactions, 
       addToWatchlist, removeFromWatchlist, batchAddShows, subscribeToList, unsubscribeFromList, batchSubscribe,
       addReminder, removeReminder, toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
-      syncTraktData, performFullSync: performDataSync, saveToCloudCalendar, 
+      syncTraktData, performFullSync, saveToCloudCalendar, 
       isSyncing, syncProgress, fullSyncRequired, setFullSyncRequired
   } = useData();
   const { episodes, calendarDate, setCalendarDate, refreshEpisodes, loadArchivedEvents, loading: calendarLoading } = useCalendar();
   const { isSearchOpen, setIsSearchOpen, isMobileWarningOpen, closeMobileWarning, calendarScrollPos, setCalendarScrollPos, reminderCandidate, setReminderCandidate } = useUI();
 
-  // Derived
+  // Derived State
   const allTrackedShows = React.useMemo(() => {
       const map = new Map<number, TVShow>();
       watchlist.forEach(show => map.set(show.id, show));
@@ -108,7 +44,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return Array.from(map.values());
   }, [watchlist, subscribedLists]);
 
-  // Legacy Bridges
+  // Legacy Bridge Functions
   const unhideShow = (showId: number) => {
       const newHidden = settings.hiddenItems.filter(i => i.id !== showId);
       updateSettings({ hiddenItems: newHidden });
@@ -117,7 +53,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const performFullSyncBridge = async (config?: Partial<AppSettings>) => {
       if (config) updateSettings(config);
-      await performDataSync(allTrackedShows);
+      await performFullSync(allTrackedShows);
   };
 
   const hardRefreshCalendar = async () => {
@@ -140,46 +76,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (data.settings) updateSettings(data.settings);
   };
 
-  const uploadBackupToCloud = async (data: any) => { /* Implemented in V2 via DataContext if needed, mostly redundant */ };
-  
-  const getSyncPayload = () => JSON.stringify({ user, settings }); // Simplified
-  const processSyncPayload = (payload: string) => { /* ... */ };
-
+  const uploadBackupToCloud = async (data: any) => { /* No-op */ };
+  const getSyncPayload = () => JSON.stringify({ user, settings }); 
+  const processSyncPayload = (payload: string) => { /* No-op */ };
   const testConnection = async () => { return { read: true, write: true, message: 'V2 Bridge Active' }; };
 
-  return (
-    <AppContext.Provider value={{
-      user, login, loginCloud, logout, updateUserKey,
+  return {
+      // Auth
+      user, login, loginCloud, logout, updateUserKey, loading: authLoading,
+      
+      // Data
       watchlist, addToWatchlist, removeFromWatchlist, unhideShow, batchAddShows, batchSubscribe,
       subscribedLists, subscribeToList, unsubscribeFromList, allTrackedShows,
-      episodes, 
-      loading: authLoading, // FIX: Only block app on Auth loading
-      isRefreshing: calendarLoading, // NEW: Expose calendar loading separately
-      isSyncing, syncProgress, refreshEpisodes, loadArchivedEvents,
-      requestNotificationPermission,
-      isSearchOpen, setIsSearchOpen,
+      reminders, addReminder, removeReminder,
+      interactions, toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
+      
+      // Calendar
+      episodes, calendarDate, setCalendarDate, refreshEpisodes, loadArchivedEvents, 
+      isRefreshing: calendarLoading, // Explicit separation
+      
+      // Sync
+      isSyncing, syncProgress, fullSyncRequired, performFullSync: performFullSyncBridge,
+      hardRefreshCalendar, traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData,
+      testConnection,
+      
+      // UI / Settings
       settings, updateSettings,
+      isSearchOpen, setIsSearchOpen,
+      isMobileWarningOpen, closeMobileWarning,
+      calendarScrollPos, setCalendarScrollPos,
+      reminderCandidate, setReminderCandidate,
+      
+      // Utils
+      requestNotificationPermission,
       importBackup, uploadBackupToCloud,
       getSyncPayload, processSyncPayload,
-      isMobileWarningOpen, closeMobileWarning,
-      reminders, addReminder, removeReminder,
-      reminderCandidate, setReminderCandidate,
-      reloadAccount,
-      calendarScrollPos, setCalendarScrollPos,
-      calendarDate, setCalendarDate,
-      interactions, toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
-      traktAuth, traktPoll, saveTraktToken, disconnectTrakt, syncTraktData,
-      fullSyncRequired, performFullSync: performFullSyncBridge,
-      hardRefreshCalendar,
-      testConnection
-    }}>
-      {children}
-    </AppContext.Provider>
-  );
+      reloadAccount
+  };
 };
 
-export const useAppContext = () => {
-  const context = useContext(AppContext);
-  if (!context) throw new Error('useAppContext must be used within AppProvider');
-  return context;
+// Deprecated Provider - Renders children directly to avoid breaking tree
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return <>{children}</>;
 };

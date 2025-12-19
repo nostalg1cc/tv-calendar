@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { V2Provider } from './context/v2';
-// We import AppProvider to satisfy the tree, but it is now a bridge inside V2
-import { AppProvider, useAppContext } from './context/AppContext'; 
+import { useAppContext } from './context/AppContext'; 
 import Navbar from './components/Navbar';
 import CalendarPage from './pages/CalendarPage';
 import SearchPage from './pages/SearchPage';
 import WatchlistPage from './pages/WatchlistPage';
 import DiscoverPage from './pages/DiscoverPage';
-import LoginPage from './pages/v2/LoginPage'; // Use new V2 Login Page
+import LoginPage from './pages/v2/LoginPage'; 
 import RemindersPage from './pages/RemindersPage';
 import SearchModal from './components/SearchModal';
 import MobileAddWarning from './components/MobileAddWarning';
@@ -136,11 +135,9 @@ const AppRoutes: React.FC = () => {
 const App: React.FC = () => {
   return (
     <V2Provider>
-        <AppProvider>
           <HashRouter>
             <AppRoutes />
           </HashRouter>
-        </AppProvider>
     </V2Provider>
   );
 };
