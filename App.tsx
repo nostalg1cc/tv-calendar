@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
@@ -14,6 +13,7 @@ import MobileAddWarning from './components/MobileAddWarning';
 import AskReminderModal from './components/AskReminderModal';
 import ReminderConfigModal from './components/ReminderConfigModal';
 import FullSyncModal from './components/FullSyncModal';
+import MigrationModal from './components/MigrationModal';
 import V2Dashboard from './v2/V2Dashboard';
 import { TVShow, Episode } from './types';
 
@@ -71,6 +71,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <SearchModal />
             <MobileAddWarning />
             <FullSyncModal />
+            <MigrationModal />
             <AskReminderModal 
                 isOpen={!!reminderCandidate && !isConfigOpen} 
                 item={reminderCandidate} 
@@ -114,7 +115,12 @@ const AppRoutes: React.FC = () => {
             } />
 
             {/* V2 Routes (Default) */}
-            <Route path="/*" element={<ProtectedRoute><V2Dashboard /></ProtectedRoute>} />
+            <Route path="/*" element={
+                <ProtectedRoute>
+                    <V2Dashboard />
+                    <MigrationModal />
+                </ProtectedRoute>
+            } />
         </Routes>
     );
 };

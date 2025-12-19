@@ -33,7 +33,7 @@ interface AppContextType {
   
   // Full Sync State
   fullSyncRequired: boolean;
-  performFullSync: () => Promise<void>;
+  performFullSync: (config?: Partial<AppSettings>) => Promise<void>;
 
   // Reminders
   reminders: Reminder[];
@@ -148,7 +148,6 @@ const getTimezoneOffsetMinutes = (timeZone: string): number => {
     try {
         const now = new Date();
         const str = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).format(now);
-        // Extracts GMT-05:00 or GMT+01:00
         const match = str.match(/GMT([+-])(\d{2}):(\d{2})/);
         if (match) {
             const sign = match[1] === '+' ? 1 : -1;
@@ -156,9 +155,7 @@ const getTimezoneOffsetMinutes = (timeZone: string): number => {
             const minutes = parseInt(match[3]);
             return sign * (hours * 60 + minutes);
         }
-    } catch (e) {
-        // Fallback or invalid timezone
-    }
+    } catch (e) {}
     return 0; 
 };
 
@@ -170,7 +167,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [calendarScrollPos, setCalendarScrollPos] = useState(0);
   const [calendarDate, setCalendarDate] = useState(new Date());
 
-  // Manual Overrides Memory - IMPORTANT for preserving user choices over sync
+  // Manual Overrides Memory
   const manualOverridesRef = useRef<Record<string, boolean>>({});
 
   const [settings, setSettings] = useState<AppSettings>(() => { 
@@ -178,30 +175,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const savedSynced = localStorage.getItem('tv_calendar_settings');
           const synced = savedSynced ? JSON.parse(savedSynced) : DEFAULT_SETTINGS;
           
-          // Legacy migration
-          if ('spoilerMode' in synced) {
-              const oldMode = synced.spoilerMode;
-              if (oldMode === 'images') synced.spoilerConfig = { images: true, overview: false, title: false };
-              else if (oldMode === 'description') synced.spoilerConfig = { images: true, overview: true, title: false };
-              else if (oldMode === 'redacted') synced.spoilerConfig = { images: true, overview: true, title: true };
-              else synced.spoilerConfig = { images: false, overview: false, title: false };
-              delete synced.spoilerMode;
-          }
           if (!synced.spoilerConfig) synced.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig;
           if (synced.spoilerConfig.includeMovies === undefined) synced.spoilerConfig.includeMovies = false;
-          if (synced.spoilerConfig.replacementMode === undefined) synced.spoilerConfig.replacementMode = 'blur';
-          if (!synced.appDesign) synced.appDesign = 'default';
-          
-          // New Settings Init
           if (!synced.baseTheme) synced.baseTheme = synced.appDesign === 'blackout' ? 'oled' : 'cosmic';
           if (!synced.appFont) synced.appFont = 'inter';
           if (!synced.reminderStrategy) synced.reminderStrategy = 'ask';
           if (synced.timeShift === undefined) synced.timeShift = false;
           if (!synced.v2SidebarMode) synced.v2SidebarMode = 'fixed';
           if (synced.autoSync === undefined) synced.autoSync = true;
-          if (!synced.v2LibraryLayout) synced.v2LibraryLayout = 'grid';
           
-          // Migrate hiddenIds (number[]) to hiddenItems (object[])
           if (synced.hiddenIds && !synced.hiddenItems) {
               synced.hiddenItems = synced.hiddenIds.map((id: number) => ({ id, name: 'Unknown Show' }));
               delete synced.hiddenIds;
@@ -216,7 +198,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
   
   useEffect(() => { 
-      // Theme Color
       const themeKey = settings.theme || 'default'; 
       let themeColors: Record<string, string>; 
       if (themeKey === 'custom' && settings.customThemeColor) { 
@@ -229,10 +210,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           root.style.setProperty(`--theme-${shade}`, value); 
       }); 
 
-      // Apply Base Theme & Font to Body
       let activeTheme = settings.baseTheme || 'cosmic';
-      
-      // Auto Theme Logic
       if (activeTheme === 'auto') {
           const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           activeTheme = prefersDark ? 'cosmic' : 'light';
@@ -240,21 +218,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       document.body.setAttribute('data-base-theme', activeTheme);
       document.body.setAttribute('data-font', settings.appFont || 'inter');
-
-      // Legacy fallback
       document.body.setAttribute('data-design', settings.appDesign || 'default');
-
   }, [settings.theme, settings.customThemeColor, settings.appDesign, settings.baseTheme, settings.appFont]);
 
-  // Listen for OS Theme Changes if Auto is enabled
   useEffect(() => {
       if (settings.baseTheme !== 'auto') return;
-
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handleChange = (e: MediaQueryListEvent) => {
           document.body.setAttribute('data-base-theme', e.matches ? 'cosmic' : 'light');
       };
-
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
   }, [settings.baseTheme]);
@@ -302,19 +274,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [watchlist, subscribedLists, settings, user, reminders, interactions]);
 
-  // Trakt Auto-Sync Effect
   useEffect(() => {
       if (user?.traktToken && !isSyncing && !loading) {
-          // Silent sync on mount if connected
           syncTraktData(true); 
       }
   }, [user?.traktToken]);
 
-  // --- TIMEZONE & SHIFT LOGIC ---
-
   const getAdjustedDate = useCallback((airDate: string, originCountries?: string[]): string => {
       if (!settings.timeShift || !settings.timezone) return airDate;
-      if (!originCountries || originCountries.length === 0) return airDate; // Only shift if we know origin
+      if (!originCountries || originCountries.length === 0) return airDate; 
       
       const originCountry = originCountries[0];
       const originTz = COUNTRY_TIMEZONES[originCountry];
@@ -324,29 +292,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const originOffset = getTimezoneOffsetMinutes(originTz);
           const userOffset = getTimezoneOffsetMinutes(settings.timezone);
           
-          // Difference between user and origin
-          const diffMinutes = userOffset - originOffset;
-          
-          // Assume Prime Time Air (20:00 or 8 PM) in origin
+          // Assume Prime Time Air (20:00) in origin
           const airTimeMinutes = 20 * 60; 
-          
-          // Calculate what time it is for the user when it airs at origin
+          const diffMinutes = userOffset - originOffset;
           const adjustedTimeMinutes = airTimeMinutes + diffMinutes;
           
-          // If the adjusted time pushes into next day (>= 24h) or previous day (< 0h)
           if (adjustedTimeMinutes >= 24 * 60) { 
               return format(addDays(parseISO(airDate), 1), 'yyyy-MM-dd'); 
           } else if (adjustedTimeMinutes < 0) { 
               return format(addDays(parseISO(airDate), -1), 'yyyy-MM-dd'); 
           }
-      } catch (e) {
-          // console.error("Time shift error", e);
-      }
+      } catch (e) {}
       
       return airDate;
   }, [settings.timeShift, settings.timezone]);
 
-  // Automatically Re-Bucket Episodes when Time Settings Change
+  // Re-bucket episodes on setting change
   useEffect(() => {
       setEpisodes(prevEpisodes => {
           const allEps = Object.values(prevEpisodes).flat();
@@ -356,7 +317,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
           allEps.forEach(ep => {
               if (!ep.air_date) return;
-              // Use metadata attached to the episode itself
               const dateKey = getAdjustedDate(ep.air_date, ep.origin_country);
               
               if (!newMap[dateKey]) newMap[dateKey] = [];
@@ -364,10 +324,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   newMap[dateKey].push(ep);
               }
           });
-
-          // Sync to IDB asynchronously
           set(DB_KEY_EPISODES, newMap);
-          
           return newMap;
       });
   }, [settings.timeShift, settings.timezone, getAdjustedDate]);
@@ -378,7 +335,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const saveTraktToken = async (tokenData: any) => { if (!user) return; try { const profile = await getTraktProfile(tokenData.access_token); const updatedUser: User = { ...user, traktToken: { ...tokenData, created_at: Date.now() / 1000 }, traktProfile: profile }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: updatedUser.traktToken, trakt_profile: profile }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } catch (e) { console.error("Failed to fetch Trakt profile", e); } };
   const disconnectTrakt = async () => { if (!user) return; const updatedUser = { ...user, traktToken: undefined, traktProfile: undefined }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: null, trakt_profile: null }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } };
   
-  // Unified Interaction Saver (Single Source of Truth)
+  // Unified Interaction Saver
   const saveInteraction = async (interaction: Interaction) => {
       if (!user?.isCloud || !supabase || !user?.id) return;
       try {
@@ -393,7 +350,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               watched_at: interaction.watched_at,
               updated_at: new Date().toISOString()
           };
-          // Upsert to 'interactions' only
+          // Always write to 'interactions'
           const { error } = await supabase.from('interactions').upsert(payload, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' });
           if (error) console.error("Interaction save failed", error);
       } catch (e: any) { console.error("Interaction save error", e); }
@@ -591,7 +548,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         watched_at: item.watched_at,
                         updated_at: new Date().toISOString()
                     })); 
-                    // Upsert to 'interactions' only
                     await supabase.from('interactions').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); 
                 }
           }
@@ -602,7 +558,105 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loadCloudCalendar = async (userId: string) => { if (!supabase) return; try { const oneYearAgo = subYears(new Date(), 1).toISOString(); const { data, error } = await supabase.from('user_calendar_events').select('*').eq('user_id', userId).gte('air_date', oneYearAgo); if (error) throw error; if (data && data.length > 0) { const newEpisodes: Record<string, Episode[]> = {}; data.forEach((row: any) => { const dateKey = row.air_date; if (!dateKey) return; if (!newEpisodes[dateKey]) newEpisodes[dateKey] = []; newEpisodes[dateKey].push(mapDbToEpisode(row)); }); setEpisodes(prev => { const merged = { ...prev, ...newEpisodes }; set(DB_KEY_EPISODES, merged); return merged; }); } } catch (e) { console.error("Failed to load cloud calendar", e); } };
   const loadArchivedEvents = async () => { if (!user?.isCloud || !supabase || !user.id) return; setLoading(true); try { const oneYearAgo = subYears(new Date(), 1).toISOString(); const { data, error } = await supabase.from('user_calendar_events').select('*').eq('user_id', user.id).lt('air_date', oneYearAgo); if (error) throw error; if (data && data.length > 0) { setEpisodes(prev => { const next = { ...prev }; data.forEach((row: any) => { const dateKey = row.air_date; if (!dateKey) return; if (!next[dateKey]) next[dateKey] = []; const exists = next[dateKey].some(e => e.show_id === row.tmdb_id && e.season_number === row.season_number && e.episode_number === row.episode_number); if (!exists) { next[dateKey].push(mapDbToEpisode(row)); } }); return next; }); } } catch (e) { console.error("Archive load failed", e); } finally { setLoading(false); } };
   const saveToCloudCalendar = async (episodesList: Episode[], userId: string) => { if (!supabase || episodesList.length === 0) return; const rows = episodesList.map(ep => ({ user_id: userId, tmdb_id: ep.show_id || ep.id, media_type: ep.is_movie ? 'movie' : 'tv', season_number: ep.season_number ?? -1, episode_number: ep.episode_number ?? -1, title: ep.show_name || ep.name || '', episode_name: ep.name || '', overview: ep.overview || '', air_date: ep.air_date, poster_path: ep.poster_path || null, backdrop_path: ep.still_path || null, vote_average: ep.vote_average || 0, release_type: ep.release_type || null })); const batchSize = 100; for (let i = 0; i < rows.length; i += batchSize) { const batch = rows.slice(i, i + batchSize); const { error } = await supabase.from('user_calendar_events').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); if (error) console.error('Supabase Upsert Failed:', error.message); } };
-  const performFullSync = async () => { if (!user?.isCloud || !supabase || !user.id) return; setIsSyncing(true); setLoading(true); try { const uniqueItems = [...allTrackedShows]; setSyncProgress({ current: 0, total: uniqueItems.length }); await supabase.from('user_calendar_events').delete().eq('user_id', user.id); let processedCount = 0; const batchSize = 3; let fullEpisodeList: Episode[] = []; for (let i = 0; i < uniqueItems.length; i += batchSize) { const batch = uniqueItems.slice(i, i + batchSize); const batchEpisodes: Episode[] = []; await Promise.all(batch.map(async (item) => { try { if (item.media_type === 'movie') { const releaseDates = await getMovieReleaseDates(item.id); releaseDates.forEach(rel => { batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); }); } else { const details = await getShowDetails(item.id); const seasonsMeta = details.seasons || []; for (const sMeta of seasonsMeta) { try { const sData = await getSeasonDetails(item.id, sMeta.season_number); if (sData.episodes) { sData.episodes.forEach(ep => { if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: details.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false }); }); } } catch (e) {} } } } catch (err) {} })); if (batchEpisodes.length > 0) { fullEpisodeList = [...fullEpisodeList, ...batchEpisodes]; await saveToCloudCalendar(batchEpisodes, user.id); } processedCount += batch.length; setSyncProgress(prev => ({ ...prev, current: processedCount })); } await supabase.from('profiles').update({ full_sync_completed: true, last_full_sync: new Date().toISOString() }).eq('id', user.id); const newEpisodesMap: Record<string, Episode[]> = {}; fullEpisodeList.forEach(ep => { if(!ep.air_date) return; if(!newEpisodesMap[ep.air_date]) newEpisodesMap[ep.air_date] = []; newEpisodesMap[ep.air_date].push(ep); }); await set(DB_KEY_EPISODES, newEpisodesMap); setEpisodes(newEpisodesMap); setFullSyncRequired(false); } catch (e) { alert("Sync failed."); } finally { setIsSyncing(false); setLoading(false); } };
+  
+  // -- Full Sync & Migration Logic --
+  const performFullSync = async (config?: Partial<AppSettings>) => { 
+      if (!user?.isCloud || !supabase || !user.id) return; 
+      setIsSyncing(true); 
+      setLoading(true); 
+      
+      try { 
+          // 1. Clean up local caches
+          await del(DB_KEY_EPISODES);
+          await del(DB_KEY_META);
+          setEpisodes({});
+
+          // 2. If config provided (from modal), update settings first
+          if (config) {
+              await updateSettings(config);
+          }
+
+          // 3. Clear cloud calendar cache to force regeneration
+          await supabase.from('user_calendar_events').delete().eq('user_id', user.id); 
+
+          const uniqueItems = [...allTrackedShows]; 
+          setSyncProgress({ current: 0, total: uniqueItems.length }); 
+          
+          let processedCount = 0; 
+          const batchSize = 3; 
+          let fullEpisodeList: Episode[] = []; 
+          
+          for (let i = 0; i < uniqueItems.length; i += batchSize) { 
+              const batch = uniqueItems.slice(i, i + batchSize); 
+              const batchEpisodes: Episode[] = []; 
+              
+              await Promise.all(batch.map(async (item) => { 
+                  try { 
+                      let origin = item.origin_country;
+                      let details = item;
+
+                      if (item.media_type === 'movie') { 
+                          if (!origin) {
+                               const fullMovie = await getMovieDetails(item.id);
+                               origin = fullMovie.origin_country;
+                          }
+                          const releaseDates = await getMovieReleaseDates(item.id); 
+                          releaseDates.forEach(rel => { 
+                              batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type, origin_country: origin }); 
+                          }); 
+                      } else { 
+                          try { 
+                              details = await getShowDetails(item.id); 
+                              origin = details.origin_country;
+                          } catch(e) {}
+                          
+                          const seasonsMeta = details.seasons || []; 
+                          for (const sMeta of seasonsMeta) { 
+                              try { 
+                                  const sData = await getSeasonDetails(item.id, sMeta.season_number); 
+                                  if (sData.episodes) { 
+                                      sData.episodes.forEach(ep => { 
+                                          if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: details.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false, origin_country: origin }); 
+                                      }); 
+                                  } 
+                              } catch (e) {} 
+                          } 
+                      } 
+                  } catch (err) {} 
+              })); 
+              
+              if (batchEpisodes.length > 0) { 
+                  fullEpisodeList = [...fullEpisodeList, ...batchEpisodes]; 
+                  await saveToCloudCalendar(batchEpisodes, user.id); 
+              } 
+              processedCount += batch.length; 
+              setSyncProgress(prev => ({ ...prev, current: processedCount })); 
+          } 
+          
+          await supabase.from('profiles').update({ full_sync_completed: true, last_full_sync: new Date().toISOString() }).eq('id', user.id); 
+          
+          // Re-bucket
+          const newEpisodesMap: Record<string, Episode[]> = {}; 
+          fullEpisodeList.forEach(ep => { 
+              if(!ep.air_date) return; 
+              const dateKey = getAdjustedDate(ep.air_date, ep.origin_country);
+              if(!newEpisodesMap[dateKey]) newEpisodesMap[dateKey] = []; 
+              newEpisodesMap[dateKey].push(ep); 
+          }); 
+          
+          await set(DB_KEY_EPISODES, newEpisodesMap); 
+          setEpisodes(newEpisodesMap); 
+          
+          // Update user state to reflect completion
+          setUser(prev => prev ? ({ ...prev, fullSyncCompleted: true }) : null);
+          setFullSyncRequired(false); 
+      } catch (e) { 
+          alert("Sync failed. Please try again."); 
+      } finally { 
+          setIsSyncing(false); 
+          setLoading(false); 
+      } 
+  };
 
   const refreshEpisodes = useCallback(async (force = false) => { 
       if (fullSyncRequired) return; 
@@ -612,28 +666,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const lastUpdate = await get<number>(DB_KEY_META); 
       const now = Date.now(); 
 
-      // Initialize from cache first if available
       const cachedEps = await get<Record<string, Episode[]>>(DB_KEY_EPISODES); 
-      if (cachedEps) {
-          setEpisodes(cachedEps);
-      }
+      if (cachedEps) setEpisodes(cachedEps);
 
-      // Skip sync if recent and not forced
       if (!shouldSync || (!user.isCloud && !force && lastUpdate && (now - lastUpdate < CACHE_DURATION))) { 
-          if (cachedEps) { 
-              setLoading(false); 
-              return; 
-          }
-          if (allTrackedShows.length === 0) {
-              setLoading(false);
-              return;
-          }
+          if (cachedEps) { setLoading(false); return; }
+          if (allTrackedShows.length === 0) { setLoading(false); return; }
       } 
       
       const itemsToProcess = [...allTrackedShows]; 
       if (itemsToProcess.length === 0) { setEpisodes({}); setLoading(false); return; } 
       
-      // Don't show full loading screen if we have cached data, just a sync indicator
       if (!cachedEps) setLoading(true);
       setIsSyncing(true); 
       
@@ -643,23 +686,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           itemsToProcess.forEach(item => { if (!processedIds.has(item.id)) { processedIds.add(item.id); uniqueItems.push(item); } }); 
           setSyncProgress({ current: 0, total: uniqueItems.length }); 
           
-          // Merge logic: Don't replace state, merge into it
           const currentEps = cachedEps || {};
 
-          // Helper to inject origin data into episodes
           const enhanceEpisodes = (newEps: Episode[], origin?: string[]): Episode[] => {
               return newEps.map(ep => ({
                   ...ep,
-                  origin_country: origin // Explicitly attach origin for shifting logic
+                  origin_country: origin
               }));
           }; 
 
           let processedCount = 0; 
-          // Smart Sync Window: 6 months ago to Future
           const sixMonthsAgo = subMonths(new Date(), 6);
           const incomingEpisodes: Episode[] = [];
 
-          // Use a batch size, but the queue in TMDB service will handle concurrency limits
           while (processedCount < uniqueItems.length) { 
               const currentBatchSize = 10; 
               const batch = uniqueItems.slice(processedCount, processedCount + currentBatchSize); 
@@ -667,10 +706,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               await Promise.all(batch.map(async (item) => { 
                   try { 
                       const batchEpisodes: Episode[] = [];
-                      
-                      // Always fetch details to get origin_country if missing in item
-                      // Note: We don't save this back to watchlist state to avoid huge re-renders/storage writes
-                      // but we use it for the episode generation.
                       let origin = item.origin_country;
                       let details = item;
 
@@ -684,26 +719,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                               batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type }); 
                           }); 
                       } else { 
-                          // Fetch latest show details to get current seasons AND origin
                           try { 
                               details = await getShowDetails(item.id); 
                               origin = details.origin_country;
-                          } catch(e) {
-                              console.warn(`Failed to fetch show details for ${item.name}`, e);
-                          }
+                          } catch(e) {}
                           
                           const seasonsMeta = details.seasons || []; 
-                          
-                          // Smart Filtering: Only fetch seasons that are:
-                          // 1. Specials (Season 0) - if not ignored
-                          // 2. Aired recently (last 6 months)
-                          // 3. Airing in the future
-                          // 4. The very last season (to catch TBA episodes)
                           const seasonsToFetch = seasonsMeta.filter((s, index) => {
                               if (s.season_number === 0) return !settings.ignoreSpecials;
-                              if (!s.air_date) return true; // TBA season (likely active)
+                              if (!s.air_date) return true; 
                               const sDate = parseISO(s.air_date);
-                              // Simple date check
                               return sDate >= sixMonthsAgo || index === seasonsMeta.length - 1;
                           });
 
@@ -715,36 +740,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                           if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: details.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false }); 
                                       }); 
                                   } 
-                              } catch (e) {
-                                  console.warn(`Failed to fetch season ${sMeta.season_number} for ${item.name}`, e);
-                              } 
+                              } catch (e) {} 
                           } 
                       } 
                       
                       incomingEpisodes.push(...enhanceEpisodes(batchEpisodes, origin));
-
-                  } catch (error) {
-                       console.error(`Error processing item ${item.name}`, error);
-                  } 
+                  } catch (error) {} 
               })); 
               processedCount += currentBatchSize; 
               setSyncProgress(prev => ({ ...prev, current: Math.min(processedCount, uniqueItems.length) })); 
           } 
           
-          // --- Intelligent Cache Merging ---
           const finalEpisodesMap: Record<string, Episode[]> = { ...currentEps };
           
           incomingEpisodes.forEach(ep => {
               if(!ep.air_date) return;
-              
-              // Now we have origin_country on the episode object itself!
               const dateKey = getAdjustedDate(ep.air_date, ep.origin_country);
-              
               if (!finalEpisodesMap[dateKey]) finalEpisodesMap[dateKey] = [];
-              
-              // Remove existing entry for this specific episode if it exists (to update it)
               finalEpisodesMap[dateKey] = finalEpisodesMap[dateKey].filter(e => !(e.show_id === ep.show_id && e.season_number === ep.season_number && e.episode_number === ep.episode_number));
-              
               finalEpisodesMap[dateKey].push(ep);
           });
 
@@ -755,22 +768,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [user, allTrackedShows, watchlist, fullSyncRequired, settings.timeShift, settings.timezone, settings.autoSync, settings.ignoreSpecials, getAdjustedDate]);
 
   const hardRefreshCalendar = async () => {
-    // 1. Clear IndexedDB
     await del(DB_KEY_EPISODES);
     await del(DB_KEY_META);
-    
-    // 2. Clear State
     setEpisodes({});
-    
-    // 3. Force Fetch
     await refreshEpisodes(true);
   };
 
   // Initial Data Load
   useEffect(() => {
-      if (user) {
-          refreshEpisodes();
-      }
+      if (user) refreshEpisodes();
   }, [user?.tmdbKey, user?.isCloud]);
 
   const login = (username: string, apiKey: string) => { const newUser: User = { username, tmdbKey: apiKey, isAuthenticated: true, isCloud: false }; setUser(newUser); setApiToken(apiKey); localStorage.setItem('tv_calendar_user', JSON.stringify(newUser)); };
@@ -799,11 +805,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               setEpisodes({}); 
           } 
           
-          // CRITICAL: Set API token first so fetches work
           setApiToken(newUser.tmdbKey); 
           
-          // --- PARSING SETTINGS ---
-          // The CSV shows settings as a JSON string, ensure safe parsing
           if (profile.settings) { 
               let parsedSettings = profile.settings;
               if (typeof parsedSettings === 'string') {
@@ -811,10 +814,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               }
 
               const local = getLocalPrefs(); 
-              // Respect saved settings but apply defaults
               const mergedSettings = { ...DEFAULT_SETTINGS, ...parsedSettings, ...local }; 
               
-              // Validate structure
               if (!mergedSettings.spoilerConfig) mergedSettings.spoilerConfig = DEFAULT_SETTINGS.spoilerConfig; 
               if (mergedSettings.spoilerConfig.includeMovies === undefined) mergedSettings.spoilerConfig.includeMovies = false; 
               if (!mergedSettings.appDesign) mergedSettings.appDesign = 'default'; 
@@ -828,7 +829,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               setSettings(mergedSettings); 
           } 
           
-          // PARALLEL DATA FETCH
           // CONSOLIDATION: Read from interactions primarily, but also check watched_items for legacy migration
           const [
               { data: remoteWatchlist },
@@ -846,7 +846,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
           if (remoteWatchlist) { 
               const loadedWatchlist = remoteWatchlist.map((item: any) => ({ 
-                  id: item.tmdb_id, // CRITICAL: Map DB tmdb_id to app 'id'
+                  id: item.tmdb_id, 
                   name: item.name, 
                   poster_path: item.poster_path, 
                   backdrop_path: item.backdrop_path, 
@@ -889,7 +889,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (remoteManual) {
               (remoteManual as any[]).forEach((m) => {
                   let key = m.media_type === 'episode' ? `episode-${m.tmdb_id}-${m.season_number}-${m.episode_number}` : `${m.media_type}-${m.tmdb_id}`;
-                  // If not in primary map, or if legacy is explicitly watched and newer (simplified logic: just add if missing)
+                  // If not in primary map, add it
                   if (!intMap[key]) {
                       intMap[key] = { tmdb_id: m.tmdb_id, media_type: m.media_type, is_watched: m.is_watched, rating: 0, season_number: m.season_number, episode_number: m.episode_number, watched_at: m.watched_at };
                   }
@@ -914,7 +914,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               } 
           } 
 
-          // FINALLY set user to trigger app logic
           setUser(newUser); 
           setLoading(false); 
       } 
@@ -947,13 +946,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (user?.isCloud && supabase && user.id) {
               // FIX: Explicitly stringify the JSON payload for the text column
               const payload = JSON.stringify(settingsToSync);
-              
-              supabase.from('profiles').update({ 
-                  settings: payload, 
-                  updated_at: new Date().toISOString() 
-              }).eq('id', user.id).then(({error}) => { 
-                  if(error) console.error("Failed to sync settings", error); 
-              }); 
+              supabase.from('profiles').update({ settings: payload, updated_at: new Date().toISOString() }).eq('id', user.id).then(({error}) => { if(error) console.error("Failed to sync settings", error); }); 
           }
           
           localStorage.setItem('tv_calendar_settings', JSON.stringify(settingsToSync)); 
