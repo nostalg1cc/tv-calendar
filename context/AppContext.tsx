@@ -63,7 +63,7 @@ interface AppContextType {
   closeMobileWarning: (suppressFuture: boolean) => void;
   reloadAccount: () => Promise<void>;
   hardRefreshCalendar: () => Promise<void>;
-  testConnection: () => Promise<{ success: boolean; message: string }>;
+  testConnection: () => Promise<{ read: boolean; write: boolean; message: string }>;
 
   // Calendar Persistence
   calendarScrollPos: number;
@@ -948,8 +948,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
           if (user?.isCloud && supabase && user.id) {
               // Ensure settings are stringified for DB text column if necessary, or sent as object for JSONB
+              // We'll stringify it to be safe since the CSV suggests text column
+              const payload = JSON.stringify(settingsToSync);
+              
               supabase.from('profiles').update({ 
-                  settings: settingsToSync, 
+                  settings: payload, 
                   updated_at: new Date().toISOString() 
               }).eq('id', user.id).then(({error}) => { 
                   if(error) console.error("Failed to sync settings", error); 
@@ -1084,24 +1087,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const closeMobileWarning = (suppressFuture: boolean) => { setIsMobileWarningOpen(false); if (suppressFuture) updateSettings({ suppressMobileAddWarning: true }); };
 
   // --- NEW: Connection Diagnostic ---
-  const testConnection = async (): Promise<{ success: boolean; message: string }> => {
-      if (!isSupabaseConfigured() || !supabase) return { success: false, message: 'Supabase client not initialized.' };
-      if (!user?.isCloud || !user.id) return { success: false, message: 'Not logged into a cloud account.' };
+  const testConnection = async (): Promise<{ read: boolean; write: boolean; message: string }> => {
+      if (!isSupabaseConfigured() || !supabase) return { read: false, write: false, message: 'Supabase client not initialized.' };
+      if (!user?.isCloud || !user.id) return { read: false, write: false, message: 'Not logged into a cloud account.' };
+
+      let readSuccess = false;
+      let writeSuccess = false;
+      const details = [];
 
       try {
           // 1. Test Read
           const { data, error: readError } = await supabase.from('profiles').select('id, settings').eq('id', user.id).single();
-          if (readError) throw readError;
-          if (!data) throw new Error('Profile not found for this user ID.');
+          if (readError) {
+              details.push(`Read Failed: ${readError.message}`);
+          } else if (!data) {
+              details.push('Read Failed: Profile not found');
+          } else {
+              readSuccess = true;
+          }
 
           // 2. Test Write (Touch updated_at)
           const { error: writeError } = await supabase.from('profiles').update({ updated_at: new Date().toISOString() }).eq('id', user.id);
-          if (writeError) throw writeError;
+          if (writeError) {
+               details.push(`Write Failed: ${writeError.message}`);
+          } else {
+               writeSuccess = true;
+          }
 
-          return { success: true, message: 'Connection Healthy: Read & Write successful.' };
+          if (readSuccess && writeSuccess) {
+              return { read: true, write: true, message: 'Connection Healthy.' };
+          }
+          
+          return { read: readSuccess, write: writeSuccess, message: details.join('. ') };
+
       } catch (e: any) {
           console.error("Connection Test Failed", e);
-          return { success: false, message: `Connection Failed: ${e.message || e.code || 'Unknown Error'}` };
+          return { read: false, write: false, message: `System Error: ${e.message || 'Unknown'}` };
       }
   };
 

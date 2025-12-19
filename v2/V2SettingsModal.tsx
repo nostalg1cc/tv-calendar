@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Settings, ShieldCheck, Palette, User, Globe, EyeOff, Layout, Bell, Monitor, Cloud, LogOut, RefreshCw, X, ChevronLeft } from 'lucide-react';
+import { Settings, ShieldCheck, Palette, User, Globe, EyeOff, Layout, Bell, Monitor, Cloud, LogOut, RefreshCw, X, ChevronLeft, Signal, CheckCircle2, XCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 interface V2SettingsModalProps {
@@ -11,11 +10,26 @@ interface V2SettingsModalProps {
 type TabId = 'general' | 'account' | 'design' | 'spoiler';
 
 const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) => {
-    const { settings, updateSettings, user, logout, hardRefreshCalendar, isSyncing } = useAppContext();
+    const { settings, updateSettings, user, logout, hardRefreshCalendar, isSyncing, testConnection } = useAppContext();
     const [activeTab, setActiveTab] = useState<TabId>('general');
     
     // Mobile View State: 'menu' | 'content'
     const [mobileView, setMobileView] = useState<'menu' | 'content'>('menu');
+
+    // Test State
+    const [isTesting, setIsTesting] = useState(false);
+    const [testResult, setTestResult] = useState<{ read: boolean; write: boolean; message: string } | null>(null);
+
+    const handleRunTest = async () => {
+        setIsTesting(true);
+        setTestResult(null);
+        const res = await testConnection();
+        // Artificial delay for better UX
+        setTimeout(() => {
+            setTestResult(res);
+            setIsTesting(false);
+        }, 800);
+    };
 
     if (!isOpen) return null;
 
@@ -115,17 +129,63 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                 
                                 <div className="pt-4 border-t border-white/5">
                                     <h3 className="text-sm font-black text-zinc-600 uppercase tracking-widest mb-4">Data Management</h3>
-                                    <button 
-                                        onClick={() => { if(confirm("This will delete your local cache and re-download all calendar data. Continue?")) hardRefreshCalendar(); }}
-                                        disabled={isSyncing}
-                                        className="w-full bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-300 hover:text-white p-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-between group"
-                                    >
-                                        <span className="flex items-center gap-3">
-                                            <RefreshCw className={`w-4 h-4 text-indigo-500 ${isSyncing ? 'animate-spin' : ''}`} />
-                                            Force Refresh Calendar
-                                        </span>
-                                        <span className="text-xs text-zinc-600 group-hover:text-zinc-500">Rebuild Database</span>
-                                    </button>
+                                    
+                                    <div className="space-y-4">
+                                        {/* Database Diagnostic Tool */}
+                                        <div className="bg-zinc-900 border border-white/5 p-5 rounded-2xl">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-zinc-200 flex items-center gap-2">
+                                                        <Signal className="w-4 h-4 text-emerald-500" /> Connection Status
+                                                    </h4>
+                                                    <p className="text-[10px] text-zinc-500 mt-1">Test read/write latency to cloud database.</p>
+                                                </div>
+                                                <button 
+                                                    onClick={handleRunTest}
+                                                    disabled={isTesting}
+                                                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                                >
+                                                    {isTesting ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Run Test'}
+                                                </button>
+                                            </div>
+
+                                            {testResult && (
+                                                <div className="grid grid-cols-2 gap-3 mt-4 border-t border-white/5 pt-4">
+                                                    <div className={`p-3 rounded-xl border flex items-center gap-3 ${testResult.read ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                                                        {testResult.read ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                                                        <div>
+                                                            <div className="text-xs font-black uppercase tracking-wider">Read Test</div>
+                                                            <div className="text-[10px] opacity-80">{testResult.read ? 'Success' : 'Failed'}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className={`p-3 rounded-xl border flex items-center gap-3 ${testResult.write ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                                                        {testResult.write ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                                                        <div>
+                                                            <div className="text-xs font-black uppercase tracking-wider">Write Test</div>
+                                                            <div className="text-[10px] opacity-80">{testResult.write ? 'Success' : 'Failed'}</div>
+                                                        </div>
+                                                    </div>
+                                                    {!testResult.read && !testResult.write && (
+                                                        <div className="col-span-2 text-[10px] text-red-400 font-mono mt-1">
+                                                            {testResult.message}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button 
+                                            onClick={() => { if(confirm("This will delete your local cache and re-download all calendar data. Continue?")) hardRefreshCalendar(); }}
+                                            disabled={isSyncing}
+                                            className="w-full bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-300 hover:text-white p-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-between group"
+                                        >
+                                            <span className="flex items-center gap-3">
+                                                <RefreshCw className={`w-4 h-4 text-indigo-500 ${isSyncing ? 'animate-spin' : ''}`} />
+                                                Force Refresh Calendar
+                                            </span>
+                                            <span className="text-xs text-zinc-600 group-hover:text-zinc-500">Rebuild Database</span>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div>

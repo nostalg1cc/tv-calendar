@@ -39,7 +39,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [customColor, setCustomColor] = useState(settings.customThemeColor || '#6366f1');
   
   // Connection Test State
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ read: boolean; write: boolean; message: string } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   
   // Export/Import State
@@ -439,7 +439,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         </div>
 
                         {testResult && (
-                            <div className={`mt-4 p-3 rounded-lg border text-xs font-mono ${testResult.success ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                            <div className={`mt-4 p-3 rounded-lg border text-xs font-mono ${(testResult.read && testResult.write) ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
                                 {testResult.message}
                             </div>
                         )}
