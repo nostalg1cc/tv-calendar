@@ -287,15 +287,17 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
             {/* Header */}
             <header className="h-16 shrink-0 border-b border-white/5 flex items-center bg-[#050505]/80 z-[60] backdrop-blur-md sticky top-0">
-                <div className="flex-1 flex flex-col justify-center px-6 border-r border-white/5 h-full min-w-[120px]">
-                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest leading-none mb-1">{format(calendarDate, 'yyyy')}</span>
-                     <span className="text-xl font-black text-white uppercase tracking-tighter leading-none">{format(calendarDate, 'MMMM')}</span>
-                </div>
+                {viewMode === 'grid' && (
+                    <div className="flex-1 flex flex-col justify-center px-6 border-r border-white/5 h-full min-w-[120px]">
+                         <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest leading-none mb-1">{format(calendarDate, 'yyyy')}</span>
+                         <span className="text-xl font-black text-white uppercase tracking-tighter leading-none">{format(calendarDate, 'MMMM')}</span>
+                    </div>
+                )}
 
-                <div className="flex h-full">
+                <div className="flex h-full ml-auto">
                     <button 
                         onClick={() => setCalendarDate(subMonths(calendarDate, 1))} 
-                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-r border-white/5"
+                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-l border-white/5"
                         title="Previous Month"
                     >
                         <ChevronLeft className="w-5 h-5" />
@@ -303,21 +305,21 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     
                     <button 
                         onClick={() => { setCalendarDate(new Date()); onSelectDay(new Date()); }} 
-                        className="px-4 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-indigo-400 hover:bg-white/5 transition-colors border-r border-white/5"
+                        className="px-4 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-indigo-400 hover:bg-white/5 transition-colors border-l border-white/5"
                     >
                         Today
                     </button>
 
                     <button 
                         onClick={() => setCalendarDate(addMonths(calendarDate, 1))} 
-                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-r border-white/5"
+                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-l border-white/5"
                         title="Next Month"
                     >
                         <ChevronRight className="w-5 h-5" />
                     </button>
                 </div>
                 
-                <div className="flex h-full border-r border-white/5">
+                <div className="flex h-full border-l border-white/5">
                      <button
                         onClick={cycleViewMode}
                         className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
@@ -329,7 +331,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     </button>
                     <button
                         onClick={() => setIsSearchOpen(true)}
-                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
+                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-l border-white/5"
                         title="Search in Calendar"
                     >
                         <Search className="w-5 h-5" />
@@ -339,7 +341,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 <div className="flex h-full relative" ref={filterRef}>
                     <button 
                         onClick={() => setIsFilterOpen(!isFilterOpen)}
-                        className={`w-14 h-full flex items-center justify-center border-r border-white/5 transition-colors ${isFilterOpen ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+                        className={`w-14 h-full flex items-center justify-center border-l border-white/5 transition-colors ${isFilterOpen ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
                         title="Filters"
                     >
                         <Filter className="w-4 h-4" />

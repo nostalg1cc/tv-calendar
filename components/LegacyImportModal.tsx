@@ -71,7 +71,7 @@ const LegacyImportModal: React.FC<LegacyImportModalProps> = ({ isOpen, onClose }
         reader.onload = (ev) => {
             try {
                 const json = JSON.parse(ev.target?.result as string);
-                const existingIds = new Set(watchlist.map(i => i.id));
+                const existingIds = new Set<number>(watchlist.map(i => i.id));
                 const found = findMediaItems(json, existingIds);
                 
                 if (found.length === 0) {
