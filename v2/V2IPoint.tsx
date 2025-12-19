@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Globe, MapPin, Wifi, Activity, ShieldAlert, History, Play, RotateCcw, Download, Upload, Zap, Eye, Trash2, Globe2 } from 'lucide-react';
+import { Globe, MapPin, Wifi, Activity, ShieldAlert, History, RotateCcw, Trash2, Globe2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 const PRIMARY_API = 'https://ipwho.is/?lang=en';
@@ -30,11 +30,6 @@ interface IPData {
 interface HistoryItem extends Partial<IPData> {
     timestamp: number;
     securityAlert?: boolean;
-    speedTest?: {
-        download: number;
-        upload: number;
-        ping: number;
-    };
     changed?: string;
 }
 
@@ -45,11 +40,6 @@ const V2IPoint: React.FC = () => {
     const [killSwitchActive, setKillSwitchActive] = useState(false);
     const [sessionIP, setSessionIP] = useState<string | null>(null);
     
-    // Speed Test State
-    const [isTesting, setIsTesting] = useState(false);
-    const [speedResults, setSpeedResults] = useState<{dl: number, ul: number, ping: number} | null>(null);
-    const [progress, setProgress] = useState({ dl: 0, ul: 0, ping: 0 });
-
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any>(null);
 
@@ -232,49 +222,6 @@ const V2IPoint: React.FC = () => {
         setLoading(false);
     };
 
-    const runSpeedTest = async () => {
-        if (isTesting) return;
-        setIsTesting(true);
-        setProgress({ dl: 0, ul: 0, ping: 0 });
-        
-        // Mock Speed Test (Real implementation requires backend or complex logic)
-        // Simulating the phases for UI purposes
-        
-        // 1. Ping
-        for (let i = 0; i <= 100; i+=10) {
-            setProgress(p => ({ ...p, ping: i }));
-            await new Promise(r => setTimeout(r, 50));
-        }
-        const ping = Math.floor(Math.random() * 40) + 10;
-        
-        // 2. Download
-        for (let i = 0; i <= 100; i+=5) {
-            setProgress(p => ({ ...p, dl: i }));
-            await new Promise(r => setTimeout(r, 100));
-        }
-        const dl = Math.floor(Math.random() * 100) + 50;
-
-        // 3. Upload
-        for (let i = 0; i <= 100; i+=5) {
-            setProgress(p => ({ ...p, ul: i }));
-            await new Promise(r => setTimeout(r, 100));
-        }
-        const ul = Math.floor(Math.random() * 50) + 10;
-
-        setSpeedResults({ dl, ul, ping });
-        setIsTesting(false);
-        
-        // Log to history
-        if (data) {
-            addHistoryItem({
-                ...data,
-                timestamp: Date.now(),
-                speedTest: { download: dl, upload: ul, ping },
-                changed: 'SPEED TEST'
-            });
-        }
-    };
-
     const clearHistory = () => {
         if(confirm("Clear all history?")) {
             setHistory([]);
@@ -283,178 +230,127 @@ const V2IPoint: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-[#020202] overflow-y-auto custom-scrollbar p-6 md:p-12">
-            <header className="mb-10 flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-black text-white uppercase tracking-tighter mb-1 flex items-center gap-3">
-                        <Globe2 className="w-8 h-8 text-indigo-500" /> IPoint
-                    </h1>
-                    <p className="text-zinc-500 font-medium text-sm">Real-time Connection Intelligence</p>
+        <div className="flex-1 flex flex-col h-full bg-[#020202] overflow-hidden font-mono">
+            {/* Header - Sharp, Border Bottom */}
+            <header className="h-16 shrink-0 border-b border-white/10 flex items-center justify-between px-6 bg-[#050505]">
+                <div className="flex items-center gap-4">
+                    <Globe2 className="w-5 h-5 text-indigo-500" />
+                    <h1 className="text-lg font-bold text-white tracking-wider uppercase">IPoint Intelligence</h1>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex items-center">
+                    <div className="h-8 w-px bg-white/10 mx-4 hidden md:block" />
                     <button 
                         onClick={refreshIP}
-                        className={`p-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors ${loading ? 'animate-spin' : ''}`}
+                        disabled={loading}
+                        className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 transition-colors uppercase tracking-widest flex items-center gap-2"
                     >
-                        <RotateCcw className="w-5 h-5" />
+                        <RotateCcw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                        <span className="hidden md:inline">Refresh</span>
                     </button>
+                    <div className="h-8 w-px bg-white/10 mx-4" />
                     <button 
                         onClick={() => setKillSwitchActive(!killSwitchActive)}
-                        className={`px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 border transition-all ${killSwitchActive ? 'bg-red-500/10 border-red-500 text-red-500 animate-pulse' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+                        className={`px-4 py-2 text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-colors ${killSwitchActive ? 'text-red-500 bg-red-500/10' : 'text-zinc-500 hover:text-zinc-300'}`}
                     >
-                        <ShieldAlert className="w-4 h-4" />
-                        {killSwitchActive ? 'Kill-Switch Active' : 'Kill-Switch Off'}
+                        <ShieldAlert className="w-3 h-3" />
+                        {killSwitchActive ? 'Kill-Switch: ON' : 'Kill-Switch: OFF'}
                     </button>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-                
-                {/* 1. Identity Card */}
-                <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-50 group-hover:opacity-100 transition-opacity">
-                        {data?.country_code && <span className={`fi fi-${data.country_code.toLowerCase()} text-4xl rounded shadow-lg`} />}
-                    </div>
+            <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+                {/* Left Panel: Info & Stats */}
+                <div className="flex-1 flex flex-col border-r border-white/10 min-w-0">
                     
-                    <div className="space-y-6 relative z-10">
-                        <div>
-                            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">IP Address</p>
-                            <h2 className="text-2xl font-mono text-white tracking-tight">{data?.ip || '---.---.---.---'}</h2>
-                            {data?.ipv6 && <p className="text-[10px] font-mono text-zinc-500 mt-1">{data.ipv6}</p>}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Provider</p>
-                                <p className="text-sm font-bold text-zinc-300 truncate" title={data?.connection.isp}>{data?.connection.isp || 'Unknown'}</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">ASN</p>
-                                <p className="text-sm font-bold text-zinc-300">{data?.connection.asn || '---'}</p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Location</p>
-                            <p className="text-sm font-bold text-white flex items-center gap-2">
+                    {/* Top Section: IP & Location */}
+                    <div className="flex-1 p-8 md:p-12 flex flex-col justify-center border-b border-white/10 bg-[#050505]">
+                         <div className="mb-2 flex items-center gap-2">
+                            {data?.country_code && <span className={`fi fi-${data.country_code.toLowerCase()} shadow-sm`} />}
+                            <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">{data?.country || 'Unknown Country'}</span>
+                         </div>
+                         <h2 className="text-5xl md:text-7xl font-black text-white tracking-tighter mb-4">{data?.ip || '---.---.---.---'}</h2>
+                         <div className="flex flex-col md:flex-row gap-x-8 gap-y-4 text-sm text-zinc-400 font-medium">
+                             <div className="flex items-center gap-2">
                                 <MapPin className="w-4 h-4 text-indigo-500" />
-                                {data ? `${data.city}, ${data.region}, ${data.country}` : 'Locating...'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 2. Map Card */}
-                <div className="bg-zinc-900/40 border border-white/5 rounded-3xl overflow-hidden relative min-h-[280px]">
-                    <div ref={mapRef} className="absolute inset-0 z-0 bg-zinc-950" />
-                    <div className="absolute top-4 left-4 z-[400] bg-black/50 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
-                        <p className="text-[10px] font-bold text-zinc-300 flex items-center gap-2">
-                            <Globe className="w-3 h-3" /> {data?.latitude.toFixed(4)}, {data?.longitude.toFixed(4)}
-                        </p>
-                    </div>
-                </div>
-
-                {/* 3. Speed Test Card */}
-                <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
-                                <Zap className="w-4 h-4 text-yellow-500" /> Speed Test
-                            </h3>
-                            {speedResults && !isTesting && (
-                                <span className="text-[10px] font-bold text-zinc-500">Last run: Just now</span>
-                            )}
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-xs font-bold text-zinc-400"><span>Ping</span><span>{speedResults?.ping || '--'} ms</span></div>
-                                <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-yellow-500 transition-all duration-200" style={{ width: `${progress.ping}%` }} />
-                                </div>
+                                {data ? `${data.city}, ${data.region}` : 'Locating...'}
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <Wifi className="w-4 h-4 text-indigo-500" />
+                                {data?.connection.isp || 'ISP Unknown'}
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <Activity className="w-4 h-4 text-indigo-500" />
+                                ASN: {data?.connection.asn || '---'}
+                             </div>
+                         </div>
+                         {data?.ipv6 && (
+                            <div className="mt-6 pt-6 border-t border-white/5">
+                                <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest mb-1">IPv6 Address</p>
+                                <p className="text-zinc-400 font-mono text-xs truncate">{data.ipv6}</p>
                             </div>
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-xs font-bold text-zinc-400"><span>Download</span><span>{speedResults?.dl || '--'} Mbps</span></div>
-                                <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-emerald-500 transition-all duration-200" style={{ width: `${progress.dl}%` }} />
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-xs font-bold text-zinc-400"><span>Upload</span><span>{speedResults?.ul || '--'} Mbps</span></div>
-                                <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-indigo-500 transition-all duration-200" style={{ width: `${progress.ul}%` }} />
-                                </div>
-                            </div>
-                        </div>
+                         )}
                     </div>
 
-                    <button 
-                        onClick={runSpeedTest}
-                        disabled={isTesting}
-                        className={`w-full py-3 mt-6 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isTesting ? 'bg-zinc-800 text-zinc-500' : 'bg-white text-black hover:bg-zinc-200 shadow-lg'}`}
-                    >
-                        {isTesting ? <Activity className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                        {isTesting ? 'Testing...' : 'Start Test'}
-                    </button>
-                </div>
-            </div>
-
-            {/* History Table */}
-            <div className="bg-zinc-900/40 border border-white/5 rounded-3xl overflow-hidden flex flex-col flex-1 min-h-0">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-zinc-900/80">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                        <History className="w-4 h-4 text-zinc-500" /> Connection Log
-                    </h3>
-                    <button onClick={clearHistory} className="text-xs text-zinc-500 hover:text-red-400 transition-colors flex items-center gap-1">
-                        <Trash2 className="w-3 h-3" /> Clear
-                    </button>
-                </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    <table className="w-full text-left text-xs">
-                        <thead className="bg-zinc-900/50 text-zinc-500 font-bold uppercase tracking-wider sticky top-0 z-10 backdrop-blur-md">
-                            <tr>
-                                <th className="px-6 py-3">Time</th>
-                                <th className="px-6 py-3">IP Address</th>
-                                <th className="px-6 py-3">Location</th>
-                                <th className="px-6 py-3 hidden md:table-cell">ISP</th>
-                                <th className="px-6 py-3 text-right">Event</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {history.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-zinc-600">No events logged yet.</td>
-                                </tr>
-                            ) : (
-                                history.map((item, i) => (
-                                    <tr key={i} className="hover:bg-white/[0.02] transition-colors">
-                                        <td className="px-6 py-3 text-zinc-400 font-mono whitespace-nowrap">{formatDistanceToNow(item.timestamp, { addSuffix: true })}</td>
-                                        <td className="px-6 py-3 text-white font-mono font-bold">{item.ip}</td>
-                                        <td className="px-6 py-3 text-zinc-300">
-                                            <span className="flex items-center gap-2">
-                                                {item.country_code && <span className={`fi fi-${item.country_code.toLowerCase()} rounded shadow-sm`} />}
-                                                {item.city}, {item.country_code}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-3 text-zinc-500 hidden md:table-cell truncate max-w-[150px]" title={item.connection?.isp}>{item.connection?.isp}</td>
-                                        <td className="px-6 py-3 text-right">
-                                            {item.securityAlert ? (
-                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 text-red-400 font-bold text-[10px] border border-red-500/20 uppercase tracking-wide">
-                                                    <ShieldAlert className="w-3 h-3" /> Kill Switch
-                                                </span>
-                                            ) : item.speedTest ? (
-                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 font-bold text-[10px] border border-yellow-500/20 uppercase tracking-wide">
-                                                    <Zap className="w-3 h-3" /> {Math.round(item.speedTest.download)} Mbps
-                                                </span>
-                                            ) : (
-                                                <span className="text-zinc-600 font-medium">Logged</span>
-                                            )}
-                                        </td>
+                    {/* Bottom Section: History Log */}
+                    <div className="h-[300px] md:h-[400px] flex flex-col bg-[#020202]">
+                        <div className="px-6 py-3 border-b border-white/10 flex justify-between items-center bg-[#080808]">
+                             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                                <History className="w-3 h-3" /> Connection Log
+                             </h3>
+                             <button onClick={clearHistory} className="text-[10px] text-zinc-600 hover:text-red-400 uppercase tracking-wider font-bold flex items-center gap-1">
+                                <Trash2 className="w-3 h-3" /> Clear Log
+                             </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                            <table className="w-full text-left text-xs text-zinc-400">
+                                <thead className="bg-[#050505] sticky top-0 text-[10px] font-black uppercase tracking-wider text-zinc-600">
+                                    <tr>
+                                        <th className="px-6 py-3 font-normal bg-[#050505]">Time</th>
+                                        <th className="px-6 py-3 font-normal bg-[#050505]">IP Address</th>
+                                        <th className="px-6 py-3 font-normal hidden sm:table-cell bg-[#050505]">Location</th>
+                                        <th className="px-6 py-3 font-normal text-right bg-[#050505]">Status</th>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {history.map((item, i) => (
+                                        <tr key={i} className="hover:bg-white/[0.02]">
+                                            <td className="px-6 py-3 font-mono text-zinc-500">{formatDistanceToNow(item.timestamp, { addSuffix: true })}</td>
+                                            <td className="px-6 py-3 text-zinc-300 font-mono">{item.ip}</td>
+                                            <td className="px-6 py-3 hidden sm:table-cell">{item.city}, {item.country_code}</td>
+                                            <td className="px-6 py-3 text-right">
+                                                {item.securityAlert ? (
+                                                    <span className="text-red-500 font-bold bg-red-500/10 px-1 py-0.5 rounded">ALERT</span>
+                                                ) : (
+                                                    <span className="text-zinc-600 font-mono">OK</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {history.length === 0 && (
+                                        <tr><td colSpan={4} className="px-6 py-8 text-center opacity-30">No history available</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Panel: Map (Full Height) */}
+                <div className="h-[300px] lg:h-auto lg:w-1/3 relative bg-[#050505]">
+                     <div ref={mapRef} className="absolute inset-0 z-0 grayscale opacity-60" />
+                     {/* Overlay Grid Pattern for tech feel */}
+                     <div className="absolute inset-0 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10" />
+                     <div className="absolute inset-0 pointer-events-none border-l border-white/10" />
+                     
+                     <div className="absolute bottom-6 left-6 right-6 bg-black/80 backdrop-blur-md border border-white/10 p-4">
+                        <div className="flex justify-between items-end">
+                            <div>
+                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Coordinates</p>
+                                <p className="text-sm text-white font-mono">{data?.latitude.toFixed(4)}° N, {data?.longitude.toFixed(4)}° W</p>
+                            </div>
+                            <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                        </div>
+                     </div>
                 </div>
             </div>
         </div>
