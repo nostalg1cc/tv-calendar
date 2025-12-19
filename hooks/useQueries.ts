@@ -28,7 +28,13 @@ export const useCalendarEpisodes = (targetDate: Date) => {
             queryKey: ['calendar_data', show.id, show.media_type],
             queryFn: async (): Promise<Episode[]> => {
                 if (show.media_type === 'movie') {
-                    const releases = await getMovieReleaseDates(show.id);
+                    let releases = await getMovieReleaseDates(show.id);
+                    
+                    // Fallback: If no specific US/Digital dates found, use the global release date
+                    if (releases.length === 0 && show.first_air_date) {
+                        releases = [{ date: show.first_air_date, type: 'theatrical' }];
+                    }
+
                     return releases.map(r => ({
                         id: show.id * -1, 
                         name: show.name,
@@ -52,7 +58,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     // Optimisation: Fetch last 2 seasons + specials
                     const seasonsToFetch = details.seasons?.slice(-2) || [];
                     const s0 = details.seasons?.find(s => s.season_number === 0);
-                    if (s0) seasonsToFetch.push(s0);
+                    if (s0 && !seasonsToFetch.some(s => s.season_number === 0)) seasonsToFetch.push(s0);
 
                     for (const season of seasonsToFetch) {
                         try {

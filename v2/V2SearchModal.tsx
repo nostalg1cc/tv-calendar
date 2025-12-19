@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Loader2, Plus, Check, Sparkles, Star } from 'lucide-react';
+import { Search, X, Loader2, Plus, Check, Sparkles, Star, ArrowRight } from 'lucide-react';
 import { useStore } from '../store';
 import { searchShows, getPopularShows, getImageUrl, getRecommendations } from '../services/tmdb';
 import { TVShow } from '../types';
@@ -65,8 +65,9 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                              const idx = prev.findIndex(p => p.id === show.id);
                              if (idx === -1) return prev;
                              const newResults = [...prev];
-                             // Insert up to 3 recs after the added item
-                             newResults.splice(idx + 1, 0, ...validRecs.slice(0, 3).map(r => ({...r, _isRec: true})));
+                             // Insert up to 3 recs after the added item, marking them
+                             const recsWithFlag = validRecs.slice(0, 3).map(r => ({...r, _isRec: true}));
+                             newResults.splice(idx + 1, 0, ...recsWithFlag);
                              return newResults;
                         });
                     }
@@ -94,19 +95,21 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
             <div className="flex-1 overflow-y-auto custom-scrollbar px-6 md:px-12 py-8 relative z-20">
                 <div className="max-w-5xl w-full mx-auto pb-20">
                     
-                    {/* Recommendation Banner */}
+                    {/* Banner Recommendations */}
                     {(recommendations.length > 0 || recLoading) && settings.recommendationMethod === 'banner' && (
-                        <div className="mb-10 p-6 bg-indigo-500/5 border border-indigo-500/20 rounded-3xl animate-enter">
+                        <div className="mb-10 p-6 bg-gradient-to-r from-indigo-900/20 to-transparent border-l-4 border-indigo-500 rounded-r-xl animate-enter">
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-widest flex items-center gap-2">
-                                    <Sparkles className="w-3.5 h-3.5" /> 
-                                    {recLoading ? 'Finding suggestions...' : `Because you added "${recSource}"`}
+                                    <Sparkles className="w-4 h-4 text-indigo-400" /> 
+                                    {recLoading ? 'Curating suggestions...' : `Because you added "${recSource}"`}
                                 </h4>
-                                {!recLoading && <button onClick={() => setRecommendations([])} className="text-[10px] font-bold text-indigo-400 hover:text-white uppercase">Dismiss</button>}
+                                {!recLoading && <button onClick={() => setRecommendations([])} className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase">Close</button>}
                             </div>
                             
                             {recLoading ? (
-                                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" /></div>
+                                <div className="flex gap-4">
+                                    {[1,2,3].map(i => <div key={i} className="w-32 h-48 bg-white/5 rounded-xl animate-pulse" />)}
+                                </div>
                             ) : (
                                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
                                     {recommendations.slice(0, 5).map(show => {
@@ -142,11 +145,13 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                                         className={`group relative flex flex-col gap-3 cursor-pointer animate-fade-in ${isRec ? 'col-span-1' : ''}`} 
                                         onClick={(e) => !isTracked && handleAdd(e, show)}
                                     >
-                                        <div className={`relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border shadow-2xl transition-all duration-300 ${isRec ? 'border-indigo-500/30 shadow-indigo-500/10' : 'border-white/5'}`}>
+                                        <div className={`relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border shadow-2xl transition-all duration-300 ${isRec ? 'border-indigo-500/30 shadow-indigo-500/10 ring-1 ring-indigo-500/20' : 'border-white/5'}`}>
                                             <img src={getImageUrl(show.poster_path)} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
                                             
                                             {isRec && (
-                                                <div className="absolute top-2 left-2 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg">For You</div>
+                                                <div className="absolute top-2 left-2 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg flex items-center gap-1">
+                                                    <Sparkles className="w-2 h-2" /> Suggested
+                                                </div>
                                             )}
 
                                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
@@ -157,7 +162,11 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                                         </div>
                                         <div className="px-1">
                                             <h4 className={`text-sm font-bold leading-tight line-clamp-1 ${isRec ? 'text-indigo-300' : 'text-white'}`}>{show.name}</h4>
-                                            {isRec && <p className="text-[9px] text-zinc-500 mt-0.5">Recommended</p>}
+                                            {isRec ? (
+                                                <p className="text-[9px] text-zinc-500 mt-0.5 flex items-center gap-1">Based on previous add</p>
+                                            ) : (
+                                                <p className="text-[10px] text-zinc-600 mt-1">{show.first_air_date?.split('-')[0] || 'TBA'}</p>
+                                            )}
                                         </div>
                                     </div>
                                 );
