@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { X, Calendar as CalendarIcon, Star, Bell, Eye, EyeOff, Film, Ticket, MonitorPlay, Globe, Check, CheckCheck, Loader2, PlayCircle, Lock, AlertTriangle, Ban } from 'lucide-react';
 import { Episode, AppSettings, Interaction } from '../types';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
-import { useAppContext } from '../context/AppContext';
+import { useStore } from '../store';
 import ReminderConfigModal from './ReminderConfigModal';
 import TrailerModal from './TrailerModal';
 
@@ -18,19 +18,17 @@ interface EpisodeModalProps {
 const EpisodeRow: React.FC<{
     ep: Episode;
     settings: AppSettings;
-    interactions: Record<string, Interaction>;
+    history: Record<string, Interaction>;
     onTrailer: (ep: Episode) => void;
     onReminder: (ep: Episode) => void;
-    onMarkHistory: (ep: Episode) => void;
     onToggleWatched: (ep: Episode) => void;
     onRemove: (ep: Episode) => void;
-    isMarkingHistory: boolean;
-}> = ({ ep, settings, interactions, onTrailer, onReminder, onMarkHistory, onToggleWatched, onRemove, isMarkingHistory }) => {
+}> = ({ ep, settings, history, onTrailer, onReminder, onToggleWatched, onRemove }) => {
     const [revealed, setRevealed] = useState({ image: false, title: false, overview: false });
     const { spoilerConfig } = settings;
 
-    const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
-    const isWatched = interactions[watchedKey]?.is_watched;
+    const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+    const isWatched = history[watchedKey]?.is_watched;
 
     // Spoiler Logic
     // If it's a movie and includeMovies is false, skip blocking.
@@ -144,17 +142,6 @@ const EpisodeRow: React.FC<{
 
                     <div className="w-px h-4 bg-white/10 mx-1" />
 
-                    {!ep.is_movie && (
-                        <button 
-                            onClick={() => onMarkHistory(ep)}
-                            disabled={isMarkingHistory || isWatched}
-                            className="p-2 rounded-lg text-zinc-400 hover:text-emerald-400 hover:bg-white/5 transition-colors disabled:opacity-30"
-                            title="Mark Previous Watched"
-                        >
-                            {isMarkingHistory ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />}
-                        </button>
-                    )}
-
                     <button 
                         onClick={() => onRemove(ep)}
                         className="p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-white/5 transition-colors"
@@ -182,11 +169,10 @@ const EpisodeRow: React.FC<{
 };
 
 const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, date }) => {
-  const { settings, toggleEpisodeWatched, toggleWatched, markHistoryWatched, interactions, removeFromWatchlist } = useAppContext();
+  const { settings, toggleWatched, history, removeFromWatchlist } = useStore();
   const { timezone, useSeason1Art, spoilerConfig } = settings;
   const [reminderEp, setReminderEp] = useState<Episode | null>(null);
   const [trailerEp, setTrailerEp] = useState<Episode | null>(null);
-  const [markingHistoryId, setMarkingHistoryId] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -204,21 +190,18 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
       }
   };
 
-  const handleMarkHistory = async (ep: Episode) => {
-      if (!ep.show_id) return;
-      const key = `${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
-      setMarkingHistoryId(key);
-      await markHistoryWatched(ep.show_id, ep.season_number, ep.episode_number);
-      setMarkingHistoryId(null);
-  };
-
   const handleToggleWatched = (ep: Episode) => {
       if (!ep.show_id) return;
-      if (ep.is_movie) {
-          toggleWatched(ep.show_id, 'movie');
-      } else {
-          toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
-      }
+      const key = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+      const isWatched = history[key]?.is_watched;
+      
+      toggleWatched({
+          tmdb_id: ep.show_id,
+          media_type: ep.is_movie ? 'movie' : 'episode',
+          season_number: ep.season_number,
+          episode_number: ep.episode_number,
+          is_watched: isWatched
+      });
   };
 
   const handleRemove = (ep: Episode) => {
@@ -290,13 +273,11 @@ const EpisodeModal: React.FC<EpisodeModalProps> = ({ isOpen, onClose, episodes, 
                         key={`${ep.show_id}-${ep.id}`}
                         ep={ep}
                         settings={settings}
-                        interactions={interactions}
+                        history={history}
                         onTrailer={setTrailerEp}
                         onReminder={setReminderEp}
-                        onMarkHistory={handleMarkHistory}
                         onToggleWatched={handleToggleWatched}
                         onRemove={handleRemove}
-                        isMarkingHistory={markingHistoryId === `${ep.show_id}-${ep.season_number}-${ep.episode_number}`}
                     />
                 ))}
             </div>

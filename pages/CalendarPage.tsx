@@ -1,20 +1,36 @@
+
 import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
   eachDayOfInterval, format, isSameMonth, isToday, addMonths, subMonths, addDays, isSameDay, subYears, parseISO
 } from 'date-fns';
 import { ChevronLeft, ChevronRight, Loader2, Ticket, MonitorPlay, Calendar as CalendarIcon, LayoutGrid, List, RefreshCw, Filter, Tv, Film, Check, History, GalleryVertical, Layers, PlayCircle, Star, Clock } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useStore } from '../store';
 import EpisodeModal from '../components/EpisodeModal';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
 import { Episode } from '../types';
+import { useCalendarEpisodes } from '../hooks/useQueries';
 
 const CalendarPage: React.FC = () => {
-  const { episodes, loading, isRefreshing, isSyncing, settings, updateSettings, refreshEpisodes, loadArchivedEvents, interactions, toggleEpisodeWatched, toggleWatched, calendarScrollPos, setCalendarScrollPos, calendarDate, setCalendarDate } = useAppContext();
+  const { settings, updateSettings, toggleWatched, history, calendarScrollPos, setCalendarScrollPos, calendarDate, setCalendarDate } = useStore();
   
   // Using global context date for persistence
   const currentDate = calendarDate;
   const setCurrentDate = setCalendarDate;
+
+  // Use the hook for data
+  const { episodes: rawEpisodes, isLoading: loading, isRefetching } = useCalendarEpisodes(currentDate);
+
+  // Derive the map structure for the calendar
+  const episodes = useMemo(() => {
+      const map: Record<string, Episode[]> = {};
+      rawEpisodes.forEach(ep => {
+          if (!ep.air_date) return;
+          if (!map[ep.air_date]) map[ep.air_date] = [];
+          map[ep.air_date].push(ep);
+      });
+      return map;
+  }, [rawEpisodes]);
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   
@@ -29,9 +45,6 @@ const CalendarPage: React.FC = () => {
   useEffect(() => {
       const isMobile = window.innerWidth < 768;
       if (isMobile && settings.viewMode === 'grid') {
-          // Check if this is a fresh session or explicitly grid
-          // Ideally we'd have a 'hasSetView' flag, but for now we enforce the "Auto apply as default" request
-          // We only switch if it's 'grid' (default), assuming 'stack' was a conscious choice.
           updateSettings({ viewMode: 'list' });
       }
   }, []);
@@ -170,6 +183,13 @@ const CalendarPage: React.FC = () => {
       };
   }, [viewMode, setCalendarScrollPos]);
 
+  // Is Watched Helper
+  const getWatchedStatus = (ep: Episode) => {
+      const key = ep.is_movie 
+          ? `movie-${ep.show_id}` 
+          : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+      return history[key]?.is_watched || false;
+  };
 
   // --- Components ---
 
@@ -183,7 +203,7 @@ const CalendarPage: React.FC = () => {
           : (ep.poster_path || ep.still_path);
 
       const imageUrl = getImageUrl(posterSrc);
-      const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
+      const isWatched = getWatchedStatus(ep);
 
       return (
           <div className="absolute inset-0 flex flex-col justify-end p-2 sm:p-3 overflow-hidden">
@@ -255,8 +275,8 @@ const CalendarPage: React.FC = () => {
               </h2>
 
               <div className="flex items-center gap-4">
-                   <button onClick={() => refreshEpisodes(true)} disabled={loading || isSyncing} className="p-1 text-zinc-500 hover:text-indigo-400 transition-colors group" title="Force Refresh">
-                      <RefreshCw className={`w-5 h-5 ${isRefreshing || isSyncing ? 'animate-spin text-indigo-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                   <button onClick={() => {}} disabled={loading} className="p-1 text-zinc-500 hover:text-indigo-400 transition-colors group" title="Force Refresh">
+                      <RefreshCw className={`w-5 h-5 ${isRefetching ? 'animate-spin text-indigo-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
                   </button>
                   <div className="w-px h-5 bg-[var(--border-color)]" />
                   <div className="flex items-center gap-6">
@@ -295,7 +315,7 @@ const CalendarPage: React.FC = () => {
                    </div>
                    <div className="flex items-center gap-3">
                         <div className="w-px h-4 bg-[var(--border-color)]" />
-                        <button onClick={() => refreshEpisodes(true)} className={`text-zinc-500 ${isRefreshing || isSyncing ? 'animate-spin text-indigo-400' : ''}`}><RefreshCw className="w-4 h-4" /></button>
+                        <button onClick={() => {}} className={`text-zinc-500 ${isRefetching ? 'animate-spin text-indigo-400' : ''}`}><RefreshCw className="w-4 h-4" /></button>
                         <div className="w-px h-4 bg-[var(--border-color)]" />
                         <button onClick={cycleViewMode} className="text-zinc-500 hover:text-white">
                             <ViewIcon className="w-4 h-4" />
@@ -311,16 +331,13 @@ const CalendarPage: React.FC = () => {
              <History className="w-12 h-12 text-zinc-600 mb-4" />
              <h3 className="text-lg font-bold text-white mb-2">Archived History</h3>
              <p className="text-sm text-zinc-500 mb-6 max-w-sm">
-                 To improve performance, older history is archived. Load it manually to view this month.
+                 To improve performance, older history is archived.
              </p>
-             <button onClick={loadArchivedEvents} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2">
-                 <RefreshCw className="w-4 h-4" /> Load Archive
-             </button>
           </div>
       )}
 
       {/* Loading State - only if no days */}
-      {(loading || isRefreshing) && activeDays.length === 0 && !isArchivedDate ? (
+      {(loading) && activeDays.length === 0 && !isArchivedDate ? (
           <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-[var(--border-color)] bg-[var(--bg-panel)] mx-4">
              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
              <p className="text-sm text-zinc-500">Syncing your calendar...</p>
@@ -394,7 +411,7 @@ const CalendarPage: React.FC = () => {
                                                 <div className="flex flex-col gap-1 flex-1 min-h-0 overflow-hidden">
                                                     {dayEpisodes.slice(0, 3).map((ep, i) => {
                                                         const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
-                                                        const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
+                                                        const isWatched = getWatchedStatus(ep);
                                                         
                                                         return (
                                                             <div key={i} className={`flex items-center gap-2 p-1.5 rounded border border-white/5 truncate shrink-0 ${isWatched ? 'bg-[var(--bg-panel)] opacity-60' : 'bg-[var(--bg-panel)]'}`}>
@@ -484,7 +501,7 @@ const CalendarPage: React.FC = () => {
                                         <div className="divide-y divide-white/5">
                                             {eps.map(ep => {
                                                 const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
-                                                const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
+                                                const isWatched = getWatchedStatus(ep);
 
                                                 return (
                                                     <div 
@@ -537,9 +554,13 @@ const CalendarPage: React.FC = () => {
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 if(ep.show_id) {
-                                                                    ep.is_movie 
-                                                                    ? toggleWatched(ep.show_id, 'movie')
-                                                                    : toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
+                                                                    toggleWatched({
+                                                                        tmdb_id: ep.show_id,
+                                                                        media_type: ep.is_movie ? 'movie' : 'episode',
+                                                                        season_number: ep.season_number,
+                                                                        episode_number: ep.episode_number,
+                                                                        is_watched: isWatched
+                                                                    });
                                                                 }
                                                             }}
                                                             className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all ${isWatched ? 'bg-zinc-900 border-zinc-800 text-zinc-600' : 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white'}`}
@@ -603,7 +624,7 @@ const CalendarPage: React.FC = () => {
                                             {eps.map(ep => {
                                                 const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
                                                 const backdropSrc = ep.still_path;
-                                                const isWatched = interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched;
+                                                const isWatched = getWatchedStatus(ep);
 
                                                 return (
                                                     <div 
@@ -660,28 +681,23 @@ const CalendarPage: React.FC = () => {
                                                                 >
                                                                     Details
                                                                 </button>
-                                                                {!ep.is_movie && (
-                                                                    <button 
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            if(ep.show_id) toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number);
-                                                                        }}
-                                                                        className={`py-2.5 rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center ${isWatched ? 'bg-[var(--bg-panel)] text-zinc-400' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
-                                                                    >
-                                                                        {isWatched ? 'Unwatch' : 'Mark Watched'}
-                                                                    </button>
-                                                                )}
-                                                                {ep.is_movie && (
-                                                                     <button 
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            if(ep.show_id) toggleWatched(ep.show_id, 'movie');
-                                                                        }}
-                                                                        className={`py-2.5 rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center ${isWatched ? 'bg-[var(--bg-panel)] text-zinc-400' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
-                                                                    >
-                                                                        {isWatched ? 'Unwatch' : 'Mark Watched'}
-                                                                    </button>
-                                                                )}
+                                                                <button 
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if(ep.show_id) {
+                                                                            toggleWatched({
+                                                                                tmdb_id: ep.show_id,
+                                                                                media_type: ep.is_movie ? 'movie' : 'episode',
+                                                                                season_number: ep.season_number,
+                                                                                episode_number: ep.episode_number,
+                                                                                is_watched: isWatched
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    className={`py-2.5 rounded-xl text-xs font-bold backdrop-blur-md transition-colors text-center ${isWatched ? 'bg-[var(--bg-panel)] text-zinc-400' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
+                                                                >
+                                                                    {isWatched ? 'Unwatch' : 'Mark Watched'}
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     </div>

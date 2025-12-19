@@ -21,7 +21,7 @@ const getAccessToken = (): string => {
     const userStr = localStorage.getItem('tv_calendar_user');
     if (userStr) {
       const user = JSON.parse(userStr);
-      return user.tmdbKey || '';
+      return user.tmdb_key || user.tmdbKey || '';
     }
   } catch (e) {
     console.error("Error reading token", e);
@@ -155,7 +155,9 @@ export const getSeasonDetails = async (id: number, seasonNumber: number): Promis
             episode_number: ep.episode_number,
             season_number: ep.season_number,
             still_path: ep.still_path
-        }))
+        })),
+        episode_count: data.episodes.length,
+        vote_average: 0 // Placeholder
     };
 };
 

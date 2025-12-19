@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Play, Loader2, Film, Tv, Video as VideoIcon, ExternalLink } from 'lucide-react';
+import { X, Loader2, Film, Tv, Video as VideoIcon, ExternalLink } from 'lucide-react';
 import { Video, Episode } from '../types';
 import { getVideos } from '../services/tmdb';
 
@@ -34,17 +34,15 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
       setLoading(true);
       
       const groups: VideoGroup[] = [];
-      const showId = item.show_id || item.id; // item.id is fallback if show_id missing (e.g. watchlist movie)
+      const showId = item.show_id || item.id;
       
       try {
           if (item.is_movie) {
               const videos = await getVideos('movie', showId);
               if (videos.length > 0) groups.push({ title: 'Trailers & Clips', videos });
           } else {
-              // Hierarchy Fetching for TV
               const promises = [];
               
-              // 1. Episode Videos
               if (item.season_number && item.episode_number) {
                   promises.push(
                       getVideos('tv', showId, item.season_number, item.episode_number)
@@ -52,7 +50,6 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
                   );
               }
 
-              // 2. Season Videos
               if (item.season_number) {
                   promises.push(
                       getVideos('tv', showId, item.season_number)
@@ -60,7 +57,6 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
                   );
               }
 
-              // 3. Show Videos
               promises.push(
                   getVideos('tv', showId)
                     .then(v => v.length ? { title: 'Series Trailers', videos: v } : null)
@@ -72,9 +68,7 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
 
           setVideoGroups(groups);
 
-          // Auto-select best video
           if (groups.length > 0) {
-              // Try to find a "Trailer" in the first available group
               const firstGroup = groups[0];
               const trailer = firstGroup.videos.find(v => v.type === 'Trailer') || firstGroup.videos[0];
               setSelectedVideo(trailer);
@@ -92,11 +86,10 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fade-in" onClick={onClose}>
         <div 
-            className="bg-[var(--bg-main)] border border-[var(--border-color)] w-full max-w-5xl rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
+            className="bg-[#050505] border border-white/5 w-full max-w-5xl rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
             onClick={e => e.stopPropagation()}
         >
-            {/* Header */}
-            <div className="p-4 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-panel)]/50">
+            <div className="p-4 border-b border-white/5 flex justify-between items-center bg-zinc-900/20">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-indigo-500/10 rounded-full text-indigo-400">
                         {item.is_movie ? <Film className="w-5 h-5" /> : <Tv className="w-5 h-5" />}
@@ -118,7 +111,6 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
             </div>
 
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-                {/* Main Player Area */}
                 <div className="flex-1 bg-black flex flex-col justify-center relative min-h-[300px] md:min-h-0">
                     {loading ? (
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -131,10 +123,8 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
                                 className="w-full h-full aspect-video"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowFullScreen
-                                referrerPolicy="strict-origin-when-cross-origin"
                                 title={selectedVideo.name}
                             />
-                            {/* Fallback Link Overlay (Hidden unless needed, but accessible) */}
                             <a 
                                 href={`https://www.youtube.com/watch?v=${selectedVideo.key}`}
                                 target="_blank"
@@ -153,9 +143,8 @@ const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, item }) =>
                     )}
                 </div>
 
-                {/* Sidebar Playlist */}
-                <div className="w-full md:w-80 bg-[var(--bg-panel)] border-l border-[var(--border-color)] flex flex-col overflow-y-auto custom-scrollbar shrink-0">
-                    <div className="p-4 border-b border-[var(--border-color)] sticky top-0 z-10 bg-[var(--bg-panel)]">
+                <div className="w-full md:w-80 bg-zinc-950/50 border-l border-white/5 flex flex-col overflow-y-auto custom-scrollbar shrink-0">
+                    <div className="p-4 border-b border-white/5 sticky top-0 z-10 bg-zinc-950">
                         <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
                             Available Clips
                         </h3>

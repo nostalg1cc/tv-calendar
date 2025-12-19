@@ -1,10 +1,11 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { format } from 'date-fns';
-import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle, X, ChevronDown } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { Check, CalendarDays, Ticket, MonitorPlay, PlayCircle, ChevronDown } from 'lucide-react';
+import { useStore } from '../store';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
+import { useCalendarEpisodes } from '../hooks/useQueries';
 
 interface V2AgendaProps {
     selectedDay: Date;
@@ -14,18 +15,18 @@ interface V2AgendaProps {
 }
 
 const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen, onClose }) => {
-    const { episodes, settings, interactions, toggleEpisodeWatched, toggleWatched, markHistoryWatched } = useAppContext();
+    const { settings, history, toggleWatched } = useStore();
+    const { episodes } = useCalendarEpisodes(selectedDay);
     
-    // Prevent body scroll when drawer is open on mobile
     useEffect(() => {
-        if (window.innerWidth < 1280) { // xl breakpoint
+        if (window.innerWidth < 1280) {
             document.body.style.overflow = isOpen ? 'hidden' : '';
         }
         return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
 
     const dateKey = format(selectedDay, 'yyyy-MM-dd');
-    const dayEps = (episodes[dateKey] || []).filter(ep => {
+    const dayEps = episodes.filter(ep => ep.air_date === dateKey).filter(ep => {
         if (settings.hideTheatrical && ep.is_movie && ep.release_type === 'theatrical') return false;
         if (settings.ignoreSpecials && ep.season_number === 0) return false;
         return true;
@@ -41,7 +42,15 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
     const GroupedShowCard: React.FC<{ eps: Episode[] }> = ({ eps }) => {
         const firstEp = eps[0];
         const { spoilerConfig } = settings;
-        const hasUnwatched = eps.some(ep => !interactions[`episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched);
+        
+        const isWatched = (ep: Episode) => {
+            const key = ep.is_movie 
+                ? `movie-${ep.show_id}` 
+                : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+            return history[key]?.is_watched || false;
+        };
+
+        const hasUnwatched = eps.some(ep => !isWatched(ep));
         
         const stillUrl = getImageUrl(firstEp.still_path || firstEp.poster_path);
         const bannerUrl = getImageUrl(firstEp.show_backdrop_path || firstEp.poster_path);
@@ -83,26 +92,20 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                         `}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                    {isSpoilerProtected && spoilerConfig.replacementMode === 'blur' && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <EyeOff className="w-6 h-6 text-zinc-800" />
-                        </div>
-                    )}
                 </div>
 
                 <div className="flex flex-col">
                     {eps.map((ep) => {
-                        const watchedKey = `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
-                        const isWatched = interactions[watchedKey]?.is_watched;
-                        const isTextCensored = !isWatched && spoilerConfig.title;
-                        const isDescCensored = !isWatched && spoilerConfig.overview;
+                        const watched = isWatched(ep);
+                        const isTextCensored = !watched && spoilerConfig.title;
+                        const isDescCensored = !watched && spoilerConfig.overview;
                         const titleText = isTextCensored ? `Episode ${ep.episode_number}` : (ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema Premiere' : 'Digital Release') : ep.name);
                         const subText = isDescCensored ? 'Description hidden' : (ep.is_movie ? ep.overview : `S${ep.season_number} E${ep.episode_number}`);
 
                         return (
                             <div 
                                 key={`${ep.show_id}-${ep.id}`}
-                                className={`px-4 py-3 border-b border-white/[0.03] last:border-b-0 flex items-center justify-between gap-4 ${isWatched ? 'opacity-30' : 'hover:bg-white/[0.02]'} transition-all`}
+                                className={`px-4 py-3 border-b border-white/[0.03] last:border-b-0 flex items-center justify-between gap-4 ${watched ? 'opacity-30' : 'hover:bg-white/[0.02]'} transition-all`}
                             >
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2 mb-1">
@@ -116,13 +119,17 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
-                                    {!ep.is_movie && (
-                                        <button onClick={() => ep.show_id && markHistoryWatched(ep.show_id, ep.season_number, ep.episode_number)} className="p-2 text-zinc-700 hover:text-emerald-500 transition-colors">
-                                            <History className="w-3.5 h-3.5" />
-                                        </button>
-                                    )}
-                                    <button onClick={() => ep.show_id && (ep.is_movie ? toggleWatched(ep.show_id, 'movie') : toggleEpisodeWatched(ep.show_id, ep.season_number, ep.episode_number))} className={`p-2 transition-all ${isWatched ? 'text-emerald-500' : 'text-zinc-600 hover:text-white'}`}>
-                                        <Check className={`w-4 h-4 ${isWatched ? 'stroke-[3px]' : 'stroke-2'}`} />
+                                    <button 
+                                        onClick={() => toggleWatched({
+                                            tmdb_id: ep.show_id,
+                                            media_type: ep.is_movie ? 'movie' : 'episode',
+                                            season_number: ep.season_number,
+                                            episode_number: ep.episode_number,
+                                            is_watched: watched
+                                        })} 
+                                        className={`p-2 transition-all ${watched ? 'text-emerald-500' : 'text-zinc-600 hover:text-white'}`}
+                                    >
+                                        <Check className={`w-4 h-4 ${watched ? 'stroke-[3px]' : 'stroke-2'}`} />
                                     </button>
                                 </div>
                             </div>
@@ -135,7 +142,6 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
 
     return (
         <>
-            {/* Backdrop for Mobile */}
             {isOpen && (
                 <div 
                     className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[90] xl:hidden animate-fade-in"
@@ -143,18 +149,12 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                 />
             )}
 
-            {/* Agenda Container (Drawer on Mobile, Sidebar on Desktop) */}
             <aside className={`
                 flex flex-col bg-[#050505] z-[100] overflow-hidden
-                
-                /* Desktop: Static Right Sidebar */
                 xl:w-[320px] xl:border-l xl:border-white/5 xl:shrink-0 xl:relative xl:h-full xl:translate-y-0 xl:rounded-none xl:border-t-0
-
-                /* Mobile: Fixed Bottom Drawer */
                 fixed bottom-0 left-0 right-0 h-[80vh] rounded-t-[2.5rem] border-t border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.9)] transition-transform duration-300 cubic-bezier(0.2, 0, 0, 1)
                 ${isOpen ? 'translate-y-0' : 'translate-y-[110%] xl:translate-y-0'}
             `}>
-                {/* Mobile Drawer Handle/Header */}
                 <div className="xl:hidden shrink-0 pt-4 pb-2 px-6 flex items-center justify-between bg-zinc-950 border-b border-white/5 relative">
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-zinc-800 rounded-full" />
                     <div className="mt-4">
@@ -183,17 +183,6 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                         </div>
                     )}
                 </div>
-
-                {/* Desktop Status Bar (Hidden on Mobile) */}
-                <footer className="hidden xl:block px-6 py-4 border-t border-white/5 bg-zinc-950/40">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Database Pulse</span>
-                        <span className="text-[9px] font-mono text-emerald-600">LIVE</span>
-                    </div>
-                    <div className="h-[2px] w-full bg-zinc-900 overflow-hidden rounded-full">
-                        <div className="h-full bg-indigo-500 w-[85%] shadow-[0_0_10px_rgba(99,102,241,0.4)] animate-pulse" />
-                    </div>
-                </footer>
             </aside>
         </>
     );

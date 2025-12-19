@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
-import { X, Play, Plus, Check, Star, Calendar, Loader2, Film, Tv, Video as VideoIcon } from 'lucide-react';
+import { X, Play, Plus, Check, Star, Loader2 } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos } from '../services/tmdb';
-import { TVShow, Video } from '../types';
-import { useAppContext } from '../context/AppContext';
+import { TVShow } from '../types';
+import { useStore } from '../store';
 import TrailerModal from './TrailerModal';
 
 interface ShowDetailsModalProps {
@@ -14,7 +14,7 @@ interface ShowDetailsModalProps {
 }
 
 const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, showId, mediaType }) => {
-    const { addToWatchlist, allTrackedShows, setReminderCandidate } = useAppContext();
+    const { addToWatchlist, watchlist } = useStore();
     const [details, setDetails] = useState<TVShow | null>(null);
     const [loading, setLoading] = useState(true);
     const [videoKey, setVideoKey] = useState<string | null>(null);
@@ -29,7 +29,6 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                     const data = await fetcher(showId);
                     setDetails(data);
                     
-                    // Fetch trailer for background or quick play
                     const videos = await getVideos(mediaType, showId);
                     if (videos.length > 0) {
                         const trailer = videos.find(v => v.type === 'Trailer') || videos[0];
@@ -50,12 +49,11 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
 
     if (!isOpen) return null;
 
-    const isAdded = details ? allTrackedShows.some(s => s.id === details.id) : false;
+    const isAdded = details ? watchlist.some(s => s.id === details.id) : false;
 
     const handleAdd = async () => {
         if (details) {
             await addToWatchlist(details);
-            setReminderCandidate(details);
         }
     };
 
@@ -63,7 +61,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
         <>
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" onClick={onClose}>
             <div 
-                className="bg-[var(--bg-main)] border border-[var(--border-color)] w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col relative max-h-[90vh]"
+                className="bg-[#050505] border border-white/5 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col relative max-h-[90vh]"
                 onClick={e => e.stopPropagation()}
             >
                 {loading ? (
@@ -75,14 +73,13 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                         {/* Hero Header */}
                         <div className="relative h-64 md:h-80 shrink-0">
                             <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${getBackdropUrl(details.backdrop_path)})` }} />
-                            <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-main)] via-[var(--bg-main)]/40 to-transparent" />
-                            <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-main)] via-[var(--bg-main)]/20 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/40 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-[#050505] via-[#050505]/20 to-transparent" />
                             
                             <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-colors border border-white/10 z-20">
                                 <X className="w-5 h-5" />
                             </button>
 
-                            {/* Floating Poster */}
                             <div className="absolute -bottom-16 left-6 md:left-8 w-32 md:w-40 aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border border-white/10 hidden sm:block z-20 bg-zinc-900">
                                 <img src={getImageUrl(details.poster_path)} className="w-full h-full object-cover" alt="" />
                             </div>
@@ -102,8 +99,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 overflow-y-auto bg-[var(--bg-main)] p-6 md:p-8 pt-6 sm:pt-20">
-                            
+                        <div className="flex-1 overflow-y-auto bg-[#050505] p-6 md:p-8 pt-6 sm:pt-20 custom-scrollbar">
                             <div className="sm:hidden w-32 aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-zinc-800 mb-6 mx-auto">
                                 <img src={getImageUrl(details.poster_path)} className="w-full h-full object-cover" alt="" />
                             </div>
@@ -144,8 +140,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                     </div>
                                 </div>
 
-                                {/* Sidebar Info */}
-                                <div className="space-y-4 p-4 bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-color)] h-fit">
+                                <div className="space-y-4 p-4 bg-zinc-900/50 rounded-2xl border border-white/5 h-fit">
                                     <div>
                                         <span className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Status</span>
                                         <span className="text-sm text-white font-medium">
@@ -164,7 +159,6 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
             </div>
         </div>
 
-        {/* Reuse Trailer Modal logic via props hack or simple wrapper */}
         {showTrailer && details && (
             <TrailerModal 
                 isOpen={showTrailer} 

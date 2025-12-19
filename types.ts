@@ -1,16 +1,27 @@
 
+
 export interface TVShow {
   id: number;
-  name: string; // Used for Title (Movie) or Name (TV)
+  name: string;
   poster_path: string | null;
   backdrop_path: string | null;
   overview: string;
-  first_air_date: string; // Used for Release Date (Movie) or First Air Date (TV)
+  first_air_date: string;
   vote_average: number;
-  number_of_seasons?: number;
-  media_type: 'tv' | 'movie'; // distinct type
-  origin_country?: string[]; // Added for Timezone Logic
-  seasons?: { season_number: number; poster_path: string | null; episode_count: number; air_date?: string }[]; // Added for metadata caching
+  media_type: 'tv' | 'movie';
+  origin_country?: string[];
+  seasons?: Season[];
+}
+
+export interface Season {
+  id: number;
+  name: string;
+  overview: string;
+  poster_path: string | null;
+  season_number: number;
+  episodes: Episode[];
+  episode_count: number;
+  vote_average: number;
 }
 
 export interface Episode {
@@ -22,129 +33,97 @@ export interface Episode {
   episode_number: number;
   season_number: number;
   still_path: string | null;
-  show_id?: number; // Added for internal reference
-  show_name?: string; // Added for internal reference
-  show_backdrop_path?: string | null; // Added for Header UI (Horizontal Show Art)
-  poster_path?: string | null; // Added for Calendar UI (Vertical image)
-  season1_poster_path?: string | null; // Anti-Spoiler Art
-  is_movie?: boolean; // Flag to identify movies in mixed lists
-  release_type?: 'theatrical' | 'digital'; // Specific release type for movies
-  backdrop_path?: string | null; // For movies or specific episode styling
-  origin_country?: string[]; // Critical for Time Shifting
-}
-
-export interface Season {
-  id: number;
-  name: string;
-  overview: string;
-  poster_path: string | null;
-  season_number: number;
-  episodes: Episode[];
-}
-
-export interface Video {
-  id: string;
-  iso_639_1: string;
-  iso_3166_1: string;
-  key: string;
-  name: string;
-  site: string; // "YouTube"
-  size: number;
-  type: string; // "Trailer", "Teaser", "Clip", "Featurette", "Behind the Scenes"
-  official: boolean;
-  published_at: string;
-}
-
-export interface TraktProfile {
-    username: string;
-    name: string;
-    ids: { slug: string };
-    images?: { avatar?: { full?: string } };
+  show_id: number;
+  show_name: string;
+  is_movie?: boolean;
+  release_type?: 'theatrical' | 'digital';
+  runtime?: number;
+  show_backdrop_path?: string | null;
+  poster_path?: string | null;
+  season1_poster_path?: string | null;
 }
 
 export interface User {
-  id?: string; // Supabase UUID if cloud user
+  id: string;
   username: string;
-  tmdbKey: string; // TMDB Read Access Token
-  isAuthenticated: boolean;
-  isCloud?: boolean; // Flag to determine storage strategy
   email?: string;
-  fullSyncCompleted?: boolean; // New Flag for migration state
-  traktToken?: {
-      access_token: string;
-      refresh_token: string;
-      expires: number;
-      created_at: number;
-  };
-  traktProfile?: TraktProfile;
+  is_cloud: boolean;
+  tmdb_key?: string;
 }
-
-export interface CalendarDay {
-  date: Date;
-  episodes: Episode[];
-  isCurrentMonth: boolean;
-  isToday: boolean;
-}
-
-export type V2SidebarMode = 'fixed' | 'collapsed';
 
 export interface AppSettings {
+  baseTheme: 'cosmic' | 'oled' | 'midnight' | 'forest' | 'dawn' | 'light' | 'auto';
+  appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system';
+  compactCalendar: boolean;
+  timezone: string;
+  timeShift: boolean;
+  hideTheatrical: boolean;
+  ignoreSpecials: boolean;
   spoilerConfig: {
       images: boolean;
       overview: boolean;
       title: boolean;
-      includeMovies: boolean; 
-      replacementMode?: 'blur' | 'banner';
+      includeMovies: boolean;
+      replacementMode: 'blur' | 'banner';
   };
-  hideTheatrical: boolean;
-  ignoreSpecials: boolean; 
   recommendationsEnabled: boolean;
-  recommendationMethod: 'banner' | 'inline';
-  compactCalendar: boolean;
-  viewMode: 'grid' | 'list' | 'stack'; 
-  mobileNavLayout: 'standard' | 'pill'; 
-  suppressMobileAddWarning: boolean; 
-  calendarPosterFillMode: 'cover' | 'contain'; 
-  useSeason1Art: boolean; // Anti-Spoiler
-  cleanGrid: boolean; // No Text Labels
-  timezone?: string; // Region Preference
-  timeShift: boolean; // Smart Date Adjustment
-  theme?: string; // Accent Color Theme
-  customThemeColor?: string; // Hex Code for Custom Theme
-  appDesign: 'default' | 'blackout'; // Deprecated in favor of baseTheme, kept for migration
-  baseTheme: 'cosmic' | 'oled' | 'midnight' | 'forest' | 'dawn' | 'light' | 'auto'; // New Base Theme
-  appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system'; // New Font Option
-  reminderStrategy: 'ask' | 'always' | 'never'; // New Reminder Preference
-  hiddenItems: { id: number; name: string }[]; // Blacklist for deleted items to prevent Trakt re-sync
-  v2SidebarMode?: V2SidebarMode;
-  v2LibraryLayout?: 'grid' | 'list'; // New Library Layout Preference
-  autoSync: boolean; // New: Toggle for automatic calendar fetching
+  recommendationMethod?: 'banner' | 'inline';
+  reminderStrategy?: 'ask' | 'always' | 'never';
+  v2SidebarMode: 'fixed' | 'collapsed';
+  v2LibraryLayout: 'grid' | 'list';
+  hiddenItems: number[];
+  theme?: string;
+  customThemeColor?: string;
+  viewMode?: 'grid' | 'list' | 'stack';
+  calendarPosterFillMode?: 'contain' | 'cover';
+  cleanGrid?: boolean;
+  useSeason1Art?: boolean;
+  mobileNavLayout?: 'pill' | 'standard';
 }
 
-export interface SubscribedList {
-  id: string; 
-  name: string;
-  item_count: number;
-  items: TVShow[];
-}
+export const DEFAULT_SETTINGS: AppSettings = {
+  baseTheme: 'cosmic',
+  appFont: 'inter',
+  compactCalendar: true,
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  timeShift: false,
+  hideTheatrical: false,
+  ignoreSpecials: true,
+  spoilerConfig: { images: true, overview: true, title: false, includeMovies: false, replacementMode: 'blur' },
+  recommendationsEnabled: true,
+  v2SidebarMode: 'fixed',
+  v2LibraryLayout: 'grid',
+  hiddenItems: []
+};
 
-export interface Reminder {
-  id?: string;
-  tmdb_id: number;
-  media_type: 'tv' | 'movie';
-  show_name?: string; // For display
-  scope: 'all' | 'episode' | 'movie_theatrical' | 'movie_digital';
-  episode_season?: number;
-  episode_number?: number;
-  offset_minutes: number; // 0 = On day, 1440 = 1 Day Before
-}
-
-export interface Interaction {
+// Database Row Types
+export interface WatchedItem {
     tmdb_id: number;
     media_type: 'tv' | 'movie' | 'episode';
+    season_number?: number;
+    episode_number?: number;
     is_watched: boolean;
-    rating: number; // 0-5
-    watched_at?: string; // ISO date
-    season_number?: number; // For episodes
-    episode_number?: number; // For episodes
+    rating?: number;
+    watched_at?: string;
+}
+
+export type Interaction = WatchedItem;
+
+export interface Reminder {
+    id?: string;
+    tmdb_id: number;
+    media_type: 'movie' | 'tv';
+    show_name: string;
+    scope: 'all' | 'episode' | 'movie_theatrical' | 'movie_digital';
+    episode_season?: number;
+    episode_number?: number;
+    offset_minutes: number;
+}
+
+export interface Video {
+    id: string;
+    key: string;
+    name: string;
+    site: string;
+    type: string;
 }

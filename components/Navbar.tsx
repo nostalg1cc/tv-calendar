@@ -2,11 +2,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Calendar, Search, List, LogOut, Tv, Settings, Compass, User as UserIcon, Menu, MoreHorizontal, X, RefreshCw, Bell, PanelLeftClose, PanelLeftOpen, Sparkles } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useStore } from '../store';
 import SettingsModal from './SettingsModal';
 
 const Navbar: React.FC = () => {
-  const { user, logout, setIsSearchOpen, settings } = useAppContext();
+  const { user, logout, setIsSearchOpen, settings, updateSettings } = useStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   
@@ -116,7 +116,7 @@ const Navbar: React.FC = () => {
                     <>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-white truncate">{user.username}</p>
-                            <p className="text-[10px] text-slate-500 truncate">{user.isCloud ? 'Cloud Sync' : 'Local Mode'}</p>
+                            <p className="text-[10px] text-slate-500 truncate">{user.is_cloud ? 'Cloud Sync' : 'Local Mode'}</p>
                         </div>
                         <button 
                             onClick={logout}
@@ -238,8 +238,8 @@ const Navbar: React.FC = () => {
                           <div>
                               <h3 className="font-bold text-white text-lg">{user.username}</h3>
                               <p className="text-zinc-500 text-xs flex items-center gap-1.5">
-                                  {user.isCloud ? <div className="w-2 h-2 rounded-full bg-emerald-500" /> : <div className="w-2 h-2 rounded-full bg-orange-500" />}
-                                  {user.isCloud ? 'Cloud Account' : 'Local Device'}
+                                  {user.is_cloud ? <div className="w-2 h-2 rounded-full bg-emerald-500" /> : <div className="w-2 h-2 rounded-full bg-orange-500" />}
+                                  {user.is_cloud ? 'Cloud Account' : 'Local Device'}
                               </p>
                           </div>
                       </div>

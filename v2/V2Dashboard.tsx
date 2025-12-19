@@ -3,75 +3,39 @@ import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import V2Sidebar from './V2Sidebar';
 import V2Calendar from './V2Calendar';
-import V2Agenda from './V2Agenda';
 import V2SettingsModal from './V2SettingsModal';
-import V2TrailerModal from './V2TrailerModal';
+import V2SearchModal from './V2SearchModal';
 import V2Discover from './V2Discover';
 import V2Library from './V2Library';
-import V2SearchModal from './V2SearchModal';
-import { useAppContext } from '../context/AppContext';
-import { Episode } from '../types';
 
 const V2Dashboard: React.FC = () => {
-    const { calendarDate, setCalendarDate } = useAppContext();
+    const [calendarDate, setCalendarDate] = useState(new Date());
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [trailerTarget, setTrailerTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', episode?: Episode} | null>(null);
-    const [isMobileAgendaOpen, setIsMobileAgendaOpen] = useState(false);
-
-    const handlePlayTrailer = (showId: number, mediaType: 'tv' | 'movie', episode?: Episode) => {
-        setTrailerTarget({ showId, mediaType, episode });
-    };
-
-    const handleDateSelect = (date: Date) => {
-        setCalendarDate(date);
-        setIsMobileAgendaOpen(true);
-    };
 
     return (
         <div className="flex h-screen w-screen bg-[#020202] text-zinc-100 overflow-hidden font-sans selection:bg-indigo-500/30">
-            {/* Navigation (Sidebar on Desktop, Pill on Mobile) */}
             <V2Sidebar 
                 onOpenSettings={() => setIsSettingsOpen(true)} 
                 onOpenSearch={() => setIsSearchOpen(true)}
             />
 
-            {/* Main Area with dynamic sub-routes */}
             <Routes>
                 <Route path="calendar" element={
-                    <>
-                        <main className="flex-1 flex flex-col min-w-0 h-full relative z-0">
-                            <V2Calendar 
-                                selectedDay={calendarDate} 
-                                onSelectDay={handleDateSelect} 
-                            />
-                        </main>
-                        <V2Agenda 
+                    <main className="flex-1 flex flex-col min-w-0 h-full relative z-0">
+                        <V2Calendar 
                             selectedDay={calendarDate} 
-                            onPlayTrailer={handlePlayTrailer}
-                            isOpen={isMobileAgendaOpen}
-                            onClose={() => setIsMobileAgendaOpen(false)}
+                            onSelectDay={setCalendarDate} 
                         />
-                    </>
+                    </main>
                 } />
                 <Route path="discover" element={<V2Discover />} />
                 <Route path="library" element={<V2Library />} />
                 <Route path="*" element={<Navigate to="calendar" replace />} />
             </Routes>
 
-            {/* V2 Specific Modal Overlays */}
-            <V2SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-            <V2SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
-            
-            {trailerTarget && (
-                <V2TrailerModal 
-                    isOpen={!!trailerTarget} 
-                    onClose={() => setTrailerTarget(null)}
-                    showId={trailerTarget.showId}
-                    mediaType={trailerTarget.mediaType}
-                    episode={trailerTarget.episode}
-                />
-            )}
+            {isSettingsOpen && <V2SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />}
+            {isSearchOpen && <V2SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />}
         </div>
     );
 };
