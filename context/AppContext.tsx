@@ -381,7 +381,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           }
                           const releaseDates = await getMovieReleaseDates(item.id); 
                           releaseDates.forEach(rel => { 
-                              batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type, origin_country: origin }); 
+                              batchEpisodes.push({ 
+                                id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), 
+                                name: item.name, 
+                                overview: item.overview, 
+                                vote_average: item.vote_average, 
+                                air_date: rel.date, 
+                                episode_number: rel.type === 'theatrical' ? 1 : 2, 
+                                season_number: 1, 
+                                still_path: item.backdrop_path, 
+                                show_backdrop_path: item.backdrop_path, 
+                                poster_path: item.poster_path, 
+                                season1_poster_path: item.poster_path ? item.poster_path : undefined, 
+                                show_id: item.id, 
+                                show_name: item.name, 
+                                is_movie: true, 
+                                release_type: rel.type, 
+                                origin_country: origin 
+                              }); 
                           }); 
                       } else { 
                           try { 
@@ -541,6 +558,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   if (newUser.id) { 
                       const cached = await get<Record<string, Episode[]>>('tv_calendar_episodes_v2'); 
                       if (cached) setEpisodes(cached); 
+                      // Always verify load from cloud if available
                       loadCloudCalendar(newUser.id); 
                   } 
               } 
@@ -582,19 +600,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const saveToCloudCalendar = async (episodesList: Episode[], userId: string) => { 
       if (!supabase || episodesList.length === 0) return; 
       
-      const rows = episodesList.map(ep => {
-          // Adjust episode number for digital movies to prevent PK conflict with theatrical
-          let epNum = ep.episode_number ?? -1;
-          if (ep.is_movie && ep.release_type === 'digital') {
-              epNum = 2;
+      const uniqueMap = new Map<string, any>();
+
+      episodesList.forEach(ep => {
+          // Normalize Data
+          const tmdbId = ep.show_id || ep.id;
+          const mediaType = ep.is_movie ? 'movie' : 'tv';
+          let season = ep.season_number ?? -1;
+          let episode = ep.episode_number ?? -1;
+          
+          // Handle Digital Movie Collision (Sync with local refreshEpisodes logic)
+          if (mediaType === 'movie' && ep.release_type === 'digital') {
+              episode = 2;
           }
 
-          return { 
+          // Composite Key matching the DB Unique Constraint
+          const key = `${userId}-${tmdbId}-${mediaType}-${season}-${episode}`;
+
+          // Create Payload
+          const payload = { 
             user_id: userId, 
-            tmdb_id: ep.show_id || ep.id, 
-            media_type: ep.is_movie ? 'movie' : 'tv', 
-            season_number: ep.season_number ?? -1, 
-            episode_number: epNum, 
+            tmdb_id: tmdbId, 
+            media_type: mediaType, 
+            season_number: season, 
+            episode_number: episode, 
             title: ep.show_name || ep.name || '', 
             overview: ep.overview || '', 
             air_date: ep.air_date, 
@@ -603,26 +632,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             vote_average: ep.vote_average || 0, 
             release_type: ep.release_type || null 
           };
-      }); 
-
-      // Deduplicate rows based on conflict columns
-      const uniqueRowsMap = new Map();
-      rows.forEach(row => {
-          const key = `${row.user_id}_${row.tmdb_id}_${row.media_type}_${row.season_number}_${row.episode_number}`;
-          if (!uniqueRowsMap.has(key)) {
-              uniqueRowsMap.set(key, row);
-          }
+          
+          // Last write wins
+          uniqueMap.set(key, payload);
       });
-      const uniqueRows = Array.from(uniqueRowsMap.values());
 
+      const rows = Array.from(uniqueMap.values());
       const batchSize = 100; 
-      for (let i = 0; i < uniqueRows.length; i += batchSize) { 
-          const batch = uniqueRows.slice(i, i + batchSize); 
-          const { error } = await supabase.from('user_calendar_events').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); 
+
+      for (let i = 0; i < rows.length; i += batchSize) { 
+          const batch = rows.slice(i, i + batchSize); 
+          // Removed spaces from onConflict just in case
+          const { error } = await supabase.from('user_calendar_events').upsert(batch, { onConflict: 'user_id,tmdb_id,media_type,season_number,episode_number' }); 
           if (error) console.error('Supabase Upsert Failed:', error.message); 
       } 
   };
-  const performFullSync = async (config?: Partial<AppSettings>) => { if (!user?.isCloud || !supabase || !user.id) return; setIsSyncing(true); setLoading(true); try { if (config) { const merged = { ...settings, ...config }; setSettings(merged); await supabase.from('profiles').update({ settings: JSON.stringify(merged) }).eq('id', user.id); } await del('tv_calendar_episodes_v2'); await del('tv_calendar_meta_v2'); setEpisodes({}); await supabase.from('user_calendar_events').delete().eq('user_id', user.id); const uniqueItems = [...allTrackedShows]; setSyncProgress({ current: 0, total: uniqueItems.length }); let processedCount = 0; const batchSize = 3; let fullEpisodeList: Episode[] = []; for (let i = 0; i < uniqueItems.length; i += batchSize) { const batch = uniqueItems.slice(i, i + batchSize); const batchEpisodes: Episode[] = []; await Promise.all(batch.map(async (item) => { try { let origin = item.origin_country; let details = item; if (item.media_type === 'movie') { if (!origin) { const fullMovie = await getMovieDetails(item.id); origin = fullMovie.origin_country; } const releaseDates = await getMovieReleaseDates(item.id); releaseDates.forEach(rel => { batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: 1, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type, origin_country: origin }); }); } else { try { details = await getShowDetails(item.id); origin = details.origin_country; } catch(e) {} const seasonsMeta = details.seasons || []; for (const sMeta of seasonsMeta) { try { const sData = await getSeasonDetails(item.id, sMeta.season_number); if (sData.episodes) { sData.episodes.forEach(ep => { if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: details.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false, origin_country: origin }); }); } } catch (e) {} } } } catch (err) {} })); if (batchEpisodes.length > 0) { fullEpisodeList = [...fullEpisodeList, ...batchEpisodes]; await saveToCloudCalendar(batchEpisodes, user.id); } processedCount += batch.length; setSyncProgress(prev => ({ ...prev, current: processedCount })); } await supabase.from('profiles').update({ full_sync_completed: true, last_full_sync: new Date().toISOString() }).eq('id', user.id); const newEpisodesMap: Record<string, Episode[]> = {}; fullEpisodeList.forEach(ep => { if(!ep.air_date) return; const dateKey = getAdjustedDate(ep.air_date, ep.origin_country); if(!newEpisodesMap[dateKey]) newEpisodesMap[dateKey] = []; newEpisodesMap[dateKey].push(ep); }); await set('tv_calendar_episodes_v2', newEpisodesMap); setEpisodes(newEpisodesMap); setUser(prev => prev ? ({ ...prev, fullSyncCompleted: true }) : null); setFullSyncRequired(false); } catch (e) { alert("Sync failed. Please try again."); } finally { setIsSyncing(false); setLoading(false); } };
+  const performFullSync = async (config?: Partial<AppSettings>) => { if (!user?.isCloud || !supabase || !user.id) return; setIsSyncing(true); setLoading(true); try { if (config) { const merged = { ...settings, ...config }; setSettings(merged); await supabase.from('profiles').update({ settings: JSON.stringify(merged) }).eq('id', user.id); } await del('tv_calendar_episodes_v2'); await del('tv_calendar_meta_v2'); setEpisodes({}); await supabase.from('user_calendar_events').delete().eq('user_id', user.id); const uniqueItems = [...allTrackedShows]; setSyncProgress({ current: 0, total: uniqueItems.length }); let processedCount = 0; const batchSize = 3; let fullEpisodeList: Episode[] = []; for (let i = 0; i < uniqueItems.length; i += batchSize) { const batch = uniqueItems.slice(i, i + batchSize); const batchEpisodes: Episode[] = []; await Promise.all(batch.map(async (item) => { try { let origin = item.origin_country; let details = item; if (item.media_type === 'movie') { if (!origin) { const fullMovie = await getMovieDetails(item.id); origin = fullMovie.origin_country; } const releaseDates = await getMovieReleaseDates(item.id); releaseDates.forEach(rel => { batchEpisodes.push({ id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, vote_average: item.vote_average, air_date: rel.date, episode_number: rel.type === 'theatrical' ? 1 : 2, season_number: 1, still_path: item.backdrop_path, show_backdrop_path: item.backdrop_path, poster_path: item.poster_path, season1_poster_path: item.poster_path ? item.poster_path : undefined, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type, origin_country: origin }); }); } else { try { details = await getShowDetails(item.id); origin = details.origin_country; } catch(e) {} const seasonsMeta = details.seasons || []; for (const sMeta of seasonsMeta) { try { const sData = await getSeasonDetails(item.id, sMeta.season_number); if (sData.episodes) { sData.episodes.forEach(ep => { if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: details.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false, origin_country: origin }); }); } } catch (e) {} } } } catch (err) {} })); if (batchEpisodes.length > 0) { fullEpisodeList = [...fullEpisodeList, ...batchEpisodes]; await saveToCloudCalendar(batchEpisodes, user.id); } processedCount += batch.length; setSyncProgress(prev => ({ ...prev, current: processedCount })); } await supabase.from('profiles').update({ full_sync_completed: true, last_full_sync: new Date().toISOString() }).eq('id', user.id); const newEpisodesMap: Record<string, Episode[]> = {}; fullEpisodeList.forEach(ep => { if(!ep.air_date) return; const dateKey = getAdjustedDate(ep.air_date, ep.origin_country); if(!newEpisodesMap[dateKey]) newEpisodesMap[dateKey] = []; newEpisodesMap[dateKey].push(ep); }); await set('tv_calendar_episodes_v2', newEpisodesMap); setEpisodes(newEpisodesMap); setUser(prev => prev ? ({ ...prev, fullSyncCompleted: true }) : null); setFullSyncRequired(false); } catch (e) { alert("Sync failed. Please try again."); } finally { setIsSyncing(false); setLoading(false); } };
   const reloadAccount = async () => { if (isSyncing) return; setLoading(true); try { await del('tv_calendar_episodes_v2'); await del('tv_calendar_meta_v2'); setEpisodes({}); if (user?.isCloud && supabase) { const { data: { session } } = await supabase.auth.getSession(); if (session) await loginCloud(session); else logout(); } else { await refreshEpisodes(true); } } catch (e) { setLoading(false); } };
   const hardRefreshCalendar = async () => { await del('tv_calendar_episodes_v2'); await del('tv_calendar_meta_v2'); setEpisodes({}); await refreshEpisodes(true); };
   const updateUserKey = async (apiKey: string) => { if (user) { const updatedUser = { ...user, tmdbKey: apiKey }; setUser(updatedUser); setApiToken(apiKey); if (user.isCloud && supabase) { await supabase.from('profiles').update({ tmdb_key: apiKey }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } };
