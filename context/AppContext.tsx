@@ -43,7 +43,8 @@ interface AppContextType {
   batchSubscribe: (lists: SubscribedList[]) => void; 
   subscribeToList: (listId: string) => Promise<void>;
   unsubscribeFromList: (listId: string) => void;
-  loading: boolean; 
+  loading: boolean; // CRITICAL: Auth Loading ONLY
+  isRefreshing: boolean; // New: Data refreshing state
   isSyncing: boolean; 
   syncProgress: { current: number; total: number }; 
   refreshEpisodes: (force?: boolean) => Promise<void>;
@@ -124,7 +125,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const reloadAccount = async () => {
-       // Handled mostly by AuthContext init but exposes method
        window.location.reload();
   };
 
@@ -138,7 +138,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const importBackup = (data: any) => {
       if (data.watchlist) batchAddShows(data.watchlist);
       if (data.settings) updateSettings(data.settings);
-      // ... partial implementation for bridge
   };
 
   const uploadBackupToCloud = async (data: any) => { /* Implemented in V2 via DataContext if needed, mostly redundant */ };
@@ -153,7 +152,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       user, login, loginCloud, logout, updateUserKey,
       watchlist, addToWatchlist, removeFromWatchlist, unhideShow, batchAddShows, batchSubscribe,
       subscribedLists, subscribeToList, unsubscribeFromList, allTrackedShows,
-      episodes, loading: authLoading || calendarLoading, isSyncing, syncProgress, refreshEpisodes, loadArchivedEvents,
+      episodes, 
+      loading: authLoading, // FIX: Only block app on Auth loading
+      isRefreshing: calendarLoading, // NEW: Expose calendar loading separately
+      isSyncing, syncProgress, refreshEpisodes, loadArchivedEvents,
       requestNotificationPermission,
       isSearchOpen, setIsSearchOpen,
       settings, updateSettings,

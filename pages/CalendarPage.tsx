@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
@@ -11,7 +10,7 @@ import { getImageUrl, getBackdropUrl } from '../services/tmdb';
 import { Episode } from '../types';
 
 const CalendarPage: React.FC = () => {
-  const { episodes, loading, isSyncing, settings, updateSettings, refreshEpisodes, loadArchivedEvents, interactions, toggleEpisodeWatched, toggleWatched, calendarScrollPos, setCalendarScrollPos, calendarDate, setCalendarDate } = useAppContext();
+  const { episodes, loading, isRefreshing, isSyncing, settings, updateSettings, refreshEpisodes, loadArchivedEvents, interactions, toggleEpisodeWatched, toggleWatched, calendarScrollPos, setCalendarScrollPos, calendarDate, setCalendarDate } = useAppContext();
   
   // Using global context date for persistence
   const currentDate = calendarDate;
@@ -257,7 +256,7 @@ const CalendarPage: React.FC = () => {
 
               <div className="flex items-center gap-4">
                    <button onClick={() => refreshEpisodes(true)} disabled={loading || isSyncing} className="p-1 text-zinc-500 hover:text-indigo-400 transition-colors group" title="Force Refresh">
-                      <RefreshCw className={`w-5 h-5 ${loading || isSyncing ? 'animate-spin text-indigo-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                      <RefreshCw className={`w-5 h-5 ${isRefreshing || isSyncing ? 'animate-spin text-indigo-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
                   </button>
                   <div className="w-px h-5 bg-[var(--border-color)]" />
                   <div className="flex items-center gap-6">
@@ -296,7 +295,7 @@ const CalendarPage: React.FC = () => {
                    </div>
                    <div className="flex items-center gap-3">
                         <div className="w-px h-4 bg-[var(--border-color)]" />
-                        <button onClick={() => refreshEpisodes(true)} className={`text-zinc-500 ${loading || isSyncing ? 'animate-spin text-indigo-400' : ''}`}><RefreshCw className="w-4 h-4" /></button>
+                        <button onClick={() => refreshEpisodes(true)} className={`text-zinc-500 ${isRefreshing || isSyncing ? 'animate-spin text-indigo-400' : ''}`}><RefreshCw className="w-4 h-4" /></button>
                         <div className="w-px h-4 bg-[var(--border-color)]" />
                         <button onClick={cycleViewMode} className="text-zinc-500 hover:text-white">
                             <ViewIcon className="w-4 h-4" />
@@ -320,8 +319,8 @@ const CalendarPage: React.FC = () => {
           </div>
       )}
 
-      {/* Loading State */}
-      {loading && activeDays.length === 0 && !isArchivedDate ? (
+      {/* Loading State - only if no days */}
+      {(loading || isRefreshing) && activeDays.length === 0 && !isArchivedDate ? (
           <div className="flex-1 flex flex-col items-center justify-center surface-panel rounded-2xl border-dashed border-[var(--border-color)] bg-[var(--bg-panel)] mx-4">
              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
              <p className="text-sm text-zinc-500">Syncing your calendar...</p>

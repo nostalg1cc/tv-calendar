@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, format, isSameMonth, addMonths, subMonths, addDays, isSameDay, isToday
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Filter, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, AlignJustify, Ticket, List as ListIcon, Smartphone, Layers, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, AlignJustify, Ticket, List as ListIcon, Smartphone, Layers, ChevronDown, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Episode } from '../types';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
@@ -16,7 +16,7 @@ interface V2CalendarProps {
 type ViewMode = 'grid' | 'cards' | 'list';
 
 const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => {
-    const { calendarDate, setCalendarDate, episodes, settings, updateSettings, interactions, toggleWatched, toggleEpisodeWatched } = useAppContext();
+    const { calendarDate, setCalendarDate, episodes, settings, updateSettings, interactions, toggleWatched, toggleEpisodeWatched, isRefreshing } = useAppContext();
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     
     // Initialize view mode based on screen size directly
@@ -260,7 +260,10 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
             {/* Header */}
             <header className="h-16 shrink-0 border-b border-white/5 flex items-center bg-[#050505]/80 z-[60] backdrop-blur-md sticky top-0">
                 <div className="flex-1 flex flex-col justify-center px-6 border-r border-white/5 h-full min-w-[120px]">
-                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest leading-none mb-1">{format(calendarDate, 'yyyy')}</span>
+                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest leading-none mb-1 flex items-center gap-2">
+                        {format(calendarDate, 'yyyy')}
+                        {isRefreshing && <RefreshCw className="w-3 h-3 animate-spin text-indigo-500" />}
+                     </span>
                      <span className="text-xl font-black text-white uppercase tracking-tighter leading-none">{format(calendarDate, 'MMMM')}</span>
                 </div>
 
