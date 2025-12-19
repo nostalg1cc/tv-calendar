@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
+import toast from 'react-hot-toast';
 
 interface V2SettingsModalProps {
     isOpen: boolean;
@@ -33,24 +34,49 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const { settings, updateSettings, user, login, logout, triggerCloudSync, isSyncing, importBackup } = useStore();
     const [activeTab, setActiveTab] = useState<TabId>('general');
     
-    // Local state for API key to avoid aggressive store updates on every keystroke
+    // Local state for API key
     const [localApiKey, setLocalApiKey] = useState(user?.tmdb_key || '');
     const [showKey, setShowKey] = useState(false);
+    const [isSavingKey, setIsSavingKey] = useState(false);
 
     useEffect(() => {
         setLocalApiKey(user?.tmdb_key || '');
     }, [user?.tmdb_key]);
 
     const handleSaveKey = async () => {
-        if (user) {
-            const updatedUser = { ...user, tmdb_key: localApiKey };
-            login(updatedUser); // Update local store
-            setApiToken(localApiKey); // Update service
+        if (!user) return;
+        setIsSavingKey(true);
+        
+        try {
+            const cleanKey = localApiKey.trim();
+            const updatedUser = { ...user, tmdb_key: cleanKey };
             
+            // 1. Update local store state (Immediate UI update)
+            login(updatedUser); 
+            
+            // 2. Update service memory (Immediate API calls)
+            setApiToken(cleanKey); 
+            
+            // 3. Update Cloud Database (Background sync)
             if (user.is_cloud && supabase) {
-                // Explicitly save the key to the profile table
-                await supabase.from('profiles').update({ tmdb_key: localApiKey }).eq('id', user.id);
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ tmdb_key: cleanKey })
+                    .eq('id', user.id);
+                
+                if (error) {
+                    console.error("Cloud save failed:", error);
+                    toast.error("Saved locally, but cloud sync failed.");
+                } else {
+                    toast.success("API Key saved to cloud!");
+                }
+            } else {
+                toast.success("API Key saved locally!");
             }
+        } catch (e) {
+            console.error("Error saving key", e);
+        } finally {
+            setIsSavingKey(false);
         }
     };
 
@@ -82,9 +108,9 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
             try {
                 const data = JSON.parse(ev.target?.result as string);
                 importBackup(data);
-                alert('Backup restored successfully. Please refresh.');
+                toast.success('Backup restored successfully.');
             } catch (err) {
-                alert('Invalid backup file.');
+                toast.error('Invalid backup file.');
             }
         };
         reader.readAsText(file);
@@ -288,7 +314,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                                     type={showKey ? "text" : "password"} 
                                                     value={localApiKey}
                                                     onChange={(e) => setLocalApiKey(e.target.value)}
-                                                    onBlur={handleSaveKey}
                                                     className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:border-indigo-500 focus:outline-none transition-all"
                                                     placeholder="Enter your TMDB API Key"
                                                 />
@@ -296,7 +321,14 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                                     {showKey ? 'Hide' : 'Show'}
                                                 </button>
                                             </div>
-                                            <button onClick={handleSaveKey} className="px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs border border-white/5">Save</button>
+                                            <button 
+                                                onClick={handleSaveKey} 
+                                                disabled={isSavingKey}
+                                                className="px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs border border-white/5 flex items-center gap-2 disabled:opacity-50"
+                                            >
+                                                {isSavingKey ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                                Save
+                                            </button>
                                         </div>
                                         <p className="text-xs text-zinc-500 mt-3">
                                             Required for fetching show data. Get one at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">themoviedb.org</a>.

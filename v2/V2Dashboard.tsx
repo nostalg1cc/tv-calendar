@@ -9,6 +9,7 @@ import V2Discover from './V2Discover';
 import V2Library from './V2Library';
 import V2Agenda from './V2Agenda';
 import V2TrailerModal from './V2TrailerModal';
+import ApiKeyPrompt from '../components/ApiKeyPrompt';
 
 const V2Dashboard: React.FC = () => {
     const [calendarDate, setCalendarDate] = useState(new Date());
@@ -73,6 +74,8 @@ const V2Dashboard: React.FC = () => {
                     episode={trailerTarget.episode} 
                 />
             )}
+
+            <ApiKeyPrompt />
         </div>
     );
 };
