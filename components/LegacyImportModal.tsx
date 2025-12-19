@@ -131,11 +131,11 @@ const LegacyImportModal: React.FC<LegacyImportModalProps> = ({ isOpen, onClose }
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in" onClick={onClose}>
             <div 
-                className="bg-zinc-950 border border-zinc-800 w-full max-w-4xl rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
+                className="bg-zinc-950 border border-zinc-800 w-full max-w-4xl rounded-3xl shadow-2xl flex flex-col h-[85vh] overflow-hidden"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-zinc-900/50">
+                <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-zinc-900/50 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
                             <FileJson className="w-5 h-5 text-indigo-400" />
@@ -150,7 +150,7 @@ const LegacyImportModal: React.FC<LegacyImportModalProps> = ({ isOpen, onClose }
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-hidden relative">
+                <div className="flex-1 overflow-hidden relative min-h-0">
                     {step === 'upload' && (
                         <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-6">
                             <div className="w-20 h-20 rounded-3xl bg-zinc-900 flex items-center justify-center border border-zinc-800 shadow-xl">
@@ -183,7 +183,7 @@ const LegacyImportModal: React.FC<LegacyImportModalProps> = ({ isOpen, onClose }
                     {step === 'select' && (
                         <div className="flex flex-col h-full">
                             {/* Toolbar */}
-                            <div className="px-6 py-3 border-b border-white/5 bg-zinc-900/30 flex flex-wrap items-center justify-between gap-4">
+                            <div className="px-6 py-3 border-b border-white/5 bg-zinc-900/30 flex flex-wrap items-center justify-between gap-4 shrink-0">
                                 <div className="flex items-center gap-4">
                                     <div className="flex items-center gap-2">
                                         <button 
@@ -218,7 +218,7 @@ const LegacyImportModal: React.FC<LegacyImportModalProps> = ({ isOpen, onClose }
                             </div>
 
                             {/* List */}
-                            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-black/20">
+                            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-black/20 min-h-0">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {sortedCandidates.map(item => {
                                         const isSelected = selectedIds.has(item.id);
@@ -266,7 +266,7 @@ const LegacyImportModal: React.FC<LegacyImportModalProps> = ({ isOpen, onClose }
 
                 {/* Footer */}
                 {step === 'select' && (
-                    <div className="px-6 py-4 border-t border-white/5 bg-zinc-900/80 backdrop-blur-md flex justify-end gap-3">
+                    <div className="px-6 py-4 border-t border-white/5 bg-zinc-900/80 backdrop-blur-md flex justify-end gap-3 shrink-0">
                         <button 
                             onClick={() => { setStep('upload'); setCandidates([]); }}
                             className="px-6 py-3 rounded-xl font-bold text-xs text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
