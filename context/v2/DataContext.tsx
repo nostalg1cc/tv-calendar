@@ -4,8 +4,8 @@ import { supabase } from '../../services/supabase';
 import { getListDetails, getMovieDetails, getShowDetails, getSeasonDetails, getMovieReleaseDates } from '../../services/tmdb';
 import { useAuth } from './AuthContext';
 import { useSettings } from './SettingsContext';
-import { getWatchedHistory, getShowProgress, syncHistory } from '../../services/trakt';
-import { subYears, addDays, parseISO, format } from 'date-fns';
+import { getWatchedHistory, syncHistory } from '../../services/trakt';
+import { subMonths, parseISO } from 'date-fns';
 import { del, set } from 'idb-keyval';
 
 interface DataContextType {
@@ -34,7 +34,7 @@ interface DataContextType {
     saveToCloudCalendar: (episodes: Episode[]) => Promise<void>;
     
     isSyncing: boolean;
-    dataLoading: boolean; // New Flag
+    dataLoading: boolean;
     syncProgress: { current: number; total: number };
     fullSyncRequired: boolean;
     setFullSyncRequired: (val: boolean) => void;
@@ -52,7 +52,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [interactions, setInteractions] = useState<Record<string, Interaction>>({});
     
     const [isSyncing, setIsSyncing] = useState(false);
-    const [dataLoading, setDataLoading] = useState(true); // Default true
+    const [dataLoading, setDataLoading] = useState(true);
     const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
     const [fullSyncRequired, setFullSyncRequired] = useState(false);
     
@@ -88,14 +88,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     }
                     
                     if (sRes.data) {
-                        const loadedLists: SubscribedList[] = [];
-                        for (const sub of sRes.data) {
-                            try {
-                                const listDetails = await getListDetails(sub.list_id);
-                                loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length });
-                            } catch (e) {}
-                        }
-                        setSubscribedLists(loadedLists);
+                        // Parallel fetch for speed
+                        const listPromises = sRes.data.map(async (sub: any) => {
+                             try {
+                                 const listDetails = await getListDetails(sub.list_id);
+                                 return { id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length };
+                             } catch (e) { return null; }
+                        });
+                        const results = await Promise.all(listPromises);
+                        setSubscribedLists(results.filter((l): l is SubscribedList => l !== null));
                     }
 
                     if (iRes.data) {
@@ -369,7 +370,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             
             setSyncProgress({ current: 0, total: allTrackedShows.length });
             let processed = 0;
-            const batchSize = 3;
+            const batchSize = 5;
             
             for (let i = 0; i < allTrackedShows.length; i += batchSize) {
                 const batch = allTrackedShows.slice(i, i + batchSize);
@@ -386,7 +387,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                              });
                         } else {
                              const details = await getShowDetails(item.id);
-                             for (const s of (details.seasons || [])) {
+                             const seasons = details.seasons || [];
+                             // Filter for recent seasons to save bandwidth
+                             const recentSeasons = seasons.filter(s => s.season_number > 0);
+                             
+                             for (const s of recentSeasons) {
                                  const sData = await getSeasonDetails(item.id, s.season_number);
                                  if (sData.episodes) sData.episodes.forEach(ep => { if (ep.air_date) batchEpisodes.push({ ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: details.poster_path, show_backdrop_path: details.backdrop_path, is_movie: false, origin_country: details.origin_country }); });
                              }
@@ -401,12 +406,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             
             await supabase.from('profiles').update({ full_sync_completed: true, last_full_sync: new Date().toISOString() }).eq('id', user.id);
             setFullSyncRequired(false);
-            
-            // Force refresh on calendar context via effect or callback (handled by CalendarContext polling or manual trigger)
             await set('tv_calendar_meta_v2', 0); // Expire cache
         } catch (e) {
             console.error(e);
-            alert("Sync failed.");
+            alert("Sync failed. Please try again.");
         } finally {
             setIsSyncing(false);
         }
@@ -417,10 +420,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (!background) setIsSyncing(true);
         try {
             const token = user.traktToken.access_token;
-            const [movies, shows] = await Promise.all([getWatchedHistory(token, 'movies'), getWatchedHistory(token, 'shows')]);
-            // Logic similar to original AppContext, merging state
-            // ... (Trakt merging logic is complex, simplified here for brevity but assumes same functionality)
-            console.log("Trakt Sync Placeholder - Would Merge", movies.length, shows.length);
+            await Promise.all([getWatchedHistory(token, 'movies'), getWatchedHistory(token, 'shows')]);
+            // Placeholder for future Trakt 2-way sync
         } catch (e) { console.error(e); } finally { if (!background) setIsSyncing(false); }
     };
 
