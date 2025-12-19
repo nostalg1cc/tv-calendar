@@ -185,6 +185,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const addToWatchlist = async (show: TVShow) => {
         if (watchlist.find(s => s.id === show.id)) return;
+        
+        // Invalidate cache immediately so calendar refreshes next view
+        await set('tv_calendar_meta_v2', 0);
+        
         setWatchlist(prev => [...prev, show]);
         if (user?.isCloud && supabase) {
              await supabase.from('watchlist').upsert({ user_id: user.id, tmdb_id: show.id, media_type: show.media_type, name: show.name, poster_path: show.poster_path, backdrop_path: show.backdrop_path, overview: show.overview, first_air_date: show.first_air_date, vote_average: show.vote_average }, { onConflict: 'user_id, tmdb_id' });
@@ -192,6 +196,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const removeFromWatchlist = async (showId: number) => {
+        await set('tv_calendar_meta_v2', 0); // Invalidate cache
         setWatchlist(prev => prev.filter(s => s.id !== showId));
         if (user?.isCloud && supabase) {
             await Promise.all([
@@ -210,6 +215,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const currentIds = new Set(watchlist.map(s => s.id));
         const newShows = shows.filter(s => !currentIds.has(s.id));
         if (newShows.length === 0) return;
+        
+        await set('tv_calendar_meta_v2', 0); // Invalidate cache
+        
         setWatchlist(prev => [...prev, ...newShows]);
         if (user?.isCloud && supabase) {
             const rows = newShows.map(show => ({ user_id: user.id, tmdb_id: show.id, media_type: show.media_type, name: show.name, poster_path: show.poster_path, backdrop_path: show.backdrop_path, overview: show.overview, first_air_date: show.first_air_date, vote_average: show.vote_average }));
@@ -228,6 +236,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (user?.isCloud && supabase) {
                 await supabase.from('subscriptions').upsert({ user_id: user.id, list_id: listId, name: details.name, item_count: details.items.length }, { onConflict: 'user_id, list_id' });
             }
+            await set('tv_calendar_meta_v2', 0); // Invalidate cache
         } finally {
             setIsSyncing(false);
             setLoadingStatus("Ready");
@@ -250,6 +259,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
             await supabase.from('subscriptions').delete().match({ user_id: user.id, list_id: listId });
         }
+        await set('tv_calendar_meta_v2', 0); // Invalidate cache
     };
 
     const batchSubscribe = async (lists: SubscribedList[]) => {
@@ -261,6 +271,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const rows = newLists.map(l => ({ user_id: user.id, list_id: l.id, name: l.name, item_count: l.item_count }));
             await supabase.from('subscriptions').upsert(rows, { onConflict: 'user_id, list_id' });
         }
+        await set('tv_calendar_meta_v2', 0); // Invalidate cache
     };
 
     const addReminder = async (reminder: Reminder) => {

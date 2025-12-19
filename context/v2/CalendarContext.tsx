@@ -46,7 +46,7 @@ const getTimezoneOffsetMinutes = (timeZone: string): number => {
 export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { user } = useAuth();
     const { settings } = useSettings();
-    const { watchlist, subscribedLists, saveToCloudCalendar, fullSyncRequired, dataLoading } = useData();
+    const { watchlist, subscribedLists, saveToCloudCalendar, fullSyncRequired, dataLoading, setLoadingStatus } = useData();
     
     const [episodes, setEpisodes] = useState<Record<string, Episode[]>>({});
     const [calendarDate, setCalendarDate] = useState(new Date());
@@ -156,6 +156,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
 
         // Local fetch or force fetch
         // If we have cache, and it's fresh enough, and we are not forcing, skip.
+        // NOTE: if lastUpdate is 0 (set by adding item), this will pass.
         if (!shouldSync || (!user.isCloud && !force && lastUpdate && (now - lastUpdate < (1000 * 60 * 60 * 6)))) {
              if (cachedEps) return;
              if (allTrackedShows.length === 0) return;
@@ -168,6 +169,8 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
 
         // Fetch from TMDB logic (Simulated here, reusing logic from AppContext basically)
         setLoading(true);
+        if (force) setLoadingStatus("Updating calendar...");
+
         try {
             // If forcing, start fresh. If auto-syncing, use cache as base to prevent flicker/wipe.
             const finalMap: Record<string, Episode[]> = force ? {} : { ...(cachedEps || {}) };
@@ -176,8 +179,13 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
             // Batched fetching...
             let processed = 0;
             const unique = allTrackedShows; // Assuming simplified
+            
+            // Chunk processing
             while (processed < unique.length) {
-                const batch = unique.slice(processed, processed + 10);
+                const batch = unique.slice(processed, processed + 5); // Smaller batch to avoid UI freeze
+                
+                if (force) setLoadingStatus(`Updating ${processed + 1} to ${Math.min(processed + 5, unique.length)} of ${unique.length}...`);
+
                 await Promise.all(batch.map(async (item) => {
                      try {
                         let origin = item.origin_country;
@@ -214,7 +222,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
                         }
                      } catch {}
                 }));
-                processed += 10;
+                processed += 5;
             }
 
             setEpisodes(finalMap);
@@ -227,7 +235,10 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
                  await saveToCloudCalendar(newEps);
             }
 
-        } catch (e) { console.error(e); } finally { setLoading(false); }
+        } catch (e) { console.error(e); } finally { 
+            setLoading(false);
+            if (force) setLoadingStatus("Ready"); 
+        }
 
     }, [user, allTrackedShows, fullSyncRequired, settings.timeShift, settings.timezone, settings.autoSync, getAdjustedDate, saveToCloudCalendar, dataLoading]);
 
