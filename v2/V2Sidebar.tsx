@@ -1,9 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Calendar, Compass, List, Settings, Search, User, LogOut, X, LayoutPanelLeft, Minimize2, Globe } from 'lucide-react';
 import { useStore } from '../store';
-import FluidNavBar from '../components/FluidNavBar';
 
 interface V2SidebarProps {
     onOpenSettings?: () => void;
@@ -33,45 +32,6 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
         if (onClick) return <button onClick={onClick} className="w-full text-left outline-none">{content}</button>;
         return <Link to={to} className="block outline-none">{content}</Link>;
     };
-
-    // Mobile Dock Items
-    const mobileDockItems = [
-        <Link 
-            key="cal"
-            to="/calendar" 
-            className={`flex flex-col items-center justify-center w-10 h-10 rounded-xl transition-transform active:scale-95 ${isActive('/calendar') ? 'text-indigo-500' : 'text-zinc-400'}`}
-        >
-            <Calendar className="w-6 h-6 stroke-2" />
-        </Link>,
-        <Link 
-            key="disc"
-            to="/discover" 
-            className={`flex flex-col items-center justify-center w-10 h-10 rounded-xl transition-transform active:scale-95 ${isActive('/discover') ? 'text-indigo-500' : 'text-zinc-400'}`}
-        >
-            <Compass className="w-6 h-6 stroke-2" />
-        </Link>,
-        <button 
-            key="search"
-            onClick={onOpenSearch} 
-            className="flex flex-col items-center justify-center w-12 h-12 bg-white/10 rounded-full text-white backdrop-blur-md border border-white/10 shadow-lg active:scale-95"
-        >
-            <Search className="w-5 h-5 stroke-2" />
-        </button>,
-        <Link 
-            key="lib"
-            to="/library" 
-            className={`flex flex-col items-center justify-center w-10 h-10 rounded-xl transition-transform active:scale-95 ${isActive('/library') ? 'text-indigo-500' : 'text-zinc-400'}`}
-        >
-            <List className="w-6 h-6 stroke-2" />
-        </Link>,
-        <button 
-            key="logout"
-            onClick={logout} 
-            className="flex flex-col items-center justify-center w-10 h-10 rounded-xl text-zinc-400 transition-transform active:scale-95 hover:text-red-400"
-        >
-            <LogOut className="w-6 h-6 stroke-2" />
-        </button>
-    ];
 
     return (
         <>
@@ -111,9 +71,15 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                 </div>
             </nav>
             
-            {/* Mobile Fluid Glass Dock */}
-            <div className="md:hidden">
-                <FluidNavBar items={mobileDockItems} />
+            {/* Mobile Dock logic remains similar but simplified */}
+            <div className="md:hidden fixed bottom-6 left-0 right-0 z-[80] px-6 pointer-events-none flex justify-center pb-[env(safe-area-inset-bottom,0px)]">
+                 <div className="pointer-events-auto w-full max-w-sm bg-black/60 backdrop-blur-3xl border border-white/10 rounded-full px-2 py-3 flex items-center justify-between shadow-2xl">
+                    <Link to="/calendar" className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl ${isActive('/calendar') ? 'text-indigo-500' : 'text-zinc-500'}`}><Calendar className="w-6 h-6" /></Link>
+                    <Link to="/discover" className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl ${isActive('/discover') ? 'text-indigo-500' : 'text-zinc-500'}`}><Compass className="w-6 h-6" /></Link>
+                    <button onClick={onOpenSearch} className="flex flex-col items-center justify-center w-14 h-12 rounded-xl text-zinc-500"><Search className="w-6 h-6" /></button>
+                    <Link to="/library" className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl ${isActive('/library') ? 'text-indigo-500' : 'text-zinc-500'}`}><List className="w-6 h-6" /></Link>
+                    <button onClick={logout} className="flex flex-col items-center justify-center w-14 h-12 rounded-xl text-zinc-500"><LogOut className="w-6 h-6" /></button>
+                 </div>
             </div>
         </>
     );
