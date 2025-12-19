@@ -34,6 +34,7 @@ interface DataContextType {
     saveToCloudCalendar: (episodes: Episode[]) => Promise<void>;
     
     isSyncing: boolean;
+    dataLoading: boolean; // New Flag
     syncProgress: { current: number; total: number };
     fullSyncRequired: boolean;
     setFullSyncRequired: (val: boolean) => void;
@@ -51,6 +52,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [interactions, setInteractions] = useState<Record<string, Interaction>>({});
     
     const [isSyncing, setIsSyncing] = useState(false);
+    const [dataLoading, setDataLoading] = useState(true); // Default true
     const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
     const [fullSyncRequired, setFullSyncRequired] = useState(false);
     
@@ -63,59 +65,67 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setSubscribedLists([]);
             setInteractions({});
             setReminders([]);
+            setDataLoading(false);
             return;
         }
 
         const loadData = async () => {
-            if (user.isCloud && supabase) {
-                // Cloud Load
-                const [wRes, sRes, iRes, rRes] = await Promise.all([
-                    supabase.from('watchlist').select('*'),
-                    supabase.from('subscriptions').select('*'),
-                    supabase.from('interactions').select('*'),
-                    supabase.from('reminders').select('*')
-                ]);
+            setDataLoading(true);
+            try {
+                if (user.isCloud && supabase) {
+                    // Cloud Load
+                    const [wRes, sRes, iRes, rRes] = await Promise.all([
+                        supabase.from('watchlist').select('*'),
+                        supabase.from('subscriptions').select('*'),
+                        supabase.from('interactions').select('*'),
+                        supabase.from('reminders').select('*')
+                    ]);
 
-                if (wRes.data) {
-                    setWatchlist(wRes.data.map((item: any) => ({
-                        id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type
-                    })));
-                }
-                
-                if (sRes.data) {
-                    const loadedLists: SubscribedList[] = [];
-                    for (const sub of sRes.data) {
-                        try {
-                            const listDetails = await getListDetails(sub.list_id);
-                            loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length });
-                        } catch (e) {}
+                    if (wRes.data) {
+                        setWatchlist(wRes.data.map((item: any) => ({
+                            id: item.tmdb_id, name: item.name, poster_path: item.poster_path, backdrop_path: item.backdrop_path, overview: item.overview, first_air_date: item.first_air_date, vote_average: item.vote_average, media_type: item.media_type
+                        })));
                     }
-                    setSubscribedLists(loadedLists);
+                    
+                    if (sRes.data) {
+                        const loadedLists: SubscribedList[] = [];
+                        for (const sub of sRes.data) {
+                            try {
+                                const listDetails = await getListDetails(sub.list_id);
+                                loadedLists.push({ id: sub.list_id, name: listDetails.name, items: listDetails.items, item_count: listDetails.items.length });
+                            } catch (e) {}
+                        }
+                        setSubscribedLists(loadedLists);
+                    }
+
+                    if (iRes.data) {
+                        const map: Record<string, Interaction> = {};
+                        iRes.data.forEach((i: any) => {
+                            let key = i.media_type === 'episode' ? `episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}` : `${i.media_type}-${i.tmdb_id}`;
+                            map[key] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at };
+                        });
+                        setInteractions(map);
+                    }
+
+                    if (rRes.data) {
+                        setReminders(rRes.data.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes })));
+                    }
+
+                    if (!user.fullSyncCompleted) setFullSyncRequired(true);
+
+                } else {
+                    // Local Load
+                    try {
+                        setWatchlist(JSON.parse(localStorage.getItem('tv_calendar_watchlist') || '[]'));
+                        setSubscribedLists(JSON.parse(localStorage.getItem('tv_calendar_subscribed_lists') || '[]'));
+                        setReminders(JSON.parse(localStorage.getItem('tv_calendar_reminders') || '[]'));
+                        setInteractions(JSON.parse(localStorage.getItem('tv_calendar_interactions') || '{}'));
+                    } catch {}
                 }
-
-                if (iRes.data) {
-                    const map: Record<string, Interaction> = {};
-                    iRes.data.forEach((i: any) => {
-                        let key = i.media_type === 'episode' ? `episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}` : `${i.media_type}-${i.tmdb_id}`;
-                        map[key] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at };
-                    });
-                    setInteractions(map);
-                }
-
-                if (rRes.data) {
-                    setReminders(rRes.data.map((r: any) => ({ id: r.id, tmdb_id: r.tmdb_id, media_type: r.media_type, scope: r.scope, episode_season: r.episode_season, episode_number: r.episode_number, offset_minutes: r.offset_minutes })));
-                }
-
-                if (!user.fullSyncCompleted) setFullSyncRequired(true);
-
-            } else {
-                // Local Load
-                try {
-                    setWatchlist(JSON.parse(localStorage.getItem('tv_calendar_watchlist') || '[]'));
-                    setSubscribedLists(JSON.parse(localStorage.getItem('tv_calendar_subscribed_lists') || '[]'));
-                    setReminders(JSON.parse(localStorage.getItem('tv_calendar_reminders') || '[]'));
-                    setInteractions(JSON.parse(localStorage.getItem('tv_calendar_interactions') || '{}'));
-                } catch {}
+            } catch (e) {
+                console.error("Data Load Error", e);
+            } finally {
+                setDataLoading(false);
             }
         };
         loadData();
@@ -422,7 +432,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             addReminder, removeReminder,
             toggleWatched, toggleEpisodeWatched, markHistoryWatched, setRating,
             syncTraktData, performFullSync, saveToCloudCalendar,
-            isSyncing, syncProgress, fullSyncRequired, setFullSyncRequired
+            isSyncing, dataLoading, syncProgress, fullSyncRequired, setFullSyncRequired
         }}>
             {children}
         </DataContext.Provider>

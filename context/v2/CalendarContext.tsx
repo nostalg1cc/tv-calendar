@@ -46,11 +46,26 @@ const getTimezoneOffsetMinutes = (timeZone: string): number => {
 export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { user } = useAuth();
     const { settings } = useSettings();
-    const { watchlist, subscribedLists, saveToCloudCalendar, fullSyncRequired } = useData();
+    const { watchlist, subscribedLists, saveToCloudCalendar, fullSyncRequired, dataLoading } = useData();
     
     const [episodes, setEpisodes] = useState<Record<string, Episode[]>>({});
     const [calendarDate, setCalendarDate] = useState(new Date());
     const [loading, setLoading] = useState(false);
+
+    // Initial Cache Load on Mount
+    useEffect(() => {
+        const initCache = async () => {
+            try {
+                const cached = await get<Record<string, Episode[]>>('tv_calendar_episodes_v2');
+                if (cached) {
+                    setEpisodes(cached);
+                }
+            } catch (e) {
+                console.error("Failed to load cache", e);
+            }
+        };
+        initCache();
+    }, []);
 
     // Derived list of all shows to track
     const allTrackedShows = React.useMemo(() => {
@@ -92,7 +107,8 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
                 if (!newMap[dateKey]) newMap[dateKey] = [];
                 if (!newMap[dateKey].some(e => e.id === ep.id)) newMap[dateKey].push(ep);
             });
-            set('tv_calendar_episodes_v2', newMap);
+            // Update cache silently
+            set('tv_calendar_episodes_v2', newMap).catch(() => {});
             return newMap;
         });
     }, [settings.timeShift, settings.timezone, getAdjustedDate]);
@@ -101,12 +117,15 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     const refreshEpisodes = useCallback(async (force = false) => {
         if (fullSyncRequired) return;
         if (!user || (!user.tmdbKey && !user.isCloud)) return;
+        if (dataLoading && !force) return; // Wait for watchlist to load from cloud/local before deciding to refresh
 
         const shouldSync = settings.autoSync || force;
         const lastUpdate = await get<number>('tv_calendar_meta_v2');
         const now = Date.now();
         const cachedEps = await get<Record<string, Episode[]>>('tv_calendar_episodes_v2');
-        if (cachedEps) setEpisodes(cachedEps);
+        
+        // Ensure UI has cache even if state was empty (redundant but safe)
+        if (cachedEps && Object.keys(episodes).length === 0) setEpisodes(cachedEps);
 
         // If cloud user, prefer loading from DB first
         if (user.isCloud && !force) {
@@ -122,7 +141,9 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
                              vote_average: row.vote_average, air_date: row.air_date, episode_number: row.episode_number, season_number: row.season_number,
                              still_path: row.backdrop_path, poster_path: row.poster_path, is_movie: row.media_type === 'movie', release_type: row.release_type
                          };
-                         const key = ep.air_date; // DB already has correct date? Maybe apply shift here too
+                         // Dates from DB should already be correct/shifted or raw? Assuming raw from API.
+                         // Apply shift locally for display
+                         const key = getAdjustedDate(ep.air_date, []); // Passing empty origin, DB might not have it. V2 sync saves origin?
                          if (!dbMap[key]) dbMap[key] = [];
                          dbMap[key].push(ep);
                     });
@@ -134,14 +155,21 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
         }
 
         // Local fetch or force fetch
+        // If we have cache, and it's fresh enough, and we are not forcing, skip.
         if (!shouldSync || (!user.isCloud && !force && lastUpdate && (now - lastUpdate < (1000 * 60 * 60 * 6)))) {
              if (cachedEps) return;
              if (allTrackedShows.length === 0) return;
+        }
+        
+        // Guard against wiping data if watchlist isn't loaded yet
+        if (allTrackedShows.length === 0 && !force) {
+             return;
         }
 
         // Fetch from TMDB logic (Simulated here, reusing logic from AppContext basically)
         setLoading(true);
         try {
+            // If forcing, start fresh. If auto-syncing, use cache as base to prevent flicker/wipe.
             const finalMap: Record<string, Episode[]> = force ? {} : { ...(cachedEps || {}) };
             const sixMonthsAgo = subMonths(new Date(), 6);
             
@@ -151,8 +179,6 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
             while (processed < unique.length) {
                 const batch = unique.slice(processed, processed + 10);
                 await Promise.all(batch.map(async (item) => {
-                     // ... Fetch logic from AppContext.tsx goes here ...
-                     // Replicating specific parts for brevity
                      try {
                         let origin = item.origin_country;
                         if (item.media_type === 'movie') {
@@ -162,6 +188,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
                                 const ep = { id: item.id * 1000 + (rel.type === 'theatrical' ? 1 : 2), name: item.name, overview: item.overview, air_date: rel.date, episode_number: rel.type === 'theatrical' ? 1 : 2, season_number: 1, show_id: item.id, show_name: item.name, is_movie: true, release_type: rel.type, origin_country: origin, poster_path: item.poster_path, still_path: item.backdrop_path } as Episode;
                                 const k = getAdjustedDate(ep.air_date, origin);
                                 if (!finalMap[k]) finalMap[k] = [];
+                                // Dedup logic
                                 if (!finalMap[k].some(e => e.id === ep.id)) finalMap[k].push(ep);
                             });
                         } else {
@@ -169,9 +196,8 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
                              const d = await getShowDetails(item.id);
                              origin = d.origin_country;
                              const seasons = d.seasons || [];
-                             // Logic to filter old seasons
                              for (const s of seasons) {
-                                 // Optimistic fetch
+                                 // Optimistic fetch limit
                                  if (s.air_date && parseISO(s.air_date) < sixMonthsAgo && s.season_number < (seasons[seasons.length-1]?.season_number || 1)) continue;
                                  const sData = await getSeasonDetails(item.id, s.season_number);
                                  sData.episodes.forEach(ep => {
@@ -179,6 +205,8 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
                                          const e = { ...ep, show_id: item.id, show_name: item.name, poster_path: item.poster_path, season1_poster_path: d.poster_path, show_backdrop_path: d.backdrop_path, origin_country: origin };
                                          const k = getAdjustedDate(ep.air_date, origin);
                                          if (!finalMap[k]) finalMap[k] = [];
+                                         // Remove stale if exists, push new
+                                         finalMap[k] = finalMap[k].filter(ex => ex.id !== e.id);
                                          finalMap[k].push(e);
                                      }
                                  });
@@ -201,7 +229,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
 
         } catch (e) { console.error(e); } finally { setLoading(false); }
 
-    }, [user, allTrackedShows, fullSyncRequired, settings.timeShift, settings.timezone, settings.autoSync, getAdjustedDate, saveToCloudCalendar]);
+    }, [user, allTrackedShows, fullSyncRequired, settings.timeShift, settings.timezone, settings.autoSync, getAdjustedDate, saveToCloudCalendar, dataLoading]);
 
     const loadArchivedEvents = async () => {
         if (!user?.isCloud || !supabase) return;
@@ -213,7 +241,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
                 setEpisodes(prev => {
                     const next = { ...prev };
                     data.forEach((row: any) => {
-                         const k = row.air_date; // Assuming already stored correctly
+                         const k = row.air_date; 
                          if (!next[k]) next[k] = [];
                          next[k].push({
                              id: row.id, show_id: row.tmdb_id, show_name: row.title, name: row.title, air_date: row.air_date, episode_number: row.episode_number, season_number: row.season_number, is_movie: row.media_type === 'movie', release_type: row.release_type
