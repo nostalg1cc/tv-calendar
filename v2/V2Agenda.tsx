@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle, X, ChevronDown } from 'lucide-react';
+import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle, X, ChevronDown, RefreshCw, Cloud, HardDrive } from 'lucide-react';
 import { useStore } from '../store';
 import { Episode } from '../types';
 import { getImageUrl } from '../services/tmdb';
@@ -15,7 +15,7 @@ interface V2AgendaProps {
 }
 
 const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen, onClose }) => {
-    const { settings, history: interactions, toggleWatched } = useStore();
+    const { settings, history: interactions, toggleWatched, isSyncing, user, triggerCloudSync } = useStore();
     const { episodes } = useCalendarEpisodes(selectedDay);
     
     // Prevent body scroll when drawer is open on mobile
@@ -185,14 +185,35 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                 </div>
 
                 {/* Desktop Status Bar (Hidden on Mobile) */}
-                <footer className="hidden xl:block px-6 py-4 border-t border-white/5 bg-zinc-950/40">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Database Pulse</span>
-                        <span className="text-[9px] font-mono text-emerald-600">LIVE</span>
+                <footer className="hidden xl:flex items-center justify-between px-6 py-4 border-t border-white/5 bg-zinc-950/40">
+                    <div className="flex items-center gap-2.5">
+                        {user?.is_cloud ? (
+                            <div className={`p-1.5 rounded-full ${isSyncing ? 'bg-indigo-500/10 text-indigo-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                                <Cloud className={`w-3 h-3 ${isSyncing ? 'animate-pulse' : ''}`} />
+                            </div>
+                        ) : (
+                            <div className="p-1.5 rounded-full bg-orange-500/10 text-orange-400">
+                                <HardDrive className="w-3 h-3" />
+                            </div>
+                        )}
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400">
+                                {user?.is_cloud ? 'Cloud Sync' : 'Local Storage'}
+                            </span>
+                            <span className="text-[9px] font-medium text-zinc-600">
+                                {isSyncing ? 'Syncing...' : (user?.is_cloud ? 'Up to date' : 'Device Only')}
+                            </span>
+                        </div>
                     </div>
-                    <div className="h-[2px] w-full bg-zinc-900 overflow-hidden rounded-full">
-                        <div className="h-full bg-indigo-500 w-[85%] shadow-[0_0_10px_rgba(99,102,241,0.4)] animate-pulse" />
-                    </div>
+                    
+                    <button 
+                        onClick={() => user?.is_cloud ? triggerCloudSync() : window.location.reload()}
+                        disabled={isSyncing}
+                        className="p-2 text-zinc-500 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                        title="Refresh Data"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                    </button>
                 </footer>
             </aside>
         </>

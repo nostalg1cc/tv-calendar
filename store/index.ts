@@ -279,7 +279,12 @@ export const useStore = create<State>()(
                 watchlist: state.watchlist,
                 history: state.history,
                 reminders: state.reminders 
-            }), 
+            }),
+            onRehydrateStorage: () => (state) => {
+                if (state?.user?.tmdb_key) {
+                    setApiToken(state.user.tmdb_key);
+                }
+            }
         }
     )
 );
