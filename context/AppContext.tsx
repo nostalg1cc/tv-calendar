@@ -334,7 +334,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshEpisodes = useCallback(async (force = false) => { 
       if (fullSyncRequired) return; 
-      if (!user || (!user.tmdbKey && !user.isCloud)) { setLoading(false); return; } 
+      if (!user || (!user.tmdbKey && !user.isCloud)) { return; } // Removed setLoading(false) here, redundant
       
       const shouldSync = settings.autoSync || force;
       const lastUpdate = await get<number>('tv_calendar_meta_v2'); 
@@ -346,14 +346,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       // Check if we need to sync
       if (!shouldSync || (!user.isCloud && !force && lastUpdate && (now - lastUpdate < (1000 * 60 * 60 * 6)))) { 
-          if (cachedEps) { setLoading(false); return; }
-          if (allTrackedShows.length === 0) { setLoading(false); return; }
+          if (cachedEps) return;
+          if (allTrackedShows.length === 0) return;
       } 
       
       const itemsToProcess = [...allTrackedShows]; 
-      if (itemsToProcess.length === 0) { setEpisodes({}); setLoading(false); return; } 
+      if (itemsToProcess.length === 0) { setEpisodes({}); return; } 
       
-      if (!cachedEps) setLoading(true);
+      // Removed: if (!cachedEps) setLoading(true); 
+      // Allows UI to load even if cache empty
       setIsSyncing(true); 
       
       try { 
@@ -429,7 +430,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setEpisodes(finalEpisodesMap);
           await set('tv_calendar_episodes_v2', finalEpisodesMap); 
           await set('tv_calendar_meta_v2', Date.now()); 
-      } catch (e) { console.error("Refresh Episodes Error", e); } finally { setLoading(false); setIsSyncing(false); } 
+      } catch (e) { console.error("Refresh Episodes Error", e); } finally { setIsSyncing(false); } 
   }, [user, allTrackedShows, fullSyncRequired, settings.timeShift, settings.timezone, settings.autoSync, settings.ignoreSpecials, getAdjustedDate]);
 
 
@@ -439,10 +440,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!supabase) return; 
       setLoading(true);
       const { user: authUser } = session; 
+      console.log("Starting Cloud Login for:", authUser.id);
       
       try {
-          const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single(); 
+          let { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single(); 
           
+          if (!profile) {
+              console.log("Profile missing, attempting creation...");
+              // Attempt self-healing
+              const { data: newProfile, error } = await supabase.from('profiles').insert([{ id: authUser.id, username: authUser.user_metadata?.username || authUser.email?.split('@')[0] || 'User' }]).select().single();
+              if (newProfile) {
+                  profile = newProfile;
+                  console.log("Profile created successfully.");
+              } else {
+                  console.error("Failed to create profile:", error);
+              }
+          }
+
           if (profile) { 
               let mergedSettings = { ...DEFAULT_SETTINGS };
               if (profile.settings) { 
@@ -532,7 +546,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   if (newUser.id) { 
                       const cached = await get<Record<string, Episode[]>>('tv_calendar_episodes_v2'); 
                       if (cached) setEpisodes(cached); 
-                      await loadCloudCalendar(newUser.id); 
+                      // Background load cloud calendar, don't await
+                      loadCloudCalendar(newUser.id); 
                   } 
               } 
 
