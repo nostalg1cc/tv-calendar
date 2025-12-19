@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
+import { supabase } from '../services/supabase';
 
 interface V2SettingsModalProps {
     isOpen: boolean;
@@ -40,11 +41,16 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
         setLocalApiKey(user?.tmdb_key || '');
     }, [user?.tmdb_key]);
 
-    const handleSaveKey = () => {
+    const handleSaveKey = async () => {
         if (user) {
             const updatedUser = { ...user, tmdb_key: localApiKey };
-            login(updatedUser); // Update store
+            login(updatedUser); // Update local store
             setApiToken(localApiKey); // Update service
+            
+            if (user.is_cloud && supabase) {
+                // Explicitly save the key to the profile table
+                await supabase.from('profiles').update({ tmdb_key: localApiKey }).eq('id', user.id);
+            }
         }
     };
 

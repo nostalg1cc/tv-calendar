@@ -74,7 +74,7 @@ export interface AppSettings {
   hiddenItems: number[];
   theme?: string;
   customThemeColor?: string;
-  viewMode?: 'grid' | 'list' | 'stack';
+  viewMode?: 'grid' | 'list' | 'stack' | 'cards';
   calendarPosterFillMode?: 'contain' | 'cover';
   cleanGrid?: boolean;
   useSeason1Art?: boolean;
