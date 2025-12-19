@@ -3,6 +3,7 @@ import { Tv, ArrowRight, Upload, Key, HelpCircle, RefreshCw, Hourglass, Loader2,
 import { useAppContext } from '../context/AppContext';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { supabase, isSupabaseConfigured, configureSupabase, getStoredSupabaseConfig, clearSupabaseConfig } from '../services/supabase';
+import { Navigate } from 'react-router-dom';
 
 const LoginPage: React.FC = () => {
   // Local Auth State
@@ -26,12 +27,17 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [cloudLoading, setCloudLoading] = useState(false);
 
-  const { login, importBackup, syncProgress, loading, processSyncPayload } = useAppContext();
+  const { login, importBackup, syncProgress, loading, processSyncPayload, user } = useAppContext();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importPreview, setImportPreview] = useState<any>(null);
   const [isProcessingImport, setIsProcessingImport] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+
+  // Auto-redirect if already logged in
+  if (user) {
+      return <Navigate to="/" replace />;
+  }
 
   // Initialize
   useEffect(() => {

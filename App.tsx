@@ -16,6 +16,7 @@ import FullSyncModal from './components/FullSyncModal';
 import MigrationModal from './components/MigrationModal';
 import V2Dashboard from './v2/V2Dashboard';
 import { TVShow, Episode } from './types';
+import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAppContext();
@@ -90,7 +91,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 }
 
 const AppRoutes: React.FC = () => {
-    const { user } = useAppContext();
+    const { user, loading } = useAppContext();
+
+    if (loading) {
+        return (
+            <div className="h-screen w-screen bg-black flex items-center justify-center">
+                <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
+            </div>
+        );
+    }
 
     if (!user) {
         return <LoginPage />;
@@ -98,7 +107,7 @@ const AppRoutes: React.FC = () => {
 
     return (
         <Routes>
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
             
             {/* Legacy V1 Routes */}
             <Route path="/v1/*" element={
