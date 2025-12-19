@@ -104,7 +104,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   useSeason1Art: false,
   cleanGrid: false,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  timeShift: false, // Default off to prevent confusion, user opts-in
+  timeShift: false, 
   theme: 'default',
   customThemeColor: '#6366f1',
   appDesign: 'default',
@@ -314,21 +314,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const getAdjustedDate = useCallback((airDate: string, originCountries?: string[]): string => {
       if (!settings.timeShift || !settings.timezone) return airDate;
+      if (!originCountries || originCountries.length === 0) return airDate; // Only shift if we know origin
       
-      // Default to US if origin is unknown to enable "Smart Shift" aggressively
-      const originCountry = (originCountries && originCountries.length > 0) ? originCountries[0] : 'US';
-      
+      const originCountry = originCountries[0];
       const originTz = COUNTRY_TIMEZONES[originCountry];
       if (!originTz) return airDate;
       
-      const originOffset = getTimezoneOffsetMinutes(originTz);
-      const userOffset = getTimezoneOffsetMinutes(settings.timezone);
-      const diffMinutes = userOffset - originOffset;
-      const airTimeMinutes = 20 * 60; // Assume 8 PM default
-      const adjustedTimeMinutes = airTimeMinutes + diffMinutes;
-      
-      if (adjustedTimeMinutes >= 24 * 60) { return format(addDays(parseISO(airDate), 1), 'yyyy-MM-dd'); } 
-      else if (adjustedTimeMinutes < 0) { return format(addDays(parseISO(airDate), -1), 'yyyy-MM-dd'); }
+      try {
+          const originOffset = getTimezoneOffsetMinutes(originTz);
+          const userOffset = getTimezoneOffsetMinutes(settings.timezone);
+          
+          // Difference between user and origin
+          const diffMinutes = userOffset - originOffset;
+          
+          // Assume Prime Time Air (20:00 or 8 PM) in origin
+          const airTimeMinutes = 20 * 60; 
+          
+          // Calculate what time it is for the user when it airs at origin
+          const adjustedTimeMinutes = airTimeMinutes + diffMinutes;
+          
+          // If the adjusted time pushes into next day (>= 24h) or previous day (< 0h)
+          if (adjustedTimeMinutes >= 24 * 60) { 
+              return format(addDays(parseISO(airDate), 1), 'yyyy-MM-dd'); 
+          } else if (adjustedTimeMinutes < 0) { 
+              return format(addDays(parseISO(airDate), -1), 'yyyy-MM-dd'); 
+          }
+      } catch (e) {
+          // console.error("Time shift error", e);
+      }
       
       return airDate;
   }, [settings.timeShift, settings.timezone]);
@@ -365,7 +378,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const saveTraktToken = async (tokenData: any) => { if (!user) return; try { const profile = await getTraktProfile(tokenData.access_token); const updatedUser: User = { ...user, traktToken: { ...tokenData, created_at: Date.now() / 1000 }, traktProfile: profile }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: updatedUser.traktToken, trakt_profile: profile }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } } catch (e) { console.error("Failed to fetch Trakt profile", e); } };
   const disconnectTrakt = async () => { if (!user) return; const updatedUser = { ...user, traktToken: undefined, traktProfile: undefined }; setUser(updatedUser); if (user.isCloud && supabase) { await supabase.from('profiles').update({ trakt_token: null, trakt_profile: null }).eq('id', user.id); } else { localStorage.setItem('tv_calendar_user', JSON.stringify(updatedUser)); } };
   
-  const saveRatingToCloud = async (interaction: Interaction) => {
+  // Unified Interaction Saver (Single Source of Truth)
+  const saveInteraction = async (interaction: Interaction) => {
       if (!user?.isCloud || !supabase || !user?.id) return;
       try {
           const payload = {
@@ -379,31 +393,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               watched_at: interaction.watched_at,
               updated_at: new Date().toISOString()
           };
+          // Upsert to 'interactions' only
           const { error } = await supabase.from('interactions').upsert(payload, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' });
-          if (error) console.error("Rating save failed", error);
-      } catch (e: any) { console.error("Rating save error", e); }
-  };
-
-  const saveManualWatchedStatus = async (interaction: Interaction) => {
-      if (!user?.isCloud || !supabase || !user?.id) return;
-      try {
-          const payload = {
-              user_id: user.id,
-              tmdb_id: interaction.tmdb_id,
-              media_type: interaction.media_type,
-              is_watched: interaction.is_watched,
-              season_number: interaction.season_number ?? -1,
-              episode_number: interaction.episode_number ?? -1,
-              watched_at: interaction.watched_at || new Date().toISOString(),
-              updated_at: new Date().toISOString()
-          };
-
-          const { error } = await supabase.from('watched_items').upsert(payload, { 
-              onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' 
-          });
-          
-          if (error) console.error("Watched status save failed:", error.message);
-      } catch (e: any) { console.error("Watched status save error", e); }
+          if (error) console.error("Interaction save failed", error);
+      } catch (e: any) { console.error("Interaction save error", e); }
   };
 
   const syncTraktData = async (background = false) => {
@@ -526,7 +519,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const payload = mediaType === 'movie' ? { movies: [{ ids: { tmdb: id } }] } : { shows: [{ ids: { tmdb: id } }] }; 
         syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
     }
-    await saveManualWatchedStatus(updated);
+    await saveInteraction(updated);
   };
 
   const toggleEpisodeWatched = async (showId: number, season: number, episode: number) => { 
@@ -545,7 +538,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const payload = { shows: [{ ids: { tmdb: showId }, seasons: [{ number: season, episodes: [{ number: episode }] }] }] };
           syncHistory(user.traktToken.access_token, payload, action).catch(console.error);
       }
-      await saveManualWatchedStatus(updated);
+      await saveInteraction(updated);
   };
 
   const setRating = async (id: number, mediaType: 'tv' | 'movie', rating: number) => { 
@@ -556,7 +549,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           updated = { ...current, rating: rating }; 
           return { ...prev, [key]: updated };
       });
-      if(updated) await saveRatingToCloud(updated);
+      if(updated) await saveInteraction(updated);
   };
 
   const markHistoryWatched = async (showId: number, targetSeason: number, targetEpisode: number) => {
@@ -598,7 +591,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         watched_at: item.watched_at,
                         updated_at: new Date().toISOString()
                     })); 
-                    await supabase.from('watched_items').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); 
+                    // Upsert to 'interactions' only
+                    await supabase.from('interactions').upsert(batch, { onConflict: 'user_id, tmdb_id, media_type, season_number, episode_number' }); 
                 }
           }
       } catch (e) { console.error("Failed to mark history", e); } finally { setIsSyncing(false); }
@@ -835,6 +829,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           } 
           
           // PARALLEL DATA FETCH
+          // CONSOLIDATION: Read from interactions primarily, but also check watched_items for legacy migration
           const [
               { data: remoteWatchlist },
               { data: remoteSubs },
@@ -877,12 +872,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const intMap: Record<string, Interaction> = {}; 
           const manualMap: Record<string, boolean> = {};
           
+          // Process Primary Interactions Table
           if (remoteInteractions) { 
               (remoteInteractions as any[]).forEach((i) => { 
                   let key;
                   if (i.media_type === 'episode') {
-                      // CRITICAL: Ensure key matches {episode}-{showId}-{season}-{episode}
-                      // i.tmdb_id in the DB for episodes corresponds to the SHOW ID based on SQL schema
                       key = `episode-${i.tmdb_id}-${i.season_number}-${i.episode_number}`;
                   } else {
                       key = `${i.media_type}-${i.tmdb_id}`;
@@ -890,12 +884,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   intMap[key] = { tmdb_id: i.tmdb_id, media_type: i.media_type, is_watched: i.is_watched, rating: i.rating, season_number: i.season_number, episode_number: i.episode_number, watched_at: i.watched_at }; 
               }); 
           } 
+          
+          // Process Legacy Watched Items Table (Merge Strategy)
           if (remoteManual) {
               (remoteManual as any[]).forEach((m) => {
                   let key = m.media_type === 'episode' ? `episode-${m.tmdb_id}-${m.season_number}-${m.episode_number}` : `${m.media_type}-${m.tmdb_id}`;
+                  // If not in primary map, or if legacy is explicitly watched and newer (simplified logic: just add if missing)
+                  if (!intMap[key]) {
+                      intMap[key] = { tmdb_id: m.tmdb_id, media_type: m.media_type, is_watched: m.is_watched, rating: 0, season_number: m.season_number, episode_number: m.episode_number, watched_at: m.watched_at };
+                  }
                   manualMap[key] = m.is_watched;
-                  // Priority: Manual > Interaction/Trakt
-                  if (intMap[key]) { intMap[key].is_watched = m.is_watched; } else { intMap[key] = { tmdb_id: m.tmdb_id, media_type: m.media_type, is_watched: m.is_watched, rating: 0, season_number: m.season_number, episode_number: m.episode_number, watched_at: m.watched_at }; }
               });
           }
           
@@ -947,8 +945,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           localKeys.forEach(k => delete (settingsToSync as any)[k]); 
           
           if (user?.isCloud && supabase && user.id) {
-              // Ensure settings are stringified for DB text column if necessary, or sent as object for JSONB
-              // We'll stringify it to be safe since the CSV suggests text column
+              // FIX: Explicitly stringify the JSON payload for the text column
               const payload = JSON.stringify(settingsToSync);
               
               supabase.from('profiles').update({ 
