@@ -18,14 +18,14 @@ const queryClient = new QueryClient({
 });
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const isAuthenticated = useStore(state => state.isAuthenticated);
+    const isAuthenticated = useStore((state) => state.isAuthenticated);
     if (!isAuthenticated) return <Navigate to="/login" replace />;
     return <>{children}</>;
 };
 
 const AuthListener = () => {
-    const login = useStore(state => state.login);
-    const logout = useStore(state => state.logout);
+    const login = useStore((state) => state.login);
+    const logout = useStore((state) => state.logout);
 
     useEffect(() => {
         if (!supabase) return;

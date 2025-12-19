@@ -1,9 +1,9 @@
 import React from 'react';
 import { Monitor, Smartphone, ArrowRight } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useStore } from '../store';
 
 const MobileAddWarning: React.FC = () => {
-  const { isMobileWarningOpen, closeMobileWarning } = useAppContext();
+  const { isMobileWarningOpen, closeMobileWarning } = useStore();
 
   if (!isMobileWarningOpen) return null;
 

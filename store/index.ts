@@ -1,5 +1,3 @@
-
-
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { AppSettings, DEFAULT_SETTINGS, TVShow, User, WatchedItem, Reminder } from '../types';
@@ -19,6 +17,13 @@ interface State {
     calendarScrollPos: number;
     isSearchOpen: boolean;
     reminderCandidate: TVShow | null;
+
+    // Added for compatibility
+    subscribedLists: any[];
+    isMobileWarningOpen: boolean;
+    closeMobileWarning: (forever: boolean) => void;
+    importBackup: (data: any) => void;
+    processSyncPayload: (payload: string) => void;
 
     login: (user: User) => void;
     logout: () => void;
@@ -45,7 +50,7 @@ interface State {
     performFullSync?: (settings?: Partial<AppSettings>) => void;
     syncProgress?: { current: number, total: number };
     
-    // Alias for legacy support if needed, though we use watchlist in components
+    // Alias for legacy support if needed
     allTrackedShows?: TVShow[];
 }
 
@@ -60,11 +65,18 @@ export const useStore = create<State>()(
             reminders: [],
             isSyncing: false,
             
-            // UI State (non-persisted usually, but simplified here)
+            // UI State
             calendarDate: new Date(),
             calendarScrollPos: 0,
             isSearchOpen: false,
             reminderCandidate: null,
+            
+            // Compatibility State
+            subscribedLists: [],
+            isMobileWarningOpen: true,
+            closeMobileWarning: (forever) => set({ isMobileWarningOpen: false }),
+            importBackup: (data) => console.log("Import not implemented", data),
+            processSyncPayload: (payload) => console.log("Sync not implemented", payload),
 
             login: (user) => {
                 set({ user, isAuthenticated: true });

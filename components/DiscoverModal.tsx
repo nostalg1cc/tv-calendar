@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Loader2, Plus, Check } from 'lucide-react';
 import { TVShow } from '../types';
 import { getCollection, getImageUrl } from '../services/tmdb';
-import { useAppContext } from '../context/AppContext';
+import { useStore } from '../store';
 import ShowDetailsModal from './ShowDetailsModal';
 
 interface DiscoverModalProps {
@@ -22,7 +22,10 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
   const [hasMore, setHasMore] = useState(true);
   const [selectedItem, setSelectedItem] = useState<TVShow | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { allTrackedShows, addToWatchlist, setReminderCandidate } = useAppContext();
+  
+  const watchlist = useStore(state => state.watchlist);
+  const addToWatchlist = useStore(state => state.addToWatchlist);
+  const setReminderCandidate = useStore(state => state.setReminderCandidate);
 
   useEffect(() => {
     if (isOpen) {
@@ -68,7 +71,7 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
 
   const handleAdd = async (e: React.MouseEvent, show: TVShow) => {
       e.stopPropagation();
-      await addToWatchlist(show);
+      addToWatchlist(show);
       setReminderCandidate(show);
   };
 
@@ -78,10 +81,10 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
     <>
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div 
-        className="bg-[var(--bg-main)] border border-[var(--border-color)] w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]"
+        className="bg-[#09090b] border border-white/10 w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-5 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-panel)]/50 shrink-0">
+        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-[#09090b] shrink-0">
           <div>
               <h2 className="text-2xl font-bold text-white tracking-tight">{title}</h2>
               <p className="text-sm text-zinc-400">{mediaType === 'tv' ? 'TV Series' : 'Movies'}</p>
@@ -92,20 +95,20 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
         </div>
         
         <div 
-            className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[var(--bg-main)]" 
+            className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[#09090b]" 
             ref={containerRef}
             onScroll={handleScroll}
         >
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 {items.map((show) => {
-                    const isAdded = allTrackedShows.some(s => s.id === show.id);
+                    const isAdded = watchlist.some(s => s.id === show.id);
                     return (
                         <div 
                             key={`${show.id}-${show.media_type}`} 
                             className="flex flex-col gap-2 group relative cursor-pointer"
                             onClick={() => setSelectedItem(show)}
                         >
-                            <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-[var(--border-color)] bg-[var(--bg-panel)] transition-all duration-300 group-hover:border-indigo-500/30 group-hover:-translate-y-1">
+                            <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-white/10 bg-zinc-900 transition-all duration-300 group-hover:border-indigo-500/30 group-hover:-translate-y-1">
                                 <img 
                                     src={getImageUrl(show.poster_path)} 
                                     alt={show.name} 
@@ -141,12 +144,6 @@ const DiscoverModal: React.FC<DiscoverModalProps> = ({ isOpen, onClose, title, f
                 <div className="flex justify-center py-8">
                     <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
                 </div>
-            )}
-            
-            {!loading && !hasMore && items.length > 0 && (
-                 <div className="text-center py-8 text-zinc-600 text-sm font-medium">
-                    You've reached the end of the list.
-                 </div>
             )}
         </div>
       </div>

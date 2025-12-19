@@ -1,10 +1,10 @@
 import React from 'react';
-import { useAppContext } from '../context/AppContext';
+import { useStore } from '../store';
 import { Bell, Trash2, Calendar, Tv, Film, Clock } from 'lucide-react';
 import { getImageUrl } from '../services/tmdb';
 
 const RemindersPage: React.FC = () => {
-  const { reminders, removeReminder, allTrackedShows } = useAppContext();
+  const { reminders, removeReminder, watchlist: allTrackedShows } = useStore();
 
   // Helper to get show details
   const getShow = (tmdbId: number) => allTrackedShows.find(s => s.id === tmdbId);

@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Tv, ArrowRight, Upload, Key, HelpCircle, RefreshCw, Hourglass, Loader2, AlertTriangle, QrCode, X, Cloud, HardDrive, Mail, Lock, UserPlus, LogIn, Database, Settings, PlugZap, ChevronRight, CheckCircle2 } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useStore } from '../store';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { supabase, isSupabaseConfigured, configureSupabase, getStoredSupabaseConfig, clearSupabaseConfig } from '../services/supabase';
 import { Navigate } from 'react-router-dom';
 
 const V2LoginPage: React.FC = () => {
-  const { login, importBackup, syncProgress, loading, processSyncPayload, user } = useAppContext();
+  const { login, importBackup, syncProgress, isSyncing, processSyncPayload, user } = useStore();
+  const loading = isSyncing; // Alias loading to isSyncing
   
   // -- State --
   const [authMethod, setAuthMethod] = useState<'cloud' | 'local'>('cloud');
@@ -91,7 +92,7 @@ const V2LoginPage: React.FC = () => {
           setError('Username and API Key are required.');
           return;
       }
-      login(username, localKey);
+      login({ id: 'local', username, tmdb_key: localKey, is_cloud: false });
   };
 
   const handleConfigSave = (e: React.FormEvent) => {
@@ -439,7 +440,7 @@ const V2LoginPage: React.FC = () => {
           )}
 
            {/* Full Screen Loader Overlay */}
-          {(loading || localLoading) && (
+          {(localLoading) && (
              <div className="fixed inset-0 z-[150] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center">
                  <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
                  <p className="text-zinc-400 font-medium animate-pulse">Authenticating...</p>

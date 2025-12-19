@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Search, Plus, Check, Loader2, Info } from 'lucide-react';
 import { searchShows, getImageUrl, getPopularShows } from '../services/tmdb';
-import { useAppContext } from '../context/AppContext';
+import { useStore } from '../store';
 import { TVShow } from '../types';
 
 const SearchPage: React.FC = () => {
@@ -9,7 +9,7 @@ const SearchPage: React.FC = () => {
   const [results, setResults] = useState<TVShow[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
-  const { watchlist, addToWatchlist, setReminderCandidate } = useAppContext();
+  const { watchlist, addToWatchlist, setReminderCandidate } = useStore();
 
   // Load popular shows on first mount
   React.useEffect(() => {

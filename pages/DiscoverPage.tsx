@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { getCollection, getImageUrl, getBackdropUrl, getMovieReleaseDates } from '../services/tmdb';
 import { TVShow } from '../types';
 import { Star, Plus, Check, Loader2, ChevronRight, ChevronLeft, CalendarClock, MoveRight, Trophy, TrendingUp, Ticket, MonitorPlay, Info, Play } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useStore } from '../store';
 import DiscoverModal from '../components/DiscoverModal';
 import ShowDetailsModal from '../components/ShowDetailsModal';
 import { format, parseISO } from 'date-fns';
@@ -112,7 +112,7 @@ const HeroCarousel: React.FC<{ fetchEndpoint: string; mediaType: 'movie' | 'tv' 
     const [currentIndex, setCurrentIndex] = useState(0);
     const [showDetails, setShowDetails] = useState(false);
     
-    const { allTrackedShows, addToWatchlist, setReminderCandidate } = useAppContext();
+    const { watchlist: allTrackedShows, addToWatchlist, setReminderCandidate } = useStore();
     const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
@@ -244,7 +244,7 @@ const DiscoverSection: React.FC<SectionProps> = ({ title, fetchEndpoint, fetchPa
     const [items, setItems] = useState<TVShow[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedShow, setSelectedShow] = useState<TVShow | null>(null);
-    const { allTrackedShows, addToWatchlist, setReminderCandidate } = useAppContext();
+    const { watchlist: allTrackedShows, addToWatchlist, setReminderCandidate } = useStore();
 
     useEffect(() => {
         setLoading(true);

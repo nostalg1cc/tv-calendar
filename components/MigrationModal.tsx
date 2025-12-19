@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Database, CheckCircle, RefreshCw, Globe, EyeOff, Film, CalendarClock, Settings2, Loader2, ArrowRight } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useStore } from '../store';
 import { AppSettings } from '../types';
 
 const MigrationModal: React.FC = () => {
-    const { fullSyncRequired, performFullSync, settings, isSyncing, syncProgress } = useAppContext();
+    const { fullSyncRequired, performFullSync, settings, isSyncing, syncProgress } = useStore();
     const [step, setStep] = useState<'config' | 'sync' | 'done'>('config');
     
     // Local state for migration configuration
@@ -37,10 +37,10 @@ const MigrationModal: React.FC = () => {
                 replacementMode: 'blur'
             }
         };
-        performFullSync(newSettings);
+        if (performFullSync) performFullSync(newSettings);
     };
 
-    const pct = syncProgress.total > 0 ? Math.round((syncProgress.current / syncProgress.total) * 100) : 0;
+    const pct = (syncProgress && syncProgress.total > 0) ? Math.round((syncProgress.current / syncProgress.total) * 100) : 0;
 
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/95 backdrop-blur-3xl animate-fade-in">
@@ -135,7 +135,7 @@ const MigrationModal: React.FC = () => {
                         
                         <h3 className="text-xl font-bold text-white mb-2">Rebuilding Calendar</h3>
                         <p className="text-sm text-zinc-500 mb-8 max-w-xs mx-auto">
-                            Processing {syncProgress.current} of {syncProgress.total} items. This ensures your history is accurate.
+                            Processing {syncProgress?.current || 0} of {syncProgress?.total || 0} items. This ensures your history is accurate.
                         </p>
 
                         <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">

@@ -1,17 +1,22 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Trash2, Star, Tv, ArrowUpDown, Clock, AlertCircle, Film, Filter, Link as LinkIcon, ListPlus, Search, Eye, EyeOff, Check, StarOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useAppContext } from '../context/AppContext';
+import { useStore } from '../store';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
 import { format, parseISO } from 'date-fns';
 import { Episode } from '../types';
 import ListManager from '../components/ListManager';
+import { useCalendarEpisodes } from '../hooks/useQueries';
 
 type SortOption = 'name' | 'upcoming';
 type FilterOption = 'all' | 'tv' | 'movie' | 'unwatched_movie';
 
 const WatchlistPage: React.FC = () => {
-  const { watchlist, subscribedLists, allTrackedShows, removeFromWatchlist, episodes, interactions, toggleWatched, setRating } = useAppContext();
+  const { watchlist: allTrackedShows, subscribedLists, removeFromWatchlist, history: interactions, toggleWatched, setRating } = useStore();
+  const { episodes } = useCalendarEpisodes(new Date());
+
+  const watchlist = allTrackedShows; // Alias for internal use if needed, but allTrackedShows is the var name used below
+  
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -28,8 +33,7 @@ const WatchlistPage: React.FC = () => {
 
   const getNextEpisodeDate = (showId: number): string | null => {
     const today = new Date().toISOString().split('T')[0];
-    const allEpisodes = Object.values(episodes).flat() as Episode[];
-    const showEpisodes = allEpisodes.filter(ep => ep.show_id === showId && ep.air_date && ep.air_date >= today);
+    const showEpisodes = episodes.filter(ep => ep.show_id === showId && ep.air_date && ep.air_date >= today);
     showEpisodes.sort((a, b) => a.air_date.localeCompare(b.air_date));
     return showEpisodes.length > 0 ? showEpisodes[0].air_date : null;
   };
@@ -210,7 +214,7 @@ const WatchlistPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
         {visibleItems.map((show) => {
           const nextAirDate = getNextEpisodeDate(show.id);
-          const isManual = watchlist.some(s => s.id === show.id);
+          const isManual = allTrackedShows.some(s => s.id === show.id);
           const foundList = subscribedLists.find(l => l.items.some(i => i.id === show.id));
           const interact = interactions[`${show.media_type}-${show.id}`];
           const isWatched = interact?.is_watched;
@@ -262,7 +266,7 @@ const WatchlistPage: React.FC = () => {
                              {show.media_type === 'movie' && (
                                  <div className="flex items-center gap-1 ml-auto">
                                      <button 
-                                        onClick={() => toggleWatched(show.id, show.media_type)}
+                                        onClick={() => toggleWatched({ tmdb_id: show.id, media_type: show.media_type })}
                                         className={`p-1 rounded hover:bg-white/10 ${isWatched ? 'text-emerald-500' : 'text-zinc-600 hover:text-zinc-300'}`}
                                         title={isWatched ? "Mark Unwatched" : "Mark Watched"}
                                      >
