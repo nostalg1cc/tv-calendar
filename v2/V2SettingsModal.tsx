@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
 import toast from 'react-hot-toast';
+import LegacyImportModal from '../components/LegacyImportModal';
 
 interface V2SettingsModalProps {
     isOpen: boolean;
@@ -38,6 +39,9 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const [localApiKey, setLocalApiKey] = useState(user?.tmdb_key || '');
     const [showKey, setShowKey] = useState(false);
     const [isSavingKey, setIsSavingKey] = useState(false);
+    
+    // Legacy Import Modal State
+    const [showLegacyImport, setShowLegacyImport] = useState(false);
 
     useEffect(() => {
         setLocalApiKey(user?.tmdb_key || '');
@@ -107,8 +111,13 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
         reader.onload = (ev) => {
             try {
                 const data = JSON.parse(ev.target?.result as string);
-                importBackup(data);
-                toast.success('Backup restored successfully.');
+                // Basic check for new format vs old
+                if (data.watchlist && Array.isArray(data.watchlist)) {
+                    importBackup(data);
+                    toast.success('Backup restored successfully.');
+                } else {
+                    toast.error('Format not recognized. Try "Import Legacy Profile" instead.');
+                }
             } catch (err) {
                 toast.error('Invalid backup file.');
             }
@@ -350,7 +359,14 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><Upload className="w-5 h-5" /></div>
                                             <div>
                                                 <div className="text-sm font-bold text-white">Import Backup</div>
-                                                <div className="text-xs text-zinc-500">Restore from JSON</div>
+                                                <div className="text-xs text-zinc-500">Restore from standard JSON</div>
+                                            </div>
+                                        </button>
+                                        <button onClick={() => setShowLegacyImport(true)} className="p-4 bg-zinc-900 border border-white/5 rounded-2xl flex items-center gap-3 hover:bg-zinc-800 transition-colors text-left group">
+                                            <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform"><FileJson className="w-5 h-5" /></div>
+                                            <div>
+                                                <div className="text-sm font-bold text-white">Import Legacy Profile</div>
+                                                <div className="text-xs text-zinc-500">Manual selection from old format</div>
                                             </div>
                                         </button>
                                         {user?.is_cloud && (
@@ -404,6 +420,8 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                     </div>
                 </div>
             </div>
+            
+            {showLegacyImport && <LegacyImportModal isOpen={showLegacyImport} onClose={() => setShowLegacyImport(false)} />}
         </div>
     );
 };
