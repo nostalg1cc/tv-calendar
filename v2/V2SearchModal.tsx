@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Loader2, Plus, Check } from 'lucide-react';
+import { Search, X, Loader2, Plus, Check, Sparkles, Star } from 'lucide-react';
 import { useStore } from '../store';
-import { searchShows, getPopularShows, getImageUrl } from '../services/tmdb';
+import { searchShows, getPopularShows, getImageUrl, getRecommendations } from '../services/tmdb';
 import { TVShow } from '../types';
 
 interface V2SearchModalProps {
@@ -11,16 +11,22 @@ interface V2SearchModalProps {
 }
 
 const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
-    const { addToWatchlist, watchlist } = useStore();
+    const { addToWatchlist, watchlist, settings } = useStore();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<TVShow[]>([]);
     const [loading, setLoading] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
+    // Recommendation State
+    const [recommendations, setRecommendations] = useState<TVShow[]>([]);
+    const [recLoading, setRecLoading] = useState(false);
+    const [recSource, setRecSource] = useState<string>('');
+
     useEffect(() => {
         if (isOpen) {
             setQuery('');
             setResults([]);
+            setRecommendations([]);
             setTimeout(() => inputRef.current?.focus(), 100);
             setLoading(true);
             getPopularShows().then(setResults).finally(() => setLoading(false));
@@ -31,14 +37,46 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
         if (!query.trim()) return;
         const timeoutId = setTimeout(() => {
             setLoading(true);
+            setRecommendations([]); // Clear recs on new search
             searchShows(query).then(setResults).finally(() => setLoading(false));
         }, 400);
         return () => clearTimeout(timeoutId);
     }, [query]);
 
-    const handleAdd = (e: React.MouseEvent, show: TVShow) => {
+    const handleAdd = async (e: React.MouseEvent, show: TVShow) => {
         e.stopPropagation();
         addToWatchlist(show);
+
+        // Fetch Recommendations
+        if (settings.recommendationsEnabled) {
+            setRecLoading(true);
+            setRecSource(show.name);
+            try {
+                const recs = await getRecommendations(show.id, show.media_type);
+                const trackedIds = new Set(watchlist.map(s => s.id));
+                const validRecs = recs.filter(r => !trackedIds.has(r.id));
+
+                if (validRecs.length > 0) {
+                    if (settings.recommendationMethod === 'banner') {
+                        setRecommendations(validRecs);
+                    } else {
+                        // Inline Mode: Inject into results
+                        setResults(prev => {
+                             const idx = prev.findIndex(p => p.id === show.id);
+                             if (idx === -1) return prev;
+                             const newResults = [...prev];
+                             // Insert up to 3 recs after the added item
+                             newResults.splice(idx + 1, 0, ...validRecs.slice(0, 3).map(r => ({...r, _isRec: true})));
+                             return newResults;
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch recommendations", err);
+            } finally {
+                setRecLoading(false);
+            }
+        }
     };
 
     if (!isOpen) return null;
@@ -55,20 +93,62 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
 
             <div className="flex-1 overflow-y-auto custom-scrollbar px-6 md:px-12 py-8 relative z-20">
                 <div className="max-w-5xl w-full mx-auto pb-20">
+                    
+                    {/* Recommendation Banner */}
+                    {(recommendations.length > 0 || recLoading) && settings.recommendationMethod === 'banner' && (
+                        <div className="mb-10 p-6 bg-indigo-500/5 border border-indigo-500/20 rounded-3xl animate-enter">
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-widest flex items-center gap-2">
+                                    <Sparkles className="w-3.5 h-3.5" /> 
+                                    {recLoading ? 'Finding suggestions...' : `Because you added "${recSource}"`}
+                                </h4>
+                                {!recLoading && <button onClick={() => setRecommendations([])} className="text-[10px] font-bold text-indigo-400 hover:text-white uppercase">Dismiss</button>}
+                            </div>
+                            
+                            {recLoading ? (
+                                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" /></div>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                                    {recommendations.slice(0, 5).map(show => {
+                                        const isTracked = watchlist.some(s => s.id === show.id);
+                                        return (
+                                            <div key={show.id} className="group relative flex flex-col gap-2 cursor-pointer" onClick={(e) => !isTracked && handleAdd(e, show)}>
+                                                <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-zinc-900 border border-white/5 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-indigo-500/30">
+                                                    <img src={getImageUrl(show.poster_path)} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                        <Plus className="w-6 h-6 text-white" />
+                                                    </div>
+                                                </div>
+                                                <h5 className="text-[10px] font-bold text-indigo-200 truncate">{show.name}</h5>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {loading ? (
                         <div className="flex justify-center py-20"><Loader2 className="w-12 h-12 text-zinc-800 animate-spin" /></div>
                     ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                             {results.map(show => {
                                 const isTracked = watchlist.some(s => s.id === show.id);
+                                const isRec = (show as any)._isRec;
+                                
                                 return (
                                     <div 
-                                        key={show.id} 
-                                        className="group relative flex flex-col gap-3 cursor-pointer" 
+                                        key={`${show.id}-${isRec ? 'rec' : 'res'}`} 
+                                        className={`group relative flex flex-col gap-3 cursor-pointer animate-fade-in ${isRec ? 'col-span-1' : ''}`} 
                                         onClick={(e) => !isTracked && handleAdd(e, show)}
                                     >
-                                        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border border-white/5 shadow-2xl transition-all duration-300">
+                                        <div className={`relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border shadow-2xl transition-all duration-300 ${isRec ? 'border-indigo-500/30 shadow-indigo-500/10' : 'border-white/5'}`}>
                                             <img src={getImageUrl(show.poster_path)} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
+                                            
+                                            {isRec && (
+                                                <div className="absolute top-2 left-2 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg">For You</div>
+                                            )}
+
                                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
                                                 <button className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform hover:scale-110 shadow-xl ${isTracked ? 'bg-zinc-800 text-zinc-500' : 'bg-white text-black'}`}>
                                                     {isTracked ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
@@ -76,7 +156,8 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                                             </div>
                                         </div>
                                         <div className="px-1">
-                                            <h4 className="text-sm font-bold leading-tight line-clamp-1 text-white">{show.name}</h4>
+                                            <h4 className={`text-sm font-bold leading-tight line-clamp-1 ${isRec ? 'text-indigo-300' : 'text-white'}`}>{show.name}</h4>
+                                            {isRec && <p className="text-[9px] text-zinc-500 mt-0.5">Recommended</p>}
                                         </div>
                                     </div>
                                 );

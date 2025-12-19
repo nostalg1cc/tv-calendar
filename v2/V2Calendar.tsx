@@ -585,6 +585,12 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                                 <span className="truncate">{ep.name}</span>
                                                             </div>
                                                         </div>
+                                                        
+                                                        {ep.is_movie && (
+                                                            <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border hidden sm:block ${ep.release_type === 'theatrical' ? 'border-pink-500/30 text-pink-400' : 'border-emerald-500/30 text-emerald-400'}`}>
+                                                                {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                                                            </div>
+                                                        )}
 
                                                         <button 
                                                             onClick={(e) => {
