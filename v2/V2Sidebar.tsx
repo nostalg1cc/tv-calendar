@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Compass, List, Settings, Search, User, LogOut, X, LayoutPanelLeft, Minimize2 } from 'lucide-react';
+import { Calendar, Compass, List, Settings, Search, User, LogOut, X, LayoutPanelLeft, Minimize2, Globe } from 'lucide-react';
 import { useStore } from '../store';
 
 interface V2SidebarProps {
@@ -47,6 +47,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                     <NavItem to="/library" icon={List} label="Library" />
                     <div className="my-2 mx-4 h-px bg-white/5" />
                     <NavItem to="#" icon={Search} label="Search" onClick={onOpenSearch} />
+                    <NavItem to="/ipoint" icon={Globe} label="IPoint Tool" />
                 </div>
 
                 <div className="mt-auto border-t border-white/5 bg-zinc-950/30">

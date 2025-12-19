@@ -9,6 +9,7 @@ import V2Discover from './V2Discover';
 import V2Library from './V2Library';
 import V2Agenda from './V2Agenda';
 import V2TrailerModal from './V2TrailerModal';
+import V2IPoint from './V2IPoint';
 import ApiKeyPrompt from '../components/ApiKeyPrompt';
 
 const V2Dashboard: React.FC = () => {
@@ -59,6 +60,7 @@ const V2Dashboard: React.FC = () => {
                 } />
                 <Route path="discover" element={<V2Discover />} />
                 <Route path="library" element={<V2Library />} />
+                <Route path="ipoint" element={<V2IPoint />} />
                 <Route path="*" element={<Navigate to="calendar" replace />} />
             </Routes>
 
