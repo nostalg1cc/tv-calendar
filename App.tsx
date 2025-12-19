@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AppProvider, useAppContext } from './context/AppContext';
+import { V2Provider } from './context/v2';
+// We import AppProvider to satisfy the tree, but it is now a bridge inside V2
+import { AppProvider, useAppContext } from './context/AppContext'; 
 import Navbar from './components/Navbar';
 import CalendarPage from './pages/CalendarPage';
 import SearchPage from './pages/SearchPage';
 import WatchlistPage from './pages/WatchlistPage';
 import DiscoverPage from './pages/DiscoverPage';
-import LoginPage from './pages/LoginPage';
+import LoginPage from './pages/v2/LoginPage'; // Use new V2 Login Page
 import RemindersPage from './pages/RemindersPage';
 import SearchModal from './components/SearchModal';
 import MobileAddWarning from './components/MobileAddWarning';
@@ -15,7 +17,6 @@ import ReminderConfigModal from './components/ReminderConfigModal';
 import FullSyncModal from './components/FullSyncModal';
 import MigrationModal from './components/MigrationModal';
 import V2Dashboard from './v2/V2Dashboard';
-import { TVShow, Episode } from './types';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -101,26 +102,24 @@ const AppRoutes: React.FC = () => {
         );
     }
 
-    if (!user) {
-        return <LoginPage />;
-    }
-
     return (
         <Routes>
-            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
             
             {/* Legacy V1 Routes */}
             <Route path="/v1/*" element={
-                <Layout>
-                    <Routes>
-                        <Route path="/" element={<CalendarPage />} />
-                        <Route path="/discover" element={<DiscoverPage />} />
-                        <Route path="/search" element={<SearchPage />} />
-                        <Route path="/watchlist" element={<WatchlistPage />} />
-                        <Route path="/reminders" element={<RemindersPage />} />
-                        <Route path="*" element={<Navigate to="/v1/" replace />} />
-                    </Routes>
-                </Layout>
+                <ProtectedRoute>
+                    <Layout>
+                        <Routes>
+                            <Route path="/" element={<CalendarPage />} />
+                            <Route path="/discover" element={<DiscoverPage />} />
+                            <Route path="/search" element={<SearchPage />} />
+                            <Route path="/watchlist" element={<WatchlistPage />} />
+                            <Route path="/reminders" element={<RemindersPage />} />
+                            <Route path="*" element={<Navigate to="/v1/" replace />} />
+                        </Routes>
+                    </Layout>
+                </ProtectedRoute>
             } />
 
             {/* V2 Routes (Default) */}
@@ -136,11 +135,13 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AppProvider>
-      <HashRouter>
-        <AppRoutes />
-      </HashRouter>
-    </AppProvider>
+    <V2Provider>
+        <AppProvider>
+          <HashRouter>
+            <AppRoutes />
+          </HashRouter>
+        </AppProvider>
+    </V2Provider>
   );
 };
 
