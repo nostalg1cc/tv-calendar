@@ -13,10 +13,10 @@ import { format, addDays } from 'date-fns';
 interface ContentRowProps {
     title: string;
     subtitle?: string;
-    endpoint?: string; // Optional if providing items directly
-    mediaType?: 'movie' | 'tv'; // Optional if providing items
+    endpoint?: string; 
+    mediaType?: 'movie' | 'tv'; 
     params?: Record<string, string>;
-    items?: TVShow[]; // Direct items override
+    items?: TVShow[]; 
     onOpenDetails: (show: TVShow) => void;
     onOpenAll?: () => void;
     isTop10?: boolean;
@@ -33,8 +33,9 @@ const V2Discover: React.FC = () => {
     // Data States
     const [heroItem, setHeroItem] = useState<TVShow | null>(null);
     const [top10Items, setTop10Items] = useState<TVShow[]>([]);
-    const [recItems, setRecItems] = useState<TVShow[]>([]);
-    const [recSource, setRecSource] = useState<string>('');
+    
+    // Multiple Recommendation States
+    const [recRows, setRecRows] = useState<{ title: string; items: TVShow[] }[]>([]);
 
     const today = new Date().toISOString().split('T')[0];
     const nextMonth = format(addDays(new Date(), 30), 'yyyy-MM-dd');
@@ -52,18 +53,31 @@ const V2Discover: React.FC = () => {
         // 2. Fetch Top 10 (Trending All)
         getPopularShows().then(data => setTop10Items(data.slice(0, 10)));
 
-        // 3. Fetch Personal Recommendations
+        // 3. Fetch Personal Recommendations (Up to 2 rows)
         if (watchlist.length > 0) {
-            // Pick random show from watchlist
-            const randomSource = watchlist[Math.floor(Math.random() * watchlist.length)];
-            setRecSource(randomSource.name);
-            getRecommendations(randomSource.id, randomSource.media_type).then(data => {
-                const trackedIds = new Set(watchlist.map(s => s.id));
-                const filtered = data.filter(d => !trackedIds.has(d.id));
-                setRecItems(filtered);
-            });
+            const generateRecs = async () => {
+                const shuffled = [...watchlist].sort(() => 0.5 - Math.random());
+                const sources = shuffled.slice(0, 2); // Pick 2 random shows
+                const rows = [];
+                
+                for (const source of sources) {
+                    try {
+                        const recs = await getRecommendations(source.id, source.media_type);
+                        const trackedIds = new Set(watchlist.map(s => s.id));
+                        const filtered = recs.filter(d => !trackedIds.has(d.id));
+                        if (filtered.length > 0) {
+                            rows.push({
+                                title: `Because you watched ${source.name}`,
+                                items: filtered
+                            });
+                        }
+                    } catch (e) {}
+                }
+                setRecRows(rows);
+            };
+            generateRecs();
         }
-    }, [watchlist.length]); // Only re-run recs if watchlist size changes significantly (simplified)
+    }, [watchlist.length]); 
 
     // --- HANDLERS ---
     const handlePlayTrailer = (id: number, type: 'tv' | 'movie') => {
@@ -99,25 +113,16 @@ const V2Discover: React.FC = () => {
                     isTop10={true}
                 />
 
-                {/* 2. PERSONAL RECOMMENDATIONS */}
-                {recItems.length > 0 ? (
-                    <ContentRow 
-                        title={`Because you added ${recSource}`}
+                {/* 2. DYNAMIC RECOMMENDATIONS */}
+                {recRows.map((row, idx) => (
+                     <ContentRow 
+                        key={idx}
+                        title={row.title}
                         subtitle="Recommended For You"
-                        items={recItems}
+                        items={row.items}
                         onOpenDetails={handleOpenDetails}
                     />
-                ) : (
-                     <ContentRow 
-                        title="Critically Acclaimed" 
-                        subtitle="All Time Best" 
-                        endpoint="/movie/top_rated" 
-                        mediaType="movie" 
-                        params={{ 'vote_count.gte': '3000', 'with_original_language': 'en' }} 
-                        onOpenDetails={handleOpenDetails} 
-                        onOpenAll={() => handleViewAll("Critically Acclaimed", "/movie/top_rated", "movie")}
-                    />
-                )}
+                ))}
 
                 {/* 3. NEW ON CINEMA */}
                 <ContentRow 
@@ -314,13 +319,13 @@ const ContentRow: React.FC<ContentRowProps> = ({ title, subtitle, endpoint, medi
                         if (isTop10) {
                             return (
                                 <div key={item.id} className="relative w-[280px] h-[180px] flex-shrink-0 cursor-pointer group/card z-0 hover:z-10" onClick={() => onOpenDetails(item)}>
-                                    {/* Big Number SVG */}
-                                    <div className="absolute -left-4 bottom-0 h-[105%] w-[50%] flex items-end justify-center pointer-events-none z-0">
-                                         <svg viewBox="0 0 70 100" className="h-full w-full drop-shadow-2xl overflow-visible">
-                                            <text x="0" y="88" fontSize="110" fontWeight="900" fill="#020202" stroke="#444" strokeWidth="2" style={{ fontFamily: 'Inter, sans-serif' }}>
+                                    {/* Big Number SVG - Improved Visibility */}
+                                    <div className="absolute -left-6 bottom-0 h-[100%] w-[50%] flex items-end justify-center pointer-events-none z-0 transform translate-y-4">
+                                         <svg viewBox="0 0 70 100" className="h-full w-full drop-shadow-xl overflow-visible">
+                                            <text x="0" y="88" fontSize="110" fontWeight="900" fill="#020202" stroke="#333" strokeWidth="2" style={{ fontFamily: 'Inter, sans-serif' }}>
                                                 {idx + 1}
                                             </text>
-                                            <text x="0" y="88" fontSize="110" fontWeight="900" fill="none" stroke="#666" strokeWidth="1" className="opacity-50" style={{ fontFamily: 'Inter, sans-serif' }}>
+                                            <text x="0" y="88" fontSize="110" fontWeight="900" fill="none" stroke="#666" strokeWidth="1" className="opacity-40" style={{ fontFamily: 'Inter, sans-serif' }}>
                                                 {idx + 1}
                                             </text>
                                         </svg>

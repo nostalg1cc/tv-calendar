@@ -13,7 +13,7 @@ export const useShowData = (showId: number, mediaType: 'tv' | 'movie') => {
     return useQuery({
         queryKey: ['media', mediaType, showId],
         queryFn: async () => mediaType === 'movie' ? getMovieDetails(showId) : getShowDetails(showId),
-        staleTime: 1000 * 60 * 60 * 24,
+        staleTime: 1000 * 60 * 60 * 24 * 7, // 7 Days Stale for static show data
         enabled: hasKey && !!showId,
     });
 };
@@ -81,8 +81,8 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     return eps;
                 }
             },
-            staleTime: 1000 * 60 * 60 * 6, // 6 hours cache
-            enabled: hasKey && !!show.id, // CRITICAL: Don't fetch until key is present
+            staleTime: 1000 * 60 * 60 * 24, // 24 hours - relies on IDB cache for instant load
+            enabled: hasKey && !!show.id, 
             retry: 1
         }))
     });

@@ -1,20 +1,41 @@
 
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { get, set, del } from 'idb-keyval';
 import { useStore } from './store';
 import { Toaster } from 'react-hot-toast';
 import V2Dashboard from './v2/V2Dashboard';
 import V2LoginPage from './pages/v2/LoginPage';
 import { supabase } from './services/supabase';
 
+// --- PERSISTENCE SETUP ---
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
             refetchOnWindowFocus: false,
-            retry: 1
+            retry: 1,
+            gcTime: 1000 * 60 * 60 * 24 * 7, // Garbage collect after 7 days
+            staleTime: 1000 * 60 * 60 * 24, // Consider data stale after 24 hours (prevents refetch on reload)
         }
     }
+});
+
+const persister = createAsyncStoragePersister({
+    storage: {
+        getItem: async (key) => {
+            const val = await get(key);
+            return val;
+        },
+        setItem: async (key, value) => {
+            await set(key, value);
+        },
+        removeItem: async (key) => {
+            await del(key);
+        },
+    },
 });
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -60,7 +81,10 @@ const AuthListener = () => {
 
 const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider 
+        client={queryClient} 
+        persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
+    >
         <HashRouter>
             <AuthListener />
             <div className="bg-[#020202] text-zinc-100 min-h-screen font-sans antialiased selection:bg-indigo-500/30">
@@ -75,7 +99,7 @@ const App: React.FC = () => {
                 <Toaster position="bottom-right" toastOptions={{ style: { background: '#18181b', color: '#fff', border: '1px solid #27272a' } }} />
             </div>
         </HashRouter>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 };
 export default App;
