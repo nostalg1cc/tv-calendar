@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, format, isSameMonth, addMonths, subMonths, addDays, isSameDay, isToday
@@ -20,9 +19,10 @@ type ViewMode = 'grid' | 'cards' | 'list';
 const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => {
     const { settings, updateSettings, history: interactions, toggleWatched, calendarDate, setCalendarDate } = useStore();
     
-    // Fetch data using the hook, then transform to map for the calendar logic
+    // Fetch data using the hook
     const { episodes: rawEpisodes, isLoading, isRefetching } = useCalendarEpisodes(calendarDate);
     
+    // Transform to map for the calendar logic: { "YYYY-MM-DD": Episode[] }
     const episodes = useMemo(() => {
         const map: Record<string, Episode[]> = {};
         rawEpisodes.forEach(ep => {
@@ -49,6 +49,17 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
     const filterRef = useRef<HTMLDivElement>(null);
     const cardScrollRef = useRef<HTMLDivElement>(null);
+
+    // Auto-switch to cards on resize if transitioning to mobile
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 768 && viewMode === 'grid') {
+                setViewMode('cards');
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [viewMode]);
 
     // Persist view mode changes
     const handleViewChange = (mode: ViewMode) => {
@@ -94,7 +105,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 }
             }, 100);
         }
-    }, [viewMode, calendarDate]); 
+    }, [viewMode, calendarDate, activeDays]); 
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {

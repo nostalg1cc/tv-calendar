@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
 import { 
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
@@ -109,7 +110,8 @@ const CalendarPage: React.FC = () => {
   // Helper to cycle view modes
   const cycleViewMode = () => {
       const modes: ('grid' | 'list' | 'stack')[] = ['grid', 'list', 'stack'];
-      const currentIdx = modes.indexOf(viewMode);
+      // Use cast to any to avoid strict type error if settings has 'cards' mode
+      const currentIdx = modes.indexOf(viewMode as any);
       const nextMode = modes[(currentIdx + 1) % modes.length];
       updateSettings({ viewMode: nextMode });
   };

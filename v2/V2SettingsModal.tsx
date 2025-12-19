@@ -30,7 +30,7 @@ const FONTS = [
 ];
 
 const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) => {
-    const { settings, updateSettings, user, login, logout, triggerCloudSync, isSyncing, importBackup, watchlist, history, reminders } = useStore();
+    const { settings, updateSettings, user, login, logout, triggerCloudSync, isSyncing, importBackup } = useStore();
     const [activeTab, setActiveTab] = useState<TabId>('general');
     
     // Local state for API key to avoid aggressive store updates on every keystroke
@@ -55,6 +55,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     };
 
     const handleExport = () => {
+        const { watchlist, history, reminders } = useStore.getState();
         const data = {
             user: { username: user?.username },
             settings,
