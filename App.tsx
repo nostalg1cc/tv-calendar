@@ -39,8 +39,9 @@ const persister = createAsyncStoragePersister({
 });
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const isAuthenticated = useStore((state) => state.isAuthenticated);
-    if (!isAuthenticated) return <Navigate to="/login" replace />;
+    // Check user object instead of isAuthenticated to prevent persistence loop race conditions
+    const user = useStore((state) => state.user);
+    if (!user) return <Navigate to="/login" replace />;
     return <>{children}</>;
 };
 

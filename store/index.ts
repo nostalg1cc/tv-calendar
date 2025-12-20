@@ -7,7 +7,6 @@ import { setApiToken } from '../services/tmdb';
 
 interface State {
     user: User | null;
-    isAuthenticated: boolean;
     
     settings: AppSettings;
     watchlist: TVShow[]; 
@@ -60,7 +59,6 @@ export const useStore = create<State>()(
     persist(
         (set, get) => ({
             user: null,
-            isAuthenticated: false,
             settings: DEFAULT_SETTINGS,
             watchlist: [],
             history: {},
@@ -100,12 +98,12 @@ export const useStore = create<State>()(
                         setTimeout(() => get().triggerCloudSync(), 0);
                     }
 
-                    return { user: finalUser, isAuthenticated: true };
+                    return { user: finalUser };
                 });
             },
 
             logout: () => {
-                set({ user: null, isAuthenticated: false, watchlist: [], history: {}, reminders: [] });
+                set({ user: null, watchlist: [], history: {}, reminders: [] });
                 if (supabase) supabase.auth.signOut();
             },
 
