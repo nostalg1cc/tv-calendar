@@ -47,35 +47,38 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AuthListener = () => {
     const login = useStore((state) => state.login);
     const logout = useStore((state) => state.logout);
+    const currentUser = useStore((state) => state.user);
 
     useEffect(() => {
         if (!supabase) return;
         
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        const handleAuthSession = (session: any) => {
             if (session?.user) {
+                // Optimization: Don't call login if already logged in as this user
+                if (currentUser && currentUser.id === session.user.id && currentUser.is_cloud) return;
+
                 login({
                     id: session.user.id,
                     username: session.user.user_metadata.username || session.user.email?.split('@')[0] || 'User',
                     email: session.user.email,
                     is_cloud: true
                 });
+            } else if (!session && currentUser?.is_cloud) {
+                logout();
             }
-        });
+        };
+
+        supabase.auth.getSession().then(({ data: { session } }) => handleAuthSession(session));
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_IN' && session?.user) {
-                login({
-                    id: session.user.id,
-                    username: session.user.user_metadata.username || session.user.email?.split('@')[0] || 'User',
-                    email: session.user.email,
-                    is_cloud: true
-                });
+                handleAuthSession(session);
             } else if (event === 'SIGNED_OUT') {
                 logout();
             }
         });
         return () => subscription.unsubscribe();
-    }, []);
+    }, [currentUser?.id]); // Re-subscribe if current user ID changes to ensure freshness logic works
     return null;
 };
 

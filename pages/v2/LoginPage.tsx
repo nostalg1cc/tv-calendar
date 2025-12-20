@@ -4,11 +4,12 @@ import { Tv, ArrowRight, Upload, Key, HelpCircle, RefreshCw, Hourglass, Loader2,
 import { useStore } from '../../store';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { supabase, isSupabaseConfigured, configureSupabase, getStoredSupabaseConfig, clearSupabaseConfig } from '../../services/supabase';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 
 const V2LoginPage: React.FC = () => {
   const login = useStore(state => state.login);
   const user = useStore(state => state.user);
+  const navigate = useNavigate();
   
   // -- State --
   const [authMethod, setAuthMethod] = useState<'cloud' | 'local'>('cloud');
@@ -33,10 +34,12 @@ const V2LoginPage: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-redirect if already logged in
-  if (user) {
-      return <Navigate to="/" replace />;
-  }
+  // Auto-redirect if already logged in (Use Effect to prevent loops)
+  useEffect(() => {
+      if (user) {
+          navigate('/', { replace: true });
+      }
+  }, [user, navigate]);
 
   useEffect(() => {
       // Load stored config for display
@@ -48,6 +51,9 @@ const V2LoginPage: React.FC = () => {
            // If configured to cloud but no client, allow UI to show normally but config modal is accessible
       }
   }, [authMethod]);
+
+  // If redirecting, don't render content to avoid flicker
+  if (user) return null;
 
   // -- Handlers --
 
