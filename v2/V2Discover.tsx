@@ -120,7 +120,7 @@ const V2Discover: React.FC = () => {
                      </div>
 
                      {/* Mobile Hero (Poster Card Style) */}
-                     <div className="md:hidden relative min-h-[85vh] flex flex-col items-center justify-end pb-12 pt-24 px-6 overflow-hidden">
+                     <div className="md:hidden relative min-h-[85vh] flex flex-col items-center justify-end pb-12 pt-24 px-2.5 overflow-hidden">
                          {/* Dynamic Background */}
                          <div 
                              className="absolute inset-0 z-0 overflow-hidden pointer-events-none transition-opacity duration-300 ease-out" 
@@ -131,9 +131,9 @@ const V2Discover: React.FC = () => {
                              <div className="absolute inset-0 bg-gradient-to-t from-[#020202] to-transparent" />
                          </div>
 
-                         {/* Floating Poster Card */}
+                         {/* Floating Poster Card (Wider) */}
                          <div 
-                             className="relative z-10 w-64 aspect-[2/3] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] mb-8 overflow-hidden group"
+                             className="relative z-10 w-full aspect-[2/3] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] mb-8 overflow-hidden group"
                              onClick={() => handleOpenDetails(heroItem)}
                          >
                              <img src={getImageUrl(heroItem.poster_path)} className="w-full h-full object-cover" alt={heroItem.name} />
@@ -379,8 +379,8 @@ const ContentRow: React.FC<ContentRowProps> = ({ title, subtitle, endpoint, medi
                 )}
             </div>
             
-            {/* Horizontal Scroll */}
-            <div className="relative -ml-6 md:-ml-16 w-screen overflow-x-auto hide-scrollbar pb-8 pt-4 px-6 md:px-16">
+            {/* Horizontal Scroll - Increased padding for Top 10 scaling */}
+            <div className={`relative -ml-6 md:-ml-16 w-screen overflow-x-auto hide-scrollbar px-6 md:px-16 ${isTop10 ? 'pt-12 pb-12' : 'pt-4 pb-8'}`}>
                 <div className="flex gap-4 w-max items-end">
                     {fetchedItems.map((item, idx) => {
                         const isAdded = watchlist.some(s => s.id === item.id);
@@ -451,7 +451,7 @@ const ContentRow: React.FC<ContentRowProps> = ({ title, subtitle, endpoint, medi
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); if(!isAdded) addToWatchlist(item); }}
                                                 className={`w-full py-1.5 rounded text-[9px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-colors ${isAdded ? 'bg-zinc-800 text-zinc-500 cursor-default' : 'bg-white text-black hover:bg-zinc-200'}`}
-                                            >
+                                             >
                                                 {isAdded ? 'Added' : <><Plus className="w-2.5 h-2.5" /> List</>}
                                             </button>
                                          </div>

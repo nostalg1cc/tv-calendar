@@ -171,24 +171,24 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     const DateHeader = ({ day }: { day: Date }) => {
         const isTodayDate = isToday(day);
         return (
-             <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-4 px-6 flex items-center justify-between">
-                <div className="flex items-center gap-5">
-                    {/* Big Number */}
-                    <div className={`text-4xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-500 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'text-white'}`}>
+             <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-2 px-4 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-3">
+                    {/* Big Number - Slimmed */}
+                    <div className={`text-3xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-500 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'text-white'}`}>
                         {format(day, 'dd')}
                     </div>
-                    {/* Text Info */}
-                    <div className="flex flex-col leading-none h-9 justify-center border-l border-white/10 pl-5">
-                        <span className={`text-[13px] font-black uppercase tracking-[0.2em] ${isTodayDate ? 'text-white' : 'text-zinc-300'}`}>
+                    {/* Text Info - Compact */}
+                    <div className="flex flex-col leading-none h-8 justify-center border-l border-white/10 pl-3">
+                        <span className={`text-[11px] font-black uppercase tracking-[0.15em] ${isTodayDate ? 'text-white' : 'text-zinc-300'}`}>
                             {format(day, 'EEEE')}
                         </span>
-                        <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wide mt-0.5">
+                        <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-wide">
                             {format(day, 'MMMM yyyy')}
                         </span>
                     </div>
                 </div>
                 {isTodayDate && (
-                    <span className="text-[9px] font-bold bg-indigo-600/20 border border-indigo-500/50 text-indigo-200 px-3 py-1 rounded-full uppercase tracking-wide shadow-[0_0_10px_rgba(99,102,241,0.2)]">
+                    <span className="text-[9px] font-bold bg-indigo-600/20 border border-indigo-500/50 text-indigo-200 px-2 py-0.5 rounded-full uppercase tracking-wide shadow-[0_0_10px_rgba(99,102,241,0.2)]">
                         Today
                     </span>
                 )}
