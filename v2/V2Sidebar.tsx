@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Calendar, Compass, List, Settings, Search, LogOut, LayoutPanelLeft, Minimize2, Globe, MoreHorizontal, ChevronRight, User } from 'lucide-react';
 import { useStore } from '../store';
@@ -14,6 +14,9 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
     const mode = settings.v2SidebarMode || 'fixed';
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isVisible, setIsVisible] = useState(true);
+    const lastScrollY = useRef(0);
+    const inactivityTimer = useRef<any>(null);
     
     const isActive = (path: string) => location.pathname.includes(path);
 
@@ -26,6 +29,44 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
         }
         return () => { document.body.style.overflow = ''; };
     }, [isMenuOpen]);
+
+    // Handle Scroll Visibility
+    useEffect(() => {
+        const handleScroll = (e: Event) => {
+            const target = e.target as HTMLElement;
+            // Only care about vertical scrolling on main containers
+            if (!target || target.tagName === 'HTML') return; 
+            
+            const currentY = target.scrollTop;
+            const diff = currentY - lastScrollY.current;
+
+            // Ignore small movements (bounce)
+            if (Math.abs(diff) < 10) return;
+
+            if (diff > 0 && currentY > 50) {
+                // Scrolling Down -> Hide
+                setIsVisible(false);
+            } else if (diff < 0) {
+                // Scrolling Up -> Show
+                setIsVisible(true);
+            }
+
+            lastScrollY.current = currentY;
+
+            // Reset inactivity timer
+            if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+            inactivityTimer.current = setTimeout(() => {
+                setIsVisible(true);
+            }, 2000);
+        };
+
+        // Capture scroll events from any element (since we use overflow containers)
+        window.addEventListener('scroll', handleScroll, { capture: true });
+        return () => {
+            window.removeEventListener('scroll', handleScroll, { capture: true });
+            if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+        };
+    }, []);
 
     const NavItem: React.FC<{ to: string; icon: any; label: string; onClick?: () => void }> = ({ to, icon: Icon, label, onClick }) => {
         const active = isActive(to);
@@ -81,9 +122,15 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                 </div>
             </nav>
             
-            {/* MOBILE NAVIGATION PILL (Reverted & Improved) */}
+            {/* MOBILE NAVIGATION PILL */}
             <div className="md:hidden fixed bottom-6 left-0 right-0 z-[80] flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom,0px)] px-4">
-                 <div className="pointer-events-auto bg-[#09090b]/90 backdrop-blur-2xl border border-white/10 rounded-full px-6 py-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.8)] flex items-center justify-between gap-6 sm:gap-8 ring-1 ring-white/5 min-w-[320px] max-w-sm">
+                 <div 
+                    className={`
+                        pointer-events-auto bg-[#09090b]/90 backdrop-blur-2xl border border-white/10 rounded-full px-6 py-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.8)] flex items-center justify-between gap-6 sm:gap-8 ring-1 ring-white/5 min-w-[320px] max-w-sm
+                        transform transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                        ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-[150%] opacity-0 scale-95'}
+                    `}
+                 >
                     <Link to="/calendar" className={`transition-all duration-300 ${isActive('/calendar') ? 'text-white scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
                         <Calendar className="w-6 h-6 stroke-[2.5px]" />
                     </Link>
