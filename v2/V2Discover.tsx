@@ -37,6 +37,10 @@ const V2Discover: React.FC = () => {
     // Multiple Recommendation States
     const [recRows, setRecRows] = useState<{ title: string; items: TVShow[] }[]>([]);
 
+    // Scroll State for Mobile Hero
+    const [scrollOpacity, setScrollOpacity] = useState(1);
+    const containerRef = useRef<HTMLDivElement>(null);
+
     const today = new Date().toISOString().split('T')[0];
     const nextMonth = format(addDays(new Date(), 30), 'yyyy-MM-dd');
     const lastMonth = format(addDays(new Date(), -30), 'yyyy-MM-dd');
@@ -79,6 +83,14 @@ const V2Discover: React.FC = () => {
         }
     }, [watchlist.length]); 
 
+    const handleScroll = () => {
+        if (!containerRef.current) return;
+        const y = containerRef.current.scrollTop;
+        // Fade out over first 400px
+        const newOpacity = Math.max(0, 1 - y / 400);
+        setScrollOpacity(newOpacity);
+    };
+
     // --- HANDLERS ---
     const handlePlayTrailer = (id: number, type: 'tv' | 'movie') => {
         setTrailerTarget({ showId: id, mediaType: type });
@@ -93,21 +105,78 @@ const V2Discover: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-[#020202] overflow-y-auto custom-scrollbar relative pb-20">
+        <div 
+            ref={containerRef}
+            onScroll={handleScroll}
+            className="flex-1 flex flex-col h-full bg-[#020202] overflow-y-auto custom-scrollbar relative pb-20"
+        >
             
             {/* HERO BILLBOARD */}
             {heroItem ? (
-                <HeroBillboard item={heroItem} onPlayTrailer={handlePlayTrailer} onOpenDetails={handleOpenDetails} />
+                <>
+                     {/* Desktop Hero */}
+                     <div className="hidden md:block">
+                        <HeroBillboard item={heroItem} onPlayTrailer={handlePlayTrailer} onOpenDetails={handleOpenDetails} />
+                     </div>
+
+                     {/* Mobile Hero (Poster Card Style) */}
+                     <div className="md:hidden relative min-h-[85vh] flex flex-col items-center justify-end pb-12 pt-24 px-6 overflow-hidden">
+                         {/* Dynamic Background */}
+                         <div 
+                             className="absolute inset-0 z-0 overflow-hidden pointer-events-none transition-opacity duration-300 ease-out" 
+                             style={{ opacity: scrollOpacity }}
+                         >
+                             <img src={getImageUrl(heroItem.poster_path)} className="w-full h-full object-cover blur-3xl scale-150 opacity-60" alt="" />
+                             <div className="absolute inset-0 bg-gradient-to-b from-[#020202]/30 via-transparent to-[#020202]" />
+                             <div className="absolute inset-0 bg-gradient-to-t from-[#020202] to-transparent" />
+                         </div>
+
+                         {/* Floating Poster Card */}
+                         <div 
+                             className="relative z-10 w-64 aspect-[2/3] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] mb-8 overflow-hidden group"
+                             onClick={() => handleOpenDetails(heroItem)}
+                         >
+                             <img src={getImageUrl(heroItem.poster_path)} className="w-full h-full object-cover" alt={heroItem.name} />
+                             {/* Inner Rim Light / Border */}
+                             <div className="absolute inset-0 rounded-2xl border border-white/20 pointer-events-none shadow-[inset_0_0_20px_rgba(255,255,255,0.1)]" />
+                         </div>
+
+                         {/* Meta & Actions */}
+                         <div className="relative z-10 text-center w-full max-w-sm">
+                             <h1 className="text-3xl font-black text-white leading-tight mb-2 drop-shadow-xl line-clamp-2">{heroItem.name}</h1>
+                             <div className="flex items-center justify-center gap-3 mb-6 text-xs font-bold text-zinc-300">
+                                 <span className="uppercase tracking-widest">{heroItem.media_type === 'movie' ? 'Film' : 'Series'}</span>
+                                 <span className="w-1 h-1 rounded-full bg-zinc-500" />
+                                 <span className="flex items-center gap-1 text-yellow-500"><Star className="w-3 h-3 fill-current" /> {heroItem.vote_average.toFixed(1)}</span>
+                             </div>
+                             
+                             <div className="flex gap-3 justify-center">
+                                 <button 
+                                     onClick={() => handlePlayTrailer(heroItem.id, heroItem.media_type)} 
+                                     className="h-12 px-6 bg-white text-black rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-white/10 active:scale-95 transition-transform"
+                                 >
+                                     <Play className="w-4 h-4 fill-current" /> Trailer
+                                 </button>
+                                 <button 
+                                     onClick={() => handleOpenDetails(heroItem)}
+                                     className="h-12 w-12 bg-white/10 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center text-white active:scale-95 transition-transform"
+                                 >
+                                     <Info className="w-5 h-5" />
+                                 </button>
+                             </div>
+                         </div>
+                     </div>
+                </>
             ) : (
                 <div className="w-full h-[80vh] bg-zinc-900 animate-pulse" />
             )}
             
-            {/* CONTENT STACK - Negative margin to pull up over hero gradient */}
-            <div className="relative z-10 -mt-24 md:-mt-48 space-y-12 px-0 md:px-0">
+            {/* CONTENT STACK */}
+            <div className="relative z-10 -mt-6 md:-mt-48 space-y-12 px-0 md:px-0">
                 
                 {/* 1. TOP 10 ROW */}
                 <ContentRow 
-                    title="Top 10 Trending Today" 
+                    title="Top 10 Today" 
                     items={top10Items}
                     onOpenDetails={handleOpenDetails}
                     isTop10={true}
@@ -192,16 +261,16 @@ const V2Discover: React.FC = () => {
     );
 };
 
-// --- HERO COMPONENT ---
+// --- HERO COMPONENT (Desktop) ---
 const HeroBillboard: React.FC<{ item: TVShow; onPlayTrailer: (id: number, type: 'tv' | 'movie') => void; onOpenDetails: (show: TVShow) => void }> = ({ item, onPlayTrailer, onOpenDetails }) => {
     const { addToWatchlist, watchlist } = useStore();
     const isAdded = watchlist.some(s => s.id === item.id);
 
     return (
-        <div className="relative w-full h-[85vh] md:h-[95vh] shrink-0 overflow-hidden group/hero">
+        <div className="relative w-full h-[95vh] shrink-0 overflow-hidden group/hero">
             {/* Background */}
             <div 
-                className="absolute inset-0 bg-cover bg-top md:bg-center transition-transform duration-[20s] ease-linear group-hover/hero:scale-105" 
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-[20s] ease-linear group-hover/hero:scale-105" 
                 style={{ backgroundImage: `url(${getBackdropUrl(item.backdrop_path)})` }}
             >
                 <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/20 to-transparent" />
@@ -209,8 +278,8 @@ const HeroBillboard: React.FC<{ item: TVShow; onPlayTrailer: (id: number, type: 
             </div>
 
             {/* Content */}
-            <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-16 max-w-5xl z-20 pointer-events-none">
-                 <div className="pointer-events-auto animate-fade-in-up mt-32 md:mt-0">
+            <div className="absolute inset-0 flex flex-col justify-center px-16 max-w-5xl z-20 pointer-events-none">
+                 <div className="pointer-events-auto animate-fade-in-up">
                     
                     {/* Meta Badge */}
                     <div className="flex items-center gap-3 mb-6">
@@ -227,12 +296,12 @@ const HeroBillboard: React.FC<{ item: TVShow; onPlayTrailer: (id: number, type: 
                     </div>
 
                     {/* Title */}
-                    <h1 className="text-4xl sm:text-5xl md:text-7xl font-black text-white uppercase tracking-tighter leading-[0.9] drop-shadow-2xl line-clamp-2 max-w-4xl">
+                    <h1 className="text-5xl md:text-7xl font-black text-white uppercase tracking-tighter leading-[0.9] drop-shadow-2xl line-clamp-2 max-w-4xl">
                         {item.name}
                     </h1>
 
                     {/* Overview */}
-                    <p className="text-sm md:text-lg text-zinc-200 font-medium line-clamp-3 max-w-xl leading-relaxed drop-shadow-lg text-shadow mt-6 mb-8">
+                    <p className="text-lg text-zinc-200 font-medium line-clamp-3 max-w-xl leading-relaxed drop-shadow-lg text-shadow mt-6 mb-8">
                         {item.overview}
                     </p>
 
@@ -290,7 +359,7 @@ const ContentRow: React.FC<ContentRowProps> = ({ title, subtitle, endpoint, medi
             {/* Header */}
             <div className="flex items-end justify-between pr-6 md:pr-16 mb-4">
                 <div className="flex items-center gap-3">
-                    <h3 className="text-xl font-bold text-white tracking-tight group-hover/section:text-indigo-400 transition-colors cursor-pointer" onClick={onOpenAll}>
+                    <h3 className="text-lg md:text-xl font-bold text-white tracking-tight group-hover/section:text-indigo-400 transition-colors cursor-pointer" onClick={onOpenAll}>
                         {title}
                     </h3>
                     {subtitle && (
@@ -312,43 +381,36 @@ const ContentRow: React.FC<ContentRowProps> = ({ title, subtitle, endpoint, medi
             
             {/* Horizontal Scroll */}
             <div className="relative -ml-6 md:-ml-16 w-screen overflow-x-auto hide-scrollbar pb-8 pt-4 px-6 md:px-16">
-                <div className="flex gap-4 w-max">
+                <div className="flex gap-4 w-max items-end">
                     {fetchedItems.map((item, idx) => {
                         const isAdded = watchlist.some(s => s.id === item.id);
                         
                         if (isTop10) {
                             return (
-                                <div key={item.id} className="relative w-[280px] h-[180px] flex-shrink-0 cursor-pointer group/card z-0 hover:z-10" onClick={() => onOpenDetails(item)}>
-                                    {/* Big Number SVG - Improved Visibility */}
-                                    <div className="absolute -left-6 bottom-0 h-[100%] w-[50%] flex items-end justify-center pointer-events-none z-0 transform translate-y-4">
-                                         <svg viewBox="0 0 70 100" className="h-full w-full drop-shadow-xl overflow-visible">
-                                            <text x="0" y="88" fontSize="110" fontWeight="900" fill="#020202" stroke="#333" strokeWidth="2" style={{ fontFamily: 'Inter, sans-serif' }}>
-                                                {idx + 1}
-                                            </text>
-                                            <text x="0" y="88" fontSize="110" fontWeight="900" fill="none" stroke="#666" strokeWidth="1" className="opacity-40" style={{ fontFamily: 'Inter, sans-serif' }}>
+                                <div key={item.id} className="relative flex items-end -mr-6 cursor-pointer group/card z-0 hover:z-20" onClick={() => onOpenDetails(item)}>
+                                    {/* Big Number SVG */}
+                                    <div className="relative w-24 h-full flex items-end justify-end z-0">
+                                         <svg viewBox="0 0 70 100" className="h-40 w-full overflow-visible" preserveAspectRatio="none">
+                                            <text 
+                                                x="40" 
+                                                y="100" 
+                                                fontSize="140" 
+                                                fontWeight="900" 
+                                                textAnchor="middle"
+                                                stroke="#444" 
+                                                strokeWidth="2" 
+                                                fill="#09090b"
+                                                style={{ fontFamily: 'Inter, sans-serif', letterSpacing: '-10px' }}
+                                            >
                                                 {idx + 1}
                                             </text>
                                         </svg>
                                     </div>
                                     
                                     {/* Card */}
-                                    <div className="absolute right-0 top-0 w-[130px] h-[190px] rounded-lg overflow-hidden bg-zinc-900 border border-white/10 shadow-2xl z-10 transition-transform duration-300 group-hover/card:scale-110 origin-center">
+                                    <div className="relative w-[140px] aspect-[2/3] rounded-lg overflow-hidden bg-zinc-900 border border-white/10 shadow-2xl z-10 transition-transform duration-300 group-hover/card:scale-110 group-hover/card:-translate-y-4 origin-bottom-left -ml-4">
                                         <img src={getImageUrl(item.poster_path)} className="w-full h-full object-cover" loading="lazy" alt="" />
-                                        <div className="absolute inset-0 bg-black/20 group-hover/card:bg-transparent transition-colors" />
-                                        
-                                        {/* Hover Overlay */}
-                                        <div className="absolute inset-0 bg-black/80 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2">
-                                            <div className="text-[9px] font-black uppercase text-zinc-400 tracking-wider">Top 10</div>
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); if(!isAdded) addToWatchlist(item); }}
-                                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isAdded ? 'bg-zinc-800 text-emerald-500' : 'bg-white text-black hover:scale-110'}`}
-                                            >
-                                                {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                                            </button>
-                                            <div className="flex items-center gap-1 text-[9px] font-bold text-yellow-500">
-                                                <Star className="w-2.5 h-2.5 fill-current" /> {item.vote_average.toFixed(1)}
-                                            </div>
-                                        </div>
+                                        <div className="absolute inset-0 bg-black/10 group-hover/card:bg-transparent transition-colors" />
                                     </div>
                                 </div>
                             )

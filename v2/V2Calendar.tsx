@@ -168,6 +168,34 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     );
 
     // --- SUB-COMPONENTS ---
+    const DateHeader = ({ day }: { day: Date }) => {
+        const isTodayDate = isToday(day);
+        return (
+             <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-4 px-6 flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                    {/* Big Number */}
+                    <div className={`text-4xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-500 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'text-white'}`}>
+                        {format(day, 'dd')}
+                    </div>
+                    {/* Text Info */}
+                    <div className="flex flex-col leading-none h-9 justify-center border-l border-white/10 pl-5">
+                        <span className={`text-[13px] font-black uppercase tracking-[0.2em] ${isTodayDate ? 'text-white' : 'text-zinc-300'}`}>
+                            {format(day, 'EEEE')}
+                        </span>
+                        <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wide mt-0.5">
+                            {format(day, 'MMMM yyyy')}
+                        </span>
+                    </div>
+                </div>
+                {isTodayDate && (
+                    <span className="text-[9px] font-bold bg-indigo-600/20 border border-indigo-500/50 text-indigo-200 px-3 py-1 rounded-full uppercase tracking-wide shadow-[0_0_10px_rgba(99,102,241,0.2)]">
+                        Today
+                    </span>
+                )}
+            </div>
+        );
+    };
+
     const ReleaseBadge = ({ ep }: { ep: Episode }) => {
         if (!ep.is_movie) {
             return (
@@ -364,17 +392,8 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 
                                 return (
                                     <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-32">
-                                        {/* Card View Header: Improved Date Visibility */}
-                                        <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-4 px-6 flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <div className={`text-2xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-400' : 'text-white'}`}>{format(day, 'dd')}</div>
-                                                <div className="flex flex-col leading-none">
-                                                    <span className={`text-[12px] font-black uppercase tracking-widest ${isTodayDate ? 'text-indigo-500' : 'text-white'}`}>{format(day, 'EEEE')}</span>
-                                                    <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-wide">{format(day, 'MMM yyyy')}</span>
-                                                </div>
-                                            </div>
-                                            {isTodayDate && <span className="text-[9px] font-bold bg-indigo-600 text-white px-2 py-1 rounded uppercase tracking-wide shadow-lg shadow-indigo-500/20">Today</span>}
-                                        </div>
+                                        {/* UNIFIED HEADER */}
+                                        <DateHeader day={day} />
 
                                         <div className="flex flex-col gap-px bg-zinc-900">
                                             {groupedEps.map((group, groupIdx) => {
@@ -439,14 +458,8 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 
                                 return (
                                     <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-32">
-                                        {/* List View Header: Full Date Visible */}
-                                        <div className="sticky top-0 z-40 bg-[#020202] border-b border-white/5 py-3 px-4 flex items-center gap-4 shadow-sm">
-                                            <div className="flex flex-col leading-none">
-                                                <span className={`text-sm font-black uppercase tracking-widest ${isTodayDate ? 'text-indigo-400' : 'text-white'}`}>{format(day, 'EEEE')}</span>
-                                                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">{format(day, 'MMMM do, yyyy')}</span>
-                                            </div>
-                                            {isTodayDate && <div className="w-2 h-2 bg-indigo-500 rounded-full ml-auto shadow-[0_0_8px_rgba(99,102,241,0.8)]" />}
-                                        </div>
+                                        {/* UNIFIED HEADER */}
+                                        <DateHeader day={day} />
 
                                         <div className="divide-y divide-white/5">
                                             {eps.map(ep => {
