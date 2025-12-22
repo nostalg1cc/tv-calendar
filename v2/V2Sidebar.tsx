@@ -1,7 +1,7 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Compass, List, Settings, Search, User, LogOut, X, LayoutPanelLeft, Minimize2, Globe, Menu, ChevronRight } from 'lucide-react';
+import { Calendar, Compass, List, Settings, Search, LogOut, LayoutPanelLeft, Minimize2, Globe, MoreHorizontal, ChevronRight, User } from 'lucide-react';
 import { useStore } from '../store';
 
 interface V2SidebarProps {
@@ -81,52 +81,70 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                 </div>
             </nav>
             
-            {/* MOBILE NAVIGATION DOCK */}
-            <div className="md:hidden fixed bottom-6 left-0 right-0 z-[80] px-6 pointer-events-none flex justify-center pb-[env(safe-area-inset-bottom,0px)]">
-                 <div className="pointer-events-auto w-full max-w-sm bg-black/80 backdrop-blur-2xl border border-white/10 rounded-3xl px-2 py-3 flex items-center justify-between shadow-2xl">
-                    <Link to="/calendar" className={`flex flex-col items-center justify-center w-14 h-12 rounded-2xl transition-all ${isActive('/calendar') ? 'bg-white/10 text-white' : 'text-zinc-500'}`}><Calendar className="w-6 h-6" /></Link>
-                    <Link to="/discover" className={`flex flex-col items-center justify-center w-14 h-12 rounded-2xl transition-all ${isActive('/discover') ? 'bg-white/10 text-white' : 'text-zinc-500'}`}><Compass className="w-6 h-6" /></Link>
-                    <button onClick={onOpenSearch} className="flex flex-col items-center justify-center w-14 h-12 rounded-2xl text-indigo-400 bg-indigo-500/10"><Search className="w-6 h-6" /></button>
-                    <Link to="/library" className={`flex flex-col items-center justify-center w-14 h-12 rounded-2xl transition-all ${isActive('/library') ? 'bg-white/10 text-white' : 'text-zinc-500'}`}><List className="w-6 h-6" /></Link>
-                    <button onClick={() => setIsMenuOpen(true)} className={`flex flex-col items-center justify-center w-14 h-12 rounded-2xl transition-all ${isMenuOpen ? 'bg-white/10 text-white' : 'text-zinc-500'}`}><Menu className="w-6 h-6" /></button>
+            {/* MOBILE NAVIGATION PILL (Reverted & Improved) */}
+            <div className="md:hidden fixed bottom-6 left-0 right-0 z-[80] flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom,0px)] px-4">
+                 <div className="pointer-events-auto bg-[#09090b]/90 backdrop-blur-2xl border border-white/10 rounded-full px-6 py-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.8)] flex items-center justify-between gap-6 sm:gap-8 ring-1 ring-white/5 min-w-[320px] max-w-sm">
+                    <Link to="/calendar" className={`transition-all duration-300 ${isActive('/calendar') ? 'text-white scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                        <Calendar className="w-6 h-6 stroke-[2.5px]" />
+                    </Link>
+                    <Link to="/discover" className={`transition-all duration-300 ${isActive('/discover') ? 'text-white scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                        <Compass className="w-6 h-6 stroke-[2.5px]" />
+                    </Link>
+                    
+                    {/* Search - Standard Styling */}
+                    <button onClick={onOpenSearch} className="text-zinc-500 hover:text-white transition-all active:scale-95">
+                        <Search className="w-6 h-6 stroke-[2.5px]" />
+                    </button>
+                    
+                    <Link to="/library" className={`transition-all duration-300 ${isActive('/library') ? 'text-white scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                        <List className="w-6 h-6 stroke-[2.5px]" />
+                    </Link>
+                    
+                    {/* Menu Trigger */}
+                    <button onClick={() => setIsMenuOpen(true)} className={`transition-all duration-300 ${isMenuOpen ? 'text-white scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                        <MoreHorizontal className="w-6 h-6 stroke-[2.5px]" />
+                    </button>
                  </div>
             </div>
 
-            {/* MOBILE MENU DRAWER */}
+            {/* MOBILE MENU DRAWER (Improved Design) */}
             {isMenuOpen && (
                 <>
                     <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm md:hidden animate-fade-in" onClick={() => setIsMenuOpen(false)} />
                     <div className="fixed bottom-0 left-0 right-0 z-[100] bg-[#09090b] border-t border-white/10 rounded-t-[2.5rem] p-6 pb-28 md:hidden animate-slide-up shadow-[0_-20px_60px_rgba(0,0,0,0.9)]">
-                        <div className="w-12 h-1 bg-zinc-800 rounded-full mx-auto mb-8" />
+                        <div className="w-12 h-1.5 bg-zinc-800/50 rounded-full mx-auto mb-8" />
                         
-                        <div className="flex items-center gap-4 mb-8 bg-zinc-900/50 p-4 rounded-2xl border border-white/5">
-                            <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-indigo-500/20">
+                        {/* Profile Card */}
+                        <div className="flex items-center gap-5 mb-8 bg-zinc-900/40 p-5 rounded-3xl border border-white/5">
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center font-black text-xl text-white shadow-lg shadow-indigo-500/20">
                                 {user?.username?.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex-1">
                                 <h3 className="font-bold text-white text-lg">{user?.username}</h3>
-                                <p className="text-xs text-zinc-500">{user?.is_cloud ? 'Cloud Synced' : 'Local Account'}</p>
+                                <p className="text-xs text-zinc-500 font-medium">{user?.is_cloud ? 'Cloud Synced' : 'Local Account'}</p>
                             </div>
+                            <button onClick={() => { setIsMenuOpen(false); onOpenSettings?.(); }} className="p-2 bg-white/5 rounded-full text-zinc-400 hover:text-white">
+                                <Settings className="w-5 h-5" />
+                            </button>
                         </div>
 
-                        <div className="space-y-2">
-                            <Link to="/ipoint" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-4 p-4 rounded-xl bg-zinc-900/30 text-zinc-300 hover:bg-zinc-800 transition-colors border border-white/5">
-                                <Globe className="w-5 h-5 text-indigo-400" />
-                                <span className="font-medium flex-1">IPoint Tool</span>
-                                <ChevronRight className="w-4 h-4 text-zinc-600" />
+                        {/* Tools Grid */}
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            <Link to="/ipoint" onClick={() => setIsMenuOpen(false)} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-zinc-900/30 border border-white/5 hover:bg-zinc-800 transition-colors">
+                                <Globe className="w-6 h-6 text-blue-400" />
+                                <span className="text-xs font-bold text-zinc-300">IPoint</span>
                             </Link>
-
-                            <button onClick={() => { setIsMenuOpen(false); onOpenSettings?.(); }} className="w-full flex items-center gap-4 p-4 rounded-xl bg-zinc-900/30 text-zinc-300 hover:bg-zinc-800 transition-colors border border-white/5">
-                                <Settings className="w-5 h-5 text-zinc-400" />
-                                <span className="font-medium flex-1 text-left">Settings</span>
-                                <ChevronRight className="w-4 h-4 text-zinc-600" />
-                            </button>
-
-                            <button onClick={logout} className="w-full flex items-center gap-4 p-4 rounded-xl bg-red-500/5 text-red-400 hover:bg-red-500/10 transition-colors border border-red-500/10 mt-4">
-                                <LogOut className="w-5 h-5" />
-                                <span className="font-medium flex-1 text-left">Log Out</span>
+                            <button onClick={() => { setIsMenuOpen(false); onOpenSettings?.(); }} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-zinc-900/30 border border-white/5 hover:bg-zinc-800 transition-colors">
+                                <User className="w-6 h-6 text-purple-400" />
+                                <span className="text-xs font-bold text-zinc-300">Profile</span>
                             </button>
                         </div>
+
+                        {/* Logout */}
+                        <button onClick={logout} className="w-full flex items-center justify-center gap-3 p-4 rounded-2xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors border border-red-500/10">
+                            <LogOut className="w-5 h-5" />
+                            <span className="font-bold text-sm">Sign Out</span>
+                        </button>
                     </div>
                 </>
             )}
