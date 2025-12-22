@@ -119,8 +119,8 @@ const V2Discover: React.FC = () => {
                         <HeroBillboard item={heroItem} onPlayTrailer={handlePlayTrailer} onOpenDetails={handleOpenDetails} />
                      </div>
 
-                     {/* Mobile Hero (Poster Card Style) */}
-                     <div className="md:hidden relative min-h-[85vh] flex flex-col items-center justify-end pb-12 pt-24 px-2.5 overflow-hidden">
+                     {/* Mobile Hero (Poster Card Style - Full Width Top) */}
+                     <div className="md:hidden relative flex flex-col items-center justify-start pt-2.5 px-2.5 pb-10 overflow-visible">
                          {/* Dynamic Background */}
                          <div 
                              className="absolute inset-0 z-0 overflow-hidden pointer-events-none transition-opacity duration-300 ease-out" 
@@ -131,9 +131,9 @@ const V2Discover: React.FC = () => {
                              <div className="absolute inset-0 bg-gradient-to-t from-[#020202] to-transparent" />
                          </div>
 
-                         {/* Floating Poster Card (Wider) */}
+                         {/* Floating Poster Card (Wider & Touching Top Margin) */}
                          <div 
-                             className="relative z-10 w-full aspect-[2/3] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] mb-8 overflow-hidden group"
+                             className="relative z-10 w-full aspect-[2/3] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] mb-6 overflow-hidden group"
                              onClick={() => handleOpenDetails(heroItem)}
                          >
                              <img src={getImageUrl(heroItem.poster_path)} className="w-full h-full object-cover" alt={heroItem.name} />
@@ -142,7 +142,7 @@ const V2Discover: React.FC = () => {
                          </div>
 
                          {/* Meta & Actions */}
-                         <div className="relative z-10 text-center w-full max-w-sm">
+                         <div className="relative z-10 text-center w-full max-w-sm px-2">
                              <h1 className="text-3xl font-black text-white leading-tight mb-2 drop-shadow-xl line-clamp-2">{heroItem.name}</h1>
                              <div className="flex items-center justify-center gap-3 mb-6 text-xs font-bold text-zinc-300">
                                  <span className="uppercase tracking-widest">{heroItem.media_type === 'movie' ? 'Film' : 'Series'}</span>
