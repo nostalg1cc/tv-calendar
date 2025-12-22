@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Compass, List, Settings, Search, User, LogOut, X, LayoutPanelLeft, Minimize2, Globe } from 'lucide-react';
+import { Calendar, Compass, List, Settings, Search, User, LogOut, X, LayoutPanelLeft, Minimize2, Globe, Menu, ChevronRight } from 'lucide-react';
 import { useStore } from '../store';
 
 interface V2SidebarProps {
@@ -13,9 +13,19 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
     const { user, logout, settings, updateSettings } = useStore();
     const mode = settings.v2SidebarMode || 'fixed';
     const location = useLocation();
-    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
     
     const isActive = (path: string) => location.pathname.includes(path);
+
+    // Prevent scrolling when mobile menu is open
+    useEffect(() => {
+        if (isMenuOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [isMenuOpen]);
 
     const NavItem: React.FC<{ to: string; icon: any; label: string; onClick?: () => void }> = ({ to, icon: Icon, label, onClick }) => {
         const active = isActive(to);
@@ -71,16 +81,55 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                 </div>
             </nav>
             
-            {/* Mobile Dock logic remains similar but simplified */}
+            {/* MOBILE NAVIGATION DOCK */}
             <div className="md:hidden fixed bottom-6 left-0 right-0 z-[80] px-6 pointer-events-none flex justify-center pb-[env(safe-area-inset-bottom,0px)]">
-                 <div className="pointer-events-auto w-full max-w-sm bg-black/60 backdrop-blur-3xl border border-white/10 rounded-full px-2 py-3 flex items-center justify-between shadow-2xl">
-                    <Link to="/calendar" className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl ${isActive('/calendar') ? 'text-indigo-500' : 'text-zinc-500'}`}><Calendar className="w-6 h-6" /></Link>
-                    <Link to="/discover" className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl ${isActive('/discover') ? 'text-indigo-500' : 'text-zinc-500'}`}><Compass className="w-6 h-6" /></Link>
-                    <button onClick={onOpenSearch} className="flex flex-col items-center justify-center w-14 h-12 rounded-xl text-zinc-500"><Search className="w-6 h-6" /></button>
-                    <Link to="/library" className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl ${isActive('/library') ? 'text-indigo-500' : 'text-zinc-500'}`}><List className="w-6 h-6" /></Link>
-                    <button onClick={logout} className="flex flex-col items-center justify-center w-14 h-12 rounded-xl text-zinc-500"><LogOut className="w-6 h-6" /></button>
+                 <div className="pointer-events-auto w-full max-w-sm bg-black/80 backdrop-blur-2xl border border-white/10 rounded-3xl px-2 py-3 flex items-center justify-between shadow-2xl">
+                    <Link to="/calendar" className={`flex flex-col items-center justify-center w-14 h-12 rounded-2xl transition-all ${isActive('/calendar') ? 'bg-white/10 text-white' : 'text-zinc-500'}`}><Calendar className="w-6 h-6" /></Link>
+                    <Link to="/discover" className={`flex flex-col items-center justify-center w-14 h-12 rounded-2xl transition-all ${isActive('/discover') ? 'bg-white/10 text-white' : 'text-zinc-500'}`}><Compass className="w-6 h-6" /></Link>
+                    <button onClick={onOpenSearch} className="flex flex-col items-center justify-center w-14 h-12 rounded-2xl text-indigo-400 bg-indigo-500/10"><Search className="w-6 h-6" /></button>
+                    <Link to="/library" className={`flex flex-col items-center justify-center w-14 h-12 rounded-2xl transition-all ${isActive('/library') ? 'bg-white/10 text-white' : 'text-zinc-500'}`}><List className="w-6 h-6" /></Link>
+                    <button onClick={() => setIsMenuOpen(true)} className={`flex flex-col items-center justify-center w-14 h-12 rounded-2xl transition-all ${isMenuOpen ? 'bg-white/10 text-white' : 'text-zinc-500'}`}><Menu className="w-6 h-6" /></button>
                  </div>
             </div>
+
+            {/* MOBILE MENU DRAWER */}
+            {isMenuOpen && (
+                <>
+                    <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm md:hidden animate-fade-in" onClick={() => setIsMenuOpen(false)} />
+                    <div className="fixed bottom-0 left-0 right-0 z-[100] bg-[#09090b] border-t border-white/10 rounded-t-[2.5rem] p-6 pb-28 md:hidden animate-slide-up shadow-[0_-20px_60px_rgba(0,0,0,0.9)]">
+                        <div className="w-12 h-1 bg-zinc-800 rounded-full mx-auto mb-8" />
+                        
+                        <div className="flex items-center gap-4 mb-8 bg-zinc-900/50 p-4 rounded-2xl border border-white/5">
+                            <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-indigo-500/20">
+                                {user?.username?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-bold text-white text-lg">{user?.username}</h3>
+                                <p className="text-xs text-zinc-500">{user?.is_cloud ? 'Cloud Synced' : 'Local Account'}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Link to="/ipoint" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-4 p-4 rounded-xl bg-zinc-900/30 text-zinc-300 hover:bg-zinc-800 transition-colors border border-white/5">
+                                <Globe className="w-5 h-5 text-indigo-400" />
+                                <span className="font-medium flex-1">IPoint Tool</span>
+                                <ChevronRight className="w-4 h-4 text-zinc-600" />
+                            </Link>
+
+                            <button onClick={() => { setIsMenuOpen(false); onOpenSettings?.(); }} className="w-full flex items-center gap-4 p-4 rounded-xl bg-zinc-900/30 text-zinc-300 hover:bg-zinc-800 transition-colors border border-white/5">
+                                <Settings className="w-5 h-5 text-zinc-400" />
+                                <span className="font-medium flex-1 text-left">Settings</span>
+                                <ChevronRight className="w-4 h-4 text-zinc-600" />
+                            </button>
+
+                            <button onClick={logout} className="w-full flex items-center gap-4 p-4 rounded-xl bg-red-500/5 text-red-400 hover:bg-red-500/10 transition-colors border border-red-500/10 mt-4">
+                                <LogOut className="w-5 h-5" />
+                                <span className="font-medium flex-1 text-left">Log Out</span>
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
         </>
     );
 };

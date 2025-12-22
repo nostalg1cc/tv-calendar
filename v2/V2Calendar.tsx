@@ -36,9 +36,12 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false); // Local Calendar Search
     
+    // Ensure mobile starts in cards or list, never grid
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
-        if (window.innerWidth < 768) return 'cards';
-        return (settings.viewMode as ViewMode) || 'grid';
+        const isMobile = window.innerWidth < 768;
+        const pref = (settings.viewMode as ViewMode) || 'grid';
+        if (isMobile && pref === 'grid') return 'cards';
+        return pref;
     });
     
     // Local filters
@@ -141,9 +144,11 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     };
 
     const cycleViewMode = () => {
+        // Toggle between cards and list on mobile, include grid on desktop
+        const isMobile = window.innerWidth < 768;
         if (viewMode === 'grid') handleViewChange('cards');
         else if (viewMode === 'cards') handleViewChange('list');
-        else handleViewChange('grid');
+        else handleViewChange(isMobile ? 'cards' : 'grid');
     };
 
     const FilterToggle = ({ label, active, onClick, icon: Icon }: any) => (
@@ -286,18 +291,19 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
             {/* Header */}
-            <header className="h-16 shrink-0 border-b border-white/5 flex items-center bg-[#050505]/80 z-[60] backdrop-blur-md sticky top-0">
-                {viewMode === 'grid' && (
-                    <div className="flex-1 flex flex-col justify-center px-6 border-r border-white/5 h-full min-w-[120px]">
-                         <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest leading-none mb-1">{format(calendarDate, 'yyyy')}</span>
-                         <span className="text-xl font-black text-white uppercase tracking-tighter leading-none">{format(calendarDate, 'MMMM')}</span>
-                    </div>
-                )}
+            <header className="h-16 shrink-0 border-b border-white/5 flex items-center bg-[#050505]/80 z-[60] backdrop-blur-md sticky top-0 justify-between">
+                
+                {/* Desktop Title */}
+                <div className="hidden md:flex flex-1 flex-col justify-center px-6 border-r border-white/5 h-full min-w-[120px]">
+                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest leading-none mb-1">{format(calendarDate, 'yyyy')}</span>
+                    <span className="text-xl font-black text-white uppercase tracking-tighter leading-none">{format(calendarDate, 'MMMM')}</span>
+                </div>
 
-                <div className="flex h-full ml-auto">
+                {/* Navigation - Full width on Mobile */}
+                <div className="flex flex-1 h-full md:ml-auto md:w-auto">
                     <button 
                         onClick={() => setCalendarDate(subMonths(calendarDate, 1))} 
-                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-l border-white/5"
+                        className="flex-1 md:w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-r md:border-l border-white/5"
                         title="Previous Month"
                     >
                         <ChevronLeft className="w-5 h-5" />
@@ -305,20 +311,26 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     
                     <button 
                         onClick={() => { setCalendarDate(new Date()); onSelectDay(new Date()); }} 
-                        className="px-4 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-indigo-400 hover:bg-white/5 transition-colors border-l border-white/5"
+                        className="flex-[2] md:px-4 h-full flex flex-col items-center justify-center hover:text-indigo-400 hover:bg-white/5 transition-colors border-r border-white/5"
                     >
-                        Today
+                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">
+                             {format(calendarDate, 'MMM')}
+                         </span>
+                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                             Today
+                         </span>
                     </button>
 
                     <button 
                         onClick={() => setCalendarDate(addMonths(calendarDate, 1))} 
-                        className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-l border-white/5"
+                        className="flex-1 md:w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
                         title="Next Month"
                     >
                         <ChevronRight className="w-5 h-5" />
                     </button>
                 </div>
                 
+                {/* Controls - Right Side */}
                 <div className="flex h-full border-l border-white/5">
                      <button
                         onClick={cycleViewMode}
@@ -329,6 +341,8 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                         {viewMode === 'cards' && <Smartphone className="w-5 h-5" />}
                         {viewMode === 'list' && <ListIcon className="w-5 h-5" />}
                     </button>
+                    
+                    {/* Hide Search on Mobile Header if space is tight, or keep if icons fit */}
                     <button
                         onClick={() => setIsSearchOpen(true)}
                         className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-l border-white/5"
@@ -336,41 +350,41 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     >
                         <Search className="w-5 h-5" />
                     </button>
-                </div>
 
-                <div className="flex h-full relative" ref={filterRef}>
-                    <button 
-                        onClick={() => setIsFilterOpen(!isFilterOpen)}
-                        className={`w-14 h-full flex items-center justify-center border-l border-white/5 transition-colors ${isFilterOpen ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
-                        title="Filters"
-                    >
-                        <Filter className="w-4 h-4" />
-                    </button>
+                    <div className="flex h-full relative" ref={filterRef}>
+                        <button 
+                            onClick={() => setIsFilterOpen(!isFilterOpen)}
+                            className={`w-14 h-full flex items-center justify-center border-l border-white/5 transition-colors ${isFilterOpen ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+                            title="Filters"
+                        >
+                            <Filter className="w-4 h-4" />
+                        </button>
 
-                     {isFilterOpen && (
-                        <div className="absolute top-full right-4 mt-4 w-72 bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[100] animate-enter overflow-hidden">
-                            <div className="p-4 border-b border-white/5 bg-zinc-900/50">
-                                <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                    <Filter className="w-3 h-3" /> View Options
-                                </h4>
+                         {isFilterOpen && (
+                            <div className="absolute top-full right-4 mt-4 w-72 bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[100] animate-enter overflow-hidden">
+                                <div className="p-4 border-b border-white/5 bg-zinc-900/50">
+                                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                        <Filter className="w-3 h-3" /> View Options
+                                    </h4>
+                                </div>
+                                <div className="p-3 space-y-2">
+                                    <FilterToggle label="TV Series" icon={Tv} active={showTV} onClick={() => setShowTV(!showTV)} />
+                                    <FilterToggle label="Movies" icon={Film} active={showMovies} onClick={() => setShowMovies(!showMovies)} />
+                                    
+                                    <div className="h-px bg-white/5 my-1" />
+                                    
+                                    <FilterToggle label="Digital Releases Only" icon={MonitorPlay} active={settings.hideTheatrical} onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} />
+                                    <FilterToggle label="Show Hidden Items" icon={EyeOff} active={showHidden} onClick={() => setShowHidden(!showHidden)} />
+                                </div>
                             </div>
-                            <div className="p-3 space-y-2">
-                                <FilterToggle label="TV Series" icon={Tv} active={showTV} onClick={() => setShowTV(!showTV)} />
-                                <FilterToggle label="Movies" icon={Film} active={showMovies} onClick={() => setShowMovies(!showMovies)} />
-                                
-                                <div className="h-px bg-white/5 my-1" />
-                                
-                                <FilterToggle label="Digital Releases Only" icon={MonitorPlay} active={settings.hideTheatrical} onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} />
-                                <FilterToggle label="Show Hidden Items" icon={EyeOff} active={showHidden} onClick={() => setShowHidden(!showHidden)} />
-                            </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </header>
 
             {/* --- GRID VIEW (DESKTOP DEFAULT) --- */}
             {viewMode === 'grid' && (
-                <>
+                <div className="hidden md:flex flex-col h-full min-h-0">
                     <div className="grid grid-cols-7 border-b border-white/5 bg-zinc-950/10 shrink-0">
                         {weekDays.map(day => (
                             <div key={day} className="py-2 text-center text-[9px] font-black text-zinc-600 uppercase tracking-[0.25em] border-r border-white/5 last:border-r-0">
@@ -405,7 +419,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                             );
                         })}
                     </div>
-                </>
+                </div>
             )}
 
             {/* --- CARD VIEW (FEED / MOBILE DEFAULT) --- */}
@@ -432,15 +446,15 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                         id={isTodayDate ? 'v2-today-anchor' : undefined}
                                         className="scroll-mt-32"
                                     >
-                                        <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-2 px-6 flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <span className={`text-xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-400' : 'text-white'}`}>{format(day, 'dd')}</span>
+                                        <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-3 px-6 flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`text-2xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-400' : 'text-white'}`}>{format(day, 'dd')}</div>
                                                 <div className="flex flex-col leading-none">
-                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isTodayDate ? 'text-indigo-500' : 'text-zinc-500'}`}>{format(day, 'EEEE')}</span>
-                                                    <span className="text-[10px] text-zinc-600 font-mono uppercase">{format(day, 'MMM yyyy')}</span>
+                                                    <span className={`text-[11px] font-black uppercase tracking-widest ${isTodayDate ? 'text-indigo-500' : 'text-white'}`}>{format(day, 'EEEE')}</span>
+                                                    <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-wide">{format(day, 'MMMM yyyy')}</span>
                                                 </div>
                                             </div>
-                                            {isTodayDate && <span className="text-[9px] font-bold bg-indigo-600 text-white px-2 py-1 rounded uppercase tracking-wide">Today</span>}
+                                            {isTodayDate && <span className="text-[9px] font-bold bg-indigo-600 text-white px-2 py-1 rounded uppercase tracking-wide shadow-lg shadow-indigo-500/20">Today</span>}
                                         </div>
 
                                         <div className="flex flex-col gap-px bg-zinc-900">
@@ -557,10 +571,13 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                         id={isTodayDate ? 'v2-today-anchor' : undefined}
                                         className="scroll-mt-32"
                                     >
-                                        <div className="sticky top-0 z-40 bg-[#020202] border-b border-white/5 py-2 px-4 flex items-center gap-4">
-                                            <span className={`text-sm font-black w-8 text-center ${isTodayDate ? 'text-indigo-500' : 'text-zinc-500'}`}>{format(day, 'dd')}</span>
-                                            <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{format(day, 'EEEE')}</span>
-                                            {isTodayDate && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full ml-auto shadow-[0_0_8px_rgba(99,102,241,0.8)]" />}
+                                        <div className="sticky top-0 z-40 bg-[#020202] border-b border-white/5 py-2 px-4 flex items-center gap-4 shadow-sm">
+                                            <span className={`text-xl font-black w-10 text-center ${isTodayDate ? 'text-indigo-500' : 'text-zinc-500'}`}>{format(day, 'dd')}</span>
+                                            <div className="flex flex-col leading-none">
+                                                <span className="text-[11px] font-bold text-white uppercase tracking-widest">{format(day, 'EEEE')}</span>
+                                                <span className="text-[9px] font-medium text-zinc-600 uppercase tracking-wide">{format(day, 'MMMM yyyy')}</span>
+                                            </div>
+                                            {isTodayDate && <div className="w-2 h-2 bg-indigo-500 rounded-full ml-auto shadow-[0_0_8px_rgba(99,102,241,0.8)]" />}
                                         </div>
 
                                         <div className="divide-y divide-white/5">
