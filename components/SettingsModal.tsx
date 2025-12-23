@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { X, EyeOff, Sparkles, RefreshCw, AlertTriangle, Moon, Sun, User, Palette, Layers, Database, LogOut, ChevronRight, CheckCircle2, Download, Upload, Monitor, PenTool, Globe, CalendarClock, Signal, Loader2, Ban, Image, Layout } from 'lucide-react';
+import { X, EyeOff, Sparkles, RefreshCw, AlertTriangle, Moon, Sun, User, Palette, Layers, Database, LogOut, ChevronRight, CheckCircle2, Download, Upload, Monitor, PenTool, Globe, CalendarClock, Signal, Loader2, Ban, Image } from 'lucide-react';
 import { useStore } from '../store';
 
 // Mock Themes if context is gone
