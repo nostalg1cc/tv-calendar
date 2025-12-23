@@ -2,10 +2,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useStore } from '../store';
 import { 
-    Check, Eye, EyeOff, Share2, Tv, Film, Trash2, Calendar, 
-    MonitorPlay, Ticket, Copy, Filter, X, ExternalLink 
+    Check, Eye, EyeOff, Share2, Tv, Film, Trash2, 
+    Copy, Filter, ExternalLink, ChevronRight, Sparkles, MonitorPlay, Calendar 
 } from 'lucide-react';
-import { Episode, TVShow } from '../types';
+import { Episode } from '../types';
 import toast from 'react-hot-toast';
 
 type ContextType = 'episode' | 'show' | 'general' | 'calendar_bg';
@@ -25,7 +25,6 @@ const ContextMenu: React.FC = () => {
         removeFromWatchlist, 
         settings, 
         updateSettings,
-        calendarDate
     } = useStore();
     
     const [state, setState] = useState<ContextState>({
@@ -36,13 +35,13 @@ const ContextMenu: React.FC = () => {
         data: null
     });
     
+    const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleContextMenu = (e: MouseEvent) => {
             e.preventDefault();
             
-            // Find closest element with data-context attributes
             const target = e.target as HTMLElement;
             const contextEl = target.closest('[data-context-type]');
             
@@ -61,14 +60,16 @@ const ContextMenu: React.FC = () => {
                 }
             }
 
-            // Calculate position to keep in bounds
+            // Bounds checking
             let x = e.pageX;
             let y = e.pageY;
             
-            // Basic bounds check (will be refined by CSS/browser layout usually, but simple clamp here)
-            if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+            // Basic viewport collision
+            if (x + 220 > window.innerWidth) x = window.innerWidth - 230;
+            if (y + 300 > window.innerHeight) y = window.innerHeight - 310;
             
             setState({ visible: true, x, y, type, data });
+            setActiveSubmenu(null); // Reset submenus on open
         };
 
         const handleClick = () => setState(prev => ({ ...prev, visible: false }));
@@ -97,9 +98,6 @@ const ContextMenu: React.FC = () => {
     const handleToggleWatched = () => {
         if (state.type !== 'episode' || !state.data) return;
         const ep = state.data as Episode;
-        // Reconstruct interaction key to check current status for toggle logic if needed, 
-        // but store's toggleWatched handles the flip based on the passed is_watched param usually.
-        // However, the store expects us to pass the CURRENT is_watched to know what to flip FROM.
         const key = ep.is_movie 
             ? `movie-${ep.show_id}` 
             : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
@@ -116,8 +114,8 @@ const ContextMenu: React.FC = () => {
     };
 
     const handleRemoveShow = () => {
-        if (!state.data?.show_id && !state.data?.id) return;
-        const id = state.data.show_id || state.data.id;
+        const id = state.data?.show_id || state.data?.id;
+        if (!id) return;
         if (confirm("Remove this show from your library?")) {
             removeFromWatchlist(id);
             toast.success("Removed from library");
@@ -128,96 +126,195 @@ const ContextMenu: React.FC = () => {
         window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
     };
 
-    // --- MENU CONTENT ---
+    // --- COMPONENTS ---
 
-    return (
-        <div 
-            ref={menuRef}
-            className="fixed z-[9999] min-w-[200px] bg-[#0A0A0A]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-1.5 animate-enter flex flex-col gap-1 text-sm font-medium text-zinc-300"
-            style={{ top: state.y, left: state.x }}
-            onClick={e => e.stopPropagation()} 
+    const MenuItem = ({ icon: Icon, label, onClick, danger = false, rightElement }: any) => (
+        <button 
+            onClick={(e) => { e.stopPropagation(); onClick(); setState(p => ({...p, visible: false})); }} 
+            className={`
+                w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left group
+                ${danger 
+                    ? 'text-red-400 hover:bg-red-500/10' 
+                    : 'text-zinc-300 hover:bg-white/10 hover:text-white'}
+            `}
         >
-            {/* --- EPISODE CONTEXT --- */}
-            {state.type === 'episode' && state.data && (
-                <>
-                    <div className="px-2 py-1.5 text-xs font-black text-zinc-500 uppercase tracking-wider border-b border-white/5 mb-1 truncate max-w-[220px]">
-                        {state.data.show_name}
-                    </div>
-                    
-                    <button onClick={() => { handleToggleWatched(); setState(p => ({...p, visible: false})); }} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 hover:text-white transition-colors text-left">
-                        {history[state.data.is_movie ? `movie-${state.data.show_id}` : `episode-${state.data.show_id}-${state.data.season_number}-${state.data.episode_number}`]?.is_watched ? (
-                            <><EyeOff className="w-4 h-4" /> Mark Unwatched</>
-                        ) : (
-                            <><Check className="w-4 h-4" /> Mark Watched</>
-                        )}
-                    </button>
+            <div className="flex items-center gap-3">
+                {Icon && <Icon className="w-4 h-4 opacity-70 group-hover:opacity-100" />}
+                <span className="text-xs font-bold tracking-wide">{label}</span>
+            </div>
+            {rightElement}
+        </button>
+    );
 
-                    <button onClick={() => { handleCopy(`${state.data.show_name} - ${state.data.name}`); setState(p => ({...p, visible: false})); }} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 hover:text-white transition-colors text-left">
-                        <Copy className="w-4 h-4" /> Copy Title
-                    </button>
-                    
-                     <button onClick={() => { handleSearchGoogle(`${state.data.show_name} ${state.data.name} review`); setState(p => ({...p, visible: false})); }} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 hover:text-white transition-colors text-left">
-                        <ExternalLink className="w-4 h-4" /> Search Reviews
-                    </button>
+    const SubMenuTrigger = ({ icon: Icon, label, id, children }: any) => (
+        <div 
+            className="relative w-full group/submenu"
+            onMouseEnter={() => setActiveSubmenu(id)}
+            onMouseLeave={() => setActiveSubmenu(null)}
+        >
+            <button 
+                className={`
+                    w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left
+                    ${activeSubmenu === id ? 'bg-white/10 text-white' : 'text-zinc-300 hover:bg-white/10 hover:text-white'}
+                `}
+            >
+                <div className="flex items-center gap-3">
+                    {Icon && <Icon className="w-4 h-4 opacity-70" />}
+                    <span className="text-xs font-bold tracking-wide">{label}</span>
+                </div>
+                <ChevronRight className="w-3 h-3 opacity-50" />
+            </button>
 
-                    <div className="h-px bg-white/10 my-1" />
-                    
-                    <button onClick={() => { handleRemoveShow(); setState(p => ({...p, visible: false})); }} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-500/10 hover:text-red-400 text-red-400/80 transition-colors text-left">
-                        <Trash2 className="w-4 h-4" /> Hide Show
-                    </button>
-                </>
-            )}
-
-            {/* --- SHOW/LIBRARY CONTEXT --- */}
-            {state.type === 'show' && state.data && (
-                 <>
-                    <div className="px-2 py-1.5 text-xs font-black text-zinc-500 uppercase tracking-wider border-b border-white/5 mb-1 truncate max-w-[220px]">
-                        {state.data.name}
-                    </div>
-                    <button onClick={() => { handleCopy(state.data.name); setState(p => ({...p, visible: false})); }} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 hover:text-white transition-colors text-left">
-                        <Copy className="w-4 h-4" /> Copy Name
-                    </button>
-                    <button onClick={() => { handleSearchGoogle(`${state.data.name} ${state.data.media_type} rating`); setState(p => ({...p, visible: false})); }} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 hover:text-white transition-colors text-left">
-                        <ExternalLink className="w-4 h-4" /> Search Rating
-                    </button>
-                    <div className="h-px bg-white/10 my-1" />
-                    <button onClick={() => { handleRemoveShow(); setState(p => ({...p, visible: false})); }} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-500/10 hover:text-red-400 text-red-400/80 transition-colors text-left">
-                        <Trash2 className="w-4 h-4" /> Remove from Library
-                    </button>
-                 </>
-            )}
-
-            {/* --- GENERAL / CALENDAR BG CONTEXT --- */}
-            {(state.type === 'general' || state.type === 'calendar_bg') && (
-                <>
-                    <div className="px-2 py-1.5 text-xs font-black text-zinc-500 uppercase tracking-wider border-b border-white/5 mb-1">
-                        Calendar Options
-                    </div>
-                    
-                    <button 
-                        onClick={() => { updateSettings({ calendarFilterTv: !settings.calendarFilterTv }); }} 
-                        className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/10 hover:text-white transition-colors text-left group"
-                    >
-                        <div className="flex items-center gap-3"><Tv className="w-4 h-4" /> Show Series</div>
-                        {settings.calendarFilterTv && <Check className="w-3.5 h-3.5 text-indigo-400" />}
-                    </button>
-
-                    <button 
-                        onClick={() => { updateSettings({ calendarFilterMovies: !settings.calendarFilterMovies }); }} 
-                        className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/10 hover:text-white transition-colors text-left group"
-                    >
-                        <div className="flex items-center gap-3"><Film className="w-4 h-4" /> Show Movies</div>
-                        {settings.calendarFilterMovies && <Check className="w-3.5 h-3.5 text-indigo-400" />}
-                    </button>
-
-                    <div className="h-px bg-white/10 my-1" />
-                    
-                    <button onClick={() => window.location.reload()} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 hover:text-white transition-colors text-left">
-                        <Share2 className="w-4 h-4" /> Reload App
-                    </button>
-                </>
+            {/* Submenu Dropdown */}
+            {activeSubmenu === id && (
+                <div 
+                    className="absolute left-full top-0 ml-1.5 w-48 bg-[#0A0A0A]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-1.5 origin-top-left animate-menu-bounce z-[10000]"
+                >
+                    {children}
+                </div>
             )}
         </div>
+    );
+
+    const Separator = () => <div className="h-px bg-white/5 my-1" />;
+    const Header = ({ text }: { text: string }) => (
+        <div className="px-2 py-1.5 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-white/5 mb-1 truncate max-w-[200px] select-none">
+            {text}
+        </div>
+    );
+
+    return (
+        <>
+            {/* Styles for the bouncy animation */}
+            <style>{`
+                @keyframes menuBounce {
+                    0% { transform: scale(0.9) opacity(0); }
+                    60% { transform: scale(1.02) opacity(1); }
+                    100% { transform: scale(1) opacity(1); }
+                }
+                .animate-menu-bounce {
+                    animation: menuBounce 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+                }
+            `}</style>
+
+            <div 
+                ref={menuRef}
+                className="fixed z-[9999] min-w-[220px] bg-[#0A0A0A]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 animate-menu-bounce origin-top-left"
+                style={{ top: state.y, left: state.x }}
+                onClick={e => e.stopPropagation()} 
+            >
+                {/* --- EPISODE CONTEXT --- */}
+                {state.type === 'episode' && state.data && (
+                    <>
+                        <Header text={state.data.show_name} />
+                        
+                        <MenuItem 
+                            icon={history[state.data.is_movie ? `movie-${state.data.show_id}` : `episode-${state.data.show_id}-${state.data.season_number}-${state.data.episode_number}`]?.is_watched ? EyeOff : Check}
+                            label={history[state.data.is_movie ? `movie-${state.data.show_id}` : `episode-${state.data.show_id}-${state.data.season_number}-${state.data.episode_number}`]?.is_watched ? "Mark Unwatched" : "Mark Watched"}
+                            onClick={handleToggleWatched}
+                        />
+                        <MenuItem 
+                            icon={Copy} 
+                            label="Copy Title" 
+                            onClick={() => handleCopy(`${state.data.show_name} - ${state.data.name}`)} 
+                        />
+                        <MenuItem 
+                            icon={ExternalLink} 
+                            label="Search Reviews" 
+                            onClick={() => handleSearchGoogle(`${state.data.show_name} ${state.data.name} review`)} 
+                        />
+
+                        <Separator />
+                        
+                        <MenuItem 
+                            icon={Trash2} 
+                            label="Hide Show" 
+                            danger 
+                            onClick={handleRemoveShow} 
+                        />
+                    </>
+                )}
+
+                {/* --- SHOW/LIBRARY CONTEXT --- */}
+                {state.type === 'show' && state.data && (
+                    <>
+                        <Header text={state.data.name} />
+                        
+                        <MenuItem 
+                            icon={Copy} 
+                            label="Copy Name" 
+                            onClick={() => handleCopy(state.data.name)} 
+                        />
+                        <MenuItem 
+                            icon={ExternalLink} 
+                            label="Check Rating" 
+                            onClick={() => handleSearchGoogle(`${state.data.name} ${state.data.media_type} review`)} 
+                        />
+                         <MenuItem 
+                            icon={Sparkles} 
+                            label="Similar Shows" 
+                            onClick={() => handleSearchGoogle(`${state.data.name} similar shows`)} 
+                        />
+
+                        <Separator />
+                        
+                        <MenuItem 
+                            icon={Trash2} 
+                            label="Remove from Library" 
+                            danger 
+                            onClick={handleRemoveShow} 
+                        />
+                    </>
+                )}
+
+                {/* --- GENERAL / CALENDAR BG CONTEXT --- */}
+                {(state.type === 'general' || state.type === 'calendar_bg') && (
+                    <>
+                        <Header text="Calendar" />
+                        
+                        <SubMenuTrigger icon={Filter} label="View Options" id="view-options">
+                            <Header text="Display Filters" />
+                            <MenuItem 
+                                icon={Tv} 
+                                label="TV Series" 
+                                onClick={() => updateSettings({ calendarFilterTv: !settings.calendarFilterTv })}
+                                rightElement={settings.calendarFilterTv && <Check className="w-3.5 h-3.5 text-indigo-400" />}
+                            />
+                            <MenuItem 
+                                icon={Film} 
+                                label="Movies" 
+                                onClick={() => updateSettings({ calendarFilterMovies: !settings.calendarFilterMovies })}
+                                rightElement={settings.calendarFilterMovies && <Check className="w-3.5 h-3.5 text-indigo-400" />}
+                            />
+                            <Separator />
+                            <MenuItem 
+                                icon={MonitorPlay} 
+                                label="Digital Only" 
+                                onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })}
+                                rightElement={settings.hideTheatrical && <Check className="w-3.5 h-3.5 text-indigo-400" />}
+                            />
+                        </SubMenuTrigger>
+
+                        <MenuItem 
+                            icon={Calendar} 
+                            label="Today" 
+                            onClick={() => {
+                                const todayEl = document.getElementById('v2-today-anchor');
+                                if (todayEl) todayEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }} 
+                        />
+
+                        <Separator />
+                        
+                        <MenuItem 
+                            icon={Share2} 
+                            label="Reload App" 
+                            onClick={() => window.location.reload()} 
+                        />
+                    </>
+                )}
+            </div>
+        </>
     );
 };
 
