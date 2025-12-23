@@ -195,7 +195,13 @@ const V2Library: React.FC = () => {
                                 const isWatched = isFullyWatched(item);
                                 
                                 return (
-                                    <div key={item.id} onClick={() => setSelectedItem(item)} className="group relative flex flex-col gap-3 cursor-pointer">
+                                    <div 
+                                        key={item.id} 
+                                        onClick={() => setSelectedItem(item)} 
+                                        className="group relative flex flex-col gap-3 cursor-pointer"
+                                        data-context-type="show"
+                                        data-context-meta={JSON.stringify(item)}
+                                    >
                                         {/* Poster Card */}
                                         <div className="relative aspect-[2/3] w-full bg-zinc-900 rounded-sm overflow-hidden shadow-lg border border-white/5 transition-all duration-300 group-hover:-translate-y-2 group-hover:shadow-2xl group-hover:border-white/20">
                                             <img 
@@ -260,6 +266,8 @@ const V2Library: React.FC = () => {
                                         key={item.id} 
                                         onClick={() => setSelectedItem(item)} 
                                         className="flex items-center gap-4 p-3 rounded-lg border border-transparent hover:bg-zinc-900 hover:border-white/5 transition-all cursor-pointer group"
+                                        data-context-type="show"
+                                        data-context-meta={JSON.stringify(item)}
                                     >
                                         {/* Thumb */}
                                         <div className="w-10 h-14 bg-zinc-800 rounded overflow-hidden shrink-0 shadow-sm relative">

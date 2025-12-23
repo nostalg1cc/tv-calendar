@@ -44,9 +44,9 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         return pref;
     });
     
-    // Local filters
-    const [showTV, setShowTV] = useState(true);
-    const [showMovies, setShowMovies] = useState(true);
+    // Filters using global settings now
+    const showTV = settings.calendarFilterTv !== false; // Default true if undefined
+    const showMovies = settings.calendarFilterMovies !== false; 
     const [showHidden, setShowHidden] = useState(false);
 
     const filterRef = useRef<HTMLDivElement>(null);
@@ -221,7 +221,11 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         const isWatched = interactions[watchedKey]?.is_watched;
 
         return (
-            <div className="absolute inset-0 w-full h-full bg-[#050505] overflow-hidden group/cell-item">
+            <div 
+                className="absolute inset-0 w-full h-full bg-[#050505] overflow-hidden group/cell-item"
+                data-context-type="episode"
+                data-context-meta={JSON.stringify(ep)}
+            >
                 <div className="absolute inset-0 bg-cover bg-center blur-xl opacity-30 scale-110" style={{ backgroundImage: `url(${imageUrl})` }} />
                 <div className="absolute inset-0 flex items-center justify-center">
                     <img src={imageUrl} className={`h-full w-auto max-w-full object-contain shadow-2xl relative z-10 transition-all duration-300 ${isWatched ? 'grayscale opacity-50' : 'opacity-100'}`} alt="" />
@@ -255,7 +259,12 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     const allWatched = group.every(ep => interactions[ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched);
 
                     return (
-                        <div key={`${first.show_id}-${idx}`} className="flex items-center gap-2 group/item">
+                        <div 
+                            key={`${first.show_id}-${idx}`} 
+                            className="flex items-center gap-2 group/item"
+                            data-context-type="episode"
+                            data-context-meta={JSON.stringify(first)}
+                        >
                             <div className="w-5 h-7 rounded-[2px] bg-zinc-900 overflow-hidden shrink-0 border border-white/5 relative">
                                 <img src={posterSrc} className={`w-full h-full object-cover ${allWatched ? 'grayscale opacity-50' : ''}`} alt="" />
                                 {allWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-3 h-3 text-emerald-500" /></div>}
@@ -346,8 +355,8 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                             <div className="absolute top-full right-4 mt-4 w-72 bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[100] animate-enter overflow-hidden">
                                 <div className="p-4 border-b border-white/5 bg-zinc-900/50"><h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2"><Filter className="w-3 h-3" /> View Options</h4></div>
                                 <div className="p-3 space-y-2">
-                                    <FilterToggle label="TV Series" icon={Tv} active={showTV} onClick={() => setShowTV(!showTV)} />
-                                    <FilterToggle label="Movies" icon={Film} active={showMovies} onClick={() => setShowMovies(!showMovies)} />
+                                    <FilterToggle label="TV Series" icon={Tv} active={showTV} onClick={() => updateSettings({ calendarFilterTv: !settings.calendarFilterTv })} />
+                                    <FilterToggle label="Movies" icon={Film} active={showMovies} onClick={() => updateSettings({ calendarFilterMovies: !settings.calendarFilterMovies })} />
                                     <div className="h-px bg-white/5 my-1" />
                                     <FilterToggle label="Digital Releases Only" icon={MonitorPlay} active={settings.hideTheatrical} onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} />
                                     <FilterToggle label="Show Hidden Items" icon={EyeOff} active={showHidden} onClick={() => setShowHidden(!showHidden)} />
@@ -360,7 +369,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
             {/* --- GRID VIEW (DESKTOP DEFAULT) --- */}
             {viewMode === 'grid' && (
-                <div className="hidden md:flex flex-col h-full min-h-0">
+                <div className="hidden md:flex flex-col h-full min-h-0" data-context-type="calendar_bg">
                     <div className="grid grid-cols-7 border-b border-white/5 bg-zinc-950/10 shrink-0">
                         {weekDays.map(day => (
                             <div key={day} className="py-2 text-center text-[9px] font-black text-zinc-600 uppercase tracking-[0.25em] border-r border-white/5 last:border-r-0">{day}</div>
@@ -391,7 +400,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
             {/* --- CARD VIEW (FEED / MOBILE DEFAULT) --- */}
             {viewMode === 'cards' && (
-                <div ref={cardScrollRef} className="flex-1 overflow-y-auto custom-scrollbar">
+                <div ref={cardScrollRef} className="flex-1 overflow-y-auto custom-scrollbar" data-context-type="calendar_bg">
                     {activeDays.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full opacity-30">
                             <CalendarIcon className="w-16 h-16 text-zinc-500 mb-4" />
@@ -416,7 +425,13 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                 const allWatched = group.every(ep => interactions[ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched);
 
                                                 return (
-                                                    <div key={`${firstEp.show_id}-${groupIdx}`} onClick={() => onSelectDay(day)} className={`relative w-full bg-[#09090b] group transition-all duration-300 ${allWatched ? 'opacity-60 grayscale' : ''}`}>
+                                                    <div 
+                                                        key={`${firstEp.show_id}-${groupIdx}`} 
+                                                        onClick={() => onSelectDay(day)} 
+                                                        className={`relative w-full bg-[#09090b] group transition-all duration-300 ${allWatched ? 'opacity-60 grayscale' : ''}`}
+                                                        data-context-type="episode"
+                                                        data-context-meta={JSON.stringify(firstEp)}
+                                                    >
                                                         <div className="w-full aspect-[21/9] sm:aspect-[3/1] relative overflow-hidden">
                                                             <img src={bannerUrl} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
                                                             <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/20 to-transparent" />
@@ -458,7 +473,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
             {/* --- LIST VIEW (COMPACT) --- */}
             {viewMode === 'list' && (
-                <div ref={cardScrollRef} className="flex-1 overflow-y-auto custom-scrollbar bg-[#020202]">
+                <div ref={cardScrollRef} className="flex-1 overflow-y-auto custom-scrollbar bg-[#020202]" data-context-type="calendar_bg">
                     {activeDays.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full opacity-30">
                             <ListIcon className="w-16 h-16 text-zinc-500 mb-4" />
@@ -482,7 +497,13 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                 const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
 
                                                 return (
-                                                    <div key={`${ep.show_id}-${ep.id}`} onClick={() => onSelectDay(day)} className={`group flex items-center gap-4 p-4 hover:bg-white/[0.02] transition-colors ${isWatched ? 'opacity-40' : ''}`}>
+                                                    <div 
+                                                        key={`${ep.show_id}-${ep.id}`} 
+                                                        onClick={() => onSelectDay(day)} 
+                                                        className={`group flex items-center gap-4 p-4 hover:bg-white/[0.02] transition-colors ${isWatched ? 'opacity-40' : ''}`}
+                                                        data-context-type="episode"
+                                                        data-context-meta={JSON.stringify(ep)}
+                                                    >
                                                         <div className="w-10 h-14 bg-zinc-900 rounded border border-white/10 shrink-0 overflow-hidden">
                                                             <img src={getImageUrl(posterSrc)} className="w-full h-full object-cover" alt="" />
                                                         </div>

@@ -1,5 +1,4 @@
 
-
 export interface TVShow {
   id: number;
   name: string;
@@ -79,6 +78,9 @@ export interface AppSettings {
   cleanGrid?: boolean;
   useSeason1Art?: boolean;
   mobileNavLayout?: 'pill' | 'standard';
+  // V2 Calendar Filters
+  calendarFilterTv?: boolean;
+  calendarFilterMovies?: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -93,7 +95,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   recommendationsEnabled: true,
   v2SidebarMode: 'fixed',
   v2LibraryLayout: 'grid',
-  hiddenItems: []
+  hiddenItems: [],
+  calendarFilterTv: true,
+  calendarFilterMovies: true
 };
 
 // Database Row Types
