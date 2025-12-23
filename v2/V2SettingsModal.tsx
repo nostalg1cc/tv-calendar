@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
@@ -279,11 +279,36 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             These settings apply to unwatched content in your library. You can reveal hidden content by clicking on it.
                                         </p>
                                     </div>
+                                    
+                                    <div className="mb-6">
+                                         <h4 className="text-sm font-bold text-zinc-300 mb-3">Episode Preview Style</h4>
+                                         <div className="grid grid-cols-2 gap-4">
+                                             <button 
+                                                onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'blur' } })}
+                                                className={`p-4 rounded-xl border flex flex-col items-center gap-3 transition-all ${settings.spoilerConfig.replacementMode === 'blur' ? 'bg-indigo-600/10 border-indigo-500' : 'bg-zinc-900 border-white/5 hover:border-white/10'}`}
+                                             >
+                                                 <div className={`w-full aspect-video rounded bg-zinc-800 flex items-center justify-center overflow-hidden ${settings.spoilerConfig.replacementMode === 'blur' ? 'ring-2 ring-indigo-500' : ''}`}>
+                                                     <div className="w-full h-full bg-zinc-700 blur-md opacity-50" />
+                                                 </div>
+                                                 <span className={`text-xs font-bold uppercase tracking-wide ${settings.spoilerConfig.replacementMode === 'blur' ? 'text-white' : 'text-zinc-500'}`}>Blur Preview</span>
+                                             </button>
+                                             
+                                             <button 
+                                                onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'banner' } })}
+                                                className={`p-4 rounded-xl border flex flex-col items-center gap-3 transition-all ${settings.spoilerConfig.replacementMode === 'banner' ? 'bg-indigo-600/10 border-indigo-500' : 'bg-zinc-900 border-white/5 hover:border-white/10'}`}
+                                             >
+                                                 <div className={`w-full aspect-video rounded bg-zinc-800 flex items-center justify-center overflow-hidden relative ${settings.spoilerConfig.replacementMode === 'banner' ? 'ring-2 ring-indigo-500' : ''}`}>
+                                                      <Layout className="w-8 h-8 text-zinc-600" />
+                                                 </div>
+                                                 <span className={`text-xs font-bold uppercase tracking-wide ${settings.spoilerConfig.replacementMode === 'banner' ? 'text-white' : 'text-zinc-500'}`}>Use Show Banner</span>
+                                             </button>
+                                         </div>
+                                    </div>
 
                                     <div className="space-y-1 divide-y divide-white/5 border-y border-white/5">
                                         <Toggle 
-                                            label="Blur Images" 
-                                            description="Hide episode thumbnails and movie backdrops." 
+                                            label="Hide Images" 
+                                            description="Applies selected preview style to unwatched episodes." 
                                             active={settings.spoilerConfig.images} 
                                             onToggle={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, images: !settings.spoilerConfig.images } })} 
                                         />
@@ -300,9 +325,9 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             onToggle={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, title: !settings.spoilerConfig.title } })} 
                                         />
                                         <Toggle 
-                                            label="Include Movies" 
-                                            description="Apply spoiler rules to movies, not just TV episodes." 
-                                            active={settings.spoilerConfig.includeMovies} 
+                                            label="Exclude Movies" 
+                                            description="Never hide spoilers for movies, even if unwatched." 
+                                            active={!settings.spoilerConfig.includeMovies} 
                                             onToggle={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, includeMovies: !settings.spoilerConfig.includeMovies } })} 
                                         />
                                     </div>

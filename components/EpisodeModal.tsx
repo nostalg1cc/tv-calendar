@@ -31,12 +31,20 @@ const EpisodeRow: React.FC<{
     const isWatched = history[watchedKey]?.is_watched;
 
     // Spoiler Logic
-    // If it's a movie and includeMovies is false, skip blocking.
-    const shouldBlock = !isWatched && (!ep.is_movie || spoilerConfig.includeMovies);
+    // If it's a movie and includeMovies is false, do NOT block.
+    // If includeMovies is true, then block if unwatched.
+    // If it's TV, always block if unwatched.
+    const shouldBlock = !isWatched && (ep.is_movie ? spoilerConfig.includeMovies : true);
 
     const isImageBlocked = shouldBlock && spoilerConfig.images && !revealed.image;
     const isTextBlocked = shouldBlock && spoilerConfig.overview && !revealed.overview;
     const isNameBlocked = shouldBlock && spoilerConfig.title && !revealed.title;
+
+    // Image Source Logic
+    const useBannerReplacement = isImageBlocked && spoilerConfig.replacementMode === 'banner';
+    const displayImage = useBannerReplacement 
+        ? getImageUrl(ep.show_backdrop_path || ep.poster_path) // Use show art
+        : getImageUrl(ep.still_path || ep.poster_path);        // Use episode art
 
     // Reveal handlers
     const revealImage = (e: React.MouseEvent) => { e.stopPropagation(); setRevealed(p => ({ ...p, image: true })); };
@@ -51,15 +59,23 @@ const EpisodeRow: React.FC<{
                 onClick={isImageBlocked ? revealImage : () => onTrailer(ep)}
             >
                 <img 
-                    src={getImageUrl(ep.still_path || ep.poster_path)} 
+                    src={displayImage} 
                     alt="" 
-                    className={`w-full h-full object-cover transition-all duration-500 ${isImageBlocked ? 'blur-xl scale-110 opacity-50' : ''}`}
+                    className={`w-full h-full object-cover transition-all duration-500 ${isImageBlocked && !useBannerReplacement ? 'blur-xl scale-110 opacity-50' : 'opacity-100'} ${useBannerReplacement ? 'opacity-80' : ''}`}
                 />
                 
                 {isImageBlocked ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 group-hover/image:scale-105 transition-transform">
-                        <EyeOff className="w-6 h-6 text-zinc-400" />
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 bg-black/50 px-2 py-0.5 rounded opacity-0 group-hover/image:opacity-100 transition-opacity">Click to Reveal</span>
+                        {useBannerReplacement ? (
+                             <div className="bg-black/60 p-1.5 rounded-full backdrop-blur-sm opacity-0 group-hover/image:opacity-100 transition-opacity">
+                                <EyeOff className="w-5 h-5 text-white" />
+                             </div>
+                        ) : (
+                            <>
+                                <EyeOff className="w-6 h-6 text-zinc-400" />
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 bg-black/50 px-2 py-0.5 rounded opacity-0 group-hover/image:opacity-100 transition-opacity">Click to Reveal</span>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity">

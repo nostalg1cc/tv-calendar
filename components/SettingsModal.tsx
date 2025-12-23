@@ -1,5 +1,6 @@
+
 import React, { useRef, useState } from 'react';
-import { X, EyeOff, Sparkles, RefreshCw, AlertTriangle, Moon, Sun, User, Palette, Layers, Database, LogOut, ChevronRight, CheckCircle2, Download, Upload, Monitor, PenTool, Globe, CalendarClock, Signal, Loader2, Ban } from 'lucide-react';
+import { X, EyeOff, Sparkles, RefreshCw, AlertTriangle, Moon, Sun, User, Palette, Layers, Database, LogOut, ChevronRight, CheckCircle2, Download, Upload, Monitor, PenTool, Globe, CalendarClock, Signal, Loader2, Ban, Image } from 'lucide-react';
 import { useStore } from '../store';
 
 // Mock Themes if context is gone
@@ -130,13 +131,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl">
                                  <h4 className="font-bold text-white mb-4">Spoiler Protection</h4>
+                                 
+                                 <div className="flex gap-2 mb-4">
+                                     <button 
+                                        onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'blur' } })}
+                                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold border transition-all ${settings.spoilerConfig.replacementMode === 'blur' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}
+                                     >
+                                         Blur Preview
+                                     </button>
+                                     <button 
+                                        onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'banner' } })}
+                                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold border transition-all ${settings.spoilerConfig.replacementMode === 'banner' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}
+                                     >
+                                         Use Show Banner
+                                     </button>
+                                 </div>
+
                                  <div className="space-y-3">
-                                     {[['images', 'Blur Images'], ['overview', 'Hide Descriptions'], ['title', 'Hide Titles']].map(([key, label]) => (
+                                     {[['images', 'Hide Images'], ['overview', 'Hide Descriptions'], ['title', 'Hide Titles']].map(([key, label]) => (
                                          <div key={key} className="flex items-center justify-between">
                                              <span className="text-sm text-zinc-400">{label}</span>
                                              <button onClick={() => toggleSpoiler(key as any)} className={`w-10 h-6 rounded-full transition-colors relative ${settings.spoilerConfig[key as keyof typeof settings.spoilerConfig] ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.spoilerConfig[key as keyof typeof settings.spoilerConfig] ? 'translate-x-4' : ''}`} /></button>
                                          </div>
                                      ))}
+                                     <div className="h-px bg-white/5 my-2" />
+                                     <div className="flex items-center justify-between">
+                                         <span className="text-sm text-zinc-400">Exclude Movies</span>
+                                         <button onClick={() => toggleSpoiler('includeMovies')} className={`w-10 h-6 rounded-full transition-colors relative ${!settings.spoilerConfig.includeMovies ? 'bg-indigo-600' : 'bg-zinc-700'}`}><div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${!settings.spoilerConfig.includeMovies ? 'translate-x-4' : ''}`} /></button>
+                                     </div>
                                  </div>
                              </div>
                              <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl">

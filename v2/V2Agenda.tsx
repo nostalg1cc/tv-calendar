@@ -93,16 +93,26 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
     const GroupedShowCard: React.FC<{ eps: Episode[] }> = ({ eps }) => {
         const firstEp = eps[0];
         const { spoilerConfig } = settings;
+        
+        // 1. Determine if we have unwatched items
         const hasUnwatched = eps.some(ep => {
             const key = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
             return !interactions[key]?.is_watched;
         });
+
+        // 2. Determine if spoiler rules apply based on media type settings
+        const isMovie = firstEp.is_movie;
+        const shouldApplySpoilerRules = !isMovie || spoilerConfig.includeMovies;
+        
+        // 3. Final decision
+        const isSpoilerProtected = hasUnwatched && shouldApplySpoilerRules && spoilerConfig.images;
         
         const stillUrl = getImageUrl(firstEp.still_path || firstEp.poster_path);
         const bannerUrl = getImageUrl(firstEp.show_backdrop_path || firstEp.poster_path);
         
-        const isSpoilerProtected = hasUnwatched && spoilerConfig.images;
-        const displayImageUrl = (isSpoilerProtected && spoilerConfig.replacementMode === 'banner') ? bannerUrl : stillUrl;
+        // 4. Handle replacement modes
+        const useBannerReplacement = isSpoilerProtected && spoilerConfig.replacementMode === 'banner';
+        const displayImageUrl = useBannerReplacement ? bannerUrl : stillUrl;
 
         return (
             <div className="w-full bg-zinc-950 border-b border-white/5 flex flex-col group/card first:border-t-0">
@@ -149,8 +159,11 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
                     {eps.map((ep) => {
                         const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                         const isWatched = interactions[watchedKey]?.is_watched;
-                        const isTextCensored = !isWatched && spoilerConfig.title;
-                        const isDescCensored = !isWatched && spoilerConfig.overview;
+                        
+                        // Text spoiler checks
+                        const isTextCensored = !isWatched && shouldApplySpoilerRules && spoilerConfig.title;
+                        const isDescCensored = !isWatched && shouldApplySpoilerRules && spoilerConfig.overview;
+                        
                         const titleText = isTextCensored ? `Episode ${ep.episode_number}` : (ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema Premiere' : 'Digital Release') : ep.name);
                         const subText = isDescCensored ? 'Description hidden' : (ep.is_movie ? ep.overview : `S${ep.season_number} E${ep.episode_number}`);
 
