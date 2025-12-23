@@ -100,7 +100,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
             const timer = setTimeout(() => {
                 const todayEl = document.getElementById('v2-today-anchor');
                 if (todayEl) {
-                    todayEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    todayEl.scrollIntoView({ behavior: 'auto', block: 'start' });
                 }
             }, 100);
             return () => clearTimeout(timer);
@@ -405,7 +405,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 const groupedEps = groupEpisodes(dayEps);
                                 
                                 return (
-                                    <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-32">
+                                    <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-0">
                                         {/* UNIFIED HEADER */}
                                         <DateHeader day={day} />
 
@@ -471,7 +471,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 const isTodayDate = isToday(day);
                                 
                                 return (
-                                    <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-32">
+                                    <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-0">
                                         {/* UNIFIED HEADER */}
                                         <DateHeader day={day} />
 
