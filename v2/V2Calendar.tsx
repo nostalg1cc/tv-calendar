@@ -52,6 +52,8 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     const filterRef = useRef<HTMLDivElement>(null);
     const cardScrollRef = useRef<HTMLDivElement>(null);
 
+    const isViewingCurrentMonth = isSameMonth(calendarDate, new Date());
+
     useEffect(() => {
         const handleResize = () => {
             if (window.innerWidth < 768 && viewMode === 'grid') {
@@ -296,9 +298,21 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     <button onClick={() => setCalendarDate(subMonths(calendarDate, 1))} className="flex-1 md:w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-r md:border-l border-white/5" title="Previous Month">
                         <ChevronLeft className="w-5 h-5" />
                     </button>
-                    <button onClick={() => { setCalendarDate(new Date()); onSelectDay(new Date()); }} className="flex-[2] md:px-4 h-full flex flex-col items-center justify-center hover:text-indigo-400 hover:bg-white/5 transition-colors border-r border-white/5">
+                    <button 
+                        onClick={() => {
+                            const now = new Date();
+                            if (isViewingCurrentMonth) {
+                                onSelectDay(now);
+                            } else {
+                                setCalendarDate(now);
+                            }
+                        }} 
+                        className="flex-[2] md:px-4 h-full flex flex-col items-center justify-center hover:text-indigo-400 hover:bg-white/5 transition-colors border-r border-white/5"
+                    >
                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">{format(calendarDate, 'MMM')}</span>
-                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Today</span>
+                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                            {isViewingCurrentMonth ? 'Today' : 'This Month'}
+                         </span>
                     </button>
                     <button onClick={() => setCalendarDate(addMonths(calendarDate, 1))} className="flex-1 md:w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors" title="Next Month">
                         <ChevronRight className="w-5 h-5" />
