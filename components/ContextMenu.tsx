@@ -165,12 +165,14 @@ const ContextMenu: React.FC = () => {
                 <ChevronRight className="w-3 h-3 opacity-50" />
             </button>
 
-            {/* Submenu Dropdown */}
+            {/* Submenu Dropdown with Safe Area Bridge */}
             {activeSubmenu === id && (
                 <div 
-                    className="absolute left-full top-0 ml-1.5 w-48 bg-[#0A0A0A]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-1.5 origin-top-left animate-menu-bounce z-[10000]"
+                    className="absolute left-full top-[-4px] pl-2 w-48 z-[10000] h-[calc(100%+8px)] flex items-start"
                 >
-                    {children}
+                    <div className="w-full bg-[#0A0A0A]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-1.5 animate-menu-bounce origin-top-left">
+                        {children}
+                    </div>
                 </div>
             )}
         </div>
@@ -193,7 +195,7 @@ const ContextMenu: React.FC = () => {
                     100% { transform: scale(1) opacity(1); }
                 }
                 .animate-menu-bounce {
-                    animation: menuBounce 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+                    animation: menuBounce 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
                 }
             `}</style>
 
