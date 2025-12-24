@@ -53,7 +53,7 @@ export interface User {
 }
 
 export interface AppSettings {
-  baseTheme: 'cosmic' | 'oled' | 'midnight' | 'forest' | 'dawn' | 'light' | 'auto';
+  baseTheme: 'cosmic' | 'oled' | 'midnight' | 'forest' | 'dawn' | 'light' | 'auto' | 'custom';
   appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system';
   compactCalendar: boolean;
   timezone: string;

@@ -81,8 +81,8 @@
       
       /* Cosmic (Default) */
       body[data-base-theme="cosmic"] {
-        --bg-main: #09090b; /* Zinc 950 */
-        --bg-panel: #18181b; /* Zinc 900 */
+        --bg-main: #09090b;
+        --bg-panel: #18181b;
         --border-color: rgba(255, 255, 255, 0.08);
         --text-main: #e4e4e7;
         --text-muted: #a1a1aa;
@@ -136,6 +136,15 @@
         --text-muted: #71717a; /* Zinc 500 */
       }
       
+      /* Custom (User Defined Color, Dark Base) */
+      body[data-base-theme="custom"] {
+        --bg-main: #09090b;
+        --bg-panel: #18181b;
+        --border-color: rgba(255, 255, 255, 0.08);
+        --text-main: #e4e4e7;
+        --text-muted: #a1a1aa;
+      }
+
       body {
         font-family: var(--font-main), sans-serif;
         background-color: var(--bg-main);

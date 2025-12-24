@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3 } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
@@ -39,6 +39,9 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const [localApiKey, setLocalApiKey] = useState(user?.tmdb_key || '');
     const [showKey, setShowKey] = useState(false);
     const [isSavingKey, setIsSavingKey] = useState(false);
+    
+    // Custom Theme State
+    const [customColor, setCustomColor] = useState(settings.customThemeColor || '#6366f1');
     
     // Legacy Import Modal State
     const [showLegacyImport, setShowLegacyImport] = useState(false);
@@ -123,6 +126,15 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
             }
         };
         reader.readAsText(file);
+    };
+
+    const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const color = e.target.value;
+        setCustomColor(color);
+        updateSettings({ 
+            baseTheme: 'custom', 
+            customThemeColor: color 
+        });
     };
 
     if (!isOpen) return null;
@@ -232,6 +244,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                 <div>
                                     <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Palette className="w-5 h-5 text-indigo-500" /> Interface Theme</h3>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                        {/* Preset Themes */}
                                         {THEMES.map(theme => (
                                             <button 
                                                 key={theme.id}
@@ -245,6 +258,26 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                                 <span className={`text-xs font-bold uppercase tracking-wider ${settings.baseTheme === theme.id ? 'text-white' : 'text-zinc-500'}`}>{theme.name}</span>
                                             </button>
                                         ))}
+                                        
+                                        {/* Custom Theme Picker */}
+                                        <label 
+                                            className={`
+                                                relative p-4 rounded-2xl border transition-all flex flex-col items-center gap-3 cursor-pointer group
+                                                ${settings.baseTheme === 'custom' ? 'bg-zinc-800 border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'bg-zinc-900/50 border-white/5 hover:bg-zinc-900'}
+                                            `}
+                                        >
+                                            <div className="w-8 h-8 rounded-full shadow-lg border border-white/10 flex items-center justify-center overflow-hidden relative">
+                                                <div className="absolute inset-0" style={{ backgroundColor: customColor }} />
+                                                <input 
+                                                    type="color" 
+                                                    value={customColor}
+                                                    onChange={handleCustomColorChange}
+                                                    className="absolute -top-10 -left-10 w-40 h-40 opacity-0 cursor-pointer"
+                                                />
+                                                <Edit3 className="w-3 h-3 text-white/50 relative z-10 pointer-events-none" />
+                                            </div>
+                                            <span className={`text-xs font-bold uppercase tracking-wider ${settings.baseTheme === 'custom' ? 'text-white' : 'text-zinc-500'}`}>Custom</span>
+                                        </label>
                                     </div>
                                 </div>
 

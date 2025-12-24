@@ -5,6 +5,70 @@ import { AppSettings, DEFAULT_SETTINGS, TVShow, User, WatchedItem, Reminder } fr
 import { supabase } from '../services/supabase';
 import { setApiToken } from '../services/tmdb';
 
+// --- THEME UTILS ---
+
+const hexToRgb = (hex: string) => {
+    const bigint = parseInt(hex.replace('#', ''), 16);
+    return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
+};
+
+const mix = (color1: number[], color2: number[], weight: number) => {
+    const w1 = weight;
+    const w2 = 1 - weight;
+    return [
+        Math.round(color1[0] * w1 + color2[0] * w2),
+        Math.round(color1[1] * w1 + color2[1] * w2),
+        Math.round(color1[2] * w1 + color2[2] * w2),
+    ];
+};
+
+const applyTheme = (settings: AppSettings) => {
+    if (typeof document === 'undefined') return;
+
+    const root = document.documentElement;
+    const body = document.body;
+
+    // 1. Apply Fonts
+    body.setAttribute('data-font', settings.appFont);
+
+    // 2. Apply Base Theme
+    const theme = settings.baseTheme === 'auto' ? 'cosmic' : settings.baseTheme;
+    body.setAttribute('data-base-theme', theme);
+
+    // 3. Handle Custom Colors or Reset to Default
+    if (theme === 'custom' && settings.customThemeColor) {
+        const baseColor = hexToRgb(settings.customThemeColor);
+        const white = [255, 255, 255];
+        const black = [0, 0, 0];
+
+        // Generate Tailwind Palette (50-950)
+        const palette = {
+            50: mix(baseColor, white, 0.05),
+            100: mix(baseColor, white, 0.1),
+            200: mix(baseColor, white, 0.25),
+            300: mix(baseColor, white, 0.45),
+            400: mix(baseColor, white, 0.75),
+            500: baseColor, // Base
+            600: mix(baseColor, black, 0.9),
+            700: mix(baseColor, black, 0.75),
+            800: mix(baseColor, black, 0.6),
+            900: mix(baseColor, black, 0.45),
+            950: mix(baseColor, black, 0.3),
+        };
+
+        // Set CSS Variables
+        Object.entries(palette).forEach(([key, rgb]) => {
+            root.style.setProperty(`--theme-${key}`, `${rgb[0]} ${rgb[1]} ${rgb[2]}`);
+        });
+    } else {
+        // Reset to CSS defaults (Indigo) if not custom
+        // We remove the inline styles so the index.html CSS :root takes over
+        [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].forEach(key => {
+            root.style.removeProperty(`--theme-${key}`);
+        });
+    }
+};
+
 interface State {
     user: User | null;
     
@@ -111,8 +175,9 @@ export const useStore = create<State>()(
             updateSettings: (newSettings) => {
                 set((state) => {
                     const merged = { ...state.settings, ...newSettings };
-                    document.body.setAttribute('data-base-theme', merged.baseTheme === 'auto' ? 'cosmic' : merged.baseTheme);
-                    document.body.setAttribute('data-font', merged.appFont);
+                    
+                    // Apply visual changes immediately
+                    applyTheme(merged);
                     
                     if (state.user?.is_cloud) {
                         supabase?.from('profiles').update({ settings: merged }).eq('id', state.user.id).then();
@@ -304,7 +369,9 @@ export const useStore = create<State>()(
                     if (profile) {
                          // Hydrate Settings
                         if (profile.settings) {
-                            set(s => ({ settings: { ...s.settings, ...profile.settings } }));
+                            const newSettings = { ...get().settings, ...profile.settings };
+                            set({ settings: newSettings });
+                            applyTheme(newSettings); // Apply theme on sync
                         }
                         
                         // Hydrate TMDB Key - CRITICAL for persistence
@@ -369,8 +436,10 @@ export const useStore = create<State>()(
                 reminders: state.reminders 
             }),
             onRehydrateStorage: () => (state) => {
-                if (state?.user?.tmdb_key) {
-                    setApiToken(state.user.tmdb_key);
+                if (state) {
+                    // Re-apply theme and API token on page reload
+                    if (state.settings) applyTheme(state.settings);
+                    if (state.user?.tmdb_key) setApiToken(state.user.tmdb_key);
                 }
             }
         }
