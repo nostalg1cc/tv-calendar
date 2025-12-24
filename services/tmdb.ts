@@ -144,7 +144,8 @@ export const getShowDetails = async (id: number): Promise<TVShow> => {
   return {
       ...data,
       media_type: 'tv',
-      origin_country: data.origin_country
+      origin_country: data.origin_country,
+      original_language: data.original_language
   };
 };
 
@@ -182,7 +183,8 @@ export const getMovieDetails = async (id: number): Promise<TVShow> => {
     first_air_date: data.release_date,
     vote_average: data.vote_average,
     media_type: 'movie',
-    origin_country: data.production_countries?.map((c: any) => c.iso_3166_1) || []
+    origin_country: data.production_countries?.map((c: any) => c.iso_3166_1) || [],
+    original_language: data.original_language
   };
 };
 
@@ -216,7 +218,8 @@ export const searchShows = async (query: string): Promise<TVShow[]> => {
       vote_average: item.vote_average,
       number_of_seasons: undefined,
       media_type: item.media_type,
-      origin_country: item.origin_country || []
+      origin_country: item.origin_country || [],
+      original_language: item.original_language
     }));
 };
 
@@ -233,7 +236,8 @@ export const getPopularShows = async (): Promise<TVShow[]> => {
             first_air_date: item.media_type === 'movie' ? item.release_date : item.first_air_date,
             vote_average: item.vote_average,
             media_type: item.media_type,
-            origin_country: item.origin_country || []
+            origin_country: item.origin_country || [],
+            original_language: item.original_language
         }));
 };
 
@@ -250,7 +254,8 @@ export const getCollection = async (endpoint: string, mediaType: 'tv' | 'movie',
         first_air_date: mediaType === 'movie' ? item.release_date : item.first_air_date,
         vote_average: item.vote_average,
         media_type: mediaType,
-        origin_country: item.origin_country || []
+        origin_country: item.origin_country || [],
+        original_language: item.original_language
       }));
 };
 
@@ -267,7 +272,8 @@ export const getRecommendations = async (id: number, mediaType: 'tv' | 'movie'):
           first_air_date: mediaType === 'movie' ? item.release_date : item.first_air_date,
           vote_average: item.vote_average,
           media_type: mediaType,
-          origin_country: item.origin_country || []
+          origin_country: item.origin_country || [],
+          original_language: item.original_language
         }));
   } catch (e) { return []; }
 };
@@ -297,7 +303,8 @@ export const getListDetails = async (listId: string): Promise<{ name: string; it
             first_air_date: item.media_type === 'movie' ? item.release_date : item.first_air_date,
             vote_average: item.vote_average,
             media_type: item.media_type,
-            origin_country: item.origin_country || []
+            origin_country: item.origin_country || [],
+            original_language: item.original_language
         }));
         return { name: listName, items };
     } catch (e) {
@@ -312,7 +319,8 @@ export const getListDetails = async (listId: string): Promise<{ name: string; it
                 first_air_date: item.media_type === 'movie' ? item.release_date : item.first_air_date,
                 vote_average: item.vote_average,
                 media_type: item.media_type,
-                origin_country: item.origin_country || []
+                origin_country: item.origin_country || [],
+                original_language: item.original_language
             }));
             return { name: data.name, items };
         } catch (v3Error) { throw new Error("Could not find list or list is private."); }

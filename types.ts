@@ -10,6 +10,7 @@ export interface TVShow {
   media_type: 'tv' | 'movie';
   origin_country?: string[];
   seasons?: Season[];
+  original_language?: string;
 }
 
 export interface Season {
