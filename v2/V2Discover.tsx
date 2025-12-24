@@ -1,12 +1,12 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Plus, Check, Info, ChevronRight, Star, Sparkles, TrendingUp, Calendar, Film, Tv, PlayCircle } from 'lucide-react';
+import { Play, Plus, Check, Info, ChevronRight, Star, PlayCircle } from 'lucide-react';
 import { useStore } from '../store';
-import { getCollection, getBackdropUrl, getImageUrl, getPopularShows, getRecommendations } from '../services/tmdb';
+import { getCollection, getBackdropUrl, getImageUrl } from '../services/tmdb';
 import { TVShow } from '../types';
 import V2TrailerModal from './V2TrailerModal';
 import ShowDetailsModal from '../components/ShowDetailsModal';
 import DiscoverModal from '../components/DiscoverModal';
-import { format, addDays } from 'date-fns';
 
 interface ContentRowProps {
     title: string;
@@ -21,7 +21,6 @@ interface ContentRowProps {
 }
 
 const V2Discover: React.FC = () => {
-    const { watchlist, addToWatchlist } = useStore();
     const [heroItem, setHeroItem] = useState<TVShow | null>(null);
     
     // Modals
@@ -50,45 +49,11 @@ const V2Discover: React.FC = () => {
             
             {/* HERO */}
             {heroItem && (
-                <div className="relative w-full h-[70vh] shrink-0">
-                    <div className="absolute inset-0 bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${getBackdropUrl(heroItem.backdrop_path)})` }}>
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#020202] via-[#020202]/20 to-transparent" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#020202]/80 via-transparent to-transparent" />
-                    </div>
-                    
-                    <div className="absolute bottom-0 left-0 p-8 md:p-16 max-w-3xl pb-20">
-                        <div className="flex items-center gap-3 mb-4">
-                            <span className="px-2 py-1 bg-white/20 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-wider border border-white/10">
-                                #{heroItem.media_type === 'movie' ? 'Movie' : 'Series'} of the Week
-                            </span>
-                            <div className="flex items-center gap-1 text-yellow-400 text-xs font-bold">
-                                <Star className="w-3.5 h-3.5 fill-current" /> {heroItem.vote_average.toFixed(1)}
-                            </div>
-                        </div>
-                        
-                        <h1 className="text-4xl md:text-6xl font-black text-white leading-[0.9] tracking-tighter mb-4 drop-shadow-2xl">
-                            {heroItem.name}
-                        </h1>
-                        <p className="text-zinc-300 text-sm md:text-base line-clamp-3 mb-8 max-w-xl font-medium drop-shadow-md leading-relaxed">
-                            {heroItem.overview}
-                        </p>
-                        
-                        <div className="flex items-center gap-4">
-                            <button 
-                                onClick={() => openTrailer(heroItem.id, heroItem.media_type)}
-                                className="px-8 py-3 bg-white text-black hover:bg-zinc-200 rounded-xl font-bold flex items-center gap-2 transition-transform active:scale-95"
-                            >
-                                <Play className="w-5 h-5 fill-current" /> Play Trailer
-                            </button>
-                            <button 
-                                onClick={() => openDetails(heroItem)}
-                                className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/10 rounded-xl font-bold flex items-center gap-2 transition-transform active:scale-95"
-                            >
-                                <Info className="w-5 h-5" /> More Info
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <HeroCarousel 
+                    item={heroItem} 
+                    onOpenDetails={() => openDetails(heroItem)}
+                    onOpenTrailer={() => openTrailer(heroItem.id, heroItem.media_type)}
+                />
             )}
 
             <div className="relative z-10 space-y-8 pb-24 -mt-10">
@@ -169,7 +134,63 @@ const V2Discover: React.FC = () => {
     );
 };
 
+// --- HERO COMPONENT ---
+
+const HeroCarousel: React.FC<{ item: TVShow; onOpenDetails: () => void; onOpenTrailer: () => void }> = ({ item, onOpenDetails, onOpenTrailer }) => {
+    const { watchlist, addToWatchlist } = useStore();
+    const isAdded = watchlist.some(s => s.id === item.id);
+
+    return (
+        <div className="relative w-full h-[70vh] shrink-0">
+            <div className="absolute inset-0 bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${getBackdropUrl(item.backdrop_path)})` }}>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#020202] via-[#020202]/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#020202]/80 via-transparent to-transparent" />
+            </div>
+            
+            <div className="absolute bottom-0 left-0 p-8 md:p-16 max-w-3xl pb-20">
+                <div className="flex items-center gap-3 mb-4">
+                    <span className="px-2 py-1 bg-white/20 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-wider border border-white/10">
+                        #{item.media_type === 'movie' ? 'Movie' : 'Series'} of the Week
+                    </span>
+                    <div className="flex items-center gap-1 text-yellow-400 text-xs font-bold">
+                        <Star className="w-3.5 h-3.5 fill-current" /> {item.vote_average.toFixed(1)}
+                    </div>
+                </div>
+                
+                <h1 className="text-4xl md:text-6xl font-black text-white leading-[0.9] tracking-tighter mb-4 drop-shadow-2xl">
+                    {item.name}
+                </h1>
+                <p className="text-zinc-300 text-sm md:text-base line-clamp-3 mb-8 max-w-xl font-medium drop-shadow-md leading-relaxed">
+                    {item.overview}
+                </p>
+                
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={onOpenTrailer}
+                        className="px-8 py-3 bg-white text-black hover:bg-zinc-200 rounded-xl font-bold flex items-center gap-2 transition-transform active:scale-95"
+                    >
+                        <Play className="w-5 h-5 fill-current" /> Play Trailer
+                    </button>
+                    <button 
+                        onClick={onOpenDetails}
+                        className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/10 rounded-xl font-bold flex items-center gap-2 transition-transform active:scale-95"
+                    >
+                        <Info className="w-5 h-5" /> More Info
+                    </button>
+                    <button 
+                        onClick={() => !isAdded && addToWatchlist(item)}
+                        className={`px-4 py-3 rounded-xl font-bold flex items-center justify-center transition-transform active:scale-95 border ${isAdded ? 'bg-zinc-800 text-zinc-500 border-zinc-700 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white border-white/10'}`}
+                    >
+                        {isAdded ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- ROW COMPONENT ---
+
 const ContentRow: React.FC<ContentRowProps> = ({ title, subtitle, endpoint, mediaType, params, items, onOpenDetails, onOpenAll, isTop10 }) => {
     const [fetchedItems, setFetchedItems] = useState<TVShow[]>([]);
     const { addToWatchlist, watchlist } = useStore();
@@ -184,7 +205,7 @@ const ContentRow: React.FC<ContentRowProps> = ({ title, subtitle, endpoint, medi
                 setFetchedItems(filtered.slice(0, isTop10 ? 10 : 20));
             });
         }
-    }, [endpoint, mediaType, items, isTop10]);
+    }, [endpoint, mediaType, items, isTop10, params]);
 
     if (fetchedItems.length === 0) return null;
 
@@ -298,7 +319,8 @@ const ContentRow: React.FC<ContentRowProps> = ({ title, subtitle, endpoint, medi
                     })}
                 </div>
             </div>
-        );
-    };
+        </div>
+    );
+};
 
 export default V2Discover;
