@@ -286,17 +286,7 @@ const V2Library: React.FC = () => {
     return (
         <div className="flex-1 flex h-full bg-[#020202] overflow-hidden font-sans text-zinc-100">
             
-            {/* AGENDA SIDEBAR (Desktop) */}
-            <aside className="hidden lg:flex flex-col w-80 shrink-0 border-r border-white/5 bg-[#050505]">
-                <div className="h-14 flex items-center px-4 border-b border-white/5 shrink-0">
-                    <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
-                        <Layers className="w-3.5 h-3.5 text-indigo-500" /> Agenda
-                    </h3>
-                </div>
-                <AgendaSidebar episodes={episodes} watchlist={watchlist} onSelect={setSelectedItem} />
-            </aside>
-
-            {/* MAIN CONTENT */}
+            {/* MAIN CONTENT (Swapped order) */}
             <div className="flex-1 flex flex-col min-w-0 relative bg-[#020202]">
                 
                 {/* TOOLBAR */}
@@ -415,6 +405,16 @@ const V2Library: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* AGENDA SIDEBAR (Desktop) */}
+            <aside className="hidden lg:flex flex-col w-80 shrink-0 border-l border-white/5 bg-[#050505]">
+                <div className="h-14 flex items-center px-4 border-b border-white/5 shrink-0">
+                    <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                        <Layers className="w-3.5 h-3.5 text-indigo-500" /> Agenda
+                    </h3>
+                </div>
+                <AgendaSidebar episodes={episodes} watchlist={watchlist} onSelect={setSelectedItem} />
+            </aside>
 
             {/* MODALS */}
             {selectedItem && (
