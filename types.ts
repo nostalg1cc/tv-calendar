@@ -83,6 +83,8 @@ export interface AppSettings {
   // V2 Calendar Filters
   calendarFilterTv?: boolean;
   calendarFilterMovies?: boolean;
+  // Persistence for Custom Posters
+  customPosters: Record<number, string>;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -99,7 +101,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   v2LibraryLayout: 'grid',
   hiddenItems: [],
   calendarFilterTv: true,
-  calendarFilterMovies: true
+  calendarFilterMovies: true,
+  customPosters: {}
 };
 
 // Database Row Types

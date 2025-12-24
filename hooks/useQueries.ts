@@ -25,7 +25,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({
-            queryKey: ['calendar_data', show.id, show.media_type],
+            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path],
             queryFn: async (): Promise<Episode[]> => {
                 if (show.media_type === 'movie') {
                     let releases = await getMovieReleaseDates(show.id);

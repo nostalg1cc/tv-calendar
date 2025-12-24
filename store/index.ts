@@ -254,6 +254,7 @@ export const useStore = create<State>()(
 
             setCustomPoster: (showId, posterPath) => {
                 set((state) => {
+                    // 1. Update Watchlist Item Locally
                     const nextWatchlist = state.watchlist.map(show => {
                         if (show.id === showId) {
                             return { ...show, custom_poster_path: posterPath };
@@ -261,12 +262,22 @@ export const useStore = create<State>()(
                         return show;
                     });
                     
-                    // Note: This only persists locally in watchlist state.
-                    // For full cloud sync of custom posters, we'd need a schema change or jsonb field.
-                    // Assuming local-first for customization as per current request scope.
-                    // However, we can try to update 'poster_path' in cloud if desired, but 'custom_poster_path' is safer to avoid drift.
+                    // 2. Update Settings (for Cloud Persistence)
+                    const nextCustomPosters = { ...state.settings.customPosters };
+                    if (posterPath) {
+                        nextCustomPosters[showId] = posterPath;
+                    } else {
+                        delete nextCustomPosters[showId];
+                    }
                     
-                    return { watchlist: nextWatchlist };
+                    const nextSettings = { ...state.settings, customPosters: nextCustomPosters };
+                    
+                    // 3. Persist to Cloud
+                    if (state.user?.is_cloud) {
+                         supabase?.from('profiles').update({ settings: nextSettings }).eq('id', state.user.id).then();
+                    }
+                    
+                    return { watchlist: nextWatchlist, settings: nextSettings };
                 });
             },
 
@@ -303,9 +314,10 @@ export const useStore = create<State>()(
                         }
                     }
 
-                    const { data: watchlist } = await supabase.from('watchlist').select('*');
-                    if (watchlist) {
-                        const mapped = watchlist.map((w: any) => ({
+                    const { data: watchlistData } = await supabase.from('watchlist').select('*');
+                    if (watchlistData) {
+                        const currentSettings = get().settings;
+                        const mapped = watchlistData.map((w: any) => ({
                             id: w.tmdb_id,
                             name: w.name,
                             media_type: w.media_type,
@@ -313,7 +325,9 @@ export const useStore = create<State>()(
                             backdrop_path: w.backdrop_path,
                             overview: w.overview,
                             first_air_date: w.first_air_date,
-                            vote_average: w.vote_average
+                            vote_average: w.vote_average,
+                            // Apply custom poster from settings map
+                            custom_poster_path: currentSettings.customPosters?.[w.tmdb_id] || null
                         }));
                         set({ watchlist: mapped });
                     }
