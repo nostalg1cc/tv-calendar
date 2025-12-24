@@ -57,14 +57,9 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
         try {
             const cleanKey = localApiKey.trim();
             const updatedUser = { ...user, tmdb_key: cleanKey };
-            
-            // 1. Update local store state (Immediate UI update)
             login(updatedUser); 
-            
-            // 2. Update service memory (Immediate API calls)
             setApiToken(cleanKey); 
             
-            // 3. Update Cloud Database (Background sync)
             if (user.is_cloud && supabase) {
                 const { error } = await supabase
                     .from('profiles')
@@ -114,7 +109,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
         reader.onload = (ev) => {
             try {
                 const data = JSON.parse(ev.target?.result as string);
-                // Basic check for new format vs old
                 if (data.watchlist && Array.isArray(data.watchlist)) {
                     importBackup(data);
                     toast.success('Backup restored successfully.');
@@ -142,7 +136,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const TabButton = ({ id, label, icon: Icon }: { id: TabId, label: string, icon: any }) => (
         <button 
             onClick={() => setActiveTab(id)} 
-            className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all text-sm font-bold ${activeTab === id ? 'bg-indigo-600/10 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}
+            className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all text-sm font-bold ${activeTab === id ? 'bg-indigo-600/10 text-indigo-400' : 'text-text-muted hover:text-text-main hover:bg-white/[0.02]'}`}
         >
             <Icon className="w-5 h-5" /> {label}
         </button>
@@ -151,10 +145,10 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const Toggle = ({ active, onToggle, label, description }: { active: boolean; onToggle: () => void; label: string; description?: string }) => (
         <div className="flex items-center justify-between py-4 cursor-pointer group" onClick={onToggle}>
             <div className="flex-1 pr-4">
-                <h4 className="text-sm font-bold text-zinc-200 group-hover:text-indigo-300 transition-colors">{label}</h4>
-                {description && <p className="text-xs text-zinc-500 mt-1">{description}</p>}
+                <h4 className="text-sm font-bold text-text-main group-hover:text-indigo-400 transition-colors">{label}</h4>
+                {description && <p className="text-xs text-text-muted mt-1">{description}</p>}
             </div>
-            <button className={`w-12 h-6 rounded-full transition-all relative shrink-0 ${active ? 'bg-indigo-600' : 'bg-zinc-800'}`}>
+            <button className={`w-12 h-6 rounded-full transition-all relative shrink-0 ${active ? 'bg-indigo-600' : 'bg-card border border-border'}`}>
                 <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-lg transition-transform ${active ? 'translate-x-6' : ''}`} />
             </button>
         </div>
@@ -163,13 +157,13 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     return (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-0 md:p-12" onClick={onClose}>
             <div className="absolute inset-0 bg-black/80 backdrop-blur-xl animate-fade-in" />
-            <div className="relative bg-[#080808] border border-white/5 w-full md:w-full md:max-w-5xl h-full md:h-full md:max-h-[800px] flex flex-col md:flex-row overflow-hidden md:rounded-3xl shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="relative bg-background border border-border w-full md:w-full md:max-w-5xl h-full md:h-full md:max-h-[800px] flex flex-col md:flex-row overflow-hidden md:rounded-3xl shadow-2xl" onClick={e => e.stopPropagation()}>
                 
                 {/* Sidebar */}
-                <div className="w-full md:w-72 border-b md:border-b-0 md:border-r border-white/5 bg-zinc-950/30 flex-col shrink-0 hidden md:flex">
+                <div className="w-full md:w-72 border-b md:border-b-0 md:border-r border-border bg-panel flex-col shrink-0 hidden md:flex">
                     <div className="p-8 pb-4">
-                        <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Settings</h2>
-                        <p className="text-xs text-zinc-500 font-medium mt-1">Configure your experience</p>
+                        <h2 className="text-2xl font-black text-text-main uppercase tracking-tighter">Settings</h2>
+                        <p className="text-xs text-text-muted font-medium mt-1">Configure your experience</p>
                     </div>
                     <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
                         <TabButton id="general" label="General" icon={Settings} />
@@ -178,22 +172,22 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                         <TabButton id="data" label="Data & API" icon={Database} />
                         <TabButton id="account" label="Account" icon={User} />
                     </nav>
-                    <div className="p-4 border-t border-white/5">
-                        <p className="text-[10px] text-zinc-600 text-center font-mono">v2.0.0 • Stable</p>
+                    <div className="p-4 border-t border-border">
+                        <p className="text-[10px] text-text-muted text-center font-mono">v2.0.0 • Stable</p>
                     </div>
                 </div>
 
                 {/* Mobile Header */}
-                <div className="md:hidden flex items-center justify-between p-4 border-b border-white/5 bg-zinc-950">
-                     <h2 className="text-lg font-black text-white uppercase">Settings</h2>
-                     <button onClick={onClose} className="p-2 text-zinc-400"><X className="w-5 h-5" /></button>
+                <div className="md:hidden flex items-center justify-between p-4 border-b border-border bg-panel">
+                     <h2 className="text-lg font-black text-text-main uppercase">Settings</h2>
+                     <button onClick={onClose} className="p-2 text-text-muted"><X className="w-5 h-5" /></button>
                 </div>
-                <div className="md:hidden flex overflow-x-auto border-b border-white/5 p-2 gap-2 hide-scrollbar">
+                <div className="md:hidden flex overflow-x-auto border-b border-border p-2 gap-2 hide-scrollbar bg-background">
                      {['general', 'appearance', 'spoilers', 'data', 'account'].map(t => (
                          <button 
                             key={t} 
                             onClick={() => setActiveTab(t as TabId)}
-                            className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap ${activeTab === t ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                            className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap ${activeTab === t ? 'bg-indigo-600 text-white' : 'bg-card text-text-muted border border-border'}`}
                         >
                             {t.charAt(0).toUpperCase() + t.slice(1)}
                         </button>
@@ -201,8 +195,8 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 flex flex-col h-full bg-[#080808] relative overflow-hidden">
-                    <button onClick={onClose} className="hidden md:block absolute top-6 right-6 p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors z-20"><X className="w-5 h-5" /></button>
+                <div className="flex-1 flex flex-col h-full bg-background relative overflow-hidden">
+                    <button onClick={onClose} className="hidden md:block absolute top-6 right-6 p-2 rounded-full bg-card hover:bg-border text-text-muted hover:text-text-main transition-colors z-20"><X className="w-5 h-5" /></button>
                     
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-12 pb-24">
                         
@@ -210,8 +204,8 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                         {activeTab === 'general' && (
                             <div className="space-y-8 max-w-2xl animate-fade-in">
                                 <div>
-                                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Settings className="w-5 h-5 text-indigo-500" /> Preferences</h3>
-                                    <div className="space-y-1 divide-y divide-white/5 border-y border-white/5">
+                                    <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Settings className="w-5 h-5 text-indigo-500" /> Preferences</h3>
+                                    <div className="space-y-1 divide-y divide-border border-y border-border">
                                         <Toggle label="Compact Calendar" description="Fit more rows on the calendar grid." active={!!settings.compactCalendar} onToggle={() => updateSettings({ compactCalendar: !settings.compactCalendar })} />
                                         <Toggle label="Ignore Specials" description="Hide 'Season 0' content from lists and calendar." active={!!settings.ignoreSpecials} onToggle={() => updateSettings({ ignoreSpecials: !settings.ignoreSpecials })} />
                                         <Toggle label="Hide Theatrical" description="Only show movies available on digital/streaming." active={!!settings.hideTheatrical} onToggle={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} />
@@ -220,20 +214,20 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                 </div>
 
                                 <div>
-                                    <h3 className="text-xl font-bold text-white mb-4">Timezone</h3>
+                                    <h3 className="text-xl font-bold text-text-main mb-4">Timezone</h3>
                                     <div className="relative">
                                         <select 
                                             value={settings.timezone} 
                                             onChange={(e) => updateSettings({ timezone: e.target.value })}
-                                            className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 appearance-none"
+                                            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm text-text-main focus:outline-none focus:border-indigo-500 appearance-none"
                                         >
                                             {(Intl as any).supportedValuesOf('timeZone').map((tz: string) => (
                                                 <option key={tz} value={tz}>{tz}</option>
                                             ))}
                                         </select>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">▼</div>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">▼</div>
                                     </div>
-                                    <p className="text-xs text-zinc-500 mt-2 ml-1">Used for accurate release date calculations.</p>
+                                    <p className="text-xs text-text-muted mt-2 ml-1">Used for accurate release date calculations.</p>
                                 </div>
                             </div>
                         )}
@@ -242,7 +236,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                         {activeTab === 'appearance' && (
                             <div className="space-y-10 max-w-2xl animate-fade-in">
                                 <div>
-                                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Palette className="w-5 h-5 text-indigo-500" /> Interface Theme</h3>
+                                    <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Palette className="w-5 h-5 text-indigo-500" /> Interface Theme</h3>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                                         {/* Preset Themes */}
                                         {THEMES.map(theme => (
@@ -251,11 +245,11 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                                 onClick={() => updateSettings({ baseTheme: theme.id as any })}
                                                 className={`
                                                     relative p-4 rounded-2xl border transition-all flex flex-col items-center gap-3
-                                                    ${settings.baseTheme === theme.id ? 'bg-zinc-800 border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'bg-zinc-900/50 border-white/5 hover:bg-zinc-900'}
+                                                    ${settings.baseTheme === theme.id ? 'bg-card border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'bg-card/50 border-border hover:bg-card'}
                                                 `}
                                             >
                                                 <div className="w-8 h-8 rounded-full shadow-lg border border-white/10" style={{ backgroundColor: theme.color }} />
-                                                <span className={`text-xs font-bold uppercase tracking-wider ${settings.baseTheme === theme.id ? 'text-white' : 'text-zinc-500'}`}>{theme.name}</span>
+                                                <span className={`text-xs font-bold uppercase tracking-wider ${settings.baseTheme === theme.id ? 'text-text-main' : 'text-text-muted'}`}>{theme.name}</span>
                                             </button>
                                         ))}
                                         
@@ -263,7 +257,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                         <label 
                                             className={`
                                                 relative p-4 rounded-2xl border transition-all flex flex-col items-center gap-3 cursor-pointer group
-                                                ${settings.baseTheme === 'custom' ? 'bg-zinc-800 border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'bg-zinc-900/50 border-white/5 hover:bg-zinc-900'}
+                                                ${settings.baseTheme === 'custom' ? 'bg-card border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'bg-card/50 border-border hover:bg-card'}
                                             `}
                                         >
                                             <div className="w-8 h-8 rounded-full shadow-lg border border-white/10 flex items-center justify-center overflow-hidden relative">
@@ -276,13 +270,13 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                                 />
                                                 <Edit3 className="w-3 h-3 text-white/50 relative z-10 pointer-events-none" />
                                             </div>
-                                            <span className={`text-xs font-bold uppercase tracking-wider ${settings.baseTheme === 'custom' ? 'text-white' : 'text-zinc-500'}`}>Custom</span>
+                                            <span className={`text-xs font-bold uppercase tracking-wider ${settings.baseTheme === 'custom' ? 'text-text-main' : 'text-text-muted'}`}>Custom</span>
                                         </label>
                                     </div>
                                 </div>
 
                                 <div>
-                                    <h3 className="text-xl font-bold text-white mb-6">Typography</h3>
+                                    <h3 className="text-xl font-bold text-text-main mb-6">Typography</h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         {FONTS.map(font => (
                                             <button 
@@ -290,11 +284,11 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                                 onClick={() => updateSettings({ appFont: font.id as any })}
                                                 className={`
                                                     p-4 rounded-2xl border text-left transition-all
-                                                    ${settings.appFont === font.id ? 'bg-zinc-800 border-indigo-500' : 'bg-zinc-900/50 border-white/5 hover:bg-zinc-900'}
+                                                    ${settings.appFont === font.id ? 'bg-card border-indigo-500' : 'bg-card/50 border-border hover:bg-card'}
                                                 `}
                                             >
-                                                <div className="text-sm font-bold text-white mb-1">{font.name}</div>
-                                                <div className="text-xs text-zinc-500">The quick brown fox jumps over the lazy dog.</div>
+                                                <div className="text-sm font-bold text-text-main mb-1">{font.name}</div>
+                                                <div className="text-xs text-text-muted">The quick brown fox jumps over the lazy dog.</div>
                                             </button>
                                         ))}
                                     </div>
@@ -306,39 +300,39 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                         {activeTab === 'spoilers' && (
                             <div className="space-y-8 max-w-2xl animate-fade-in">
                                 <div>
-                                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><EyeOff className="w-5 h-5 text-red-500" /> Spoiler Protection</h3>
-                                    <div className="bg-zinc-900/30 rounded-2xl border border-white/5 p-6 mb-6">
-                                        <p className="text-sm text-zinc-400 leading-relaxed">
+                                    <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><EyeOff className="w-5 h-5 text-red-500" /> Spoiler Protection</h3>
+                                    <div className="bg-card/50 rounded-2xl border border-border p-6 mb-6">
+                                        <p className="text-sm text-text-muted leading-relaxed">
                                             These settings apply to unwatched content in your library. You can reveal hidden content by clicking on it.
                                         </p>
                                     </div>
                                     
                                     <div className="mb-6">
-                                         <h4 className="text-sm font-bold text-zinc-300 mb-3">Episode Preview Style</h4>
+                                         <h4 className="text-sm font-bold text-text-muted mb-3">Episode Preview Style</h4>
                                          <div className="grid grid-cols-2 gap-4">
                                              <button 
                                                 onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'blur' } })}
-                                                className={`p-4 rounded-xl border flex flex-col items-center gap-3 transition-all ${settings.spoilerConfig.replacementMode === 'blur' ? 'bg-indigo-600/10 border-indigo-500' : 'bg-zinc-900 border-white/5 hover:border-white/10'}`}
+                                                className={`p-4 rounded-xl border flex flex-col items-center gap-3 transition-all ${settings.spoilerConfig.replacementMode === 'blur' ? 'bg-indigo-600/10 border-indigo-500' : 'bg-card border-border hover:border-text-muted'}`}
                                              >
                                                  <div className={`w-full aspect-video rounded bg-zinc-800 flex items-center justify-center overflow-hidden ${settings.spoilerConfig.replacementMode === 'blur' ? 'ring-2 ring-indigo-500' : ''}`}>
                                                      <div className="w-full h-full bg-zinc-700 blur-md opacity-50" />
                                                  </div>
-                                                 <span className={`text-xs font-bold uppercase tracking-wide ${settings.spoilerConfig.replacementMode === 'blur' ? 'text-white' : 'text-zinc-500'}`}>Blur Preview</span>
+                                                 <span className={`text-xs font-bold uppercase tracking-wide ${settings.spoilerConfig.replacementMode === 'blur' ? 'text-text-main' : 'text-text-muted'}`}>Blur Preview</span>
                                              </button>
                                              
                                              <button 
                                                 onClick={() => updateSettings({ spoilerConfig: { ...settings.spoilerConfig, replacementMode: 'banner' } })}
-                                                className={`p-4 rounded-xl border flex flex-col items-center gap-3 transition-all ${settings.spoilerConfig.replacementMode === 'banner' ? 'bg-indigo-600/10 border-indigo-500' : 'bg-zinc-900 border-white/5 hover:border-white/10'}`}
+                                                className={`p-4 rounded-xl border flex flex-col items-center gap-3 transition-all ${settings.spoilerConfig.replacementMode === 'banner' ? 'bg-indigo-600/10 border-indigo-500' : 'bg-card border-border hover:border-text-muted'}`}
                                              >
                                                  <div className={`w-full aspect-video rounded bg-zinc-800 flex items-center justify-center overflow-hidden relative ${settings.spoilerConfig.replacementMode === 'banner' ? 'ring-2 ring-indigo-500' : ''}`}>
                                                       <Layout className="w-8 h-8 text-zinc-600" />
                                                  </div>
-                                                 <span className={`text-xs font-bold uppercase tracking-wide ${settings.spoilerConfig.replacementMode === 'banner' ? 'text-white' : 'text-zinc-500'}`}>Use Show Banner</span>
+                                                 <span className={`text-xs font-bold uppercase tracking-wide ${settings.spoilerConfig.replacementMode === 'banner' ? 'text-text-main' : 'text-text-muted'}`}>Use Show Banner</span>
                                              </button>
                                          </div>
                                     </div>
 
-                                    <div className="space-y-1 divide-y divide-white/5 border-y border-white/5">
+                                    <div className="space-y-1 divide-y divide-border border-y border-border">
                                         <Toggle 
                                             label="Hide Images" 
                                             description="Applies selected preview style to unwatched episodes." 
@@ -372,67 +366,67 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                         {activeTab === 'data' && (
                             <div className="space-y-10 max-w-2xl animate-fade-in">
                                 <div>
-                                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Key className="w-5 h-5 text-amber-500" /> API Configuration</h3>
-                                    <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5">
-                                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">TMDB API Key (v3)</label>
+                                    <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Key className="w-5 h-5 text-amber-500" /> API Configuration</h3>
+                                    <div className="bg-card/50 p-6 rounded-2xl border border-border">
+                                        <label className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 block">TMDB API Key (v3)</label>
                                         <div className="flex gap-2">
                                             <div className="relative flex-1">
                                                 <input 
                                                     type={showKey ? "text" : "password"} 
                                                     value={localApiKey}
                                                     onChange={(e) => setLocalApiKey(e.target.value)}
-                                                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:border-indigo-500 focus:outline-none transition-all"
+                                                    className="w-full bg-black/50 border border-border rounded-xl px-4 py-3 text-sm text-text-main font-mono focus:border-indigo-500 focus:outline-none transition-all"
                                                     placeholder="Enter your TMDB API Key"
                                                 />
-                                                <button onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs font-bold uppercase">
+                                                <button onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-xs font-bold uppercase">
                                                     {showKey ? 'Hide' : 'Show'}
                                                 </button>
                                             </div>
                                             <button 
                                                 onClick={handleSaveKey} 
                                                 disabled={isSavingKey}
-                                                className="px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs border border-white/5 flex items-center gap-2 disabled:opacity-50"
+                                                className="px-4 rounded-xl bg-white/5 hover:bg-white/10 text-text-main font-bold text-xs border border-border flex items-center gap-2 disabled:opacity-50"
                                             >
                                                 {isSavingKey ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
                                                 Save
                                             </button>
                                         </div>
-                                        <p className="text-xs text-zinc-500 mt-3">
+                                        <p className="text-xs text-text-muted mt-3">
                                             Required for fetching show data. Get one at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">themoviedb.org</a>.
                                         </p>
                                     </div>
                                 </div>
 
                                 <div>
-                                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Database className="w-5 h-5 text-indigo-500" /> Data Management</h3>
+                                    <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Database className="w-5 h-5 text-indigo-500" /> Data Management</h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <button onClick={handleExport} className="p-4 bg-zinc-900 border border-white/5 rounded-2xl flex items-center gap-3 hover:bg-zinc-800 transition-colors text-left group">
+                                        <button onClick={handleExport} className="p-4 bg-card border border-border rounded-2xl flex items-center gap-3 hover:bg-card/80 transition-colors text-left group">
                                             <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><Download className="w-5 h-5" /></div>
                                             <div>
-                                                <div className="text-sm font-bold text-white">Export Backup</div>
-                                                <div className="text-xs text-zinc-500">Save local JSON file</div>
+                                                <div className="text-sm font-bold text-text-main">Export Backup</div>
+                                                <div className="text-xs text-text-muted">Save local JSON file</div>
                                             </div>
                                         </button>
-                                        <button onClick={handleImportClick} className="p-4 bg-zinc-900 border border-white/5 rounded-2xl flex items-center gap-3 hover:bg-zinc-800 transition-colors text-left group">
+                                        <button onClick={handleImportClick} className="p-4 bg-card border border-border rounded-2xl flex items-center gap-3 hover:bg-card/80 transition-colors text-left group">
                                             <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><Upload className="w-5 h-5" /></div>
                                             <div>
-                                                <div className="text-sm font-bold text-white">Import Backup</div>
-                                                <div className="text-xs text-zinc-500">Restore from standard JSON</div>
+                                                <div className="text-sm font-bold text-text-main">Import Backup</div>
+                                                <div className="text-xs text-text-muted">Restore from standard JSON</div>
                                             </div>
                                         </button>
-                                        <button onClick={() => setShowLegacyImport(true)} className="p-4 bg-zinc-900 border border-white/5 rounded-2xl flex items-center gap-3 hover:bg-zinc-800 transition-colors text-left group">
+                                        <button onClick={() => setShowLegacyImport(true)} className="p-4 bg-card border border-border rounded-2xl flex items-center gap-3 hover:bg-card/80 transition-colors text-left group">
                                             <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform"><FileJson className="w-5 h-5" /></div>
                                             <div>
-                                                <div className="text-sm font-bold text-white">Import Legacy Profile</div>
-                                                <div className="text-xs text-zinc-500">Manual selection from old format</div>
+                                                <div className="text-sm font-bold text-text-main">Import Legacy Profile</div>
+                                                <div className="text-xs text-text-muted">Manual selection from old format</div>
                                             </div>
                                         </button>
                                         {user?.is_cloud && (
-                                            <button onClick={() => triggerCloudSync()} disabled={isSyncing} className="col-span-full p-4 bg-zinc-900 border border-white/5 rounded-2xl flex items-center gap-3 hover:bg-zinc-800 transition-colors text-left group disabled:opacity-50">
+                                            <button onClick={() => triggerCloudSync()} disabled={isSyncing} className="col-span-full p-4 bg-card border border-border rounded-2xl flex items-center gap-3 hover:bg-card/80 transition-colors text-left group disabled:opacity-50">
                                                 <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform"><RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /></div>
                                                 <div>
-                                                    <div className="text-sm font-bold text-white">Force Cloud Sync</div>
-                                                    <div className="text-xs text-zinc-500">{isSyncing ? 'Syncing...' : 'Push local changes to cloud'}</div>
+                                                    <div className="text-sm font-bold text-text-main">Force Cloud Sync</div>
+                                                    <div className="text-xs text-text-muted">{isSyncing ? 'Syncing...' : 'Push local changes to cloud'}</div>
                                                 </div>
                                             </button>
                                         )}
@@ -445,11 +439,11 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                         {/* ACCOUNT */}
                         {activeTab === 'account' && (
                             <div className="space-y-8 max-w-2xl animate-fade-in">
-                                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><User className="w-5 h-5 text-indigo-500" /> Identity</h3>
-                                <div className="bg-zinc-900/40 p-6 rounded-3xl border border-white/5 flex gap-6 items-center">
+                                <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><User className="w-5 h-5 text-indigo-500" /> Identity</h3>
+                                <div className="bg-card/40 p-6 rounded-3xl border border-border flex gap-6 items-center">
                                     <div className="w-20 h-20 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-black text-3xl shrink-0">{user?.username.charAt(0).toUpperCase()}</div>
                                     <div className="min-w-0 flex-1">
-                                        <h4 className="text-lg font-black text-white truncate">{user?.username}</h4>
+                                        <h4 className="text-lg font-black text-text-main truncate">{user?.username}</h4>
                                         <div className="flex items-center gap-2 mt-1">
                                             {user?.is_cloud ? (
                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-wide border border-emerald-500/20"><Database className="w-3 h-3" /> Cloud Synced</span>
@@ -462,15 +456,15 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                     <div className="p-6 rounded-3xl bg-zinc-900/30 border border-white/5 flex flex-col items-center text-center">
-                                         <Monitor className="w-8 h-8 text-zinc-600 mb-3" />
-                                         <h5 className="font-bold text-white text-sm">Desktop</h5>
-                                         <p className="text-xs text-zinc-500 mt-1">Best for management</p>
+                                     <div className="p-6 rounded-3xl bg-card/30 border border-border flex flex-col items-center text-center">
+                                         <Monitor className="w-8 h-8 text-text-muted mb-3" />
+                                         <h5 className="font-bold text-text-main text-sm">Desktop</h5>
+                                         <p className="text-xs text-text-muted mt-1">Best for management</p>
                                      </div>
-                                     <div className="p-6 rounded-3xl bg-zinc-900/30 border border-white/5 flex flex-col items-center text-center">
-                                         <Smartphone className="w-8 h-8 text-zinc-600 mb-3" />
-                                         <h5 className="font-bold text-white text-sm">Mobile</h5>
-                                         <p className="text-xs text-zinc-500 mt-1">Best for tracking</p>
+                                     <div className="p-6 rounded-3xl bg-card/30 border border-border flex flex-col items-center text-center">
+                                         <Smartphone className="w-8 h-8 text-text-muted mb-3" />
+                                         <h5 className="font-bold text-text-main text-sm">Mobile</h5>
+                                         <p className="text-xs text-text-muted mt-1">Best for tracking</p>
                                      </div>
                                 </div>
                             </div>

@@ -36,7 +36,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     
-    // Ensure mobile starts in cards or list, never grid
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         const isMobile = window.innerWidth < 768;
         const pref = (settings.viewMode as ViewMode) || 'grid';
@@ -44,8 +43,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         return pref;
     });
     
-    // Filters using global settings now
-    const showTV = settings.calendarFilterTv !== false; // Default true if undefined
+    const showTV = settings.calendarFilterTv !== false; 
     const showMovies = settings.calendarFilterMovies !== false; 
     const [showHidden, setShowHidden] = useState(false);
 
@@ -155,15 +153,15 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     const FilterToggle = ({ label, active, onClick, icon: Icon }: any) => (
         <button 
             onClick={onClick}
-            className={`w-full flex items-center justify-between p-3 rounded-xl transition-all border ${active ? 'bg-indigo-600/10 border-indigo-500/30 text-indigo-300' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'}`}
+            className={`w-full flex items-center justify-between p-3 rounded-xl transition-all border ${active ? 'bg-indigo-600/10 border-indigo-500/30 text-indigo-300' : 'bg-background border-border text-text-muted hover:bg-card hover:text-text-main'}`}
         >
             <div className="flex items-center gap-3">
-                <div className={`p-1.5 rounded-lg ${active ? 'bg-indigo-500/20 text-indigo-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                <div className={`p-1.5 rounded-lg ${active ? 'bg-indigo-500/20 text-indigo-400' : 'bg-card text-text-muted'}`}>
                     <Icon className="w-4 h-4" />
                 </div>
                 <span className="text-xs font-bold">{label}</span>
             </div>
-            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${active ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-zinc-700'}`}>
+            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${active ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-border'}`}>
                 {active && <Check className="w-3 h-3" />}
             </div>
         </button>
@@ -173,18 +171,16 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     const DateHeader = ({ day }: { day: Date }) => {
         const isTodayDate = isToday(day);
         return (
-             <div className="sticky top-0 z-40 bg-[#020202]/95 backdrop-blur-xl border-b border-white/5 py-2 px-4 flex items-center justify-between shadow-sm">
+             <div className="sticky top-0 z-40 bg-panel/95 backdrop-blur-xl border-b border-border py-2 px-4 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3">
-                    {/* Big Number - Slimmed */}
-                    <div className={`text-3xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-500 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'text-white'}`}>
+                    <div className={`text-3xl font-black tracking-tighter ${isTodayDate ? 'text-indigo-500 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'text-text-main'}`}>
                         {format(day, 'dd')}
                     </div>
-                    {/* Text Info - Compact */}
-                    <div className="flex flex-col leading-none h-8 justify-center border-l border-white/10 pl-3">
-                        <span className={`text-[11px] font-black uppercase tracking-[0.15em] ${isTodayDate ? 'text-white' : 'text-zinc-300'}`}>
+                    <div className="flex flex-col leading-none h-8 justify-center border-l border-border pl-3">
+                        <span className={`text-[11px] font-black uppercase tracking-[0.15em] ${isTodayDate ? 'text-text-main' : 'text-text-muted'}`}>
                             {format(day, 'EEEE')}
                         </span>
-                        <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-wide">
+                        <span className="text-[10px] text-text-muted font-mono uppercase tracking-wide">
                             {format(day, 'MMMM yyyy')}
                         </span>
                     </div>
@@ -222,7 +218,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
         return (
             <div 
-                className="absolute inset-0 w-full h-full bg-[#050505] overflow-hidden group/cell-item"
+                className="absolute inset-0 w-full h-full bg-background overflow-hidden group/cell-item"
                 data-context-type="episode"
                 data-context-meta={JSON.stringify(ep)}
             >
@@ -265,12 +261,12 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                             data-context-type="episode"
                             data-context-meta={JSON.stringify(first)}
                         >
-                            <div className="w-5 h-7 rounded-[2px] bg-zinc-900 overflow-hidden shrink-0 border border-white/5 relative">
+                            <div className="w-5 h-7 rounded-[2px] bg-card overflow-hidden shrink-0 border border-white/5 relative">
                                 <img src={posterSrc} className={`w-full h-full object-cover ${allWatched ? 'grayscale opacity-50' : ''}`} alt="" />
                                 {allWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-3 h-3 text-emerald-500" /></div>}
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className={`text-[9px] font-bold truncate leading-none mb-0.5 ${allWatched ? 'text-zinc-600 line-through' : 'text-zinc-300 group-hover/item:text-white'}`}>{first.show_name}</p>
+                                <p className={`text-[9px] font-bold truncate leading-none mb-0.5 ${allWatched ? 'text-text-muted line-through' : 'text-text-muted group-hover/item:text-text-main'}`}>{first.show_name}</p>
                                 <div className="flex items-center gap-1.5">
                                     {first.is_movie ? (
                                         <span className={`text-[7px] font-black uppercase tracking-wider ${first.release_type === 'theatrical' ? 'text-pink-500' : 'text-emerald-500'}`}>{first.release_type === 'theatrical' ? 'Cinema' : 'Digital'}</span>
@@ -278,7 +274,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                         count > 1 ? (
                                             <span className="text-[7px] font-bold bg-white/10 text-white px-1 rounded flex items-center gap-1"><Layers className="w-2 h-2" /> {count} EP</span>
                                         ) : (
-                                            <span className="text-[7px] font-mono text-zinc-500">S{first.season_number} E{first.episode_number}</span>
+                                            <span className="text-[7px] font-mono text-text-muted">S{first.season_number} E{first.episode_number}</span>
                                         )
                                     )}
                                 </div>
@@ -286,25 +282,25 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                         </div>
                     );
                 })}
-                {groups.length > 3 && <div className="mt-auto pt-1 border-t border-white/5"><span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest block text-center">+{groups.length - 3} MORE</span></div>}
+                {groups.length > 3 && <div className="mt-auto pt-1 border-t border-white/5"><span className="text-[8px] font-black text-text-muted uppercase tracking-widest block text-center">+{groups.length - 3} MORE</span></div>}
             </div>
         );
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#020202]">
+        <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
             {/* Header */}
-            <header className="h-16 shrink-0 border-b border-white/5 flex items-center bg-[#050505]/80 z-[60] backdrop-blur-md sticky top-0 justify-between">
+            <header className="h-16 shrink-0 border-b border-border flex items-center bg-panel/80 z-[60] backdrop-blur-md sticky top-0 justify-between">
                 
                 {/* Desktop Title */}
-                <div className="hidden md:flex flex-1 flex-col justify-center px-6 border-r border-white/5 h-full min-w-[120px]">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest leading-none mb-1">{format(calendarDate, 'yyyy')}</span>
-                    <span className="text-xl font-black text-white uppercase tracking-tighter leading-none">{format(calendarDate, 'MMMM')}</span>
+                <div className="hidden md:flex flex-1 flex-col justify-center px-6 border-r border-border h-full min-w-[120px]">
+                    <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest leading-none mb-1">{format(calendarDate, 'yyyy')}</span>
+                    <span className="text-xl font-black text-text-main uppercase tracking-tighter leading-none">{format(calendarDate, 'MMMM')}</span>
                 </div>
 
-                {/* Navigation - Full width on Mobile */}
+                {/* Navigation */}
                 <div className="flex flex-1 h-full md:ml-auto md:w-auto w-full">
-                    <button onClick={() => setCalendarDate(subMonths(calendarDate, 1))} className="flex-1 md:w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-r md:border-l border-white/5" title="Previous Month">
+                    <button onClick={() => setCalendarDate(subMonths(calendarDate, 1))} className="flex-1 md:w-14 h-full flex items-center justify-center text-text-muted hover:text-text-main hover:bg-white/5 transition-colors border-r md:border-l border-border" title="Previous Month">
                         <ChevronLeft className="w-5 h-5" />
                     </button>
                     <button 
@@ -316,26 +312,24 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 setCalendarDate(now);
                             }
                         }} 
-                        className="flex-[2] md:px-4 h-full flex flex-col items-center justify-center hover:text-indigo-400 hover:bg-white/5 transition-colors border-r border-white/5"
+                        className="flex-[2] md:px-4 h-full flex flex-col items-center justify-center hover:text-indigo-400 hover:bg-white/5 transition-colors border-r border-border"
                     >
-                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">{format(calendarDate, 'MMM')}</span>
-                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-main">{format(calendarDate, 'MMM')}</span>
+                         <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">
                             {isViewingCurrentMonth ? 'Today' : 'This Month'}
                          </span>
                     </button>
-                    <button onClick={() => setCalendarDate(addMonths(calendarDate, 1))} className="flex-1 md:w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors" title="Next Month">
+                    <button onClick={() => setCalendarDate(addMonths(calendarDate, 1))} className="flex-1 md:w-14 h-full flex items-center justify-center text-text-muted hover:text-text-main hover:bg-white/5 transition-colors" title="Next Month">
                         <ChevronRight className="w-5 h-5" />
                     </button>
                 </div>
                 
-                {/* Controls - Right Side */}
-                <div className="flex h-full border-l border-white/5">
-                     <button onClick={cycleViewMode} className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors" title="Toggle View">
-                        {/* On Mobile, Show only Smartphone or List icon, never Grid icon */}
+                {/* Controls */}
+                <div className="flex h-full border-l border-border">
+                     <button onClick={cycleViewMode} className="w-14 h-full flex items-center justify-center text-text-muted hover:text-text-main hover:bg-white/5 transition-colors" title="Toggle View">
                         <span className="md:hidden">
                              {viewMode === 'cards' ? <Smartphone className="w-5 h-5" /> : <ListIcon className="w-5 h-5" />}
                         </span>
-                        {/* On Desktop, show standard Grid/List icons */}
                         <span className="hidden md:block">
                             {viewMode === 'grid' && <LayoutGrid className="w-5 h-5" />}
                             {viewMode === 'cards' && <Smartphone className="w-5 h-5" />}
@@ -343,21 +337,21 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                         </span>
                     </button>
                     
-                    <button onClick={() => setIsSearchOpen(true)} className="w-14 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors border-l border-white/5" title="Search in Calendar">
+                    <button onClick={() => setIsSearchOpen(true)} className="w-14 h-full flex items-center justify-center text-text-muted hover:text-text-main hover:bg-white/5 transition-colors border-l border-border" title="Search in Calendar">
                         <Search className="w-5 h-5" />
                     </button>
 
                     <div className="flex h-full relative" ref={filterRef}>
-                        <button onClick={() => setIsFilterOpen(!isFilterOpen)} className={`w-14 h-full flex items-center justify-center border-l border-white/5 transition-colors ${isFilterOpen ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`} title="Filters">
+                        <button onClick={() => setIsFilterOpen(!isFilterOpen)} className={`w-14 h-full flex items-center justify-center border-l border-border transition-colors ${isFilterOpen ? 'bg-indigo-600 text-white' : 'text-text-muted hover:text-text-main hover:bg-white/5'}`} title="Filters">
                             <Filter className="w-4 h-4" />
                         </button>
                          {isFilterOpen && (
-                            <div className="absolute top-full right-4 mt-4 w-72 bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[100] animate-enter overflow-hidden">
-                                <div className="p-4 border-b border-white/5 bg-zinc-900/50"><h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2"><Filter className="w-3 h-3" /> View Options</h4></div>
+                            <div className="absolute top-full right-4 mt-4 w-72 bg-panel border border-border rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[100] animate-enter overflow-hidden">
+                                <div className="p-4 border-b border-border bg-card/50"><h4 className="text-[10px] font-black text-text-muted uppercase tracking-widest flex items-center gap-2"><Filter className="w-3 h-3" /> View Options</h4></div>
                                 <div className="p-3 space-y-2">
                                     <FilterToggle label="TV Series" icon={Tv} active={showTV} onClick={() => updateSettings({ calendarFilterTv: !settings.calendarFilterTv })} />
                                     <FilterToggle label="Movies" icon={Film} active={showMovies} onClick={() => updateSettings({ calendarFilterMovies: !settings.calendarFilterMovies })} />
-                                    <div className="h-px bg-white/5 my-1" />
+                                    <div className="h-px bg-border my-1" />
                                     <FilterToggle label="Digital Releases Only" icon={MonitorPlay} active={settings.hideTheatrical} onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} />
                                     <FilterToggle label="Show Hidden Items" icon={EyeOff} active={showHidden} onClick={() => setShowHidden(!showHidden)} />
                                 </div>
@@ -367,15 +361,15 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 </div>
             </header>
 
-            {/* --- GRID VIEW (DESKTOP DEFAULT) --- */}
+            {/* --- GRID VIEW --- */}
             {viewMode === 'grid' && (
                 <div className="hidden md:flex flex-col h-full min-h-0" data-context-type="calendar_bg">
-                    <div className="grid grid-cols-7 border-b border-white/5 bg-zinc-950/10 shrink-0">
+                    <div className="grid grid-cols-7 border-b border-border bg-card/30 shrink-0">
                         {weekDays.map(day => (
-                            <div key={day} className="py-2 text-center text-[9px] font-black text-zinc-600 uppercase tracking-[0.25em] border-r border-white/5 last:border-r-0">{day}</div>
+                            <div key={day} className="py-2 text-center text-[9px] font-black text-text-muted uppercase tracking-[0.25em] border-r border-border last:border-r-0">{day}</div>
                         ))}
                     </div>
-                    <div className="flex-1 grid grid-cols-7 grid-rows-6 min-h-0 bg-[#020202]">
+                    <div className="flex-1 grid grid-cols-7 grid-rows-6 min-h-0 bg-background">
                         {gridDays.map((day, idx) => {
                             const isTodayDate = isSameDay(day, new Date());
                             const isActive = isSameDay(day, selectedDay);
@@ -385,9 +379,9 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                             const totalGroups = groupedEps.length;
 
                             return (
-                                <div key={day.toISOString()} onClick={() => onSelectDay(day)} className={`relative border-r border-b border-white/5 flex flex-col group/cell overflow-hidden transition-all duration-300 cursor-pointer ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''} ${idx >= 35 ? 'border-b-0' : ''} ${isCurrentMonth ? 'bg-transparent' : 'bg-white/[0.01] opacity-20'} ${isActive ? 'bg-white/[0.04]' : 'hover:z-10 hover:bg-white/[0.02]'}`}>
+                                <div key={day.toISOString()} onClick={() => onSelectDay(day)} className={`relative border-r border-b border-border flex flex-col group/cell overflow-hidden transition-all duration-300 cursor-pointer ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''} ${idx >= 35 ? 'border-b-0' : ''} ${isCurrentMonth ? 'bg-transparent' : 'bg-white/[0.01] opacity-40'} ${isActive ? 'bg-white/[0.04]' : 'hover:z-10 hover:bg-white/[0.02]'}`}>
                                     <div className="absolute top-2 right-2 z-50">
-                                        <span className={`text-[10px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded ${isTodayDate ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' : isCurrentMonth ? (isActive ? 'text-white' : 'text-zinc-600 group-hover/cell:text-zinc-300') : 'text-zinc-800'} transition-colors`}>{format(day, 'dd')}</span>
+                                        <span className={`text-[10px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded ${isTodayDate ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' : isCurrentMonth ? (isActive ? 'text-text-main' : 'text-text-muted group-hover/cell:text-text-main') : 'text-zinc-600'} transition-colors`}>{format(day, 'dd')}</span>
                                     </div>
                                     {totalGroups === 1 && groupedEps[0].length === 1 ? (<SingleEpisodeCell ep={groupedEps[0][0]} />) : totalGroups > 0 ? (<GroupedEpisodeCell groups={groupedEps} />) : null}
                                     {isActive && <div className="absolute inset-0 border-[2px] border-indigo-500/80 pointer-events-none z-40 shadow-[inset_0_0_15px_rgba(99,102,241,0.1)]" />}
@@ -398,13 +392,13 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 </div>
             )}
 
-            {/* --- CARD VIEW (FEED / MOBILE DEFAULT) --- */}
+            {/* --- CARD VIEW --- */}
             {viewMode === 'cards' && (
                 <div ref={cardScrollRef} className="flex-1 overflow-y-auto custom-scrollbar" data-context-type="calendar_bg">
                     {activeDays.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full opacity-30">
-                            <CalendarIcon className="w-16 h-16 text-zinc-500 mb-4" />
-                            <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest">No Events Found</p>
+                            <CalendarIcon className="w-16 h-16 text-text-muted mb-4" />
+                            <p className="text-sm font-bold text-text-muted uppercase tracking-widest">No Events Found</p>
                         </div>
                     ) : (
                         <div className="pb-32 pt-0">
@@ -415,10 +409,9 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 
                                 return (
                                     <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-0">
-                                        {/* UNIFIED HEADER */}
                                         <DateHeader day={day} />
 
-                                        <div className="flex flex-col gap-px bg-zinc-900">
+                                        <div className="flex flex-col gap-px bg-panel">
                                             {groupedEps.map((group, groupIdx) => {
                                                 const firstEp = group[0];
                                                 const bannerUrl = getBackdropUrl(firstEp.show_backdrop_path || firstEp.still_path || firstEp.poster_path);
@@ -428,13 +421,13 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                     <div 
                                                         key={`${firstEp.show_id}-${groupIdx}`} 
                                                         onClick={() => onSelectDay(day)} 
-                                                        className={`relative w-full bg-[#09090b] group transition-all duration-300 ${allWatched ? 'opacity-60 grayscale' : ''}`}
+                                                        className={`relative w-full bg-background group transition-all duration-300 ${allWatched ? 'opacity-60 grayscale' : ''}`}
                                                         data-context-type="episode"
                                                         data-context-meta={JSON.stringify(firstEp)}
                                                     >
                                                         <div className="w-full aspect-[21/9] sm:aspect-[3/1] relative overflow-hidden">
                                                             <img src={bannerUrl} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
-                                                            <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/20 to-transparent" />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
                                                             <div className="absolute top-3 right-3"><ReleaseBadge ep={firstEp} /></div>
                                                             <div className="absolute bottom-3 left-4"><h3 className="text-xl sm:text-2xl font-black text-white leading-none drop-shadow-md">{firstEp.show_name}</h3></div>
                                                         </div>
@@ -444,15 +437,15 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                                     const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                                                                     const isWatched = interactions[watchedKey]?.is_watched;
                                                                     return (
-                                                                        <div key={ep.id} className="flex items-center justify-between gap-4 py-2 border-t border-white/5 first:border-t-0">
+                                                                        <div key={ep.id} className="flex items-center justify-between gap-4 py-2 border-t border-border first:border-t-0">
                                                                             <div className="min-w-0">
                                                                                 <div className="flex items-center gap-2">
-                                                                                    {!ep.is_movie && <span className="text-[10px] font-mono font-bold text-zinc-500">S{ep.season_number} E{ep.episode_number}</span>}
-                                                                                    <span className="text-sm text-zinc-300 font-medium truncate">{ep.name}</span>
+                                                                                    {!ep.is_movie && <span className="text-[10px] font-mono font-bold text-text-muted">S{ep.season_number} E{ep.episode_number}</span>}
+                                                                                    <span className="text-sm text-text-muted font-medium truncate">{ep.name}</span>
                                                                                 </div>
-                                                                                <div className="flex items-center gap-2 mt-0.5"><Clock className="w-3 h-3 text-zinc-500" /><span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{format(new Date(ep.air_date), 'h:mm a')}</span></div>
+                                                                                <div className="flex items-center gap-2 mt-0.5"><Clock className="w-3 h-3 text-text-muted" /><span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{format(new Date(ep.air_date), 'h:mm a')}</span></div>
                                                                             </div>
-                                                                            <button onClick={(e) => { e.stopPropagation(); if (ep.show_id) toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched }); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all border ${isWatched ? 'bg-zinc-800 text-emerald-500 border-zinc-700' : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white hover:text-black'}`}><Check className="w-4 h-4" /></button>
+                                                                            <button onClick={(e) => { e.stopPropagation(); if (ep.show_id) toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched }); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all border ${isWatched ? 'bg-card text-emerald-500 border-border' : 'bg-white/5 text-text-muted border-white/10 hover:bg-white hover:text-black'}`}><Check className="w-4 h-4" /></button>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -471,13 +464,13 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 </div>
             )}
 
-            {/* --- LIST VIEW (COMPACT) --- */}
+            {/* --- LIST VIEW --- */}
             {viewMode === 'list' && (
-                <div ref={cardScrollRef} className="flex-1 overflow-y-auto custom-scrollbar bg-[#020202]" data-context-type="calendar_bg">
+                <div ref={cardScrollRef} className="flex-1 overflow-y-auto custom-scrollbar bg-background" data-context-type="calendar_bg">
                     {activeDays.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full opacity-30">
-                            <ListIcon className="w-16 h-16 text-zinc-500 mb-4" />
-                            <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest">Empty List</p>
+                            <ListIcon className="w-16 h-16 text-text-muted mb-4" />
+                            <p className="text-sm font-bold text-text-muted uppercase tracking-widest">Empty List</p>
                         </div>
                     ) : (
                         <div className="pb-32">
@@ -487,10 +480,9 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 
                                 return (
                                     <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-0">
-                                        {/* UNIFIED HEADER */}
                                         <DateHeader day={day} />
 
-                                        <div className="divide-y divide-white/5">
+                                        <div className="divide-y divide-border">
                                             {eps.map(ep => {
                                                 const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                                                 const isWatched = interactions[watchedKey]?.is_watched;
@@ -504,21 +496,21 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                         data-context-type="episode"
                                                         data-context-meta={JSON.stringify(ep)}
                                                     >
-                                                        <div className="w-10 h-14 bg-zinc-900 rounded border border-white/10 shrink-0 overflow-hidden">
+                                                        <div className="w-10 h-14 bg-card rounded border border-border shrink-0 overflow-hidden">
                                                             <img src={getImageUrl(posterSrc)} className="w-full h-full object-cover" alt="" />
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-2 mb-0.5">
-                                                                <h4 className="text-sm font-bold text-white truncate">{ep.show_name}</h4>
+                                                                <h4 className="text-sm font-bold text-text-main truncate">{ep.show_name}</h4>
                                                                 {ep.is_movie && (<div className={`w-2 h-2 rounded-full ${ep.release_type === 'theatrical' ? 'bg-pink-500' : 'bg-emerald-500'}`} />)}
                                                             </div>
-                                                            <div className="flex items-center gap-2 text-xs text-zinc-500">
-                                                                {!ep.is_movie && <span className="font-mono text-zinc-400">S{ep.season_number} E{ep.episode_number}</span>}
+                                                            <div className="flex items-center gap-2 text-xs text-text-muted">
+                                                                {!ep.is_movie && <span className="font-mono text-text-muted">S{ep.season_number} E{ep.episode_number}</span>}
                                                                 <span className="truncate">{ep.name}</span>
                                                             </div>
                                                         </div>
                                                         {ep.is_movie && (<div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border hidden sm:block ${ep.release_type === 'theatrical' ? 'border-pink-500/30 text-pink-400' : 'border-emerald-500/30 text-emerald-400'}`}>{ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}</div>)}
-                                                        <button onClick={(e) => { e.stopPropagation(); if (ep.show_id) toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched }); }} className={`p-2 rounded-full border transition-all ${isWatched ? 'bg-zinc-800 border-zinc-700 text-emerald-500' : 'border-white/10 text-zinc-500 hover:text-white hover:border-white/30'}`}><Check className="w-4 h-4" /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); if (ep.show_id) toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched }); }} className={`p-2 rounded-full border transition-all ${isWatched ? 'bg-card border-border text-emerald-500' : 'border-border text-text-muted hover:text-text-main hover:border-text-muted'}`}><Check className="w-4 h-4" /></button>
                                                     </div>
                                                 );
                                             })}
