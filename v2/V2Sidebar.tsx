@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Compass, List, Settings, Search, LogOut, LayoutPanelLeft, Minimize2, Globe, MoreHorizontal, ChevronRight, User } from 'lucide-react';
+import { Calendar, Compass, List, Settings, Search, LogOut, LayoutPanelLeft, Minimize2, Globe, MoreHorizontal, ChevronRight, User, MessageSquare } from 'lucide-react';
 import { useStore } from '../store';
 
 interface V2SidebarProps {
@@ -96,6 +96,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                     <NavItem to="/calendar" icon={Calendar} label="Calendar" />
                     <NavItem to="/discover" icon={Compass} label="Discovery" />
                     <NavItem to="/library" icon={List} label="Library" />
+                    <NavItem to="/community" icon={MessageSquare} label="Circles" />
                     <div className="my-2 mx-4 h-px bg-white/5" />
                     <NavItem to="#" icon={Search} label="Search" onClick={onOpenSearch} />
                     <NavItem to="/ipoint" icon={Globe} label="IPoint Tool" />
@@ -134,8 +135,8 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                     <Link to="/calendar" className={`transition-all duration-300 ${isActive('/calendar') ? 'text-white scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
                         <Calendar className="w-6 h-6 stroke-[2.5px]" />
                     </Link>
-                    <Link to="/discover" className={`transition-all duration-300 ${isActive('/discover') ? 'text-white scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
-                        <Compass className="w-6 h-6 stroke-[2.5px]" />
+                    <Link to="/community" className={`transition-all duration-300 ${isActive('/community') ? 'text-white scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                        <MessageSquare className="w-6 h-6 stroke-[2.5px]" />
                     </Link>
                     
                     {/* Search - Standard Styling */}
@@ -181,10 +182,10 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                                 <Globe className="w-6 h-6 text-blue-400" />
                                 <span className="text-xs font-bold text-zinc-300">IPoint</span>
                             </Link>
-                            <button onClick={() => { setIsMenuOpen(false); onOpenSettings?.(); }} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-zinc-900/30 border border-white/5 hover:bg-zinc-800 transition-colors">
-                                <User className="w-6 h-6 text-purple-400" />
-                                <span className="text-xs font-bold text-zinc-300">Profile</span>
-                            </button>
+                            <Link to="/discover" onClick={() => setIsMenuOpen(false)} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-zinc-900/30 border border-white/5 hover:bg-zinc-800 transition-colors">
+                                <Compass className="w-6 h-6 text-purple-400" />
+                                <span className="text-xs font-bold text-zinc-300">Discover</span>
+                            </Link>
                         </div>
 
                         {/* Logout */}
