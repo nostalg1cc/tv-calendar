@@ -12,6 +12,7 @@ import V2TrailerModal from './V2TrailerModal';
 import V2IPoint from './V2IPoint';
 import ApiKeyPrompt from '../components/ApiKeyPrompt';
 import ContextMenu from '../components/ContextMenu';
+import PosterPickerModal from '../components/PosterPickerModal';
 
 const V2Dashboard: React.FC = () => {
     const [calendarDate, setCalendarDate] = useState(new Date());
@@ -21,8 +22,9 @@ const V2Dashboard: React.FC = () => {
     // For Agenda Mobile Toggle
     const [isAgendaOpen, setIsAgendaOpen] = useState(false);
     
-    // Trailer Modal State lifted for global access from agenda
+    // Modal State lifted for global access
     const [trailerTarget, setTrailerTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', episode?: any} | null>(null);
+    const [posterTarget, setPosterTarget] = useState<{showId: number, mediaType: 'tv' | 'movie'} | null>(null);
 
     const handlePlayTrailer = (showId: number, mediaType: 'tv' | 'movie', episode?: any) => {
         setTrailerTarget({ showId, mediaType, episode });
@@ -33,9 +35,13 @@ const V2Dashboard: React.FC = () => {
         setIsAgendaOpen(true); // Auto-open agenda on mobile when date selected
     };
 
+    const handleEditPoster = (showId: number, mediaType: 'tv' | 'movie') => {
+        setPosterTarget({ showId, mediaType });
+    };
+
     return (
         <div className="flex h-screen w-screen bg-[#020202] text-zinc-100 overflow-hidden font-sans selection:bg-indigo-500/30">
-            <ContextMenu />
+            <ContextMenu onEditPoster={handleEditPoster} />
             
             <V2Sidebar 
                 onOpenSettings={() => setIsSettingsOpen(true)} 
@@ -77,6 +83,15 @@ const V2Dashboard: React.FC = () => {
                     showId={trailerTarget.showId} 
                     mediaType={trailerTarget.mediaType} 
                     episode={trailerTarget.episode} 
+                />
+            )}
+
+            {posterTarget && (
+                <PosterPickerModal 
+                    isOpen={!!posterTarget}
+                    onClose={() => setPosterTarget(null)}
+                    showId={posterTarget.showId}
+                    mediaType={posterTarget.mediaType}
                 />
             )}
 

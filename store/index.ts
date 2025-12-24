@@ -34,6 +34,7 @@ interface State {
     toggleWatched: (item: Partial<WatchedItem> & { tmdb_id: number; media_type: 'tv' | 'movie' | 'episode' }) => void;
     markManyWatched: (items: WatchedItem[]) => void;
     setRating: (id: number, mediaType: 'tv' | 'movie' | 'episode', rating: number) => void;
+    setCustomPoster: (showId: number, posterPath: string | null) => void;
     
     addReminder: (reminder: Reminder) => Promise<void>;
     removeReminder: (id: string) => Promise<void>;
@@ -249,6 +250,24 @@ export const useStore = create<State>()(
                     }
                     return { history: nextHistory };
                  });
+            },
+
+            setCustomPoster: (showId, posterPath) => {
+                set((state) => {
+                    const nextWatchlist = state.watchlist.map(show => {
+                        if (show.id === showId) {
+                            return { ...show, custom_poster_path: posterPath };
+                        }
+                        return show;
+                    });
+                    
+                    // Note: This only persists locally in watchlist state.
+                    // For full cloud sync of custom posters, we'd need a schema change or jsonb field.
+                    // Assuming local-first for customization as per current request scope.
+                    // However, we can try to update 'poster_path' in cloud if desired, but 'custom_poster_path' is safer to avoid drift.
+                    
+                    return { watchlist: nextWatchlist };
+                });
             },
 
             addReminder: async (reminder) => {

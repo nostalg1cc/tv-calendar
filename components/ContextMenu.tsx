@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useStore } from '../store';
 import { 
     Check, Eye, EyeOff, Share2, Tv, Film, Trash2, 
-    Copy, Filter, ExternalLink, ChevronRight, Sparkles, MonitorPlay, Calendar 
+    Copy, Filter, ExternalLink, ChevronRight, Sparkles, MonitorPlay, Calendar, Image as ImageIcon
 } from 'lucide-react';
 import { Episode } from '../types';
 import toast from 'react-hot-toast';
@@ -18,7 +18,11 @@ interface ContextState {
     data: any;
 }
 
-const ContextMenu: React.FC = () => {
+interface ContextMenuProps {
+    onEditPoster?: (showId: number, mediaType: 'tv' | 'movie') => void;
+}
+
+const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
     const { 
         toggleWatched, 
         history, 
@@ -126,6 +130,13 @@ const ContextMenu: React.FC = () => {
         window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
     };
 
+    const triggerPosterEdit = () => {
+        if (!onEditPoster) return;
+        const id = state.data.show_id || state.data.id;
+        const type = state.data.is_movie ? 'movie' : (state.data.media_type || 'tv');
+        onEditPoster(id, type === 'movie' ? 'movie' : 'tv');
+    };
+
     // --- COMPONENTS ---
 
     const MenuItem = ({ icon: Icon, label, onClick, danger = false, rightElement }: any) => (
@@ -216,6 +227,11 @@ const ContextMenu: React.FC = () => {
                             onClick={handleToggleWatched}
                         />
                         <MenuItem 
+                            icon={ImageIcon} 
+                            label="Change Poster" 
+                            onClick={triggerPosterEdit} 
+                        />
+                        <MenuItem 
                             icon={Copy} 
                             label="Copy Title" 
                             onClick={() => handleCopy(`${state.data.show_name} - ${state.data.name}`)} 
@@ -242,6 +258,11 @@ const ContextMenu: React.FC = () => {
                     <>
                         <Header text={state.data.name} />
                         
+                        <MenuItem 
+                            icon={ImageIcon} 
+                            label="Change Poster" 
+                            onClick={triggerPosterEdit} 
+                        />
                         <MenuItem 
                             icon={Copy} 
                             label="Copy Name" 

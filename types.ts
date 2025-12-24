@@ -11,6 +11,7 @@ export interface TVShow {
   origin_country?: string[];
   seasons?: Season[];
   original_language?: string;
+  custom_poster_path?: string | null;
 }
 
 export interface Season {

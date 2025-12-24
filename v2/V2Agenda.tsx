@@ -35,12 +35,12 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
         return true;
     });
 
-    const groupedEps = dayEps.reduce((acc, ep) => {
+    const groupedEps: Record<number, Episode[]> = {};
+    dayEps.forEach(ep => {
         const key = ep.show_id || ep.id;
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(ep);
-        return acc;
-    }, {} as Record<number, Episode[]>);
+        if (!groupedEps[key]) groupedEps[key] = [];
+        groupedEps[key].push(ep);
+    });
 
     const handleMarkPrevious = async (ep: Episode) => {
         if (!ep.show_id || markingShowId) return;

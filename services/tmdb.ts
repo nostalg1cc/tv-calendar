@@ -358,3 +358,12 @@ export const getVideos = async (mediaType: 'movie' | 'tv', id: number, season?: 
         });
     } catch (e) { return []; }
 };
+
+export const getShowImages = async (mediaType: 'tv' | 'movie', id: number): Promise<{ posters: any[], backdrops: any[], logos: any[] }> => {
+    try {
+        const data = await fetchTMDB<any>(`/${mediaType}/${id}/images?include_image_language=en,null`);
+        return data;
+    } catch (e) {
+        return { posters: [], backdrops: [], logos: [] };
+    }
+};

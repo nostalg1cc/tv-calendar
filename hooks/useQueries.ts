@@ -34,6 +34,8 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     if (releases.length === 0 && show.first_air_date) {
                         releases = [{ date: show.first_air_date, type: 'theatrical' }];
                     }
+                    
+                    const posterToUse = show.custom_poster_path || show.poster_path;
 
                     return releases.map(r => ({
                         id: show.id * -1, 
@@ -44,7 +46,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                         episode_number: 1,
                         season_number: 0,
                         still_path: show.backdrop_path,
-                        poster_path: show.poster_path,
+                        poster_path: posterToUse,
                         show_id: show.id,
                         show_name: show.name,
                         is_movie: true,
@@ -54,6 +56,9 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                 } else {
                     const details = await getShowDetails(show.id);
                     const eps: Episode[] = [];
+                    
+                    // Prioritize user selected poster
+                    const posterToUse = show.custom_poster_path || details.poster_path;
                     
                     // Optimisation: Fetch last 2 seasons + specials
                     const seasonsToFetch = details.seasons?.slice(-2) || [];
@@ -70,8 +75,8 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                                     show_name: show.name,
                                     is_movie: false,
                                     show_backdrop_path: details.backdrop_path,
-                                    poster_path: details.poster_path, // Use main show poster for calendar grid
-                                    season1_poster_path: sData.poster_path // Fallback for specific season art if enabled
+                                    poster_path: posterToUse, // Use custom or refreshed show poster
+                                    season1_poster_path: sData.poster_path // Keep season specific as fallback
                                 });
                             });
                         } catch (e) {
