@@ -1,4 +1,5 @@
 
+// ... (imports)
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, Loader2, Plus, Check, Sparkles, Star, ArrowRight } from 'lucide-react';
 import { useStore } from '../store';
@@ -113,11 +114,14 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                             ) : (
                                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
                                     {recommendations.slice(0, 5).map(show => {
-                                        const isTracked = watchlist.some(s => s.id === show.id);
+                                        const trackedItem = watchlist.find(s => s.id === show.id);
+                                        const isTracked = !!trackedItem;
+                                        const posterSrc = trackedItem?.custom_poster_path || show.poster_path;
+
                                         return (
                                             <div key={show.id} className="group relative flex flex-col gap-2 cursor-pointer" onClick={(e) => !isTracked && handleAdd(e, show)}>
                                                 <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-zinc-900 border border-white/5 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-indigo-500/30">
-                                                    <img src={getImageUrl(show.poster_path)} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                                    <img src={getImageUrl(posterSrc)} alt="" className="w-full h-full object-cover" loading="lazy" />
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                                         <Plus className="w-6 h-6 text-white" />
                                                     </div>
@@ -136,8 +140,10 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                     ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                             {results.map(show => {
-                                const isTracked = watchlist.some(s => s.id === show.id);
+                                const trackedItem = watchlist.find(s => s.id === show.id);
+                                const isTracked = !!trackedItem;
                                 const isRec = (show as any)._isRec;
+                                const posterSrc = trackedItem?.custom_poster_path || show.poster_path;
                                 
                                 return (
                                     <div 
@@ -146,7 +152,7 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                                         onClick={(e) => !isTracked && handleAdd(e, show)}
                                     >
                                         <div className={`relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border shadow-2xl transition-all duration-300 ${isRec ? 'border-indigo-500/30 shadow-indigo-500/10 ring-1 ring-indigo-500/20' : 'border-white/5'}`}>
-                                            <img src={getImageUrl(show.poster_path)} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
+                                            <img src={getImageUrl(posterSrc)} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
                                             
                                             {isRec && (
                                                 <div className="absolute top-2 left-2 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg flex items-center gap-1">

@@ -225,7 +225,7 @@ const WatchlistPage: React.FC = () => {
                 {/* Poster */}
                 <div className="w-28 shrink-0 relative bg-black">
                     <img 
-                        src={getImageUrl(show.poster_path)} 
+                        src={getImageUrl(show.custom_poster_path || show.poster_path)} 
                         loading="lazy"
                         className={`w-full h-full object-cover transition-all ${isWatched ? 'grayscale opacity-50' : 'opacity-80 group-hover:opacity-100'}`} 
                         alt="" 

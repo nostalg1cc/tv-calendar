@@ -379,7 +379,7 @@ const V2Library: React.FC = () => {
                                     {/* POSTER */}
                                     <div className={layout === 'grid' ? 'absolute inset-0' : 'w-10 h-14 bg-zinc-900 shrink-0 border border-white/5'}>
                                         <img 
-                                            src={getImageUrl(item.poster_path)} 
+                                            src={getImageUrl(item.custom_poster_path || item.poster_path)} 
                                             alt={item.name} 
                                             className={`w-full h-full object-cover transition-all duration-500 ${layout === 'grid' ? 'opacity-60 group-hover:opacity-100 group-hover:scale-105' : 'opacity-80 group-hover:opacity-100'}`}
                                             loading="lazy" 
