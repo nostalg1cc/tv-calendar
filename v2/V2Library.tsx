@@ -4,14 +4,15 @@ import {
     LayoutGrid, List as ListIcon, Search, Star, Trash2, 
     Filter, ChevronDown, Tv, Film, 
     ArrowUpRight, X, Loader2,
-    Calendar, Layers, Clock
+    Calendar, Layers, Clock, Ticket, MonitorPlay, PlayCircle, Check, CheckCheck, EyeOff
 } from 'lucide-react';
 import { useStore } from '../store';
-import { getImageUrl } from '../services/tmdb';
-import { TVShow, Episode } from '../types';
+import { getImageUrl, getBackdropUrl, getShowDetails } from '../services/tmdb';
+import { TVShow, Episode, WatchedItem } from '../types';
 import ShowDetailsModal from '../components/ShowDetailsModal';
 import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 import { useCalendarEpisodes } from '../hooks/useQueries';
+import toast from 'react-hot-toast';
 
 // --- TYPES ---
 
@@ -29,6 +30,9 @@ const AgendaSidebar = ({
     watchlist: TVShow[],
     onSelect: (show: TVShow) => void 
 }) => {
+    const { history: interactions, toggleWatched, markManyWatched, settings } = useStore();
+    const { spoilerConfig } = settings;
+
     const grouped = useMemo(() => {
         const today = new Date();
         today.setHours(0,0,0,0);
@@ -66,6 +70,31 @@ const AgendaSidebar = ({
             });
     }, [episodes, watchlist]);
 
+    const handleMarkPrevious = async (ep: Episode) => {
+        if (!ep.show_id) return;
+        try {
+            const details = await getShowDetails(ep.show_id);
+            const itemsToMark: WatchedItem[] = [];
+            
+            const targetSeason = ep.season_number;
+            const targetEpisode = ep.episode_number;
+
+            details.seasons?.forEach(s => {
+                if (s.season_number === 0) return;
+                if (s.season_number < targetSeason) {
+                    for(let i=1; i <= s.episode_count; i++) itemsToMark.push({ tmdb_id: ep.show_id!, media_type: 'episode', season_number: s.season_number, episode_number: i, is_watched: true });
+                } else if (s.season_number === targetSeason) {
+                    for(let i=1; i <= targetEpisode; i++) itemsToMark.push({ tmdb_id: ep.show_id!, media_type: 'episode', season_number: s.season_number, episode_number: i, is_watched: true });
+                }
+            });
+
+            markManyWatched(itemsToMark);
+            toast.success(`Marked previous as watched`);
+        } catch (e) {
+            toast.error("Failed to update history");
+        }
+    };
+
     if (grouped.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full text-zinc-600 p-8 text-center opacity-50">
@@ -77,7 +106,7 @@ const AgendaSidebar = ({
     }
 
     return (
-        <div className="h-full overflow-y-auto custom-scrollbar pb-10">
+        <div className="h-full overflow-y-auto custom-scrollbar pb-10 bg-[#050505]">
             {grouped.map((group) => {
                 const isDayToday = isToday(group.date);
                 const label = isDayToday ? 'Today' : isTomorrow(group.date) ? 'Tomorrow' : format(group.date, 'EEEE, MMM do');
@@ -88,35 +117,107 @@ const AgendaSidebar = ({
                             <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
                             {isDayToday && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />}
                         </div>
-                        <div className="flex flex-col">
-                            {group.items.map(({ show, eps }) => (
-                                <button
-                                    key={show.id}
-                                    onClick={() => onSelect(show)}
-                                    className="group flex gap-3 p-3 text-left hover:bg-white/[0.03] transition-colors border-b border-white/[0.02] last:border-0"
-                                >
-                                    <div className="w-10 h-14 bg-zinc-900 shrink-0 relative overflow-hidden border border-white/5">
-                                        <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" loading="lazy" alt="" />
-                                    </div>
-                                    <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-                                        <h4 className="text-xs font-bold text-zinc-300 group-hover:text-white truncate transition-colors">{show.name}</h4>
-                                        <div className="flex items-center gap-2">
-                                            {show.media_type === 'movie' ? (
-                                                <span className="text-[9px] font-mono text-emerald-500 uppercase tracking-tight">Movie Release</span>
-                                            ) : (
-                                                <span className="text-[9px] font-mono text-zinc-500 flex items-center gap-1">
-                                                    <Clock className="w-2.5 h-2.5" />
-                                                    {eps.length > 1 
-                                                        ? `${eps.length} Episodes`
-                                                        : `S${eps[0].season_number} E${eps[0].episode_number}`
-                                                    }
-                                                </span>
+                        
+                        <div className="flex flex-col border-b border-white/5 last:border-0">
+                            {group.items.map(({ show, eps }) => {
+                                const firstEp = eps[0];
+                                const isMovie = show.media_type === 'movie';
+                                const bannerUrl = getBackdropUrl(firstEp.show_backdrop_path || firstEp.still_path || firstEp.poster_path);
+                                
+                                // Spoiler check
+                                const hasUnwatched = eps.some(ep => {
+                                    const key = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+                                    return !interactions[key]?.is_watched;
+                                });
+                                const shouldApplySpoilerRules = !isMovie || spoilerConfig.includeMovies;
+                                const isSpoilerProtected = hasUnwatched && shouldApplySpoilerRules && spoilerConfig.images;
+                                const displayImageUrl = (isSpoilerProtected && spoilerConfig.replacementMode === 'banner') ? getImageUrl(show.backdrop_path) : bannerUrl;
+
+                                return (
+                                    <div key={show.id} className="group bg-zinc-950 flex flex-col border-b border-white/[0.03] last:border-0">
+                                        
+                                        {/* Header / Banner */}
+                                        <div 
+                                            className="relative aspect-video w-full overflow-hidden cursor-pointer"
+                                            onClick={() => onSelect(show)}
+                                        >
+                                            <img 
+                                                src={displayImageUrl} 
+                                                alt="" 
+                                                className={`w-full h-full object-cover transition-all duration-700 ${isSpoilerProtected && spoilerConfig.replacementMode === 'blur' ? 'blur-xl scale-110 opacity-30' : 'opacity-50 group-hover:opacity-80'}`}
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
+                                            
+                                            {isSpoilerProtected && spoilerConfig.replacementMode === 'blur' && (
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <EyeOff className="w-6 h-6 text-zinc-700" />
+                                                </div>
                                             )}
+
+                                            <div className="absolute top-2 right-2 flex gap-1">
+                                                {show.media_type === 'movie' ? (
+                                                    <span className="bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded border border-white/10 text-[9px] font-black text-pink-400 uppercase tracking-wider flex items-center gap-1">
+                                                        <Ticket className="w-2.5 h-2.5" /> Cinema
+                                                    </span>
+                                                ) : (
+                                                    <span className="bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded border border-white/10 text-[9px] font-black text-zinc-300 uppercase tracking-wider">
+                                                        {eps.length} EP
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="absolute bottom-2 left-3 right-3">
+                                                <h4 className="text-sm font-black text-white leading-tight drop-shadow-md truncate">{show.name}</h4>
+                                            </div>
+                                        </div>
+
+                                        {/* Episodes */}
+                                        <div className="flex flex-col">
+                                            {eps.map(ep => {
+                                                const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+                                                const isWatched = interactions[watchedKey]?.is_watched;
+                                                const isTextCensored = !isWatched && shouldApplySpoilerRules && spoilerConfig.title;
+                                                const titleText = isTextCensored ? `Episode ${ep.episode_number}` : (ep.is_movie ? 'Movie Release' : ep.name);
+
+                                                return (
+                                                    <div key={ep.id} className={`flex items-center justify-between gap-3 px-3 py-2 border-t border-white/[0.03] hover:bg-white/[0.02] transition-colors ${isWatched ? 'opacity-40' : ''}`}>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-0.5">
+                                                                {!ep.is_movie && <span className="text-[9px] font-mono text-zinc-500 font-bold">S{ep.season_number} E{ep.episode_number}</span>}
+                                                                <span className={`text-[10px] font-bold truncate ${isTextCensored ? 'text-zinc-600' : 'text-zinc-300'}`}>{titleText}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Clock className="w-2.5 h-2.5 text-zinc-600" />
+                                                                <span className="text-[9px] text-zinc-500 font-medium uppercase">{format(parseISO(ep.air_date), 'h:mm a')}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            {!ep.is_movie && !isWatched && (
+                                                                <button 
+                                                                    onClick={(e) => { e.stopPropagation(); handleMarkPrevious(ep); }}
+                                                                    className="p-1.5 text-zinc-600 hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100"
+                                                                    title="Mark Previous"
+                                                                >
+                                                                    <CheckCheck className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            )}
+                                                            <button 
+                                                                onClick={(e) => { 
+                                                                    e.stopPropagation(); 
+                                                                    if (ep.show_id) toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched }); 
+                                                                }}
+                                                                className={`p-1.5 transition-colors ${isWatched ? 'text-emerald-500' : 'text-zinc-600 hover:text-white'}`}
+                                                            >
+                                                                <Check className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
                                         </div>
                                     </div>
-                                    <ArrowUpRight className="w-3 h-3 text-zinc-700 group-hover:text-zinc-500 opacity-0 group-hover:opacity-100 transition-all self-center" />
-                                </button>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 );
@@ -186,7 +287,7 @@ const V2Library: React.FC = () => {
         <div className="flex-1 flex h-full bg-[#020202] overflow-hidden font-sans text-zinc-100">
             
             {/* AGENDA SIDEBAR (Desktop) */}
-            <aside className="hidden lg:flex flex-col w-72 shrink-0 border-r border-white/5 bg-[#050505]">
+            <aside className="hidden lg:flex flex-col w-80 shrink-0 border-r border-white/5 bg-[#050505]">
                 <div className="h-14 flex items-center px-4 border-b border-white/5 shrink-0">
                     <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
                         <Layers className="w-3.5 h-3.5 text-indigo-500" /> Agenda

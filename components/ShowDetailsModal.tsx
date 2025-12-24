@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { X, Play, Plus, Check, Star, Loader2, Calendar, Clock, MonitorPlay, Ticket, ChevronDown } from 'lucide-react';
+import { X, Play, Plus, Check, Star, Loader2, Calendar, Clock, MonitorPlay, Ticket, ChevronDown, Video } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails } from '../services/tmdb';
-import { TVShow, Episode, Season, Video } from '../types';
+import { TVShow, Episode, Season, Video as VideoType } from '../types';
 import { useStore } from '../store';
 import { format, parseISO, isFuture } from 'date-fns';
 import TrailerModal from './TrailerModal';
@@ -30,8 +30,8 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     const [loadingSeason, setLoadingSeason] = useState(false);
 
     // Video State
-    const [videos, setVideos] = useState<Video[]>([]);
-    const [playingVideo, setPlayingVideo] = useState<Video | null>(null);
+    const [videos, setVideos] = useState<VideoType[]>([]);
+    const [playingVideo, setPlayingVideo] = useState<VideoType | null>(null);
 
     // Initial Fetch
     useEffect(() => {
@@ -109,9 +109,9 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-fade-in p-4 md:p-8" onClick={onClose}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-fade-in p-0 md:p-8" onClick={onClose}>
             <div 
-                className="bg-[#09090b] border border-white/10 w-full max-w-5xl h-full md:h-[85vh] shadow-2xl flex flex-col overflow-hidden relative"
+                className="bg-[#09090b] border border-white/10 w-full max-w-5xl h-full md:h-[85vh] shadow-2xl flex flex-col overflow-hidden relative md:rounded-sm"
                 onClick={e => e.stopPropagation()}
             >
                 {/* CLOSE BUTTON */}
@@ -127,7 +127,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                     <div className="flex flex-col h-full">
                         
                         {/* HERO HEADER */}
-                        <div className="relative shrink-0 h-64 md:h-80 bg-zinc-900">
+                        <div className="relative shrink-0 h-72 md:h-80 bg-zinc-900">
                             <div className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: `url(${getBackdropUrl(details.backdrop_path)})` }} />
                             <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/60 to-transparent" />
                             <div className="absolute inset-0 bg-gradient-to-r from-[#09090b] via-[#09090b]/40 to-transparent" />
@@ -173,13 +173,13 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                         </div>
 
                         {/* TABS */}
-                        <div className="flex border-b border-white/10 px-6 md:px-10 bg-[#09090b]">
+                        <div className="flex border-b border-white/10 px-6 md:px-10 bg-[#09090b] overflow-x-auto hide-scrollbar shrink-0">
                             {['overview', ...(mediaType === 'tv' ? ['episodes'] : []), 'videos'].map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab as any)}
                                     className={`
-                                        px-6 py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors
+                                        px-6 py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap
                                         ${activeTab === tab ? 'border-indigo-500 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}
                                     `}
                                 >
@@ -193,31 +193,36 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                             
                             {/* OVERVIEW */}
                             {activeTab === 'overview' && (
-                                <div className="p-6 md:p-10 max-w-4xl">
+                                <div className="p-6 md:p-10 max-w-4xl animate-fade-in">
                                     <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-3">Synopsis</h3>
                                     <p className="text-zinc-300 leading-relaxed text-sm md:text-base mb-8">
                                         {details.overview || "No synopsis available."}
                                     </p>
                                     
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-white/5 pt-6">
                                         <div>
                                             <span className="block text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Original Language</span>
                                             <span className="text-sm font-mono text-zinc-300 uppercase">{details.original_language || 'EN'}</span>
                                         </div>
                                         <div>
                                             <span className="block text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Status</span>
-                                            <span className="text-sm font-mono text-zinc-300">{mediaType === 'movie' ? 'Released' : 'Returning Series'}</span>
+                                            <span className="text-sm font-mono text-zinc-300">{mediaType === 'movie' ? 'Released' : 'TV Series'}</span>
                                         </div>
-                                        {/* Additional metadata could go here */}
+                                        {details.origin_country && (
+                                            <div>
+                                                <span className="block text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Origin</span>
+                                                <span className="text-sm font-mono text-zinc-300">{details.origin_country.join(', ')}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
 
                             {/* EPISODES (TV Only) */}
                             {activeTab === 'episodes' && mediaType === 'tv' && (
-                                <div className="flex flex-col h-full">
+                                <div className="flex flex-col h-full animate-fade-in">
                                     {/* Season Selector */}
-                                    <div className="px-6 py-4 border-b border-white/5 flex items-center gap-4 bg-zinc-900/30">
+                                    <div className="px-6 py-4 border-b border-white/5 flex items-center gap-4 bg-zinc-900/30 sticky top-0 z-10 backdrop-blur-md">
                                         <label className="text-xs font-bold text-zinc-500 uppercase">Season</label>
                                         <div className="relative">
                                             <select 
@@ -235,7 +240,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                     </div>
 
                                     {/* Episodes List */}
-                                    <div className="flex-1">
+                                    <div className="flex-1 pb-12">
                                         {loadingSeason ? (
                                             <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>
                                         ) : seasonData ? (
@@ -251,7 +256,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
 
                             {/* VIDEOS */}
                             {activeTab === 'videos' && (
-                                <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
                                     {videos.map(video => (
                                         <button 
                                             key={video.id}
@@ -273,7 +278,10 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                         </button>
                                     ))}
                                     {videos.length === 0 && (
-                                        <div className="col-span-full text-center py-20 text-zinc-500">No videos available</div>
+                                        <div className="col-span-full text-center py-20 text-zinc-500 flex flex-col items-center">
+                                            <Video className="w-12 h-12 mb-4 opacity-20" />
+                                            <p>No videos available</p>
+                                        </div>
                                     )}
                                 </div>
                             )}
