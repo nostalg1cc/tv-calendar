@@ -1,12 +1,17 @@
 
-const TRAKT_CLIENT_ID = 'e577265a0729792679263900976f75567793575975259727529'; // Demo ID
 const TRAKT_API_URL = 'https://api.trakt.tv';
 
+const getCredentials = () => ({
+    clientId: localStorage.getItem('trakt_client_id') || '',
+    clientSecret: localStorage.getItem('trakt_client_secret') || ''
+});
+
 const getHeaders = (token?: string) => {
+    const { clientId } = getCredentials();
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'trakt-api-version': '2',
-        'trakt-api-key': localStorage.getItem('trakt_client_id') || TRAKT_CLIENT_ID
+        'trakt-api-key': clientId
     };
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -14,22 +19,33 @@ const getHeaders = (token?: string) => {
     return headers;
 };
 
-export const getDeviceCode = async (clientId: string = TRAKT_CLIENT_ID) => {
+export const getDeviceCode = async () => {
+    const { clientId } = getCredentials();
+    if (!clientId) throw new Error("Missing Trakt Client ID");
+
     const res = await fetch(`${TRAKT_API_URL}/oauth/device/code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ client_id: clientId })
     });
-    if (!res.ok) throw new Error('Failed to reach Trakt');
+    
+    if (!res.ok) {
+        const txt = await res.text();
+        console.error("Trakt Auth Error:", txt);
+        throw new Error(`Trakt Error: ${res.statusText}`);
+    }
     return res.json();
 };
 
-export const pollToken = async (deviceCode: string, clientId: string = TRAKT_CLIENT_ID, clientSecret?: string) => {
+export const pollToken = async (deviceCode: string) => {
+    const { clientId, clientSecret } = getCredentials();
+    if (!clientId || !clientSecret) throw new Error("Missing Credentials");
+
     const body: any = {
         code: deviceCode,
-        client_id: clientId
+        client_id: clientId,
+        client_secret: clientSecret
     };
-    if (clientSecret) body.client_secret = clientSecret;
 
     const res = await fetch(`${TRAKT_API_URL}/oauth/device/token`, {
         method: 'POST',

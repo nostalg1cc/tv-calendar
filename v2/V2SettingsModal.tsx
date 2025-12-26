@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2 } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
@@ -76,6 +76,11 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const [traktCode, setTraktCode] = useState<string | null>(null);
     const [traktUrl, setTraktUrl] = useState<string | null>(null);
     const [isPollingTrakt, setIsPollingTrakt] = useState(false);
+    
+    // Trakt Secrets State
+    const [showTraktConfig, setShowTraktConfig] = useState(false);
+    const [traktClientId, setTraktClientId] = useState(localStorage.getItem('trakt_client_id') || '');
+    const [traktClientSecret, setTraktClientSecret] = useState(localStorage.getItem('trakt_client_secret') || '');
 
     // Status Checks
     const hasSupabase = !!supabase;
@@ -169,7 +174,19 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     
     // --- TRAKT LOGIC ---
     
+    const saveTraktSecrets = () => {
+        localStorage.setItem('trakt_client_id', traktClientId.trim());
+        localStorage.setItem('trakt_client_secret', traktClientSecret.trim());
+        toast.success("Trakt secrets saved");
+    };
+
     const startTraktAuth = async () => {
+        if (!traktClientId || !traktClientSecret) {
+            toast.error("Please configure Client ID & Secret first");
+            setShowTraktConfig(true);
+            return;
+        }
+
         setIsPollingTrakt(true);
         try {
             const data = await getDeviceCode();
@@ -199,10 +216,10 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                 }
             }, data.interval * 1000);
             
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
             setIsPollingTrakt(false);
-            toast.error("Could not reach Trakt.tv");
+            toast.error(e.message || "Could not reach Trakt.tv");
         }
     };
 
@@ -482,7 +499,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
 
                                 {/* Trakt Card */}
                                 <div className="bg-card/40 border border-border rounded-3xl overflow-hidden">
-                                    <div className="p-6 border-b border-border flex items-start justify-between">
+                                    <div className="p-6 border-b border-border flex items-start justify-between bg-zinc-900/50">
                                         <div className="flex items-center gap-4">
                                             <div className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center font-bold text-2xl text-white shadow-lg shadow-red-900/20">T</div>
                                             <div>
@@ -500,14 +517,58 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                     <div className="p-6 bg-black/20">
                                         {!hasTrakt ? (
                                             !traktCode ? (
-                                                <button 
-                                                    onClick={startTraktAuth}
-                                                    disabled={isPollingTrakt}
-                                                    className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2"
-                                                >
-                                                    {isPollingTrakt ? <Loader2 className="w-5 h-5 animate-spin" /> : <LinkIcon className="w-5 h-5" />}
-                                                    Connect Trakt Account
-                                                </button>
+                                                <div className="space-y-4">
+                                                    <button 
+                                                        onClick={startTraktAuth}
+                                                        disabled={isPollingTrakt}
+                                                        className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2"
+                                                    >
+                                                        {isPollingTrakt ? <Loader2 className="w-5 h-5 animate-spin" /> : <LinkIcon className="w-5 h-5" />}
+                                                        Connect Trakt Account
+                                                    </button>
+
+                                                    <button 
+                                                        onClick={() => setShowTraktConfig(!showTraktConfig)}
+                                                        className="w-full flex items-center justify-between text-xs font-bold text-zinc-500 hover:text-white px-2 py-2 rounded hover:bg-white/5 transition-colors"
+                                                    >
+                                                        <span>Configuration</span>
+                                                        {showTraktConfig ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                                    </button>
+
+                                                    {showTraktConfig && (
+                                                        <div className="space-y-3 bg-zinc-900/50 p-4 rounded-xl border border-white/5 animate-enter">
+                                                            <div className="space-y-1">
+                                                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Client ID</label>
+                                                                <input 
+                                                                    type="password" 
+                                                                    value={traktClientId}
+                                                                    onChange={(e) => setTraktClientId(e.target.value)}
+                                                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-red-500 outline-none font-mono"
+                                                                    placeholder="Enter Client ID from Trakt API"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Client Secret</label>
+                                                                <input 
+                                                                    type="password" 
+                                                                    value={traktClientSecret}
+                                                                    onChange={(e) => setTraktClientSecret(e.target.value)}
+                                                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-red-500 outline-none font-mono"
+                                                                    placeholder="Enter Client Secret"
+                                                                />
+                                                            </div>
+                                                            <button 
+                                                                onClick={saveTraktSecrets}
+                                                                className="w-full py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-colors border border-white/5"
+                                                            >
+                                                                Save Secrets
+                                                            </button>
+                                                            <p className="text-[10px] text-zinc-600 text-center">
+                                                                Create an app at <a href="https://trakt.tv/oauth/apps" target="_blank" rel="noreferrer" className="text-red-400 hover:underline">trakt.tv/oauth/apps</a> with redirect URI: urn:ietf:wg:oauth:2.0:oob
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <div className="text-center space-y-4 animate-enter">
                                                     <p className="text-sm text-text-muted">Enter this code at <span className="text-white font-mono">{traktUrl}</span></p>
