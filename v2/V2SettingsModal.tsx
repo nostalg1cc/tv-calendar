@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3 } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
@@ -29,6 +29,29 @@ const FONTS = [
     { id: 'space', name: 'Space Grotesk' },
     { id: 'lora', name: 'Lora' },
     { id: 'system', name: 'System' },
+];
+
+const COUNTRIES = [
+    { code: 'US', name: 'United States' },
+    { code: 'GB', name: 'United Kingdom' },
+    { code: 'CA', name: 'Canada' },
+    { code: 'AU', name: 'Australia' },
+    { code: 'DE', name: 'Germany' },
+    { code: 'FR', name: 'France' },
+    { code: 'ES', name: 'Spain' },
+    { code: 'IT', name: 'Italy' },
+    { code: 'JP', name: 'Japan' },
+    { code: 'KR', name: 'South Korea' },
+    { code: 'BR', name: 'Brazil' },
+    { code: 'MX', name: 'Mexico' },
+    { code: 'IN', name: 'India' },
+    { code: 'RU', name: 'Russia' },
+    { code: 'CN', name: 'China' },
+    { code: 'NL', name: 'Netherlands' },
+    { code: 'SE', name: 'Sweden' },
+    { code: 'NZ', name: 'New Zealand' },
+    { code: 'IE', name: 'Ireland' },
+    { code: 'CH', name: 'Switzerland' }
 ];
 
 const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) => {
@@ -205,6 +228,29 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                             <div className="space-y-8 max-w-2xl animate-fade-in">
                                 <div>
                                     <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Settings className="w-5 h-5 text-indigo-500" /> Preferences</h3>
+                                    
+                                    {/* REGION SETTING */}
+                                    <div className="mb-6 bg-card/40 p-4 rounded-xl border border-border">
+                                        <label className="text-sm font-bold text-text-main mb-2 block flex items-center gap-2">
+                                            <Globe className="w-4 h-4 text-indigo-400" /> Region / Country
+                                        </label>
+                                        <div className="relative">
+                                            <select 
+                                                value={settings.country || 'US'} 
+                                                onChange={(e) => updateSettings({ country: e.target.value })}
+                                                className="w-full bg-black/40 border border-border rounded-lg px-4 py-3 text-sm text-text-main focus:outline-none focus:border-indigo-500 appearance-none transition-colors"
+                                            >
+                                                {COUNTRIES.map(c => (
+                                                    <option key={c.code} value={c.code}>{c.name} ({c.code})</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted text-xs">▼</div>
+                                        </div>
+                                        <p className="text-xs text-text-muted mt-2 leading-relaxed">
+                                            Determines which release dates are shown for movies in the calendar. If a release date for your country isn't available, we'll show the earliest global release.
+                                        </p>
+                                    </div>
+
                                     <div className="space-y-1 divide-y divide-border border-y border-border">
                                         <Toggle label="Compact Calendar" description="Fit more rows on the calendar grid." active={!!settings.compactCalendar} onToggle={() => updateSettings({ compactCalendar: !settings.compactCalendar })} />
                                         <Toggle label="Ignore Specials" description="Hide 'Season 0' content from lists and calendar." active={!!settings.ignoreSpecials} onToggle={() => updateSettings({ ignoreSpecials: !settings.ignoreSpecials })} />

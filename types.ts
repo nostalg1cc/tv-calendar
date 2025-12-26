@@ -58,6 +58,7 @@ export interface AppSettings {
   appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system';
   compactCalendar: boolean;
   timezone: string;
+  country: string;
   timeShift: boolean;
   hideTheatrical: boolean;
   ignoreSpecials: boolean;
@@ -93,6 +94,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   appFont: 'inter',
   compactCalendar: true,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  country: 'US',
   timeShift: false,
   hideTheatrical: false,
   ignoreSpecials: true,

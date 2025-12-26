@@ -31,8 +31,11 @@ const getUserRegion = () => {
 export const useCalendarEpisodes = (targetDate: Date) => {
     const watchlist = useStore(state => state.watchlist);
     const user = useStore(state => state.user);
+    const settings = useStore(state => state.settings);
     const hasKey = !!user?.tmdb_key;
-    const userRegion = getUserRegion();
+    
+    // Prefer user setting, fallback to browser detection
+    const userRegion = settings.country || getUserRegion();
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({

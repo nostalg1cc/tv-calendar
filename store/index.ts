@@ -370,6 +370,10 @@ export const useStore = create<State>()(
                          // Hydrate Settings
                         if (profile.settings) {
                             const newSettings = { ...get().settings, ...profile.settings };
+                            
+                            // Ensure country has default if missing from cloud profile
+                            if (!newSettings.country) newSettings.country = 'US';
+                            
                             set({ settings: newSettings });
                             applyTheme(newSettings); // Apply theme on sync
                         }
