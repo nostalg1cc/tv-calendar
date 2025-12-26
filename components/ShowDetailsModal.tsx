@@ -6,7 +6,7 @@ import { getTVMazeEpisodes } from '../services/tvmaze';
 import { TVShow, Episode, Season, Video as VideoType } from '../types';
 import { useStore } from '../store';
 import { format, parseISO, isFuture } from 'date-fns';
-import { getTraktCalendar } from '../services/trakt';
+import { getTraktCalendar, getTraktIdFromTmdbId, getTraktSeason } from '../services/trakt';
 
 interface ShowDetailsModalProps {
     isOpen: boolean;
@@ -29,7 +29,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     
     // Store full object from TVMaze including timestamp
     const [tvmazeOverrides, setTvmazeOverrides] = useState<Record<number, { date: string, timestamp?: string }>>({});
-    // Store Trakt overrides
+    // Store Trakt overrides (episode_number -> ISO string)
     const [traktOverrides, setTraktOverrides] = useState<Record<number, string>>({});
 
     useEffect(() => {
@@ -88,32 +88,43 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     useEffect(() => {
         if (mediaType === 'tv' && details && selectedSeasonNum !== undefined) {
             setLoadingSeason(true);
+            setTraktOverrides({}); 
+            setTvmazeOverrides({});
+
             const fetchSeason = async () => {
                 try {
                     const sData = await getSeasonDetails(details.id, selectedSeasonNum);
                     setSeasonData(sData);
 
-                    // Fetch TVMaze
-                    const mazeMap = await getTVMazeEpisodes(
+                    // 1. Fetch TVMaze Data
+                    getTVMazeEpisodes(
                         details.external_ids?.imdb_id, 
                         details.external_ids?.tvdb_id,
                         settings.country 
-                    );
-                    if (mazeMap && mazeMap[selectedSeasonNum]) {
-                        setTvmazeOverrides(mazeMap[selectedSeasonNum]);
-                    } else {
-                        setTvmazeOverrides({});
-                    }
+                    ).then(mazeMap => {
+                        if (mazeMap && mazeMap[selectedSeasonNum]) {
+                            setTvmazeOverrides(mazeMap[selectedSeasonNum]);
+                        }
+                    });
 
-                    // Fetch Trakt (We can try to get calendar for this season if we had date range, 
-                    // but for a single season view, we might need a different endpoint or strategy. 
-                    // For now, let's assume if Trakt connected, we rely on calendar query logic, 
-                    // but here we are in details view. 
-                    // To keep it simple in this specific modal, we won't do a full Trakt fetch per season 
-                    // unless we query specific episodes. Let's just use what we have or implement a simple 
-                    // check if we really want to be precise here too. 
-                    // NOTE: Implementing full Trakt Season fetch requires extended info which might be heavy.
-                    // We'll skip Trakt explicit fetch here for now to keep performance high, relying on TVMaze for regional overrides in this view.)
+                    // 2. Fetch Trakt Data (Prioritize if connected or public lookup works)
+                    try {
+                        const traktId = await getTraktIdFromTmdbId(details.id, 'show');
+                        if (traktId) {
+                            const traktData = await getTraktSeason(traktId, selectedSeasonNum);
+                            const tMap: Record<number, string> = {};
+                            if (Array.isArray(traktData)) {
+                                traktData.forEach((ep: any) => {
+                                    if (ep.number && ep.first_aired) {
+                                        tMap[ep.number] = ep.first_aired;
+                                    }
+                                });
+                            }
+                            setTraktOverrides(tMap);
+                        }
+                    } catch (err) {
+                        console.warn("Trakt fetch failed", err);
+                    }
 
                 } catch(e) {
                     console.error(e);
@@ -136,34 +147,37 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
 
     const EpisodeItem: React.FC<{ ep: Episode }> = ({ ep }) => {
         const mazeData = tvmazeOverrides[ep.episode_number];
+        const traktDate = traktOverrides[ep.episode_number];
         
         let displayDate = '';
         let displayTime = '';
         let dateObj: Date | null = null;
         let sourceLabel = '';
 
-        // Priority 1: TVMaze Timestamp (ISO)
-        if (mazeData && mazeData.timestamp) {
+        // Priority 1: Trakt (User Personalized / Accurate)
+        if (traktDate) {
+            dateObj = parseISO(traktDate); // Trakt returns ISO UTC usually
+            sourceLabel = 'TRAKT';
+        }
+        // Priority 2: TVMaze Timestamp (ISO)
+        else if (mazeData && mazeData.timestamp) {
             dateObj = new Date(mazeData.timestamp);
-            sourceLabel = 'TVMaze';
+            sourceLabel = 'TVMAZE';
         } 
-        // Priority 2: TVMaze Date String
+        // Priority 3: TVMaze Date String
         else if (mazeData && mazeData.date) {
             dateObj = parseISO(mazeData.date); 
-            sourceLabel = 'TVMaze';
+            sourceLabel = 'TVMAZE';
         }
-        // Priority 3: TMDB Date
+        // Priority 4: TMDB Date
         else if (ep.air_date) {
              dateObj = parseISO(ep.air_date);
         }
 
-        // If we have a Trakt connection and this date matches what we might have in calendar context
-        // (Though we don't have calendar context here easily, so we just show what we found)
-
         if (dateObj) {
             displayDate = format(dateObj, 'MMM d, yyyy');
-            // Show time only if we have a full timestamp or we added it intelligently
-            if ((mazeData && mazeData.timestamp) || (ep.air_date_iso && ep.air_date_iso.includes('T'))) {
+            // Show time if we have a full timestamp
+            if ((traktDate && traktDate.includes('T')) || (mazeData && mazeData.timestamp) || (ep.air_date_iso && ep.air_date_iso.includes('T'))) {
                  displayTime = format(dateObj, 'h:mm a');
             }
         }
@@ -198,7 +212,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                         </span>
                                     )}
                                     {sourceLabel && (
-                                        <span className="text-[7px] px-1 rounded bg-zinc-800 text-zinc-500 uppercase font-bold tracking-wider">
+                                        <span className={`text-[7px] px-1 rounded uppercase font-bold tracking-wider ${sourceLabel === 'TRAKT' ? 'bg-red-500/10 text-red-400' : 'bg-zinc-800 text-zinc-500'}`}>
                                             {sourceLabel}
                                         </span>
                                     )}

@@ -99,3 +99,20 @@ export const syncHistory = async (token: string, items: any, action: 'add' | 're
     if (!res.ok) throw new Error('Failed to sync history');
     return res.json();
 };
+
+export const getTraktIdFromTmdbId = async (tmdbId: number, type: 'movie' | 'show') => {
+    const res = await fetch(`${TRAKT_API_URL}/search/tmdb/${tmdbId}?type=${type}`, {
+        headers: getHeaders()
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data[0]?.show?.ids?.trakt || data[0]?.movie?.ids?.trakt;
+};
+
+export const getTraktSeason = async (traktId: string | number, season: number) => {
+    const res = await fetch(`${TRAKT_API_URL}/shows/${traktId}/seasons/${season}?extended=full`, {
+         headers: getHeaders()
+    });
+    if (!res.ok) return [];
+    return res.json();
+};
