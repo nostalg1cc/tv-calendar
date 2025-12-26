@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { X, Play, Plus, Check, Star, Loader2, Calendar, Clock, MonitorPlay, Ticket, ChevronDown, Video, Youtube, ExternalLink } from 'lucide-react';
-import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails } from '../services/tmdb';
+import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails, getMovieReleaseDates } from '../services/tmdb';
 import { TVShow, Episode, Season, Video as VideoType } from '../types';
 import { useStore } from '../store';
 import { format, parseISO, isFuture } from 'date-fns';
@@ -29,6 +29,9 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     const [videos, setVideos] = useState<VideoType[]>([]);
     const [playingVideo, setPlayingVideo] = useState<VideoType | null>(null);
 
+    // Release Dates (Movies)
+    const [releases, setReleases] = useState<{ date: string, type: 'theatrical' | 'digital' }[]>([]);
+
     // Initial Fetch
     useEffect(() => {
         if (isOpen && showId) {
@@ -41,6 +44,20 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                     
                     // Fetch Videos
                     getVideos(mediaType, showId).then(setVideos);
+
+                    // Fetch Release Dates for Movies
+                    if (mediaType === 'movie') {
+                        try {
+                            let rels = await getMovieReleaseDates(showId);
+                            // Fallback if no specific dates found but global release exists
+                            if (rels.length === 0 && data.first_air_date) {
+                                rels = [{ date: data.first_air_date, type: 'theatrical' }];
+                            }
+                            setReleases(rels);
+                        } catch (e) {
+                            console.warn("Failed to fetch release dates", e);
+                        }
+                    }
                     
                     // Setup default season
                     if (mediaType === 'tv' && data.seasons && data.seasons.length > 0) {
@@ -58,6 +75,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
             setDetails(null);
             setVideos([]);
             setSeasonData(null);
+            setReleases([]);
         }
     }, [isOpen, showId, mediaType]);
 
@@ -295,6 +313,30 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                         <div>
                                             <span className="block text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Country</span>
                                             <span className="text-sm font-medium text-white">{details.origin_country.join(', ')}</span>
+                                        </div>
+                                    )}
+                                    
+                                    {/* RELEASE DATES (MOVIES) */}
+                                    {mediaType === 'movie' && releases.length > 0 && (
+                                        <div className="pt-4 border-t border-white/5">
+                                            <span className="block text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-3">Release Schedule</span>
+                                            <div className="space-y-3">
+                                                {releases.map((r, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between bg-black/20 p-2 rounded-lg">
+                                                        <div className="flex items-center gap-2">
+                                                            {r.type === 'theatrical' ? (
+                                                                <div className="p-1.5 rounded bg-pink-500/10 text-pink-400"><Ticket className="w-3.5 h-3.5" /></div>
+                                                            ) : (
+                                                                <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-400"><MonitorPlay className="w-3.5 h-3.5" /></div>
+                                                            )}
+                                                            <span className={`text-xs font-bold uppercase tracking-wider ${r.type === 'theatrical' ? 'text-pink-200' : 'text-emerald-200'}`}>
+                                                                {r.type === 'theatrical' ? 'Theatrical' : 'Digital'}
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-xs font-mono text-zinc-300">{format(parseISO(r.date), 'MMM d, yyyy')}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
