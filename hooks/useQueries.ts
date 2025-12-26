@@ -3,7 +3,7 @@ import { useQuery, useQueries } from '@tanstack/react-query';
 import { getShowDetails, getSeasonDetails, getMovieReleaseDates, getMovieDetails } from '../services/tmdb';
 import { Episode } from '../types';
 import { useStore } from '../store';
-import { parseISO, subMonths, addMonths } from 'date-fns';
+import { parseISO, subMonths, addMonths, addDays, format } from 'date-fns';
 
 export const useShowData = (showId: number, mediaType: 'tv' | 'movie') => {
     const user = useStore(state => state.user);
@@ -28,6 +28,24 @@ const getUserRegion = () => {
     }
 };
 
+// Heuristic to check if we should shift date forward (e.g. US show watched in Europe)
+const shouldShiftDate = (originCountry: string[], userRegion: string) => {
+    const AMERICAS = ['US', 'CA', 'MX', 'BR', 'AR', 'CL', 'CO', 'PE'];
+    const EASTERN_HEMISPHERE_REGIONS = [
+        'GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'SE', 'NO', 'DK', 'FI', 'PT', // Europe
+        'AU', 'NZ', // Oceania
+        'JP', 'KR', 'CN', 'IN', 'RU', 'SG', 'MY', 'PH', 'TH', 'VN' // Asia
+    ];
+
+    // If show is from Americas
+    const isFromAmericas = originCountry.some(c => AMERICAS.includes(c));
+    
+    // And user is in East
+    const isUserEast = EASTERN_HEMISPHERE_REGIONS.includes(userRegion);
+
+    return isFromAmericas && isUserEast;
+};
+
 export const useCalendarEpisodes = (targetDate: Date) => {
     const watchlist = useStore(state => state.watchlist);
     const user = useStore(state => state.user);
@@ -39,7 +57,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({
-            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion],
+            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, settings.timeShift],
             queryFn: async (): Promise<Episode[]> => {
                 if (show.media_type === 'movie') {
                     let releases = await getMovieReleaseDates(show.id);
@@ -104,6 +122,11 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     // Prioritize user selected poster
                     const posterToUse = show.custom_poster_path || details.poster_path;
                     
+                    // Determine if we need to shift date based on origin vs user location
+                    const needsShift = settings.timeShift && details.origin_country 
+                        ? shouldShiftDate(details.origin_country, userRegion)
+                        : false;
+
                     // Optimisation: Fetch last 2 seasons + specials
                     const seasonsToFetch = details.seasons?.slice(-2) || [];
                     const s0 = details.seasons?.find(s => s.season_number === 0);
@@ -113,15 +136,26 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                         try {
                             const sData = await getSeasonDetails(show.id, season.season_number);
                             sData.episodes.forEach(e => {
-                                eps.push({
-                                    ...e,
-                                    show_id: show.id,
-                                    show_name: show.name,
-                                    is_movie: false,
-                                    show_backdrop_path: details.backdrop_path,
-                                    poster_path: posterToUse, // Use custom or refreshed show poster
-                                    season1_poster_path: sData.poster_path // Keep season specific as fallback
-                                });
+                                if (e.air_date) {
+                                    let finalDate = e.air_date;
+                                    
+                                    // Apply Time Shift if necessary
+                                    if (needsShift) {
+                                        const d = parseISO(e.air_date);
+                                        finalDate = format(addDays(d, 1), 'yyyy-MM-dd');
+                                    }
+
+                                    eps.push({
+                                        ...e,
+                                        air_date: finalDate, // Override with shifted date
+                                        show_id: show.id,
+                                        show_name: show.name,
+                                        is_movie: false,
+                                        show_backdrop_path: details.backdrop_path,
+                                        poster_path: posterToUse, // Use custom or refreshed show poster
+                                        season1_poster_path: sData.poster_path // Keep season specific as fallback
+                                    });
+                                }
                             });
                         } catch (e) {
                             console.warn(`Failed to fetch season ${season.season_number}`);
