@@ -32,13 +32,13 @@ const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {
     return response.json();
 };
 
-export const getImageUrl = (path: string | null, size: string = 'w500') => {
+export const getImageUrl = (path: string | null | undefined, size: string = 'w500') => {
     if (!path) return 'https://via.placeholder.com/500x750?text=No+Image';
     if (path.startsWith('http') || path.startsWith('data:')) return path;
     return `https://image.tmdb.org/t/p/${size}${path}`;
 };
 
-export const getBackdropUrl = (path: string | null) => {
+export const getBackdropUrl = (path: string | null | undefined) => {
     if (!path) return 'https://via.placeholder.com/1920x1080?text=No+Image';
     if (path.startsWith('http') || path.startsWith('data:')) return path;
     return `https://image.tmdb.org/t/p/original${path}`;
