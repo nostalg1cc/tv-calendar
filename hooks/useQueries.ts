@@ -18,14 +18,25 @@ export const useShowData = (showId: number, mediaType: 'tv' | 'movie') => {
     });
 };
 
+const getUserRegion = () => {
+    try {
+        const lang = navigator.language || 'en-US';
+        if (lang.includes('-')) return lang.split('-')[1].toUpperCase();
+        return 'US'; 
+    } catch {
+        return 'US';
+    }
+};
+
 export const useCalendarEpisodes = (targetDate: Date) => {
     const watchlist = useStore(state => state.watchlist);
     const user = useStore(state => state.user);
     const hasKey = !!user?.tmdb_key;
+    const userRegion = getUserRegion();
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({
-            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path],
+            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion],
             queryFn: async (): Promise<Episode[]> => {
                 if (show.media_type === 'movie') {
                     let releases = await getMovieReleaseDates(show.id);
@@ -37,19 +48,28 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     
                     const posterToUse = show.custom_poster_path || show.poster_path;
 
-                    // Filter relevant releases for calendar to avoid duplicates/spam
-                    // We prioritize US, then Global Earliest for each main category (Theatrical, Digital)
+                    // Categories: 
+                    // Theatrical = theatrical (3), premiere (1)
+                    // Digital = digital (4), physical (5)
                     const relevantReleases: any[] = [];
-                    const types = ['theatrical', 'digital', 'physical', 'premiere'];
                     
-                    types.forEach(t => {
-                        const typeReleases = releases.filter(r => r.type === t);
-                        if (typeReleases.length > 0) {
-                             // Prefer US, else take the first (earliest because fetch is sorted)
-                             const best = typeReleases.find(r => r.country === 'US') || typeReleases[0];
-                             relevantReleases.push(best);
-                        }
-                    });
+                    const processCategory = (types: string[]) => {
+                         const candidates = releases.filter(r => types.includes(r.type));
+                         if (candidates.length > 0) {
+                             // 1. Try to find user region match
+                             let best = candidates.find(r => r.country === userRegion);
+                             // 2. If not found, use the earliest one (candidates are typically sorted by date in getMovieReleaseDates)
+                             if (!best) {
+                                 // Sort by date just to be sure
+                                 const sorted = [...candidates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                                 best = sorted[0];
+                             }
+                             if (best) relevantReleases.push(best);
+                         }
+                    };
+
+                    processCategory(['theatrical', 'premiere']);
+                    processCategory(['digital', 'physical']);
 
                     return relevantReleases.map(r => {
                         // Map specific types to generic categories for UI compatibility
@@ -70,6 +90,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                             show_name: show.name,
                             is_movie: true,
                             release_type: normalizedType,
+                            release_country: r.country,
                             show_backdrop_path: show.backdrop_path
                         };
                     });

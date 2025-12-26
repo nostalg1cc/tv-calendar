@@ -33,6 +33,13 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         return map;
     }, [rawEpisodes]);
 
+    // Derive user region to compare against release country
+    const userRegion = useMemo(() => {
+        try {
+            return (navigator.language.split('-')[1] || 'US').toUpperCase();
+        } catch { return 'US'; }
+    }, []);
+
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     
@@ -203,11 +210,21 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
             );
         }
         const isTheatrical = ep.release_type === 'theatrical';
+        const showFlag = ep.release_country && ep.release_country !== userRegion;
+
         return (
-            <span className={`flex items-center gap-1.5 px-2 py-1 rounded border backdrop-blur-md text-[9px] font-black uppercase tracking-wider ${isTheatrical ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                {isTheatrical ? <Ticket className="w-3 h-3" /> : <MonitorPlay className="w-3 h-3" />}
-                {isTheatrical ? 'Cinema' : 'Digital'}
-            </span>
+            <div className="flex items-center gap-2">
+                <span className={`flex items-center gap-1.5 px-2 py-1 rounded border backdrop-blur-md text-[9px] font-black uppercase tracking-wider ${isTheatrical ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                    {isTheatrical ? <Ticket className="w-3 h-3" /> : <MonitorPlay className="w-3 h-3" />}
+                    {isTheatrical ? 'Cinema' : 'Digital'}
+                </span>
+                {showFlag && (
+                     <span 
+                        className={`fi fi-${ep.release_country!.toLowerCase()} rounded-[2px] shadow-sm scale-110`} 
+                        title={`Release in ${ep.release_country}`}
+                     />
+                )}
+            </div>
         );
     };
 
@@ -215,6 +232,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         const imageUrl = getImageUrl(ep.poster_path);
         const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
         const isWatched = interactions[watchedKey]?.is_watched;
+        const showFlag = ep.is_movie && ep.release_country && ep.release_country !== userRegion;
 
         return (
             <div 
@@ -231,10 +249,13 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     <h4 className={`text-[10px] font-black uppercase tracking-tight leading-tight line-clamp-2 mb-1 drop-shadow-md ${isWatched ? 'text-zinc-500 line-through' : 'text-white'}`}>{ep.show_name}</h4>
                     <div className="flex items-center gap-1.5">
                         {ep.is_movie ? (
-                             <span className={`text-[8px] font-bold uppercase tracking-wider flex items-center gap-1 ${ep.release_type === 'theatrical' ? 'text-pink-400' : 'text-emerald-400'}`}>
-                                {ep.release_type === 'theatrical' ? <Ticket className="w-2 h-2" /> : <MonitorPlay className="w-2 h-2" />}
-                                {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                                 <span className={`text-[8px] font-bold uppercase tracking-wider flex items-center gap-1 ${ep.release_type === 'theatrical' ? 'text-pink-400' : 'text-emerald-400'}`}>
+                                    {ep.release_type === 'theatrical' ? <Ticket className="w-2 h-2" /> : <MonitorPlay className="w-2 h-2" />}
+                                    {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                                </span>
+                                {showFlag && <span className={`fi fi-${ep.release_country!.toLowerCase()} rounded-[1px] text-[10px]`} />}
+                            </div>
                         ) : (
                             <span className={`text-[9px] font-mono font-bold ${isWatched ? 'text-zinc-600' : 'text-zinc-300'}`}>S{ep.season_number} E{ep.episode_number}</span>
                         )}
@@ -253,6 +274,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     const count = group.length;
                     const posterSrc = getImageUrl(first.poster_path);
                     const allWatched = group.every(ep => interactions[ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched);
+                    const showFlag = first.is_movie && first.release_country && first.release_country !== userRegion;
 
                     return (
                         <div 
@@ -269,7 +291,10 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 <p className={`text-[9px] font-bold truncate leading-none mb-0.5 ${allWatched ? 'text-text-muted line-through' : 'text-text-muted group-hover/item:text-text-main'}`}>{first.show_name}</p>
                                 <div className="flex items-center gap-1.5">
                                     {first.is_movie ? (
-                                        <span className={`text-[7px] font-black uppercase tracking-wider ${first.release_type === 'theatrical' ? 'text-pink-500' : 'text-emerald-500'}`}>{first.release_type === 'theatrical' ? 'Cinema' : 'Digital'}</span>
+                                        <div className="flex items-center gap-1">
+                                            <span className={`text-[7px] font-black uppercase tracking-wider ${first.release_type === 'theatrical' ? 'text-pink-500' : 'text-emerald-500'}`}>{first.release_type === 'theatrical' ? 'Cinema' : 'Digital'}</span>
+                                            {showFlag && <span className={`fi fi-${first.release_country!.toLowerCase()} rounded-[1px] w-2 h-1.5`} />}
+                                        </div>
                                     ) : (
                                         count > 1 ? (
                                             <span className="text-[7px] font-bold bg-white/10 text-white px-1 rounded flex items-center gap-1"><Layers className="w-2 h-2" /> {count} EP</span>
@@ -487,6 +512,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                 const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                                                 const isWatched = interactions[watchedKey]?.is_watched;
                                                 const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
+                                                const showFlag = ep.is_movie && ep.release_country && ep.release_country !== userRegion;
 
                                                 return (
                                                     <div 
@@ -509,7 +535,16 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                                 <span className="truncate">{ep.name}</span>
                                                             </div>
                                                         </div>
-                                                        {ep.is_movie && (<div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border hidden sm:block ${ep.release_type === 'theatrical' ? 'border-pink-500/30 text-pink-400' : 'border-emerald-500/30 text-emerald-400'}`}>{ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}</div>)}
+                                                        
+                                                        {ep.is_movie && (
+                                                            <div className="hidden sm:flex items-center gap-2">
+                                                                <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border ${ep.release_type === 'theatrical' ? 'border-pink-500/30 text-pink-400' : 'border-emerald-500/30 text-emerald-400'}`}>
+                                                                    {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                                                                </div>
+                                                                {showFlag && <span className={`fi fi-${ep.release_country!.toLowerCase()} rounded-[1px] shadow-sm`} title={`Release in ${ep.release_country}`} />}
+                                                            </div>
+                                                        )}
+                                                        
                                                         <button onClick={(e) => { e.stopPropagation(); if (ep.show_id) toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched }); }} className={`p-2 rounded-full border transition-all ${isWatched ? 'bg-card border-border text-emerald-500' : 'border-border text-text-muted hover:text-text-main hover:border-text-muted'}`}><Check className="w-4 h-4" /></button>
                                                     </div>
                                                 );

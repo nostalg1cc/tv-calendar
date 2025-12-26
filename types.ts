@@ -38,6 +38,7 @@ export interface Episode {
   show_name: string;
   is_movie?: boolean;
   release_type?: 'theatrical' | 'digital';
+  release_country?: string;
   runtime?: number;
   show_backdrop_path?: string | null;
   poster_path?: string | null;
