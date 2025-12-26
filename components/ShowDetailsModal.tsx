@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { X, Play, Plus, Check, Star, Loader2, Calendar, Clock, MonitorPlay, Ticket, ChevronDown, Video, Youtube, ExternalLink } from 'lucide-react';
+import { X, Play, Plus, Check, Star, Loader2, Calendar, Clock, MonitorPlay, Ticket, ChevronDown, Video, Youtube, ExternalLink, Disc, Trophy } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails, getMovieReleaseDates } from '../services/tmdb';
 import { TVShow, Episode, Season, Video as VideoType } from '../types';
 import { useStore } from '../store';
@@ -30,7 +30,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     const [playingVideo, setPlayingVideo] = useState<VideoType | null>(null);
 
     // Release Dates (Movies)
-    const [releases, setReleases] = useState<{ date: string, type: 'theatrical' | 'digital' }[]>([]);
+    const [releases, setReleases] = useState<{ date: string, type: string, country: string }[]>([]);
 
     // Initial Fetch
     useEffect(() => {
@@ -51,7 +51,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                             let rels = await getMovieReleaseDates(showId);
                             // Fallback if no specific dates found but global release exists
                             if (rels.length === 0 && data.first_air_date) {
-                                rels = [{ date: data.first_air_date, type: 'theatrical' }];
+                                rels = [{ date: data.first_air_date, type: 'theatrical', country: 'US' }];
                             }
                             setReleases(rels);
                         } catch (e) {
@@ -321,21 +321,24 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                         <div className="pt-4 border-t border-white/5">
                                             <span className="block text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-3">Release Schedule</span>
                                             <div className="space-y-3">
-                                                {releases.map((r, idx) => (
-                                                    <div key={idx} className="flex items-center justify-between bg-black/20 p-2 rounded-lg">
-                                                        <div className="flex items-center gap-2">
-                                                            {r.type === 'theatrical' ? (
-                                                                <div className="p-1.5 rounded bg-pink-500/10 text-pink-400"><Ticket className="w-3.5 h-3.5" /></div>
-                                                            ) : (
-                                                                <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-400"><MonitorPlay className="w-3.5 h-3.5" /></div>
-                                                            )}
-                                                            <span className={`text-xs font-bold uppercase tracking-wider ${r.type === 'theatrical' ? 'text-pink-200' : 'text-emerald-200'}`}>
-                                                                {r.type === 'theatrical' ? 'Theatrical' : 'Digital'}
-                                                            </span>
+                                                {releases.map((r, idx) => {
+                                                    const isTheatrical = r.type === 'theatrical' || r.type === 'premiere';
+                                                    const isPhysical = r.type === 'physical';
+                                                    return (
+                                                        <div key={idx} className="flex items-center justify-between bg-black/20 p-2 rounded-lg group">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`fi fi-${r.country.toLowerCase()} rounded-[1px] shadow-sm`} />
+                                                                <div className={`p-1.5 rounded ${isTheatrical ? 'bg-pink-500/10 text-pink-400' : (isPhysical ? 'bg-purple-500/10 text-purple-400' : 'bg-emerald-500/10 text-emerald-400')}`}>
+                                                                    {isTheatrical ? <Ticket className="w-3.5 h-3.5" /> : (isPhysical ? <Disc className="w-3.5 h-3.5" /> : <MonitorPlay className="w-3.5 h-3.5" />)}
+                                                                </div>
+                                                                <span className={`text-xs font-bold uppercase tracking-wider ${isTheatrical ? 'text-pink-200' : (isPhysical ? 'text-purple-200' : 'text-emerald-200')}`}>
+                                                                    {r.type === 'premiere' ? 'Premiere' : (isPhysical ? 'Physical' : (r.type === 'theatrical' ? 'Theatrical' : 'Digital'))}
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-xs font-mono text-zinc-300">{format(parseISO(r.date), 'MMM d, yyyy')}</span>
                                                         </div>
-                                                        <span className="text-xs font-mono text-zinc-300">{format(parseISO(r.date), 'MMM d, yyyy')}</span>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}

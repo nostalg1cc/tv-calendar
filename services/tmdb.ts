@@ -327,17 +327,57 @@ export const getListDetails = async (listId: string): Promise<{ name: string; it
     }
 };
 
-export const getMovieReleaseDates = async (id: number): Promise<{ date: string, type: 'theatrical' | 'digital' }[]> => {
+export const getMovieReleaseDates = async (id: number): Promise<{ date: string, type: 'theatrical' | 'digital' | 'physical' | 'premiere', country: string }[]> => {
     try {
         const data = await fetchTMDB<{ results: any[] }>(`/movie/${id}/release_dates`);
-        const usRelease = data.results.find((r: any) => r.iso_3166_1 === 'US');
-        if (!usRelease) return [];
-        const releases: { date: string, type: 'theatrical' | 'digital' }[] = [];
-        const theatrical = usRelease.release_dates.filter((d: any) => d.type === 3).sort((a: any, b: any) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime())[0];
-        if (theatrical) releases.push({ date: theatrical.release_date.split('T')[0], type: 'theatrical' });
-        const digital = usRelease.release_dates.filter((d: any) => d.type === 4 || d.type === 5).sort((a: any, b: any) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime())[0];
-        if (digital) releases.push({ date: digital.release_date.split('T')[0], type: 'digital' });
-        return releases;
+        const results = data.results;
+        const releases: any[] = [];
+
+        // Type codes: 1=Premiere, 3=Theatrical, 4=Digital, 5=Physical
+        const typeMap: Record<number, string> = { 1: 'premiere', 3: 'theatrical', 4: 'digital', 5: 'physical' };
+
+        const processType = (typeCodes: number[], typeName: string) => {
+            let candidates: any[] = [];
+            
+            results.forEach((countryData: any) => {
+                const dates = countryData.release_dates.filter((d: any) => typeCodes.includes(d.type));
+                dates.forEach((d: any) => {
+                     candidates.push({ 
+                         date: d.release_date, 
+                         type: typeName, 
+                         country: countryData.iso_3166_1 
+                     });
+                });
+            });
+
+            // Sort by date ascending
+            candidates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+            // 1. Get US release (Standard reference)
+            const us = candidates.find(c => c.country === 'US');
+            
+            // 2. Get Earliest Global (if not US, or if significantly earlier)
+            const earliest = candidates[0];
+
+            if (us) {
+                releases.push({ date: us.date.split('T')[0], type: typeName, country: 'US' });
+            }
+            
+            // Add earliest global if it's not US (provide alternative region info)
+            if (earliest && (!us || earliest.country !== 'US')) {
+                releases.push({ date: earliest.date.split('T')[0], type: typeName, country: earliest.country });
+            }
+        };
+
+        processType([3], 'theatrical');
+        processType([4], 'digital');
+        processType([5], 'physical'); 
+        processType([1], 'premiere');
+
+        // Deduplicate
+        const unique = releases.filter((v, i, a) => a.findIndex(t => (t.type === v.type && t.date === v.date && t.country === v.country)) === i);
+        
+        return unique.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     } catch (e) { return []; }
 };
 

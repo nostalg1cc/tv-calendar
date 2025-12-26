@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, X, Calendar, Film, Tv, MonitorPlay, Ticket, ChevronRight, Clock, CheckCircle2 } from 'lucide-react';
+import { Search, X, Calendar, Film, Tv, MonitorPlay, Ticket, ChevronRight, Clock, CheckCircle2, Disc } from 'lucide-react';
 import { useStore } from '../store';
 import { TVShow, Episode } from '../types';
 import { getImageUrl, getBackdropUrl, getShowDetails, getSeasonDetails, getMovieReleaseDates } from '../services/tmdb';
@@ -43,29 +43,28 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
                         setSchedule([{ 
                             date: selectedItem.first_air_date, 
                             type: 'Theatrical Release', 
-                            is_digital: false 
+                            is_digital: false,
+                            country: 'US'
                         }]);
                     } else {
                         setSchedule(dates.map(d => ({
                             date: d.date,
-                            type: d.type === 'theatrical' ? 'Theatrical Release' : 'Digital Release',
-                            is_digital: d.type === 'digital'
+                            type: d.type.charAt(0).toUpperCase() + d.type.slice(1),
+                            is_digital: d.type === 'digital' || d.type === 'physical',
+                            country: d.country,
+                            raw_type: d.type
                         })));
                     }
                 } else {
                     // For TV, fetch details to get seasons, then fetch episodes for relevant seasons
-                    // Optimization: Fetch last season and next season (if any)
                     const details = await getShowDetails(selectedItem.id);
                     const seasons = details.seasons || [];
                     const eps: any[] = [];
                     
-                    // We'll fetch all seasons to be safe for "calendar search" context
-                    // limiting to avoid rate limits if show has 20+ seasons could be wise, but let's try full load
-                    // or just latest active ones. Let's do last 3 seasons.
                     const relevantSeasons = seasons.slice(-3); 
 
                     for (const season of relevantSeasons) {
-                        if (season.season_number === 0) continue; // Skip specials usually
+                        if (season.season_number === 0) continue; 
                         const sData = await getSeasonDetails(selectedItem.id, season.season_number);
                         sData.episodes.forEach((e: any) => {
                             if (e.air_date) {
@@ -76,7 +75,7 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
                                     season: e.season_number,
                                     number: e.episode_number,
                                     overview: e.overview,
-                                    is_digital: true // TV is usually digital/home
+                                    is_digital: true 
                                 });
                             }
                         });
@@ -197,6 +196,7 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
                                         {schedule.map((event, idx) => {
                                             const isPastEvent = isPast(parseISO(event.date));
                                             const isFutureEvent = isFuture(parseISO(event.date));
+                                            const isPhysical = event.raw_type === 'physical';
                                             
                                             return (
                                                 <div key={idx} className={`relative flex items-center gap-4 p-3 rounded-xl border transition-all ${isFutureEvent ? 'bg-zinc-900 border-zinc-800' : 'bg-transparent border-transparent opacity-60 hover:opacity-100'}`}>
@@ -205,17 +205,20 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
                                                     
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between mb-0.5">
-                                                            <span className="text-sm font-bold text-white truncate pr-2">
-                                                                {selectedItem.media_type === 'movie' ? event.type : `S${event.season} E${event.number} • ${event.title}`}
-                                                            </span>
+                                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                                {event.country && <span className={`fi fi-${event.country.toLowerCase()} rounded-[1px] shadow-sm`} />}
+                                                                <span className="text-sm font-bold text-white truncate pr-2">
+                                                                    {selectedItem.media_type === 'movie' ? event.type : `S${event.season} E${event.number} • ${event.title}`}
+                                                                </span>
+                                                            </div>
                                                             <span className={`text-xs font-mono whitespace-nowrap ${isFutureEvent ? 'text-indigo-300' : 'text-zinc-500'}`}>
                                                                 {event.date}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             {selectedItem.media_type === 'movie' && (
-                                                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${event.is_digital ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' : 'text-pink-400 border-pink-500/20 bg-pink-500/5'}`}>
-                                                                    {event.is_digital ? 'Digital' : 'Cinema'}
+                                                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${isPhysical ? 'text-purple-400 border-purple-500/20 bg-purple-500/5' : (event.is_digital ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' : 'text-pink-400 border-pink-500/20 bg-pink-500/5')}`}>
+                                                                    {isPhysical ? 'Physical' : (event.is_digital ? 'Digital' : 'Cinema')}
                                                                 </span>
                                                             )}
                                                             {isPastEvent && <span className="text-[9px] font-bold text-zinc-600 uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Released</span>}

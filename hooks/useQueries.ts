@@ -30,29 +30,49 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                 if (show.media_type === 'movie') {
                     let releases = await getMovieReleaseDates(show.id);
                     
-                    // Fallback: If no specific US/Digital dates found, use the global release date
+                    // Fallback: If no dates found, use global release
                     if (releases.length === 0 && show.first_air_date) {
-                        releases = [{ date: show.first_air_date, type: 'theatrical' }];
+                        releases = [{ date: show.first_air_date, type: 'theatrical', country: 'US' }];
                     }
                     
                     const posterToUse = show.custom_poster_path || show.poster_path;
 
-                    return releases.map(r => ({
-                        id: show.id * -1, 
-                        name: show.name,
-                        overview: show.overview,
-                        vote_average: show.vote_average,
-                        air_date: r.date,
-                        episode_number: 1,
-                        season_number: 0,
-                        still_path: show.backdrop_path,
-                        poster_path: posterToUse,
-                        show_id: show.id,
-                        show_name: show.name,
-                        is_movie: true,
-                        release_type: r.type,
-                        show_backdrop_path: show.backdrop_path
-                    }));
+                    // Filter relevant releases for calendar to avoid duplicates/spam
+                    // We prioritize US, then Global Earliest for each main category (Theatrical, Digital)
+                    const relevantReleases: any[] = [];
+                    const types = ['theatrical', 'digital', 'physical', 'premiere'];
+                    
+                    types.forEach(t => {
+                        const typeReleases = releases.filter(r => r.type === t);
+                        if (typeReleases.length > 0) {
+                             // Prefer US, else take the first (earliest because fetch is sorted)
+                             const best = typeReleases.find(r => r.country === 'US') || typeReleases[0];
+                             relevantReleases.push(best);
+                        }
+                    });
+
+                    return relevantReleases.map(r => {
+                        // Map specific types to generic categories for UI compatibility
+                        let normalizedType: 'theatrical' | 'digital' = 'theatrical';
+                        if (r.type === 'digital' || r.type === 'physical') normalizedType = 'digital';
+                        
+                        return {
+                            id: show.id * -1, 
+                            name: show.name,
+                            overview: show.overview,
+                            vote_average: show.vote_average,
+                            air_date: r.date,
+                            episode_number: 1,
+                            season_number: 0,
+                            still_path: show.backdrop_path,
+                            poster_path: posterToUse,
+                            show_id: show.id,
+                            show_name: show.name,
+                            is_movie: true,
+                            release_type: normalizedType,
+                            show_backdrop_path: show.backdrop_path
+                        };
+                    });
                 } else {
                     const details = await getShowDetails(show.id);
                     const eps: Episode[] = [];
