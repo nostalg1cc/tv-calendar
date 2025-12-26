@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Play, Plus, Check, Star, Loader2, Calendar, Clock, MonitorPlay, Ticket, ChevronDown, Video, Youtube, ExternalLink, Disc, Trophy, Globe } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails, getMovieReleaseDates } from '../services/tmdb';
+import { getTVDBSeasonDates } from '../services/thetvdb';
 import { TVShow, Episode, Season, Video as VideoType } from '../types';
 import { useStore } from '../store';
 import { format, parseISO, isFuture } from 'date-fns';
@@ -31,6 +32,9 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
 
     // Release Dates (Movies)
     const [releases, setReleases] = useState<{ date: string, type: string, country: string }[]>([]);
+    
+    // TVDB Dates Override
+    const [tvdbOverrides, setTvdbOverrides] = useState<Record<number, string>>({});
 
     // Initial Fetch
     useEffect(() => {
@@ -48,15 +52,12 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                     // Fetch Release Dates for Movies
                     if (mediaType === 'movie') {
                         try {
-                            // Request full list (true)
                             let rels = await getMovieReleaseDates(showId, true);
                             
-                            // Fallback if no specific dates found but global release exists
                             if (rels.length === 0 && data.first_air_date) {
                                 rels = [{ date: data.first_air_date, type: 'theatrical', country: 'US' }];
                             }
 
-                            // Sort: Priority Country First, then Date
                             const userCountry = settings.country || 'US';
                             
                             const sorted = rels.sort((a, b) => {
@@ -66,11 +67,9 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                 if (aIsUser && !bIsUser) return -1;
                                 if (!aIsUser && bIsUser) return 1;
                                 
-                                // Secondary sort by date
                                 return new Date(a.date).getTime() - new Date(b.date).getTime();
                             });
 
-                            // Deduplicate for display (same date, same type, same country)
                             const unique = sorted.filter((v, i, a) => a.findIndex(t => (t.type === v.type && t.date === v.date && t.country === v.country)) === i);
 
                             setReleases(unique);
@@ -96,6 +95,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
             setVideos([]);
             setSeasonData(null);
             setReleases([]);
+            setTvdbOverrides({});
         }
     }, [isOpen, showId, mediaType, settings.country]);
 
@@ -103,10 +103,23 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     useEffect(() => {
         if (mediaType === 'tv' && details && selectedSeasonNum !== undefined) {
             setLoadingSeason(true);
-            getSeasonDetails(details.id, selectedSeasonNum)
-                .then(setSeasonData)
-                .catch(console.error)
-                .finally(() => setLoadingSeason(false));
+            const fetchSeason = async () => {
+                try {
+                    const sData = await getSeasonDetails(details.id, selectedSeasonNum);
+                    setSeasonData(sData);
+
+                    // Fetch TVDB Dates
+                    if (details.external_ids?.tvdb_id) {
+                         const overrides = await getTVDBSeasonDates(details.external_ids.tvdb_id, selectedSeasonNum);
+                         setTvdbOverrides(overrides);
+                    }
+                } catch(e) {
+                    console.error(e);
+                } finally {
+                    setLoadingSeason(false);
+                }
+            };
+            fetchSeason();
         }
     }, [selectedSeasonNum, details, mediaType]);
 
@@ -123,7 +136,8 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     // --- SUB COMPONENTS ---
 
     const EpisodeItem: React.FC<{ ep: Episode }> = ({ ep }) => {
-        const isUpcoming = ep.air_date ? isFuture(parseISO(ep.air_date)) : false;
+        const airDate = tvdbOverrides[ep.episode_number] || ep.air_date;
+        const isUpcoming = airDate ? isFuture(parseISO(airDate)) : false;
         const key = `episode-${details?.id}-${ep.season_number}-${ep.episode_number}`;
         const isWatched = history[key]?.is_watched;
 
@@ -141,9 +155,9 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-1">
                         <h4 className={`font-bold text-sm ${isUpcoming ? 'text-indigo-300' : 'text-zinc-200'}`}>{ep.name}</h4>
-                        {ep.air_date && (
+                        {airDate && (
                             <span className="text-[10px] font-mono text-zinc-500 whitespace-nowrap ml-4 uppercase tracking-wide">
-                                {format(parseISO(ep.air_date), 'MMM d, yyyy')}
+                                {format(parseISO(airDate), 'MMM d, yyyy')}
                             </span>
                         )}
                     </div>

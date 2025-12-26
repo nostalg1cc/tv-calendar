@@ -55,11 +55,25 @@ const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {
 
         if (!API_KEY) throw new Error("API Key missing");
 
+        const isBearer = API_KEY.length > 60; // Heuristic: v3 keys are ~32 chars, v4 JWTs are huge.
+        
         const url = new URL(`${BASE_URL}${endpoint}`);
-        url.searchParams.append('api_key', API_KEY);
+        
+        if (!isBearer) {
+             url.searchParams.append('api_key', API_KEY);
+        }
+        
         Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
 
-        const response = await fetch(url.toString());
+        const headers: HeadersInit = {
+            'Content-Type': 'application/json',
+        };
+
+        if (isBearer) {
+            headers['Authorization'] = `Bearer ${API_KEY}`;
+        }
+
+        const response = await fetch(url.toString(), { headers });
         if (!response.ok) throw new Error(`TMDB API Error: ${response.statusText}`);
         return response.json();
     });

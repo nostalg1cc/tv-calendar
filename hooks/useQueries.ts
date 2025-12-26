@@ -28,29 +28,19 @@ const getUserRegion = () => {
     }
 };
 
-// Heuristic: Check if show is from US broadcast network (Next Day for Intl)
-// Streaming services (Netflix, etc) usually do Global Release (Same Day)
 const shouldShiftDate = (networks: any[], originCountry: string[], userRegion: string) => {
-    const US_BROADCASTERS = ['ABC', 'NBC', 'CBS', 'FOX', 'The CW', 'AMC', 'HBO', 'Showtime', 'Starz', 'FX', 'USA Network'];
+    // If we are in the Eastern Hemisphere, most US shows air "next day" local time.
+    // This applies generally, even for streaming sometimes if the drop is midnight PST (9am CET).
+    // While technically "same day", for evening viewing it is effectively next day or the user perceives it as such.
     const AMERICAS = ['US', 'CA', 'MX', 'BR'];
-    const EASTERN_REGIONS = ['GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'SE', 'NO', 'DK', 'FI', 'AU', 'NZ', 'JP', 'KR', 'CN', 'IN'];
+    const EASTERN_REGIONS = ['GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'SE', 'NO', 'DK', 'FI', 'AU', 'NZ', 'JP', 'KR', 'CN', 'IN', 'RU', 'PL'];
 
-    // 1. Must be from Americas
     const isFromAmericas = originCountry.some(c => AMERICAS.includes(c));
-    if (!isFromAmericas) return false;
-
-    // 2. User must be in Eastern Hemisphere
     const isUserEast = EASTERN_REGIONS.includes(userRegion);
-    if (!isUserEast) return false;
 
-    // 3. Check Network Type
-    if (networks && networks.length > 0) {
-        const networkName = networks[0].name;
-        if (US_BROADCASTERS.some(b => networkName.includes(b))) return true;
-        return false; 
-    }
+    if (isFromAmericas && isUserEast) return true;
 
-    return true; 
+    return false; 
 };
 
 export const useCalendarEpisodes = (targetDate: Date) => {
@@ -135,7 +125,6 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                             const sData = await getSeasonDetails(show.id, season.season_number);
                             
                             // Fetch TheTVDB air dates for this season if ID exists
-                            // This runs sequentially per season to be safe, but could be optimized later
                             let tvdbDates: Record<number, string> = {};
                             if (tvdbId) {
                                 tvdbDates = await getTVDBSeasonDates(tvdbId, season.season_number);
@@ -143,13 +132,15 @@ export const useCalendarEpisodes = (targetDate: Date) => {
 
                             sData.episodes.forEach(e => {
                                 // Prefer TheTVDB date if available, otherwise TMDB date
-                                let baseDate = tvdbDates[e.episode_number] || e.air_date;
+                                const baseDate = tvdbDates[e.episode_number] || e.air_date;
                                 
                                 if (baseDate) {
                                     let finalDate = baseDate;
                                     
-                                    // Apply Time Shift only if we are using the TMDB date or if user wants shift applied globally
-                                    // Note: TVDB usually provides US airdate. We might still want to shift it.
+                                    // Apply Time Shift Logic
+                                    // If we got the date from TVDB, it's usually the origin country airdate.
+                                    // If we got it from TMDB, it's also usually origin.
+                                    // So we apply shift if enabled.
                                     if (shiftDays > 0) {
                                         const d = parseISO(baseDate);
                                         finalDate = format(addDays(d, shiftDays), 'yyyy-MM-dd');

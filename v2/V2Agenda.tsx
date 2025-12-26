@@ -95,23 +95,19 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
         const firstEp = eps[0];
         const { spoilerConfig } = settings;
         
-        // 1. Determine if we have unwatched items
         const hasUnwatched = eps.some(ep => {
             const key = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
             return !interactions[key]?.is_watched;
         });
 
-        // 2. Determine if spoiler rules apply based on media type settings
         const isMovie = firstEp.is_movie;
         const shouldApplySpoilerRules = !isMovie || spoilerConfig.includeMovies;
         
-        // 3. Final decision
         const isSpoilerProtected = hasUnwatched && shouldApplySpoilerRules && spoilerConfig.images;
         
         const stillUrl = getImageUrl(firstEp.still_path || firstEp.poster_path);
         const bannerUrl = getImageUrl(firstEp.show_backdrop_path || firstEp.poster_path);
         
-        // 4. Handle replacement modes
         const useBannerReplacement = isSpoilerProtected && spoilerConfig.replacementMode === 'banner';
         const displayImageUrl = useBannerReplacement ? bannerUrl : stillUrl;
 
@@ -149,7 +145,10 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                     </div>
                 </div>
 
-                <div className="relative aspect-video w-full overflow-hidden bg-zinc-900">
+                <div 
+                    className="relative aspect-video w-full overflow-hidden bg-zinc-900 cursor-pointer"
+                    onClick={handleTitleClick}
+                >
                     <img 
                         src={displayImageUrl} 
                         alt="" 
@@ -170,7 +169,6 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                         const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                         const isWatched = interactions[watchedKey]?.is_watched;
                         
-                        // Text spoiler checks
                         const isTextCensored = !isWatched && shouldApplySpoilerRules && spoilerConfig.title;
                         const isDescCensored = !isWatched && shouldApplySpoilerRules && spoilerConfig.overview;
                         
@@ -223,7 +221,6 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
 
     return (
         <>
-            {/* Backdrop for Mobile */}
             {isOpen && (
                 <div 
                     className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[90] xl:hidden animate-fade-in"
@@ -231,18 +228,12 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                 />
             )}
 
-            {/* Agenda Container (Drawer on Mobile, Sidebar on Desktop) */}
             <aside className={`
                 flex flex-col bg-[#050505] z-[100] overflow-hidden
-                
-                /* Desktop: Static Right Sidebar */
                 xl:w-[320px] xl:border-l xl:border-white/5 xl:shrink-0 xl:relative xl:h-full xl:translate-y-0 xl:rounded-none xl:border-t-0
-
-                /* Mobile: Fixed Bottom Drawer */
                 fixed bottom-0 left-0 right-0 h-[80vh] rounded-t-[2.5rem] border-t border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.9)] transition-transform duration-300 cubic-bezier(0.2, 0, 0, 1)
                 ${isOpen ? 'translate-y-0' : 'translate-y-[110%] xl:translate-y-0'}
             `}>
-                {/* Mobile Drawer Handle/Header */}
                 <div className="xl:hidden shrink-0 pt-4 pb-2 px-6 flex items-center justify-between bg-zinc-950 border-b border-white/5 relative">
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-zinc-800 rounded-full" />
                     <div className="mt-4">
@@ -272,10 +263,8 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                     )}
                 </div>
 
-                {/* Status Bar / Controls */}
                 <footer className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-white/5 bg-zinc-950/40">
                     <div className="flex items-center gap-3">
-                         {/* Connection Status Icon */}
                         {user?.is_cloud ? (
                              <div className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all ${isSyncing ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
                                 <Cloud className={`w-4 h-4 ${isSyncing ? 'text-indigo-400 animate-pulse' : 'text-emerald-400'}`} />

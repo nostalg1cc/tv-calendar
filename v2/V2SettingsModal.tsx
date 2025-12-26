@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
@@ -68,6 +68,11 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     
     // Legacy Import Modal State
     const [showLegacyImport, setShowLegacyImport] = useState(false);
+
+    // Status Checks
+    const hasTheTvdbKey = Boolean((import.meta.env as any).VITE_THETVDB_API_KEY || (import.meta.env as any).thetvdb_api);
+    const hasSupabase = !!supabase;
+    const hasTmdbKey = !!user?.tmdb_key;
 
     useEffect(() => {
         setLocalApiKey(user?.tmdb_key || '');
@@ -177,6 +182,13 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
         </div>
     );
 
+    const ConnectionStatus = ({ label, active }: { label: string, active: boolean }) => (
+        <div className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border ${active ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+            {active ? <ShieldCheck className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+            {label}: {active ? 'Connected' : 'Missing'}
+        </div>
+    );
+
     return (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-0 md:p-12" onClick={onClose}>
             <div className="absolute inset-0 bg-black/80 backdrop-blur-xl animate-fade-in" />
@@ -255,7 +267,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                         <Toggle label="Compact Calendar" description="Fit more rows on the calendar grid." active={!!settings.compactCalendar} onToggle={() => updateSettings({ compactCalendar: !settings.compactCalendar })} />
                                         <Toggle label="Ignore Specials" description="Hide 'Season 0' content from lists and calendar." active={!!settings.ignoreSpecials} onToggle={() => updateSettings({ ignoreSpecials: !settings.ignoreSpecials })} />
                                         <Toggle label="Hide Theatrical" description="Only show movies available on digital/streaming." active={!!settings.hideTheatrical} onToggle={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} />
-                                        <Toggle label="Smart Time Shift" description="Adjust air dates to your local timezone." active={!!settings.timeShift} onToggle={() => updateSettings({ timeShift: !settings.timeShift })} />
+                                        <Toggle label="Smart Time Shift" description="Adjust air dates to your local timezone (US to Europe/Asia)." active={!!settings.timeShift} onToggle={() => updateSettings({ timeShift: !settings.timeShift })} />
                                     </div>
                                 </div>
 
@@ -414,7 +426,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                 <div>
                                     <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Key className="w-5 h-5 text-amber-500" /> API Configuration</h3>
                                     <div className="bg-card/50 p-6 rounded-2xl border border-border">
-                                        <label className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 block">TMDB API Key (v3)</label>
+                                        <label className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 block">TMDB API Key</label>
                                         <div className="flex gap-2">
                                             <div className="relative flex-1">
                                                 <input 
@@ -438,8 +450,18 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             </button>
                                         </div>
                                         <p className="text-xs text-text-muted mt-3">
-                                            Required for fetching show data. Get one at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">themoviedb.org</a>.
+                                            Required for fetching show data. Get one at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">themoviedb.org</a>. Accepts v3 (short) or v4 (long) keys.
                                         </p>
+                                    </div>
+                                    
+                                    <div className="mt-6">
+                                        <h4 className="text-sm font-bold text-text-main mb-3">Connection Status</h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            <ConnectionStatus label="Supabase" active={hasSupabase} />
+                                            <ConnectionStatus label="TMDB" active={hasTmdbKey} />
+                                            <ConnectionStatus label="TheTVDB" active={hasTheTvdbKey} />
+                                        </div>
+                                        {!hasTheTvdbKey && <p className="text-[10px] text-text-muted mt-2">Add `VITE_THETVDB_API_KEY` to your environment variables for better air dates.</p>}
                                     </div>
                                 </div>
 
