@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
-  startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, format, isSameMonth, addMonths, subMonths, addDays, isSameDay, isToday
+  startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, format, isSameMonth, addMonths, subMonths, addDays, isSameDay, isToday, parseISO
 } from 'date-fns';
 import { ChevronLeft, ChevronRight, Filter, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, Ticket, List as ListIcon, Smartphone, Layers, Search, X } from 'lucide-react';
 import { useStore } from '../store';
@@ -312,6 +312,17 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         );
     };
 
+    // Helper to properly format the time from the ISO string
+    const formatTime = (isoString?: string) => {
+        if (!isoString) return '';
+        try {
+            // Using parseISO handles the full ISO string correctly including offset
+            return format(parseISO(isoString), 'h:mm a');
+        } catch {
+            return '';
+        }
+    };
+
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
             {/* Header */}
@@ -461,6 +472,8 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                                 {group.map(ep => {
                                                                     const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
                                                                     const isWatched = interactions[watchedKey]?.is_watched;
+                                                                    const timeStr = formatTime(ep.air_date_iso);
+
                                                                     return (
                                                                         <div key={ep.id} className="flex items-center justify-between gap-4 py-2 border-t border-border first:border-t-0">
                                                                             <div className="min-w-0">
@@ -468,7 +481,12 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                                                     {!ep.is_movie && <span className="text-[10px] font-mono font-bold text-text-muted">S{ep.season_number} E{ep.episode_number}</span>}
                                                                                     <span className="text-sm text-text-muted font-medium truncate">{ep.name}</span>
                                                                                 </div>
-                                                                                <div className="flex items-center gap-2 mt-0.5"><Clock className="w-3 h-3 text-text-muted" /><span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{format(new Date(ep.air_date), 'h:mm a')}</span></div>
+                                                                                <div className="flex items-center gap-2 mt-0.5">
+                                                                                    <Clock className="w-3 h-3 text-text-muted" />
+                                                                                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                                                                                        {timeStr}
+                                                                                    </span>
+                                                                                </div>
                                                                             </div>
                                                                             <button onClick={(e) => { e.stopPropagation(); if (ep.show_id) toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched }); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all border ${isWatched ? 'bg-card text-emerald-500 border-border' : 'bg-white/5 text-text-muted border-white/10 hover:bg-white hover:text-black'}`}><Check className="w-4 h-4" /></button>
                                                                         </div>
@@ -513,6 +531,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                 const isWatched = interactions[watchedKey]?.is_watched;
                                                 const posterSrc = (settings.useSeason1Art && ep.season1_poster_path) ? ep.season1_poster_path : ep.poster_path;
                                                 const showFlag = ep.is_movie && ep.release_country && ep.release_country !== userRegion;
+                                                const timeStr = formatTime(ep.air_date_iso);
 
                                                 return (
                                                     <div 
@@ -530,9 +549,16 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                                 <h4 className="text-sm font-bold text-text-main truncate">{ep.show_name}</h4>
                                                                 {ep.is_movie && (<div className={`w-2 h-2 rounded-full ${ep.release_type === 'theatrical' ? 'bg-pink-500' : 'bg-emerald-500'}`} />)}
                                                             </div>
-                                                            <div className="flex items-center gap-2 text-xs text-text-muted">
-                                                                {!ep.is_movie && <span className="font-mono text-text-muted">S{ep.season_number} E{ep.episode_number}</span>}
-                                                                <span className="truncate">{ep.name}</span>
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <div className="flex items-center gap-2 text-xs text-text-muted">
+                                                                    {!ep.is_movie && <span className="font-mono text-text-muted">S{ep.season_number} E{ep.episode_number}</span>}
+                                                                    <span className="truncate">{ep.name}</span>
+                                                                </div>
+                                                                {timeStr && (
+                                                                    <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1">
+                                                                         <Clock className="w-2.5 h-2.5" /> {timeStr}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         
