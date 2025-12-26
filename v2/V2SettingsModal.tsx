@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
 import toast from 'react-hot-toast';
 import LegacyImportModal from '../components/LegacyImportModal';
+import RebuildModal from '../components/RebuildModal';
 
 interface V2SettingsModalProps {
     isOpen: boolean;
@@ -68,6 +69,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     
     // Legacy Import Modal State
     const [showLegacyImport, setShowLegacyImport] = useState(false);
+    const [showRebuild, setShowRebuild] = useState(false);
 
     // Status Checks
     const hasTheTvdbKey = Boolean((import.meta.env as any).VITE_THETVDB_API_KEY || (import.meta.env as any).thetvdb_api);
@@ -461,12 +463,33 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             <ConnectionStatus label="TMDB" active={hasTmdbKey} />
                                             <ConnectionStatus label="TheTVDB" active={hasTheTvdbKey} />
                                         </div>
-                                        {!hasTheTvdbKey && <p className="text-[10px] text-text-muted mt-2">Add `VITE_THETVDB_API_KEY` to your environment variables for better air dates.</p>}
+                                        {!hasTheTvdbKey && <p className="text-[10px] text-text-muted mt-2">The app now prefers TVMaze for accurate dates. TheTVDB key is optional.</p>}
                                     </div>
                                 </div>
 
                                 <div>
                                     <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Database className="w-5 h-5 text-indigo-500" /> Data Management</h3>
+                                    
+                                    {/* Troubleshooting Section */}
+                                    <div className="mb-6 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <h4 className="text-sm font-bold text-amber-500 flex items-center gap-2">
+                                                    <Wrench className="w-4 h-4" /> Troubleshooting
+                                                </h4>
+                                                <p className="text-xs text-text-muted mt-1 max-w-sm">
+                                                    Seeing incorrect dates or missing episodes? Force a complete calendar rebuild.
+                                                </p>
+                                            </div>
+                                            <button 
+                                                onClick={() => setShowRebuild(true)}
+                                                className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 rounded-lg text-xs font-bold transition-colors"
+                                            >
+                                                Rebuild Calendar
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <button onClick={handleExport} className="p-4 bg-card border border-border rounded-2xl flex items-center gap-3 hover:bg-card/80 transition-colors text-left group">
                                             <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><Download className="w-5 h-5" /></div>
@@ -542,6 +565,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
             </div>
             
             {showLegacyImport && <LegacyImportModal isOpen={showLegacyImport} onClose={() => setShowLegacyImport(false)} />}
+            {showRebuild && <RebuildModal isOpen={showRebuild} onClose={() => setShowRebuild(false)} />}
         </div>
     );
 };

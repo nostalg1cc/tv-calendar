@@ -1,7 +1,7 @@
 
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { getShowDetails, getSeasonDetails, getMovieReleaseDates, getMovieDetails } from '../services/tmdb';
-import { getTVDBSeasonDates } from '../services/thetvdb';
+import { getTVMazeEpisodes } from '../services/tvmaze';
 import { Episode } from '../types';
 import { useStore } from '../store';
 import { parseISO, subMonths, addMonths, addDays, format } from 'date-fns';
@@ -29,15 +29,14 @@ const getUserRegion = () => {
 };
 
 const shouldShiftDate = (networks: any[], originCountry: string[], userRegion: string) => {
-    // If we are in the Eastern Hemisphere, most US shows air "next day" local time.
-    // This applies generally, even for streaming sometimes if the drop is midnight PST (9am CET).
-    // While technically "same day", for evening viewing it is effectively next day or the user perceives it as such.
+    // Only applied if we rely on the generic 'YYYY-MM-DD' string from TMDB
     const AMERICAS = ['US', 'CA', 'MX', 'BR'];
     const EASTERN_REGIONS = ['GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'SE', 'NO', 'DK', 'FI', 'AU', 'NZ', 'JP', 'KR', 'CN', 'IN', 'RU', 'PL'];
 
     const isFromAmericas = originCountry.some(c => AMERICAS.includes(c));
     const isUserEast = EASTERN_REGIONS.includes(userRegion);
 
+    // If US show watched in Europe/Asia, shift +1 day (evening air time becomes early morning next day)
     if (isFromAmericas && isUserEast) return true;
 
     return false; 
@@ -103,49 +102,62 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                         };
                     });
                 } else {
-                    // 1. Fetch TMDB Details (now includes external_ids)
+                    // 1. Fetch TMDB Details
                     const details = await getShowDetails(show.id);
                     const eps: Episode[] = [];
                     const posterToUse = show.custom_poster_path || details.poster_path;
-                    const tvdbId = details.external_ids?.tvdb_id;
                     
-                    // Smart Shift Logic
-                    const shiftDays = settings.timeShift && details.origin_country 
-                        ? (shouldShiftDate(details.networks || [], details.origin_country, userRegion) ? 1 : 0)
-                        : 0;
+                    // 2. Fetch TVMaze Precise Dates
+                    // We use this for exact timezone conversion
+                    let tvmazeDates: Record<number, Record<number, string>> = {};
+                    try {
+                        tvmazeDates = await getTVMazeEpisodes(details.external_ids?.imdb_id, details.external_ids?.tvdb_id);
+                    } catch (e) {
+                        console.warn('TVMaze fetch failed', e);
+                    }
+
+                    // Fallback logic if TVMaze misses
+                    const useSmartShift = settings.timeShift && details.origin_country 
+                        ? shouldShiftDate(details.networks || [], details.origin_country, userRegion)
+                        : false;
 
                     const seasonsToFetch = details.seasons?.slice(-2) || [];
                     const s0 = details.seasons?.find(s => s.season_number === 0);
                     if (s0 && !seasonsToFetch.some(s => s.season_number === 0)) seasonsToFetch.push(s0);
 
-                    // 2. Fetch Seasons
+                    // 3. Fetch Seasons
                     for (const season of seasonsToFetch) {
                         try {
-                            // Fetch TMDB season data
                             const sData = await getSeasonDetails(show.id, season.season_number);
                             
-                            // Fetch TheTVDB air dates for this season if ID exists
-                            let tvdbDates: Record<number, string> = {};
-                            if (tvdbId) {
-                                tvdbDates = await getTVDBSeasonDates(tvdbId, season.season_number);
-                            }
-
                             sData.episodes.forEach(e => {
-                                // Prefer TheTVDB date if available, otherwise TMDB date
-                                const baseDate = tvdbDates[e.episode_number] || e.air_date;
-                                
-                                if (baseDate) {
-                                    let finalDate = baseDate;
-                                    
-                                    // Apply Time Shift Logic
-                                    // If we got the date from TVDB, it's usually the origin country airdate.
-                                    // If we got it from TMDB, it's also usually origin.
-                                    // So we apply shift if enabled.
-                                    if (shiftDays > 0) {
-                                        const d = parseISO(baseDate);
-                                        finalDate = format(addDays(d, shiftDays), 'yyyy-MM-dd');
-                                    }
+                                let finalDate = e.air_date;
+                                const mazeDate = tvmazeDates[e.season_number]?.[e.episode_number];
 
+                                if (mazeDate) {
+                                    if (mazeDate.includes('T')) {
+                                        // Case A: We have a full timestamp with timezone! 
+                                        // (e.g. 2024-12-25T20:00:00-05:00)
+                                        // Convert to user's local date string
+                                        finalDate = format(new Date(mazeDate), 'yyyy-MM-dd');
+                                    } else {
+                                        // Case B: Date string only from TVMaze
+                                        finalDate = mazeDate;
+                                        // Apply shift logic if enabled, as this is likely origin date
+                                        if (useSmartShift) {
+                                            const d = parseISO(mazeDate);
+                                            finalDate = format(addDays(d, 1), 'yyyy-MM-dd');
+                                        }
+                                    }
+                                } else {
+                                    // Case C: Fallback to TMDB date
+                                    if (finalDate && useSmartShift) {
+                                        const d = parseISO(finalDate);
+                                        finalDate = format(addDays(d, 1), 'yyyy-MM-dd');
+                                    }
+                                }
+
+                                if (finalDate) {
                                     eps.push({
                                         ...e,
                                         air_date: finalDate,
@@ -165,7 +177,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     return eps;
                 }
             },
-            staleTime: 1000 * 60 * 60 * 24,
+            staleTime: 1000 * 60 * 60 * 24, // 24 hours
             enabled: hasKey && !!show.id, 
             retry: 1
         }))
