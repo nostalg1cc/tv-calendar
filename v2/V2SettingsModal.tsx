@@ -461,6 +461,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                         <div className="flex flex-wrap gap-2">
                                             <ConnectionStatus label="Supabase" active={hasSupabase} />
                                             <ConnectionStatus label="TMDB" active={hasTmdbKey} />
+                                            <ConnectionStatus label="TVMaze" active={true} />
                                             <ConnectionStatus label="TheTVDB" active={hasTheTvdbKey} />
                                         </div>
                                         {!hasTheTvdbKey && <p className="text-[10px] text-text-muted mt-2">The app now prefers TVMaze for accurate dates. TheTVDB key is optional.</p>}
