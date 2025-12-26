@@ -3,7 +3,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useStore } from '../store';
 import { 
     Check, Eye, EyeOff, Share2, Tv, Film, Trash2, 
-    Copy, Filter, ExternalLink, ChevronRight, Sparkles, MonitorPlay, Calendar, Image as ImageIcon
+    Copy, Filter, ExternalLink, ChevronRight, Sparkles, MonitorPlay, Calendar, Image as ImageIcon,
+    Clock, ArrowRight, ArrowLeft, RefreshCw
 } from 'lucide-react';
 import { Episode } from '../types';
 import toast from 'react-hot-toast';
@@ -29,6 +30,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
         removeFromWatchlist, 
         settings, 
         updateSettings,
+        setDateOffset
     } = useStore();
     
     const [state, setState] = useState<ContextState>({
@@ -137,6 +139,12 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
         onEditPoster(id, type === 'movie' ? 'movie' : 'tv');
     };
 
+    const handleSetOffset = (offset: number) => {
+        const id = state.data.show_id || state.data.id;
+        setDateOffset(id, offset);
+        toast.success(offset === 0 ? "Schedule reset to default" : `Schedule shifted by ${offset > 0 ? '+' : ''}${offset} day(s)`);
+    };
+
     // --- COMPONENTS ---
 
     const MenuItem = ({ icon: Icon, label, onClick, danger = false, rightElement }: any) => (
@@ -196,6 +204,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
         </div>
     );
 
+    const currentOffset = settings.dateOffsets?.[state.data?.show_id || state.data?.id] || 0;
+
     return (
         <>
             {/* Styles for the bouncy animation */}
@@ -226,6 +236,32 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
                             label={history[state.data.is_movie ? `movie-${state.data.show_id}` : `episode-${state.data.show_id}-${state.data.season_number}-${state.data.episode_number}`]?.is_watched ? "Mark Unwatched" : "Mark Watched"}
                             onClick={handleToggleWatched}
                         />
+                        
+                        <SubMenuTrigger icon={Clock} label="Adjust Date" id="adjust-date">
+                            <Header text="Shift Schedule" />
+                            <MenuItem 
+                                icon={ArrowLeft} 
+                                label="-1 Day" 
+                                onClick={() => handleSetOffset(currentOffset - 1)}
+                            />
+                            <MenuItem 
+                                icon={RefreshCw} 
+                                label={currentOffset === 0 ? "Default (Active)" : "Reset to Default"} 
+                                onClick={() => handleSetOffset(0)}
+                                rightElement={currentOffset === 0 && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                            />
+                            <MenuItem 
+                                icon={ArrowRight} 
+                                label="+1 Day" 
+                                onClick={() => handleSetOffset(currentOffset + 1)}
+                            />
+                            {currentOffset !== 0 && (
+                                <div className="px-2 py-1 text-[9px] text-indigo-400 text-center border-t border-white/5 mt-1">
+                                    Current Shift: {currentOffset > 0 ? '+' : ''}{currentOffset} days
+                                </div>
+                            )}
+                        </SubMenuTrigger>
+
                         <MenuItem 
                             icon={ImageIcon} 
                             label="Change Poster" 
@@ -258,6 +294,31 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
                     <>
                         <Header text={state.data.name} />
                         
+                        <SubMenuTrigger icon={Clock} label="Adjust Date" id="adjust-date">
+                            <Header text="Shift Schedule" />
+                            <MenuItem 
+                                icon={ArrowLeft} 
+                                label="-1 Day" 
+                                onClick={() => handleSetOffset(currentOffset - 1)}
+                            />
+                             <MenuItem 
+                                icon={RefreshCw} 
+                                label={currentOffset === 0 ? "Default (Active)" : "Reset to Default"} 
+                                onClick={() => handleSetOffset(0)}
+                                rightElement={currentOffset === 0 && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                            />
+                            <MenuItem 
+                                icon={ArrowRight} 
+                                label="+1 Day" 
+                                onClick={() => handleSetOffset(currentOffset + 1)}
+                            />
+                            {currentOffset !== 0 && (
+                                <div className="px-2 py-1 text-[9px] text-indigo-400 text-center border-t border-white/5 mt-1">
+                                    Current Shift: {currentOffset > 0 ? '+' : ''}{currentOffset} days
+                                </div>
+                            )}
+                        </SubMenuTrigger>
+
                         <MenuItem 
                             icon={ImageIcon} 
                             label="Change Poster" 

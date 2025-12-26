@@ -87,6 +87,8 @@ export interface AppSettings {
   calendarFilterMovies?: boolean;
   // Persistence for Custom Posters
   customPosters: Record<number, string>;
+  // Persistence for Date Offsets
+  dateOffsets: Record<number, number>;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -105,7 +107,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   hiddenItems: [],
   calendarFilterTv: true,
   calendarFilterMovies: true,
-  customPosters: {}
+  customPosters: {},
+  dateOffsets: {}
 };
 
 // Database Row Types

@@ -99,6 +99,7 @@ interface State {
     markManyWatched: (items: WatchedItem[]) => void;
     setRating: (id: number, mediaType: 'tv' | 'movie' | 'episode', rating: number) => void;
     setCustomPoster: (showId: number, posterPath: string | null) => void;
+    setDateOffset: (showId: number, offset: number) => void;
     
     addReminder: (reminder: Reminder) => Promise<void>;
     removeReminder: (id: string) => Promise<void>;
@@ -343,6 +344,25 @@ export const useStore = create<State>()(
                     }
                     
                     return { watchlist: nextWatchlist, settings: nextSettings };
+                });
+            },
+
+            setDateOffset: (showId, offset) => {
+                set((state) => {
+                    const nextDateOffsets = { ...state.settings.dateOffsets };
+                    if (offset === 0) {
+                        delete nextDateOffsets[showId];
+                    } else {
+                        nextDateOffsets[showId] = offset;
+                    }
+
+                    const nextSettings = { ...state.settings, dateOffsets: nextDateOffsets };
+                    
+                    if (state.user?.is_cloud) {
+                         supabase?.from('profiles').update({ settings: nextSettings }).eq('id', state.user.id).then();
+                    }
+                    
+                    return { settings: nextSettings };
                 });
             },
 

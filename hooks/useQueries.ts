@@ -57,8 +57,11 @@ export const useCalendarEpisodes = (targetDate: Date) => {
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({
-            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, settings.timeShift],
+            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, settings.timeShift, settings.dateOffsets?.[show.id]],
             queryFn: async (): Promise<Episode[]> => {
+                // Determine shifts
+                const manualOffset = settings.dateOffsets?.[show.id] || 0;
+                
                 if (show.media_type === 'movie') {
                     let releases = await getMovieReleaseDates(show.id);
                     
@@ -97,12 +100,18 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                         let normalizedType: 'theatrical' | 'digital' = 'theatrical';
                         if (r.type === 'digital' || r.type === 'physical') normalizedType = 'digital';
                         
+                        let finalDate = r.date;
+                        if (manualOffset !== 0) {
+                             const d = parseISO(r.date);
+                             finalDate = format(addDays(d, manualOffset), 'yyyy-MM-dd');
+                        }
+
                         return {
                             id: show.id * -1, 
                             name: show.name,
                             overview: show.overview,
                             vote_average: show.vote_average,
-                            air_date: r.date,
+                            air_date: finalDate,
                             episode_number: 1,
                             season_number: 0,
                             still_path: show.backdrop_path,
@@ -123,9 +132,11 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     const posterToUse = show.custom_poster_path || details.poster_path;
                     
                     // Determine if we need to shift date based on origin vs user location
-                    const needsShift = settings.timeShift && details.origin_country 
-                        ? shouldShiftDate(details.origin_country, userRegion)
-                        : false;
+                    const heuristicShift = settings.timeShift && details.origin_country 
+                        ? (shouldShiftDate(details.origin_country, userRegion) ? 1 : 0)
+                        : 0;
+
+                    const totalShift = heuristicShift + manualOffset;
 
                     // Optimisation: Fetch last 2 seasons + specials
                     const seasonsToFetch = details.seasons?.slice(-2) || [];
@@ -140,9 +151,9 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                                     let finalDate = e.air_date;
                                     
                                     // Apply Time Shift if necessary
-                                    if (needsShift) {
+                                    if (totalShift !== 0) {
                                         const d = parseISO(e.air_date);
-                                        finalDate = format(addDays(d, 1), 'yyyy-MM-dd');
+                                        finalDate = format(addDays(d, totalShift), 'yyyy-MM-dd');
                                     }
 
                                     eps.push({
