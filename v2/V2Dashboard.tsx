@@ -27,14 +27,14 @@ const V2Dashboard: React.FC = () => {
     // Modal State lifted for global access
     const [trailerTarget, setTrailerTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', episode?: any} | null>(null);
     const [posterTarget, setPosterTarget] = useState<{showId: number, mediaType: 'tv' | 'movie'} | null>(null);
-    const [detailsTarget, setDetailsTarget] = useState<{showId: number, mediaType: 'tv' | 'movie'} | null>(null);
+    const [detailsTarget, setDetailsTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', season?: number, episode?: number} | null>(null);
 
     const handlePlayTrailer = (showId: number, mediaType: 'tv' | 'movie', episode?: any) => {
         setTrailerTarget({ showId, mediaType, episode });
     };
 
-    const handleOpenDetails = (showId: number, mediaType: 'tv' | 'movie') => {
-        setDetailsTarget({ showId, mediaType });
+    const handleOpenDetails = (showId: number, mediaType: 'tv' | 'movie', season?: number, episode?: number) => {
+        setDetailsTarget({ showId, mediaType, season, episode });
     };
 
     const handleDateSelect = (date: Date) => {
@@ -109,7 +109,9 @@ const V2Dashboard: React.FC = () => {
                     isOpen={!!detailsTarget} 
                     onClose={() => setDetailsTarget(null)} 
                     showId={detailsTarget.showId} 
-                    mediaType={detailsTarget.mediaType} 
+                    mediaType={detailsTarget.mediaType}
+                    initialSeason={detailsTarget.season}
+                    initialEpisode={detailsTarget.episode}
                 />
             )}
 

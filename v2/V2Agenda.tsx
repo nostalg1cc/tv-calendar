@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 interface V2AgendaProps {
     selectedDay: Date;
     onPlayTrailer?: (showId: number, mediaType: 'tv' | 'movie', episode?: Episode) => void;
-    onOpenDetails?: (showId: number, mediaType: 'tv' | 'movie') => void;
+    onOpenDetails?: (showId: number, mediaType: 'tv' | 'movie', season?: number, episode?: number) => void;
     isOpen?: boolean;
     onClose?: () => void;
 }
@@ -114,7 +114,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
         const handleTitleClick = () => {
              const id = firstEp.show_id || firstEp.id;
              const type = firstEp.is_movie ? 'movie' : 'tv';
-             if (onOpenDetails) onOpenDetails(id, type);
+             if (onOpenDetails) onOpenDetails(id, type, firstEp.season_number, firstEp.episode_number);
         };
 
         return (
@@ -177,10 +177,15 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
 
                         const isMarking = markingShowId === ep.show_id;
 
+                        const handleRowClick = () => {
+                            if (onOpenDetails) onOpenDetails(ep.show_id || ep.id, ep.is_movie ? 'movie' : 'tv', ep.season_number, ep.episode_number);
+                        };
+
                         return (
                             <div 
                                 key={`${ep.show_id}-${ep.id}`}
-                                className={`px-4 py-3 border-b border-white/[0.03] last:border-b-0 flex items-center justify-between gap-4 ${isWatched ? 'opacity-30' : 'hover:bg-white/[0.02]'} transition-all`}
+                                onClick={handleRowClick}
+                                className={`px-4 py-3 border-b border-white/[0.03] last:border-b-0 flex items-center justify-between gap-4 cursor-pointer ${isWatched ? 'opacity-30' : 'hover:bg-white/[0.02]'} transition-all`}
                             >
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2 mb-1">
@@ -196,7 +201,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                                 <div className="flex items-center gap-1 shrink-0">
                                     {!ep.is_movie && !isWatched && (
                                         <button 
-                                            onClick={() => handleMarkPrevious(ep)}
+                                            onClick={(e) => { e.stopPropagation(); handleMarkPrevious(ep); }}
                                             disabled={isMarking}
                                             className="p-2 text-zinc-600 hover:text-indigo-400 transition-colors"
                                             title="Mark Previous Watched"
@@ -205,7 +210,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                                         </button>
                                     )}
                                     <button 
-                                        onClick={() => ep.show_id && toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched })} 
+                                        onClick={(e) => { e.stopPropagation(); ep.show_id && toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched }); }} 
                                         className={`p-2 transition-all ${isWatched ? 'text-emerald-500' : 'text-zinc-600 hover:text-white'}`}
                                     >
                                         <Check className={`w-4 h-4 ${isWatched ? 'stroke-[3px]' : 'stroke-2'}`} />

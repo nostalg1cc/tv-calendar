@@ -94,6 +94,10 @@ export interface AppSettings {
   calendarFilterTv?: boolean;
   calendarFilterMovies?: boolean;
   customPosters: Record<number, string>;
+  traktClient?: {
+      id: string;
+      secret: string;
+  };
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {

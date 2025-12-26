@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { X, Play, Plus, Check, Star, Loader2, Calendar, Clock, MonitorPlay, Ticket, ChevronDown, Video, Youtube, ExternalLink, Disc, Trophy, Globe } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails, getMovieReleaseDates } from '../services/tmdb';
 import { getTVMazeEpisodes } from '../services/tvmaze';
@@ -13,14 +13,16 @@ interface ShowDetailsModalProps {
     onClose: () => void;
     showId: number;
     mediaType: 'tv' | 'movie';
+    initialSeason?: number;
+    initialEpisode?: number;
 }
 
-const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, showId, mediaType }) => {
+const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, showId, mediaType, initialSeason, initialEpisode }) => {
     const { addToWatchlist, watchlist, history, toggleWatched, settings, traktToken } = useStore();
     
     const [details, setDetails] = useState<TVShow | null>(null);
     const [loading, setLoading] = useState(true);
-    const [selectedSeasonNum, setSelectedSeasonNum] = useState<number>(1);
+    const [selectedSeasonNum, setSelectedSeasonNum] = useState<number>(initialSeason || 1);
     const [seasonData, setSeasonData] = useState<Season | null>(null);
     const [loadingSeason, setLoadingSeason] = useState(false);
     const [videos, setVideos] = useState<VideoType[]>([]);
@@ -31,6 +33,8 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     const [tvmazeOverrides, setTvmazeOverrides] = useState<Record<number, { date: string, timestamp?: string }>>({});
     // Store Trakt overrides (episode_number -> ISO string)
     const [traktOverrides, setTraktOverrides] = useState<Record<number, string>>({});
+
+    const episodesListRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (isOpen && showId) {
@@ -64,9 +68,14 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                         }
                     }
                     
-                    if (mediaType === 'tv' && data.seasons && data.seasons.length > 0) {
-                        const firstSeason = data.seasons.find(s => s.season_number > 0) || data.seasons[0];
-                        setSelectedSeasonNum(firstSeason.season_number);
+                    if (mediaType === 'tv') {
+                        // Use prop if available, else find first logical season
+                        if (initialSeason) {
+                            setSelectedSeasonNum(initialSeason);
+                        } else if (data.seasons && data.seasons.length > 0) {
+                            const firstSeason = data.seasons.find(s => s.season_number > 0) || data.seasons[0];
+                            setSelectedSeasonNum(firstSeason.season_number);
+                        }
                     }
                 } catch (e) {
                     console.error(e);
@@ -136,6 +145,16 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
         }
     }, [selectedSeasonNum, details, mediaType, settings.country]);
 
+    // Auto-scroll to highlight episode
+    useEffect(() => {
+        if (!loadingSeason && seasonData && initialEpisode) {
+             const el = document.getElementById(`modal-episode-${initialEpisode}`);
+             if (el) {
+                 setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+             }
+        }
+    }, [loadingSeason, seasonData, initialEpisode]);
+
     useEffect(() => {
         if (isOpen) document.body.style.overflow = 'hidden';
         return () => { document.body.style.overflow = ''; };
@@ -185,11 +204,19 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
         const isUpcoming = dateObj ? isFuture(dateObj) : false;
         const key = `episode-${details?.id}-${ep.season_number}-${ep.episode_number}`;
         const isWatched = history[key]?.is_watched;
+        const isHighlighted = ep.episode_number === initialEpisode && ep.season_number === initialSeason;
 
         return (
-            <div className={`group flex gap-4 p-4 border-b border-white/5 hover:bg-white/[0.02] transition-colors ${isWatched ? 'opacity-50' : ''}`}>
+            <div 
+                id={`modal-episode-${ep.episode_number}`}
+                className={`
+                    group flex gap-4 p-4 border-b border-white/5 transition-all
+                    ${isHighlighted ? 'bg-indigo-500/10 border-indigo-500/30' : 'hover:bg-white/[0.02]'} 
+                    ${isWatched ? 'opacity-50' : ''}
+                `}
+            >
                 <div className="w-8 shrink-0 pt-1 flex flex-col items-center gap-2">
-                    <span className="text-zinc-500 font-mono text-sm">{ep.episode_number}</span>
+                    <span className={`font-mono text-sm ${isHighlighted ? 'text-indigo-400 font-bold' : 'text-zinc-500'}`}>{ep.episode_number}</span>
                     <button 
                         onClick={() => toggleWatched({ tmdb_id: details!.id, media_type: 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched })}
                         className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${isWatched ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'border-zinc-700 text-zinc-700 hover:border-zinc-500 hover:text-zinc-300'}`}
@@ -199,7 +226,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-1">
-                        <h4 className={`font-bold text-sm ${isUpcoming ? 'text-indigo-300' : 'text-zinc-200'}`}>{ep.name}</h4>
+                        <h4 className={`font-bold text-sm ${isUpcoming ? 'text-indigo-300' : (isHighlighted ? 'text-white' : 'text-zinc-200')}`}>{ep.name}</h4>
                         {displayDate && (
                             <div className="text-right">
                                 <span className="block text-[10px] font-mono text-zinc-400 uppercase tracking-wide">
@@ -331,7 +358,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                         </div>
                                     </div>
                                     
-                                    <div className="bg-zinc-900/30 rounded-2xl border border-white/5 overflow-hidden min-h-[200px]">
+                                    <div className="bg-zinc-900/30 rounded-2xl border border-white/5 overflow-hidden min-h-[200px]" ref={episodesListRef}>
                                         {loadingSeason ? (
                                             <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>
                                         ) : seasonData ? (

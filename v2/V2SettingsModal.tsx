@@ -79,8 +79,8 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     
     // Trakt Secrets State
     const [showTraktConfig, setShowTraktConfig] = useState(false);
-    const [traktClientId, setTraktClientId] = useState(localStorage.getItem('trakt_client_id') || '');
-    const [traktClientSecret, setTraktClientSecret] = useState(localStorage.getItem('trakt_client_secret') || '');
+    const [traktClientId, setTraktClientId] = useState(settings.traktClient?.id || localStorage.getItem('trakt_client_id') || '');
+    const [traktClientSecret, setTraktClientSecret] = useState(settings.traktClient?.secret || localStorage.getItem('trakt_client_secret') || '');
 
     // Status Checks
     const hasSupabase = !!supabase;
@@ -175,8 +175,13 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     // --- TRAKT LOGIC ---
     
     const saveTraktSecrets = () => {
-        localStorage.setItem('trakt_client_id', traktClientId.trim());
-        localStorage.setItem('trakt_client_secret', traktClientSecret.trim());
+        const id = traktClientId.trim();
+        const secret = traktClientSecret.trim();
+        
+        updateSettings({ 
+            traktClient: { id, secret } 
+        });
+        
         toast.success("Trakt secrets saved");
     };
 
@@ -186,6 +191,9 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
             setShowTraktConfig(true);
             return;
         }
+
+        // Ensure current inputs are saved before starting
+        saveTraktSecrets();
 
         setIsPollingTrakt(true);
         try {

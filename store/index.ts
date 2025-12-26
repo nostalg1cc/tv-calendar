@@ -140,6 +140,13 @@ export const useStore = create<State>()(
                 set((state) => {
                     const merged = { ...state.settings, ...newSettings };
                     applyTheme(merged);
+                    
+                    // Sync Trakt credentials to localStorage for service usage
+                    if (merged.traktClient) {
+                        localStorage.setItem('trakt_client_id', merged.traktClient.id);
+                        localStorage.setItem('trakt_client_secret', merged.traktClient.secret);
+                    }
+
                     if (state.user?.is_cloud) {
                         supabase?.from('profiles').update({ settings: merged }).eq('id', state.user.id).then();
                     }
@@ -304,8 +311,20 @@ export const useStore = create<State>()(
             setCalendarScrollPos: (pos) => set({ calendarScrollPos: pos }),
             setIsSearchOpen: (isOpen) => set({ isSearchOpen: isOpen }),
             setReminderCandidate: (show) => set({ reminderCandidate: show }),
-            setTraktToken: (token) => set({ traktToken: token }),
-            setTraktProfile: (profile) => set({ traktProfile: profile }),
+            
+            setTraktToken: (token) => {
+                set({ traktToken: token });
+                if (get().user?.is_cloud) {
+                    supabase?.from('profiles').update({ trakt_token: token }).eq('id', get().user!.id).then();
+                }
+            },
+            
+            setTraktProfile: (profile) => {
+                set({ traktProfile: profile });
+                if (get().user?.is_cloud) {
+                    supabase?.from('profiles').update({ trakt_profile: profile }).eq('id', get().user!.id).then();
+                }
+            },
 
             triggerCloudSync: async () => {
                 const { user } = get();
@@ -318,6 +337,13 @@ export const useStore = create<State>()(
                         if (profile.settings) {
                             const newSettings = { ...get().settings, ...profile.settings };
                             if (!newSettings.country) newSettings.country = 'US';
+                            
+                            // Restore Trakt credentials to local storage
+                            if (newSettings.traktClient) {
+                                localStorage.setItem('trakt_client_id', newSettings.traktClient.id);
+                                localStorage.setItem('trakt_client_secret', newSettings.traktClient.secret);
+                            }
+
                             set({ settings: newSettings });
                             applyTheme(newSettings);
                         }
@@ -325,6 +351,8 @@ export const useStore = create<State>()(
                             set(s => ({ user: { ...s.user!, tmdb_key: profile.tmdb_key } }));
                             setApiToken(profile.tmdb_key);
                         }
+                        if (profile.trakt_token) set({ traktToken: profile.trakt_token });
+                        if (profile.trakt_profile) set({ traktProfile: profile.trakt_profile });
                     }
 
                     const { data: watchlistData } = await supabase.from('watchlist').select('*');
@@ -384,7 +412,13 @@ export const useStore = create<State>()(
             }),
             onRehydrateStorage: () => (state) => {
                 if (state) {
-                    if (state.settings) applyTheme(state.settings);
+                    if (state.settings) {
+                        applyTheme(state.settings);
+                        if (state.settings.traktClient) {
+                            localStorage.setItem('trakt_client_id', state.settings.traktClient.id);
+                            localStorage.setItem('trakt_client_secret', state.settings.traktClient.secret);
+                        }
+                    }
                     if (state.user?.tmdb_key) setApiToken(state.user.tmdb_key);
                 }
             }
