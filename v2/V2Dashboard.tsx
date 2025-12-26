@@ -14,6 +14,7 @@ import V2Community from './V2Community';
 import ApiKeyPrompt from '../components/ApiKeyPrompt';
 import ContextMenu from '../components/ContextMenu';
 import PosterPickerModal from '../components/PosterPickerModal';
+import ShowDetailsModal from '../components/ShowDetailsModal';
 
 const V2Dashboard: React.FC = () => {
     const [calendarDate, setCalendarDate] = useState(new Date());
@@ -26,9 +27,14 @@ const V2Dashboard: React.FC = () => {
     // Modal State lifted for global access
     const [trailerTarget, setTrailerTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', episode?: any} | null>(null);
     const [posterTarget, setPosterTarget] = useState<{showId: number, mediaType: 'tv' | 'movie'} | null>(null);
+    const [detailsTarget, setDetailsTarget] = useState<{showId: number, mediaType: 'tv' | 'movie'} | null>(null);
 
     const handlePlayTrailer = (showId: number, mediaType: 'tv' | 'movie', episode?: any) => {
         setTrailerTarget({ showId, mediaType, episode });
+    };
+
+    const handleOpenDetails = (showId: number, mediaType: 'tv' | 'movie') => {
+        setDetailsTarget({ showId, mediaType });
     };
 
     const handleDateSelect = (date: Date) => {
@@ -63,6 +69,7 @@ const V2Dashboard: React.FC = () => {
                         <V2Agenda 
                             selectedDay={calendarDate} 
                             onPlayTrailer={handlePlayTrailer}
+                            onOpenDetails={handleOpenDetails}
                             isOpen={isAgendaOpen}
                             onClose={() => setIsAgendaOpen(false)}
                         />
@@ -94,6 +101,15 @@ const V2Dashboard: React.FC = () => {
                     onClose={() => setPosterTarget(null)}
                     showId={posterTarget.showId}
                     mediaType={posterTarget.mediaType}
+                />
+            )}
+
+            {detailsTarget && (
+                <ShowDetailsModal 
+                    isOpen={!!detailsTarget} 
+                    onClose={() => setDetailsTarget(null)} 
+                    showId={detailsTarget.showId} 
+                    mediaType={detailsTarget.mediaType} 
                 />
             )}
 

@@ -11,11 +11,12 @@ import toast from 'react-hot-toast';
 interface V2AgendaProps {
     selectedDay: Date;
     onPlayTrailer?: (showId: number, mediaType: 'tv' | 'movie', episode?: Episode) => void;
+    onOpenDetails?: (showId: number, mediaType: 'tv' | 'movie') => void;
     isOpen?: boolean;
     onClose?: () => void;
 }
 
-const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen, onClose }) => {
+const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenDetails, isOpen, onClose }) => {
     const { settings, history: interactions, toggleWatched, markManyWatched, isSyncing, user, triggerCloudSync } = useStore();
     const { episodes } = useCalendarEpisodes(selectedDay);
     const [markingShowId, setMarkingShowId] = useState<number | null>(null);
@@ -114,10 +115,19 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, isOpen,
         const useBannerReplacement = isSpoilerProtected && spoilerConfig.replacementMode === 'banner';
         const displayImageUrl = useBannerReplacement ? bannerUrl : stillUrl;
 
+        const handleTitleClick = () => {
+             const id = firstEp.show_id || firstEp.id;
+             const type = firstEp.is_movie ? 'movie' : 'tv';
+             if (onOpenDetails) onOpenDetails(id, type);
+        };
+
         return (
             <div className="w-full bg-zinc-950 border-b border-white/5 flex flex-col group/card first:border-t-0">
                 <div className="bg-zinc-900/40 px-4 py-2 border-y border-white/5 flex items-center justify-between">
-                    <h4 className="text-[10px] font-black text-zinc-300 uppercase tracking-[0.15em] truncate pr-4">
+                    <h4 
+                        onClick={handleTitleClick}
+                        className="text-[10px] font-black text-zinc-300 uppercase tracking-[0.15em] truncate pr-4 cursor-pointer hover:text-white hover:underline transition-all"
+                    >
                         {firstEp.show_name || firstEp.name}
                     </h4>
                     <div className="flex items-center gap-1 shrink-0">

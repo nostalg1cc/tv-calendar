@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { X, Play, Plus, Check, Star, Loader2, Calendar, Clock, MonitorPlay, Ticket, ChevronDown, Video, Youtube, ExternalLink, Disc, Trophy } from 'lucide-react';
+import { X, Play, Plus, Check, Star, Loader2, Calendar, Clock, MonitorPlay, Ticket, ChevronDown, Video, Youtube, ExternalLink, Disc, Trophy, Globe } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails, getMovieReleaseDates } from '../services/tmdb';
 import { TVShow, Episode, Season, Video as VideoType } from '../types';
 import { useStore } from '../store';
@@ -14,7 +14,7 @@ interface ShowDetailsModalProps {
 }
 
 const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, showId, mediaType }) => {
-    const { addToWatchlist, watchlist, history, toggleWatched } = useStore();
+    const { addToWatchlist, watchlist, history, toggleWatched, settings } = useStore();
     
     // Data State
     const [details, setDetails] = useState<TVShow | null>(null);
@@ -48,12 +48,32 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                     // Fetch Release Dates for Movies
                     if (mediaType === 'movie') {
                         try {
-                            let rels = await getMovieReleaseDates(showId);
+                            // Request full list (true)
+                            let rels = await getMovieReleaseDates(showId, true);
+                            
                             // Fallback if no specific dates found but global release exists
                             if (rels.length === 0 && data.first_air_date) {
                                 rels = [{ date: data.first_air_date, type: 'theatrical', country: 'US' }];
                             }
-                            setReleases(rels);
+
+                            // Sort: Priority Country First, then Date
+                            const userCountry = settings.country || 'US';
+                            
+                            const sorted = rels.sort((a, b) => {
+                                const aIsUser = a.country === userCountry;
+                                const bIsUser = b.country === userCountry;
+                                
+                                if (aIsUser && !bIsUser) return -1;
+                                if (!aIsUser && bIsUser) return 1;
+                                
+                                // Secondary sort by date
+                                return new Date(a.date).getTime() - new Date(b.date).getTime();
+                            });
+
+                            // Deduplicate for display (same date, same type, same country)
+                            const unique = sorted.filter((v, i, a) => a.findIndex(t => (t.type === v.type && t.date === v.date && t.country === v.country)) === i);
+
+                            setReleases(unique);
                         } catch (e) {
                             console.warn("Failed to fetch release dates", e);
                         }
@@ -77,7 +97,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
             setSeasonData(null);
             setReleases([]);
         }
-    }, [isOpen, showId, mediaType]);
+    }, [isOpen, showId, mediaType, settings.country]);
 
     // Fetch Season Data when selector changes
     useEffect(() => {
@@ -319,23 +339,27 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                     {/* RELEASE DATES (MOVIES) */}
                                     {mediaType === 'movie' && releases.length > 0 && (
                                         <div className="pt-4 border-t border-white/5">
-                                            <span className="block text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-3">Release Schedule</span>
-                                            <div className="space-y-3">
+                                            <span className="block text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-3">Global Release Schedule</span>
+                                            <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-2">
                                                 {releases.map((r, idx) => {
                                                     const isTheatrical = r.type === 'theatrical' || r.type === 'premiere';
                                                     const isPhysical = r.type === 'physical';
+                                                    const isUserCountry = r.country === (settings.country || 'US');
+                                                    
                                                     return (
-                                                        <div key={idx} className="flex items-center justify-between bg-black/20 p-2 rounded-lg group">
+                                                        <div key={idx} className={`flex items-center justify-between p-2 rounded-lg group ${isUserCountry ? 'bg-indigo-500/10 border border-indigo-500/30' : 'bg-black/20'}`}>
                                                             <div className="flex items-center gap-2">
-                                                                <span className={`fi fi-${r.country.toLowerCase()} rounded-[1px] shadow-sm`} />
+                                                                <span className={`fi fi-${r.country.toLowerCase()} rounded-[1px] shadow-sm text-sm`} title={r.country} />
                                                                 <div className={`p-1.5 rounded ${isTheatrical ? 'bg-pink-500/10 text-pink-400' : (isPhysical ? 'bg-purple-500/10 text-purple-400' : 'bg-emerald-500/10 text-emerald-400')}`}>
                                                                     {isTheatrical ? <Ticket className="w-3.5 h-3.5" /> : (isPhysical ? <Disc className="w-3.5 h-3.5" /> : <MonitorPlay className="w-3.5 h-3.5" />)}
                                                                 </div>
-                                                                <span className={`text-xs font-bold uppercase tracking-wider ${isTheatrical ? 'text-pink-200' : (isPhysical ? 'text-purple-200' : 'text-emerald-200')}`}>
+                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isTheatrical ? 'text-pink-200' : (isPhysical ? 'text-purple-200' : 'text-emerald-200')}`}>
                                                                     {r.type === 'premiere' ? 'Premiere' : (isPhysical ? 'Physical' : (r.type === 'theatrical' ? 'Theatrical' : 'Digital'))}
                                                                 </span>
                                                             </div>
-                                                            <span className="text-xs font-mono text-zinc-300">{format(parseISO(r.date), 'MMM d, yyyy')}</span>
+                                                            <span className={`text-xs font-mono ${isUserCountry ? 'text-white font-bold' : 'text-zinc-300'}`}>
+                                                                {format(parseISO(r.date), 'MMM d, yyyy')}
+                                                            </span>
                                                         </div>
                                                     );
                                                 })}
