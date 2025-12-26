@@ -52,11 +52,8 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     }
                     
                     const posterToUse = show.custom_poster_path || show.poster_path;
-                    const relevantReleases: any[] = [];
                     
                     // Logic: Find the BEST date for the User's Country
-                    // Priority: Digital/Physical in User Country -> Theatrical in User Country -> Earliest Global
-                    
                     const userReleases = releases.filter(r => r.country === userRegion);
                     const globalReleases = releases.filter(r => r.country !== userRegion);
 
@@ -70,11 +67,9 @@ export const useCalendarEpisodes = (targetDate: Date) => {
 
                     // 3. Fallback: Global Earliest (Digital preferred, then Theatrical)
                     if (!bestDate) {
-                         // Sort global by date
                          const sortedGlobal = globalReleases.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                         // Try to find a US digital release as a good fallback standard
+                         // Prefer US digital as standard fallback
                          bestDate = sortedGlobal.find(r => r.country === 'US' && (r.type === 'digital' || r.type === 'physical'));
-                         // Otherwise just the earliest date overall
                          if (!bestDate) bestDate = sortedGlobal[0];
                     }
 
@@ -112,15 +107,18 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     const posterToUse = show.custom_poster_path || details.poster_path;
                     
                     // 2. Fetch TVMaze Precise Dates (The Source of Truth for Airtime)
+                    // Pass the user's region to attempt finding country-specific alternate lists
                     let tvmazeDates: Record<number, Record<number, string>> = {};
                     try {
-                        tvmazeDates = await getTVMazeEpisodes(details.external_ids?.imdb_id, details.external_ids?.tvdb_id);
+                        tvmazeDates = await getTVMazeEpisodes(
+                            details.external_ids?.imdb_id, 
+                            details.external_ids?.tvdb_id,
+                            userRegion
+                        );
                     } catch (e) {
                         console.warn('TVMaze fetch failed', e);
                     }
 
-                    // We usually only care about the last season or two for the calendar to save bandwidth
-                    // But if it's a huge show, we might need a strategy. For now, fetch last 2 seasons + specials.
                     const seasonsToFetch = details.seasons?.slice(-2) || [];
                     const s0 = details.seasons?.find(s => s.season_number === 0);
                     if (s0 && !seasonsToFetch.some(s => s.season_number === 0)) seasonsToFetch.push(s0);
@@ -159,7 +157,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                                     eps.push({
                                         ...e,
                                         air_date: finalDateStr, // Grouping Key (Local Day)
-                                        air_date_iso: fullIso,  // Display Time (Absolute)
+                                        air_date_iso: fullIso,  // Display Time (Absolute or Date String)
                                         show_id: show.id,
                                         show_name: show.name,
                                         is_movie: false,
@@ -176,7 +174,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     return eps;
                 }
             },
-            staleTime: 1000 * 60 * 60 * 24, // 24 hours
+            staleTime: 1000 * 60 * 60 * 12, // 12 hours
             enabled: hasKey && !!show.id, 
             retry: 1
         }))

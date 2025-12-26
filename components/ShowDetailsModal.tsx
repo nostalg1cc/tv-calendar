@@ -108,8 +108,12 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                     const sData = await getSeasonDetails(details.id, selectedSeasonNum);
                     setSeasonData(sData);
 
-                    // Fetch TVMaze Dates for precision
-                    const mazeMap = await getTVMazeEpisodes(details.external_ids?.imdb_id, details.external_ids?.tvdb_id);
+                    // Fetch TVMaze Dates for precision with COUNTRY override
+                    const mazeMap = await getTVMazeEpisodes(
+                        details.external_ids?.imdb_id, 
+                        details.external_ids?.tvdb_id,
+                        settings.country // Pass user setting
+                    );
                     if (mazeMap && mazeMap[selectedSeasonNum]) {
                         setTvmazeOverrides(mazeMap[selectedSeasonNum]);
                     } else {
@@ -124,7 +128,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
             };
             fetchSeason();
         }
-    }, [selectedSeasonNum, details, mediaType]);
+    }, [selectedSeasonNum, details, mediaType, settings.country]);
 
     // Prevent body scroll
     useEffect(() => {
@@ -181,7 +185,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                 </span>
                                 {displayTime && (
                                     <span className="block text-[9px] font-mono text-zinc-600">
-                                        {displayTime}
+                                        {displayTime} (Local)
                                     </span>
                                 )}
                             </div>
@@ -211,15 +215,15 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                 </div>
             ) : (
                 <div className="min-h-screen w-full relative">
-                    {/* ... (Hero section same as before) ... */}
-                    {/* To save tokens I'm condensing the known UI parts, but assume Hero is here */}
                     
+                    {/* HERO SECTION */}
                     <div className="relative w-full h-[60vh] lg:h-[70vh]">
                         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${getBackdropUrl(details.backdrop_path)})` }} />
                         <div className="absolute inset-0 bg-gradient-to-t from-[#020202] via-[#020202]/40 to-transparent" />
                         <div className="absolute inset-0 bg-gradient-to-r from-[#020202]/80 via-transparent to-transparent" />
                         
                         <div className="absolute bottom-0 left-0 w-full p-6 md:p-12 lg:p-16 max-w-7xl mx-auto flex flex-col md:flex-row items-end gap-8">
+                            {/* Poster */}
                             <div className="hidden md:block w-48 lg:w-56 aspect-[2/3] rounded-lg shadow-2xl overflow-hidden border border-white/10 shrink-0 transform translate-y-12 bg-zinc-900">
                                 <img src={getImageUrl(details.poster_path)} className="w-full h-full object-cover" alt="" />
                             </div>

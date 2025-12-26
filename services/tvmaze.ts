@@ -6,15 +6,18 @@ const getKey = () => {
     return env.VITE_TVMAZE_API_KEY || env.VITE_tvmaze_API_KEY || '';
 };
 
-export const getTVMazeEpisodes = async (imdbId?: string, tvdbId?: number): Promise<Record<number, Record<number, string>>> => {
+const getCountryName = (code: string) => {
+    try {
+        const names = new Intl.DisplayNames(['en'], { type: 'region' });
+        return names.of(code) || code;
+    } catch {
+        return code;
+    }
+};
+
+export const getTVMazeEpisodes = async (imdbId?: string, tvdbId?: number, countryCode: string = 'US'): Promise<Record<number, Record<number, string>>> => {
     try {
         let showId;
-        const apiKey = getKey();
-        // Append API key if it exists, though standard endpoints are often public
-        // TVMaze doesn't typically use a key for basic endpoints, but we respect the user request
-        // assuming it might be needed for rate limits or specific endpoints in their setup.
-        // We will append it as a query param if it exists, but standard public API doesn't formally document it for this endpoint.
-        // However, we will proceed with the standard lookup which is reliable.
         
         // 1. Lookup Show ID
         if (imdbId) {
@@ -29,20 +32,60 @@ export const getTVMazeEpisodes = async (imdbId?: string, tvdbId?: number): Promi
 
         if (!showId) return {};
 
-        // 2. Fetch Episodes List
-        const res = await fetch(`${BASE_URL}/shows/${showId}/episodes`);
-        if (!res.ok) return {};
-        
-        const episodes = await res.json();
         const map: Record<number, Record<number, string>> = {}; 
+        let usedAlternate = false;
 
-        episodes.forEach((ep: any) => {
-            if (!map[ep.season]) map[ep.season] = {};
-            // 'airstamp' is ISO 8601 with timezone (e.g., 2011-04-18T01:00:00+00:00)
-            // 'airdate' is YYYY-MM-DD local to broadcaster (less precise)
-            // We prioritize airstamp for exact local conversion
-            map[ep.season][ep.number] = ep.airstamp || ep.airdate; 
-        });
+        // 2. Try Alternate Lists (e.g. "German Premiere") if not US
+        if (countryCode && countryCode !== 'US') {
+            try {
+                const listRes = await fetch(`${BASE_URL}/shows/${showId}/alternatelists`);
+                if (listRes.ok) {
+                    const lists = await listRes.json();
+                    const countryName = getCountryName(countryCode);
+                    
+                    // Fuzzy match for country in list name (e.g. "German Premiere", "UK Airing")
+                    const candidate = lists.find((l: any) => 
+                        l.name && (
+                            l.name.toLowerCase().includes(countryCode.toLowerCase()) || 
+                            l.name.toLowerCase().includes(countryName.toLowerCase())
+                        )
+                    );
+
+                    if (candidate) {
+                        const epsRes = await fetch(`${BASE_URL}/alternatelists/${candidate.id}/alternateepisodes`);
+                        if (epsRes.ok) {
+                            const altEps = await epsRes.json();
+                            altEps.forEach((ep: any) => {
+                                if (ep.season && ep.number) {
+                                    if (!map[ep.season]) map[ep.season] = {};
+                                    // Use airstamp (ISO) if available, else airdate
+                                    map[ep.season][ep.number] = ep.airstamp || ep.airdate; 
+                                }
+                            });
+                            usedAlternate = true;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("TVMaze Alternate List fetch failed", e);
+            }
+        }
+
+        // 3. If no alternate found, use standard episodes as base
+        if (!usedAlternate) {
+            const res = await fetch(`${BASE_URL}/shows/${showId}/episodes`);
+            if (res.ok) {
+                const episodes = await res.json();
+                episodes.forEach((ep: any) => {
+                    if (!map[ep.season]) map[ep.season] = {};
+                    // 'airstamp' is ISO 8601 with timezone (e.g., 2011-04-18T01:00:00+00:00)
+                    // If we have an alternate map already partially filled (unlikely here but good practice), don't overwrite
+                    if (!map[ep.season][ep.number]) {
+                        map[ep.season][ep.number] = ep.airstamp || ep.airdate; 
+                    }
+                });
+            }
+        }
         
         return map;
     } catch (e) {
