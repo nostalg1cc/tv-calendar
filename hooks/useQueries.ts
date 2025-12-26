@@ -2,6 +2,7 @@
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { getShowDetails, getSeasonDetails, getMovieReleaseDates, getMovieDetails } from '../services/tmdb';
 import { getTVMazeEpisodes } from '../services/tvmaze';
+import { getTraktCalendar } from '../services/trakt';
 import { Episode } from '../types';
 import { useStore } from '../store';
 import { parseISO, subMonths, addMonths, format } from 'date-fns';
@@ -38,9 +39,48 @@ export const useCalendarEpisodes = (targetDate: Date) => {
     const watchlist = useStore(state => state.watchlist);
     const user = useStore(state => state.user);
     const settings = useStore(state => state.settings);
+    const traktToken = useStore(state => state.traktToken);
     const hasKey = !!user?.tmdb_key;
     
     const userRegion = settings.country || getUserRegion();
+
+    const startWindowDate = subMonths(targetDate, 1);
+    // Trakt API max days is 31 usually, but let's try fetching 60 days in chunks if needed or just 31 centered
+    // For now, let's fetch a 60 day window from startWindowDate (2 months)
+    const traktStartDate = format(startWindowDate, 'yyyy-MM-dd');
+    const traktDays = 60; 
+
+    // 1. Fetch Trakt Data (if connected)
+    const traktQuery = useQuery({
+        queryKey: ['trakt_calendar', traktStartDate, traktDays, traktToken],
+        queryFn: async () => {
+            if (!traktToken) return {};
+            try {
+                const data = await getTraktCalendar(traktToken, traktStartDate, traktDays);
+                const map: Record<string, string> = {}; // "tmdb_s_e" -> iso_date
+                
+                if (Array.isArray(data)) {
+                    data.forEach((item: any) => {
+                         const tmdbId = item.show?.ids?.tmdb;
+                         const s = item.episode?.season;
+                         const e = item.episode?.number;
+                         const airtime = item.first_aired; // ISO UTC
+                         if (tmdbId && s && e && airtime) {
+                             map[`${tmdbId}_${s}_${e}`] = airtime;
+                         }
+                    });
+                }
+                return map;
+            } catch (e) {
+                console.warn("Trakt calendar fetch failed", e);
+                return {};
+            }
+        },
+        enabled: !!traktToken && hasKey,
+        staleTime: 1000 * 60 * 60 * 1 // 1 hour
+    });
+
+    const traktMap = traktQuery.data || {};
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({
@@ -132,19 +172,19 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                                 
                                 // Determine the most accurate ISO timestamp
                                 let finalIsoString: string | null = null;
+                                let source: 'tmdb' | 'tvmaze' | 'trakt' = 'tmdb';
                                 
                                 if (mazeEntry && mazeEntry.timestamp) {
-                                    // 1. Precise ISO from TVMaze (Best)
                                     finalIsoString = mazeEntry.timestamp;
+                                    source = 'tvmaze';
                                 } else if (mazeEntry && mazeEntry.date) {
-                                    // 2. Date only from TVMaze
                                     if (isGlobalStreamer(details.networks || [])) {
                                         finalIsoString = `${mazeEntry.date}T08:00:00Z`; // Assume 12AM PT / 8AM UTC
                                     } else {
                                         finalIsoString = mazeEntry.date;
                                     }
+                                    source = 'tvmaze';
                                 } else if (tmdbDateStr) {
-                                    // 3. Fallback to TMDB
                                     if (isGlobalStreamer(details.networks || [])) {
                                         finalIsoString = `${tmdbDateStr}T08:00:00Z`; // Assume 12AM PT / 8AM UTC
                                     } else {
@@ -168,8 +208,9 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                                     
                                     eps.push({
                                         ...e,
-                                        air_date: localDateKey, // Correct local bucket
-                                        air_date_iso: finalIsoString, // Source of truth for display
+                                        air_date: localDateKey, 
+                                        air_date_iso: finalIsoString, 
+                                        air_date_source: source,
                                         show_id: show.id,
                                         show_name: show.name,
                                         is_movie: false,
@@ -192,7 +233,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
         }))
     });
 
-    const isLoading = showQueries.some(q => q.isLoading);
+    const isLoading = showQueries.some(q => q.isLoading) || traktQuery.isLoading;
     const isRefetching = showQueries.some(q => q.isRefetching);
 
     const startWindow = subMonths(targetDate, 1);
@@ -200,6 +241,24 @@ export const useCalendarEpisodes = (targetDate: Date) => {
 
     const allEpisodes = showQueries
         .flatMap(q => q.data || [])
+        .map(ep => {
+            // Apply Trakt Override if available
+            if (ep.show_id && ep.season_number && ep.episode_number) {
+                 const traktKey = `${ep.show_id}_${ep.season_number}_${ep.episode_number}`;
+                 const traktIso = traktMap[traktKey];
+                 
+                 if (traktIso) {
+                     const dateObj = new Date(traktIso);
+                     return {
+                         ...ep,
+                         air_date: format(dateObj, 'yyyy-MM-dd'),
+                         air_date_iso: traktIso,
+                         air_date_source: 'trakt' as const
+                     };
+                 }
+            }
+            return ep;
+        })
         .filter(ep => {
              if (!ep.air_date) return false;
              // Filter based on the calculated local date

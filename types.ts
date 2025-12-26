@@ -40,6 +40,7 @@ export interface Episode {
   vote_average: number;
   air_date: string; // Used for grouping (YYYY-MM-DD in local time)
   air_date_iso?: string; // Full ISO timestamp for display
+  air_date_source?: 'tmdb' | 'tvmaze' | 'trakt';
   episode_number: number;
   season_number: number;
   still_path: string | null;

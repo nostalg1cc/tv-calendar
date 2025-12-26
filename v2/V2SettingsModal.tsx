@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2 } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
+import { getDeviceCode, pollToken, getTraktProfile } from '../services/trakt';
 import toast from 'react-hot-toast';
 import LegacyImportModal from '../components/LegacyImportModal';
 import RebuildModal from '../components/RebuildModal';
@@ -13,7 +14,7 @@ interface V2SettingsModalProps {
     onClose: () => void;
 }
 
-type TabId = 'general' | 'appearance' | 'spoilers' | 'data' | 'account';
+type TabId = 'general' | 'appearance' | 'spoilers' | 'integrations' | 'data' | 'account';
 
 const THEMES = [
     { id: 'cosmic', name: 'Cosmic', color: '#18181b' },
@@ -56,7 +57,7 @@ const COUNTRIES = [
 ];
 
 const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) => {
-    const { settings, updateSettings, user, login, logout, triggerCloudSync, isSyncing, importBackup } = useStore();
+    const { settings, updateSettings, user, login, logout, triggerCloudSync, isSyncing, importBackup, traktToken, traktProfile, setTraktToken, setTraktProfile } = useStore();
     const [activeTab, setActiveTab] = useState<TabId>('general');
     
     // Local state for API key
@@ -70,10 +71,16 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     // Legacy Import Modal State
     const [showLegacyImport, setShowLegacyImport] = useState(false);
     const [showRebuild, setShowRebuild] = useState(false);
+    
+    // Trakt Auth State
+    const [traktCode, setTraktCode] = useState<string | null>(null);
+    const [traktUrl, setTraktUrl] = useState<string | null>(null);
+    const [isPollingTrakt, setIsPollingTrakt] = useState(false);
 
     // Status Checks
     const hasSupabase = !!supabase;
     const hasTmdbKey = !!user?.tmdb_key;
+    const hasTrakt = !!traktToken;
 
     useEffect(() => {
         setLocalApiKey(user?.tmdb_key || '');
@@ -159,6 +166,51 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
             customThemeColor: color 
         });
     };
+    
+    // --- TRAKT LOGIC ---
+    
+    const startTraktAuth = async () => {
+        setIsPollingTrakt(true);
+        try {
+            const data = await getDeviceCode();
+            setTraktCode(data.user_code);
+            setTraktUrl(data.verification_url);
+            
+            // Start Polling
+            const interval = setInterval(async () => {
+                const poll = await pollToken(data.device_code);
+                if (poll.status === 200) {
+                    clearInterval(interval);
+                    setTraktToken(poll.data.access_token);
+                    const profile = await getTraktProfile(poll.data.access_token);
+                    setTraktProfile(profile);
+                    setIsPollingTrakt(false);
+                    setTraktCode(null);
+                    setTraktUrl(null);
+                    toast.success("Trakt account connected!");
+                    
+                    // Force refresh to update dates
+                    setTimeout(() => window.location.reload(), 1500);
+                } else if (poll.status === 404 || poll.status === 409 || poll.status === 410) {
+                    clearInterval(interval);
+                    setIsPollingTrakt(false);
+                    setTraktCode(null);
+                    toast.error("Trakt connection timed out.");
+                }
+            }, data.interval * 1000);
+            
+        } catch (e) {
+            console.error(e);
+            setIsPollingTrakt(false);
+            toast.error("Could not reach Trakt.tv");
+        }
+    };
+
+    const disconnectTrakt = () => {
+        setTraktToken(undefined);
+        setTraktProfile(undefined);
+        toast.success("Disconnected Trakt account");
+    };
 
     if (!isOpen) return null;
 
@@ -205,11 +257,12 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                         <TabButton id="general" label="General" icon={Settings} />
                         <TabButton id="appearance" label="Appearance" icon={Palette} />
                         <TabButton id="spoilers" label="Spoilers" icon={EyeOff} />
+                        <TabButton id="integrations" label="Integrations" icon={LinkIcon} />
                         <TabButton id="data" label="Data & API" icon={Database} />
                         <TabButton id="account" label="Account" icon={User} />
                     </nav>
                     <div className="p-4 border-t border-border">
-                        <p className="text-[10px] text-text-muted text-center font-mono">v2.0.0 • Stable</p>
+                        <p className="text-[10px] text-text-muted text-center font-mono">v2.1.0 • Stable</p>
                     </div>
                 </div>
 
@@ -219,7 +272,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                      <button onClick={onClose} className="p-2 text-text-muted"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="md:hidden flex overflow-x-auto border-b border-border p-2 gap-2 hide-scrollbar bg-background">
-                     {['general', 'appearance', 'spoilers', 'data', 'account'].map(t => (
+                     {['general', 'appearance', 'spoilers', 'integrations', 'data', 'account'].map(t => (
                          <button 
                             key={t} 
                             onClick={() => setActiveTab(t as TabId)}
@@ -420,6 +473,76 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                             </div>
                         )}
 
+                        {/* INTEGRATIONS */}
+                        {activeTab === 'integrations' && (
+                            <div className="space-y-8 max-w-2xl animate-fade-in">
+                                <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2">
+                                    <LinkIcon className="w-5 h-5 text-indigo-500" /> External Accounts
+                                </h3>
+
+                                {/* Trakt Card */}
+                                <div className="bg-card/40 border border-border rounded-3xl overflow-hidden">
+                                    <div className="p-6 border-b border-border flex items-start justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center font-bold text-2xl text-white shadow-lg shadow-red-900/20">T</div>
+                                            <div>
+                                                <h4 className="text-lg font-bold text-text-main">Trakt.tv</h4>
+                                                <p className="text-xs text-text-muted mt-1">Sync your personalized release schedule.</p>
+                                            </div>
+                                        </div>
+                                        {hasTrakt && (
+                                            <div className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded text-emerald-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                                <Check className="w-3 h-3" /> Connected
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="p-6 bg-black/20">
+                                        {!hasTrakt ? (
+                                            !traktCode ? (
+                                                <button 
+                                                    onClick={startTraktAuth}
+                                                    disabled={isPollingTrakt}
+                                                    className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2"
+                                                >
+                                                    {isPollingTrakt ? <Loader2 className="w-5 h-5 animate-spin" /> : <LinkIcon className="w-5 h-5" />}
+                                                    Connect Trakt Account
+                                                </button>
+                                            ) : (
+                                                <div className="text-center space-y-4 animate-enter">
+                                                    <p className="text-sm text-text-muted">Enter this code at <span className="text-white font-mono">{traktUrl}</span></p>
+                                                    <div className="text-3xl font-black text-white font-mono bg-zinc-900 p-4 rounded-xl border border-border inline-block tracking-widest">
+                                                        {traktCode}
+                                                    </div>
+                                                    <div className="flex justify-center">
+                                                         <a href={traktUrl!} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-indigo-400 hover:text-white text-sm font-bold">
+                                                             Open Link <ExternalLink className="w-4 h-4" />
+                                                         </a>
+                                                    </div>
+                                                    <div className="flex items-center justify-center gap-2 text-xs text-zinc-500">
+                                                        <Loader2 className="w-3 h-3 animate-spin" /> Waiting for authorization...
+                                                    </div>
+                                                </div>
+                                            )
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-medium text-zinc-400">Connected Account</span>
+                                                    <span className="text-sm font-bold text-white">{traktProfile?.username || 'Trakt User'}</span>
+                                                </div>
+                                                <button 
+                                                    onClick={disconnectTrakt}
+                                                    className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl font-bold transition-all border border-white/5"
+                                                >
+                                                    Disconnect
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* DATA & API */}
                         {activeTab === 'data' && (
                             <div className="space-y-10 max-w-2xl animate-fade-in">
@@ -459,6 +582,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                         <div className="flex flex-wrap gap-2">
                                             <ConnectionStatus label="Supabase" active={hasSupabase} />
                                             <ConnectionStatus label="TMDB" active={hasTmdbKey} />
+                                            <ConnectionStatus label="Trakt" active={hasTrakt} />
                                             <ConnectionStatus label="TVMaze" active={true} />
                                         </div>
                                     </div>

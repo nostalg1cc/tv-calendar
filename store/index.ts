@@ -66,6 +66,8 @@ interface State {
     reminderCandidate: TVShow | null;
     subscribedLists: any[];
     isMobileWarningOpen: boolean;
+    traktToken?: string;
+    traktProfile?: any;
     closeMobileWarning: (forever: boolean) => void;
     importBackup: (data: any) => void;
     processSyncPayload: (payload: string) => void;
@@ -84,6 +86,8 @@ interface State {
     setCalendarScrollPos: (pos: number) => void;
     setIsSearchOpen: (isOpen: boolean) => void;
     setReminderCandidate: (show: TVShow | null) => void;
+    setTraktToken: (token: string | undefined) => void;
+    setTraktProfile: (profile: any) => void;
     isSyncing: boolean;
     triggerCloudSync: () => Promise<void>;
     fullSyncRequired?: boolean;
@@ -128,7 +132,7 @@ export const useStore = create<State>()(
             },
 
             logout: () => {
-                set({ user: null, watchlist: [], history: {}, reminders: [] });
+                set({ user: null, watchlist: [], history: {}, reminders: [], traktToken: undefined, traktProfile: undefined });
                 if (supabase) supabase.auth.signOut();
             },
 
@@ -300,6 +304,8 @@ export const useStore = create<State>()(
             setCalendarScrollPos: (pos) => set({ calendarScrollPos: pos }),
             setIsSearchOpen: (isOpen) => set({ isSearchOpen: isOpen }),
             setReminderCandidate: (show) => set({ reminderCandidate: show }),
+            setTraktToken: (token) => set({ traktToken: token }),
+            setTraktProfile: (profile) => set({ traktProfile: profile }),
 
             triggerCloudSync: async () => {
                 const { user } = get();
@@ -372,7 +378,9 @@ export const useStore = create<State>()(
                 settings: state.settings,
                 watchlist: state.watchlist,
                 history: state.history,
-                reminders: state.reminders 
+                reminders: state.reminders,
+                traktToken: state.traktToken,
+                traktProfile: state.traktProfile
             }),
             onRehydrateStorage: () => (state) => {
                 if (state) {

@@ -14,7 +14,7 @@ const getHeaders = (token?: string) => {
     return headers;
 };
 
-export const getDeviceCode = async (clientId: string) => {
+export const getDeviceCode = async (clientId: string = TRAKT_CLIENT_ID) => {
     const res = await fetch(`${TRAKT_API_URL}/oauth/device/code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -24,16 +24,19 @@ export const getDeviceCode = async (clientId: string) => {
     return res.json();
 };
 
-export const pollToken = async (deviceCode: string, clientId: string, clientSecret: string) => {
+export const pollToken = async (deviceCode: string, clientId: string = TRAKT_CLIENT_ID, clientSecret?: string) => {
+    const body: any = {
+        code: deviceCode,
+        client_id: clientId
+    };
+    if (clientSecret) body.client_secret = clientSecret;
+
     const res = await fetch(`${TRAKT_API_URL}/oauth/device/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            code: deviceCode,
-            client_id: clientId,
-            client_secret: clientSecret
-        })
+        body: JSON.stringify(body)
     });
+    // Return raw status for polling logic (200=OK, 400=Pending)
     return { status: res.status, data: await res.json().catch(() => ({})) }; 
 };
 
@@ -42,6 +45,14 @@ export const getTraktProfile = async (token: string) => {
         headers: getHeaders(token)
     });
     if (!res.ok) throw new Error('Failed to fetch profile');
+    return res.json();
+};
+
+export const getTraktCalendar = async (token: string, startDate: string, days: number) => {
+    const res = await fetch(`${TRAKT_API_URL}/calendars/my/shows/${startDate}/${days}`, {
+        headers: getHeaders(token)
+    });
+    if (!res.ok) throw new Error('Failed to fetch calendar');
     return res.json();
 };
 

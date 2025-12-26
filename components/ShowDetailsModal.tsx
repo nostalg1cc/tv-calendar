@@ -6,6 +6,7 @@ import { getTVMazeEpisodes } from '../services/tvmaze';
 import { TVShow, Episode, Season, Video as VideoType } from '../types';
 import { useStore } from '../store';
 import { format, parseISO, isFuture } from 'date-fns';
+import { getTraktCalendar } from '../services/trakt';
 
 interface ShowDetailsModalProps {
     isOpen: boolean;
@@ -15,7 +16,7 @@ interface ShowDetailsModalProps {
 }
 
 const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, showId, mediaType }) => {
-    const { addToWatchlist, watchlist, history, toggleWatched, settings } = useStore();
+    const { addToWatchlist, watchlist, history, toggleWatched, settings, traktToken } = useStore();
     
     const [details, setDetails] = useState<TVShow | null>(null);
     const [loading, setLoading] = useState(true);
@@ -28,6 +29,8 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     
     // Store full object from TVMaze including timestamp
     const [tvmazeOverrides, setTvmazeOverrides] = useState<Record<number, { date: string, timestamp?: string }>>({});
+    // Store Trakt overrides
+    const [traktOverrides, setTraktOverrides] = useState<Record<number, string>>({});
 
     useEffect(() => {
         if (isOpen && showId) {
@@ -78,6 +81,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
             setSeasonData(null);
             setReleases([]);
             setTvmazeOverrides({});
+            setTraktOverrides({});
         }
     }, [isOpen, showId, mediaType, settings.country]);
 
@@ -89,6 +93,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                     const sData = await getSeasonDetails(details.id, selectedSeasonNum);
                     setSeasonData(sData);
 
+                    // Fetch TVMaze
                     const mazeMap = await getTVMazeEpisodes(
                         details.external_ids?.imdb_id, 
                         details.external_ids?.tvdb_id,
@@ -99,6 +104,16 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                     } else {
                         setTvmazeOverrides({});
                     }
+
+                    // Fetch Trakt (We can try to get calendar for this season if we had date range, 
+                    // but for a single season view, we might need a different endpoint or strategy. 
+                    // For now, let's assume if Trakt connected, we rely on calendar query logic, 
+                    // but here we are in details view. 
+                    // To keep it simple in this specific modal, we won't do a full Trakt fetch per season 
+                    // unless we query specific episodes. Let's just use what we have or implement a simple 
+                    // check if we really want to be precise here too. 
+                    // NOTE: Implementing full Trakt Season fetch requires extended info which might be heavy.
+                    // We'll skip Trakt explicit fetch here for now to keep performance high, relying on TVMaze for regional overrides in this view.)
 
                 } catch(e) {
                     console.error(e);
@@ -125,19 +140,25 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
         let displayDate = '';
         let displayTime = '';
         let dateObj: Date | null = null;
+        let sourceLabel = '';
 
         // Priority 1: TVMaze Timestamp (ISO)
         if (mazeData && mazeData.timestamp) {
             dateObj = new Date(mazeData.timestamp);
+            sourceLabel = 'TVMaze';
         } 
         // Priority 2: TVMaze Date String
         else if (mazeData && mazeData.date) {
             dateObj = parseISO(mazeData.date); 
+            sourceLabel = 'TVMaze';
         }
         // Priority 3: TMDB Date
         else if (ep.air_date) {
              dateObj = parseISO(ep.air_date);
         }
+
+        // If we have a Trakt connection and this date matches what we might have in calendar context
+        // (Though we don't have calendar context here easily, so we just show what we found)
 
         if (dateObj) {
             displayDate = format(dateObj, 'MMM d, yyyy');
@@ -170,11 +191,18 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                 <span className="block text-[10px] font-mono text-zinc-400 uppercase tracking-wide">
                                     {displayDate}
                                 </span>
-                                {displayTime && (
-                                    <span className="block text-[9px] font-mono text-zinc-600">
-                                        {displayTime} (Local)
-                                    </span>
-                                )}
+                                <div className="flex items-center justify-end gap-1">
+                                    {displayTime && (
+                                        <span className="block text-[9px] font-mono text-zinc-600">
+                                            {displayTime}
+                                        </span>
+                                    )}
+                                    {sourceLabel && (
+                                        <span className="text-[7px] px-1 rounded bg-zinc-800 text-zinc-500 uppercase font-bold tracking-wider">
+                                            {sourceLabel}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
