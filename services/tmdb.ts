@@ -8,28 +8,61 @@ export const setApiToken = (key: string) => {
     API_KEY = key;
 };
 
-const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {}): Promise<T> => {
-    if (!API_KEY) {
-        const stored = localStorage.getItem('tv_calendar_v2_store');
-        if (stored) {
+// --- Concurrency Control ---
+const MAX_CONCURRENT = 4;
+const queue: (() => Promise<void>)[] = [];
+let activeCount = 0;
+
+const processQueue = () => {
+    if (activeCount >= MAX_CONCURRENT || queue.length === 0) return;
+    
+    activeCount++;
+    const nextTask = queue.shift();
+    if (nextTask) nextTask();
+};
+
+const enqueueFetch = <T>(fetcher: () => Promise<T>): Promise<T> => {
+    return new Promise((resolve, reject) => {
+        const task = async () => {
             try {
-                const parsed = JSON.parse(stored);
-                if (parsed.state?.user?.tmdb_key) {
-                    API_KEY = parsed.state.user.tmdb_key;
-                }
-            } catch (e) { }
+                const result = await fetcher();
+                resolve(result);
+            } catch (err) {
+                reject(err);
+            } finally {
+                activeCount--;
+                processQueue();
+            }
+        };
+        queue.push(task);
+        processQueue();
+    });
+};
+
+const fetchTMDB = async <T>(endpoint: string, params: Record<string, string> = {}): Promise<T> => {
+    return enqueueFetch(async () => {
+        if (!API_KEY) {
+            const stored = localStorage.getItem('tv_calendar_v2_store');
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    if (parsed.state?.user?.tmdb_key) {
+                        API_KEY = parsed.state.user.tmdb_key;
+                    }
+                } catch (e) { }
+            }
         }
-    }
 
-    if (!API_KEY) throw new Error("API Key missing");
+        if (!API_KEY) throw new Error("API Key missing");
 
-    const url = new URL(`${BASE_URL}${endpoint}`);
-    url.searchParams.append('api_key', API_KEY);
-    Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+        const url = new URL(`${BASE_URL}${endpoint}`);
+        url.searchParams.append('api_key', API_KEY);
+        Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
 
-    const response = await fetch(url.toString());
-    if (!response.ok) throw new Error(`TMDB API Error: ${response.statusText}`);
-    return response.json();
+        const response = await fetch(url.toString());
+        if (!response.ok) throw new Error(`TMDB API Error: ${response.statusText}`);
+        return response.json();
+    });
 };
 
 export const getImageUrl = (path: string | null | undefined, size: string = 'w500') => {
@@ -212,5 +245,6 @@ const mapShow = (data: any): TVShow => ({
     media_type: data.media_type || (data.title ? 'movie' : 'tv'),
     origin_country: data.origin_country,
     seasons: data.seasons,
-    original_language: data.original_language
+    original_language: data.original_language,
+    networks: data.networks // Preserve network data for heuristic logic
 });

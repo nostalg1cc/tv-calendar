@@ -7,13 +7,12 @@ import { parseISO, subMonths, addMonths, addDays, format } from 'date-fns';
 
 export const useShowData = (showId: number, mediaType: 'tv' | 'movie') => {
     const user = useStore(state => state.user);
-    // Only run if we have a key (either in user object or legacy check)
     const hasKey = !!user?.tmdb_key;
 
     return useQuery({
         queryKey: ['media', mediaType, showId],
         queryFn: async () => mediaType === 'movie' ? getMovieDetails(showId) : getShowDetails(showId),
-        staleTime: 1000 * 60 * 60 * 24 * 7, // 7 Days Stale for static show data
+        staleTime: 1000 * 60 * 60 * 24 * 7, 
         enabled: hasKey && !!showId,
     });
 };
@@ -28,22 +27,33 @@ const getUserRegion = () => {
     }
 };
 
-// Heuristic to check if we should shift date forward (e.g. US show watched in Europe)
-const shouldShiftDate = (originCountry: string[], userRegion: string) => {
-    const AMERICAS = ['US', 'CA', 'MX', 'BR', 'AR', 'CL', 'CO', 'PE'];
-    const EASTERN_HEMISPHERE_REGIONS = [
-        'GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'SE', 'NO', 'DK', 'FI', 'PT', // Europe
-        'AU', 'NZ', // Oceania
-        'JP', 'KR', 'CN', 'IN', 'RU', 'SG', 'MY', 'PH', 'TH', 'VN' // Asia
-    ];
+// Heuristic: Check if show is from US broadcast network (Next Day for Intl)
+// Streaming services (Netflix, etc) usually do Global Release (Same Day)
+const shouldShiftDate = (networks: any[], originCountry: string[], userRegion: string) => {
+    const US_BROADCASTERS = ['ABC', 'NBC', 'CBS', 'FOX', 'The CW', 'AMC', 'HBO', 'Showtime', 'Starz', 'FX', 'USA Network'];
+    const AMERICAS = ['US', 'CA', 'MX', 'BR'];
+    const EASTERN_REGIONS = ['GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'SE', 'NO', 'DK', 'FI', 'AU', 'NZ', 'JP', 'KR', 'CN', 'IN'];
 
-    // If show is from Americas
+    // 1. Must be from Americas
     const isFromAmericas = originCountry.some(c => AMERICAS.includes(c));
-    
-    // And user is in East
-    const isUserEast = EASTERN_HEMISPHERE_REGIONS.includes(userRegion);
+    if (!isFromAmericas) return false;
 
-    return isFromAmericas && isUserEast;
+    // 2. User must be in Eastern Hemisphere
+    const isUserEast = EASTERN_REGIONS.includes(userRegion);
+    if (!isUserEast) return false;
+
+    // 3. Check Network Type
+    // If we have network data, check if it's a broadcaster
+    if (networks && networks.length > 0) {
+        const networkName = networks[0].name;
+        // If it's a US broadcaster, shift it
+        if (US_BROADCASTERS.some(b => networkName.includes(b))) return true;
+        // If it's Netflix/Disney/Apple/Amazon, usually don't shift (Global Drop)
+        return false; 
+    }
+
+    // Default Fallback if no network info: Shift if from US
+    return true; 
 };
 
 export const useCalendarEpisodes = (targetDate: Date) => {
@@ -52,39 +62,27 @@ export const useCalendarEpisodes = (targetDate: Date) => {
     const settings = useStore(state => state.settings);
     const hasKey = !!user?.tmdb_key;
     
-    // Prefer user setting, fallback to browser detection
     const userRegion = settings.country || getUserRegion();
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({
-            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, settings.timeShift, settings.dateOffsets?.[show.id]],
+            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, settings.timeShift],
             queryFn: async (): Promise<Episode[]> => {
-                // Determine shifts
-                const manualOffset = settings.dateOffsets?.[show.id] || 0;
-                
                 if (show.media_type === 'movie') {
                     let releases = await getMovieReleaseDates(show.id);
                     
-                    // Fallback: If no dates found, use global release
                     if (releases.length === 0 && show.first_air_date) {
                         releases = [{ date: show.first_air_date, type: 'theatrical', country: 'US' }];
                     }
                     
                     const posterToUse = show.custom_poster_path || show.poster_path;
-
-                    // Categories: 
-                    // Theatrical = theatrical (3), premiere (1)
-                    // Digital = digital (4), physical (5)
                     const relevantReleases: any[] = [];
                     
                     const processCategory = (types: string[]) => {
                          const candidates = releases.filter(r => types.includes(r.type));
                          if (candidates.length > 0) {
-                             // 1. Try to find user region match
                              let best = candidates.find(r => r.country === userRegion);
-                             // 2. If not found, use the earliest one (candidates are typically sorted by date in getMovieReleaseDates)
                              if (!best) {
-                                 // Sort by date just to be sure
                                  const sorted = [...candidates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                                  best = sorted[0];
                              }
@@ -96,22 +94,15 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     processCategory(['digital', 'physical']);
 
                     return relevantReleases.map(r => {
-                        // Map specific types to generic categories for UI compatibility
                         let normalizedType: 'theatrical' | 'digital' = 'theatrical';
                         if (r.type === 'digital' || r.type === 'physical') normalizedType = 'digital';
                         
-                        let finalDate = r.date;
-                        if (manualOffset !== 0) {
-                             const d = parseISO(r.date);
-                             finalDate = format(addDays(d, manualOffset), 'yyyy-MM-dd');
-                        }
-
                         return {
                             id: show.id * -1, 
                             name: show.name,
                             overview: show.overview,
                             vote_average: show.vote_average,
-                            air_date: finalDate,
+                            air_date: r.date,
                             episode_number: 1,
                             season_number: 0,
                             still_path: show.backdrop_path,
@@ -127,18 +118,13 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                 } else {
                     const details = await getShowDetails(show.id);
                     const eps: Episode[] = [];
-                    
-                    // Prioritize user selected poster
                     const posterToUse = show.custom_poster_path || details.poster_path;
                     
-                    // Determine if we need to shift date based on origin vs user location
-                    const heuristicShift = settings.timeShift && details.origin_country 
-                        ? (shouldShiftDate(details.origin_country, userRegion) ? 1 : 0)
+                    // Smart Shift Logic
+                    const shiftDays = settings.timeShift && details.origin_country 
+                        ? (shouldShiftDate(details.networks || [], details.origin_country, userRegion) ? 1 : 0)
                         : 0;
 
-                    const totalShift = heuristicShift + manualOffset;
-
-                    // Optimisation: Fetch last 2 seasons + specials
                     const seasonsToFetch = details.seasons?.slice(-2) || [];
                     const s0 = details.seasons?.find(s => s.season_number === 0);
                     if (s0 && !seasonsToFetch.some(s => s.season_number === 0)) seasonsToFetch.push(s0);
@@ -149,22 +135,20 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                             sData.episodes.forEach(e => {
                                 if (e.air_date) {
                                     let finalDate = e.air_date;
-                                    
-                                    // Apply Time Shift if necessary
-                                    if (totalShift !== 0) {
+                                    if (shiftDays > 0) {
                                         const d = parseISO(e.air_date);
-                                        finalDate = format(addDays(d, totalShift), 'yyyy-MM-dd');
+                                        finalDate = format(addDays(d, shiftDays), 'yyyy-MM-dd');
                                     }
 
                                     eps.push({
                                         ...e,
-                                        air_date: finalDate, // Override with shifted date
+                                        air_date: finalDate,
                                         show_id: show.id,
                                         show_name: show.name,
                                         is_movie: false,
                                         show_backdrop_path: details.backdrop_path,
-                                        poster_path: posterToUse, // Use custom or refreshed show poster
-                                        season1_poster_path: sData.poster_path // Keep season specific as fallback
+                                        poster_path: posterToUse,
+                                        season1_poster_path: sData.poster_path
                                     });
                                 }
                             });
@@ -175,7 +159,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     return eps;
                 }
             },
-            staleTime: 1000 * 60 * 60 * 24, // 24 hours - relies on IDB cache for instant load
+            staleTime: 1000 * 60 * 60 * 24,
             enabled: hasKey && !!show.id, 
             retry: 1
         }))

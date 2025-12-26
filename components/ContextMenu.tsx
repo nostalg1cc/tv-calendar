@@ -4,7 +4,7 @@ import { useStore } from '../store';
 import { 
     Check, Eye, EyeOff, Share2, Tv, Film, Trash2, 
     Copy, Filter, ExternalLink, ChevronRight, Sparkles, MonitorPlay, Calendar, Image as ImageIcon,
-    Clock, ArrowRight, ArrowLeft, RefreshCw
+    RefreshCw
 } from 'lucide-react';
 import { Episode } from '../types';
 import toast from 'react-hot-toast';
@@ -29,8 +29,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
         history, 
         removeFromWatchlist, 
         settings, 
-        updateSettings,
-        setDateOffset
+        updateSettings
     } = useStore();
     
     const [state, setState] = useState<ContextState>({
@@ -70,12 +69,11 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
             let x = e.pageX;
             let y = e.pageY;
             
-            // Basic viewport collision
             if (x + 220 > window.innerWidth) x = window.innerWidth - 230;
             if (y + 300 > window.innerHeight) y = window.innerHeight - 310;
             
             setState({ visible: true, x, y, type, data });
-            setActiveSubmenu(null); // Reset submenus on open
+            setActiveSubmenu(null); 
         };
 
         const handleClick = () => setState(prev => ({ ...prev, visible: false }));
@@ -139,12 +137,6 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
         onEditPoster(id, type === 'movie' ? 'movie' : 'tv');
     };
 
-    const handleSetOffset = (offset: number) => {
-        const id = state.data.show_id || state.data.id;
-        setDateOffset(id, offset);
-        toast.success(offset === 0 ? "Schedule reset to default" : `Schedule shifted by ${offset > 0 ? '+' : ''}${offset} day(s)`);
-    };
-
     // --- COMPONENTS ---
 
     const MenuItem = ({ icon: Icon, label, onClick, danger = false, rightElement }: any) => (
@@ -184,7 +176,6 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
                 <ChevronRight className="w-3 h-3 opacity-50" />
             </button>
 
-            {/* Submenu Dropdown with Safe Area Bridge */}
             {activeSubmenu === id && (
                 <div 
                     className="absolute left-full top-[-4px] pl-2 w-48 z-[10000] h-[calc(100%+8px)] flex items-start"
@@ -204,11 +195,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
         </div>
     );
 
-    const currentOffset = settings.dateOffsets?.[state.data?.show_id || state.data?.id] || 0;
-
     return (
         <>
-            {/* Styles for the bouncy animation */}
             <style>{`
                 @keyframes menuBounce {
                     0% { transform: scale(0.9) opacity(0); }
@@ -237,31 +225,6 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
                             onClick={handleToggleWatched}
                         />
                         
-                        <SubMenuTrigger icon={Clock} label="Adjust Date" id="adjust-date">
-                            <Header text="Shift Schedule" />
-                            <MenuItem 
-                                icon={ArrowLeft} 
-                                label="-1 Day" 
-                                onClick={() => handleSetOffset(currentOffset - 1)}
-                            />
-                            <MenuItem 
-                                icon={RefreshCw} 
-                                label={currentOffset === 0 ? "Default (Active)" : "Reset to Default"} 
-                                onClick={() => handleSetOffset(0)}
-                                rightElement={currentOffset === 0 && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-                            />
-                            <MenuItem 
-                                icon={ArrowRight} 
-                                label="+1 Day" 
-                                onClick={() => handleSetOffset(currentOffset + 1)}
-                            />
-                            {currentOffset !== 0 && (
-                                <div className="px-2 py-1 text-[9px] text-indigo-400 text-center border-t border-white/5 mt-1">
-                                    Current Shift: {currentOffset > 0 ? '+' : ''}{currentOffset} days
-                                </div>
-                            )}
-                        </SubMenuTrigger>
-
                         <MenuItem 
                             icon={ImageIcon} 
                             label="Change Poster" 
@@ -294,31 +257,6 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ onEditPoster }) => {
                     <>
                         <Header text={state.data.name} />
                         
-                        <SubMenuTrigger icon={Clock} label="Adjust Date" id="adjust-date">
-                            <Header text="Shift Schedule" />
-                            <MenuItem 
-                                icon={ArrowLeft} 
-                                label="-1 Day" 
-                                onClick={() => handleSetOffset(currentOffset - 1)}
-                            />
-                             <MenuItem 
-                                icon={RefreshCw} 
-                                label={currentOffset === 0 ? "Default (Active)" : "Reset to Default"} 
-                                onClick={() => handleSetOffset(0)}
-                                rightElement={currentOffset === 0 && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-                            />
-                            <MenuItem 
-                                icon={ArrowRight} 
-                                label="+1 Day" 
-                                onClick={() => handleSetOffset(currentOffset + 1)}
-                            />
-                            {currentOffset !== 0 && (
-                                <div className="px-2 py-1 text-[9px] text-indigo-400 text-center border-t border-white/5 mt-1">
-                                    Current Shift: {currentOffset > 0 ? '+' : ''}{currentOffset} days
-                                </div>
-                            )}
-                        </SubMenuTrigger>
-
                         <MenuItem 
                             icon={ImageIcon} 
                             label="Change Poster" 

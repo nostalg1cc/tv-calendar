@@ -12,6 +12,7 @@ export interface TVShow {
   seasons?: Season[];
   original_language?: string;
   custom_poster_path?: string | null;
+  networks?: Array<{ name: string, id: number, logo_path: string | null }>;
 }
 
 export interface Season {
@@ -82,13 +83,9 @@ export interface AppSettings {
   cleanGrid?: boolean;
   useSeason1Art?: boolean;
   mobileNavLayout?: 'pill' | 'standard';
-  // V2 Calendar Filters
   calendarFilterTv?: boolean;
   calendarFilterMovies?: boolean;
-  // Persistence for Custom Posters
   customPosters: Record<number, string>;
-  // Persistence for Date Offsets
-  dateOffsets: Record<number, number>;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -107,11 +104,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   hiddenItems: [],
   calendarFilterTv: true,
   calendarFilterMovies: true,
-  customPosters: {},
-  dateOffsets: {}
+  customPosters: {}
 };
 
-// Database Row Types
 export interface WatchedItem {
     tmdb_id: number;
     media_type: 'tv' | 'movie' | 'episode';
