@@ -28,20 +28,6 @@ const getUserRegion = () => {
     }
 };
 
-const shouldShiftDate = (networks: any[], originCountry: string[], userRegion: string) => {
-    // Only applied if we rely on the generic 'YYYY-MM-DD' string from TMDB
-    const AMERICAS = ['US', 'CA', 'MX', 'BR'];
-    const EASTERN_REGIONS = ['GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'SE', 'NO', 'DK', 'FI', 'AU', 'NZ', 'JP', 'KR', 'CN', 'IN', 'RU', 'PL'];
-
-    const isFromAmericas = originCountry.some(c => AMERICAS.includes(c));
-    const isUserEast = EASTERN_REGIONS.includes(userRegion);
-
-    // If US show watched in Europe/Asia, shift +1 day (evening air time becomes early morning next day)
-    if (isFromAmericas && isUserEast) return true;
-
-    return false; 
-};
-
 export const useCalendarEpisodes = (targetDate: Date) => {
     const watchlist = useStore(state => state.watchlist);
     const user = useStore(state => state.user);
@@ -52,7 +38,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({
-            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, settings.timeShift],
+            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion],
             queryFn: async (): Promise<Episode[]> => {
                 if (show.media_type === 'movie') {
                     let releases = await getMovieReleaseDates(show.id);
@@ -88,7 +74,8 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                             name: show.name,
                             overview: show.overview,
                             vote_average: show.vote_average,
-                            air_date: r.date,
+                            air_date: r.date.split('T')[0], // Use local date part for grouping
+                            air_date_iso: r.date,
                             episode_number: 1,
                             season_number: 0,
                             still_path: show.backdrop_path,
@@ -116,11 +103,6 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                         console.warn('TVMaze fetch failed', e);
                     }
 
-                    // Fallback logic if TVMaze misses
-                    const useSmartShift = settings.timeShift && details.origin_country 
-                        ? shouldShiftDate(details.networks || [], details.origin_country, userRegion)
-                        : false;
-
                     const seasonsToFetch = details.seasons?.slice(-2) || [];
                     const s0 = details.seasons?.find(s => s.season_number === 0);
                     if (s0 && !seasonsToFetch.some(s => s.season_number === 0)) seasonsToFetch.push(s0);
@@ -131,36 +113,31 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                             const sData = await getSeasonDetails(show.id, season.season_number);
                             
                             sData.episodes.forEach(e => {
-                                let finalDate = e.air_date;
+                                let finalDateStr = e.air_date; // Default YYYY-MM-DD
+                                let fullIso = e.air_date;
+
                                 const mazeDate = tvmazeDates[e.season_number]?.[e.episode_number];
 
                                 if (mazeDate) {
                                     if (mazeDate.includes('T')) {
                                         // Case A: We have a full timestamp with timezone! 
-                                        // (e.g. 2024-12-25T20:00:00-05:00)
-                                        // Convert to user's local date string
-                                        finalDate = format(new Date(mazeDate), 'yyyy-MM-dd');
+                                        // (e.g. 2025-12-25T20:00:00-05:00)
+                                        // Convert to user's local date string for the calendar bucket
+                                        const d = new Date(mazeDate);
+                                        finalDateStr = format(d, 'yyyy-MM-dd');
+                                        fullIso = mazeDate;
                                     } else {
                                         // Case B: Date string only from TVMaze
-                                        finalDate = mazeDate;
-                                        // Apply shift logic if enabled, as this is likely origin date
-                                        if (useSmartShift) {
-                                            const d = parseISO(mazeDate);
-                                            finalDate = format(addDays(d, 1), 'yyyy-MM-dd');
-                                        }
-                                    }
-                                } else {
-                                    // Case C: Fallback to TMDB date
-                                    if (finalDate && useSmartShift) {
-                                        const d = parseISO(finalDate);
-                                        finalDate = format(addDays(d, 1), 'yyyy-MM-dd');
+                                        finalDateStr = mazeDate;
+                                        fullIso = mazeDate;
                                     }
                                 }
 
-                                if (finalDate) {
+                                if (finalDateStr) {
                                     eps.push({
                                         ...e,
-                                        air_date: finalDate,
+                                        air_date: finalDateStr,
+                                        air_date_iso: fullIso,
                                         show_id: show.id,
                                         show_name: show.name,
                                         is_movie: false,

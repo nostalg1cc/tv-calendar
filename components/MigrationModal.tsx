@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Database, CheckCircle, RefreshCw, Globe, EyeOff, Film, CalendarClock, Settings2, Loader2, ArrowRight } from 'lucide-react';
 import { useStore } from '../store';
@@ -9,12 +10,10 @@ const MigrationModal: React.FC = () => {
     
     // Local state for migration configuration
     const [config, setConfig] = useState<{
-        timeShift: boolean;
         spoilers: boolean;
         movies: boolean;
         timezone: string;
     }>({
-        timeShift: settings.timeShift || false,
         spoilers: settings.spoilerConfig?.images || false,
         movies: settings.spoilerConfig?.includeMovies || false,
         timezone: settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -26,7 +25,6 @@ const MigrationModal: React.FC = () => {
         setStep('sync');
         // Construct partial settings object
         const newSettings: Partial<AppSettings> = {
-            timeShift: config.timeShift,
             timezone: config.timezone,
             spoilerConfig: {
                 ...settings.spoilerConfig,
@@ -59,25 +57,7 @@ const MigrationModal: React.FC = () => {
                         </div>
 
                         <div className="space-y-4 mb-8">
-                            {/* Time Shift Toggle */}
-                            <div 
-                                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${config.timeShift ? 'bg-indigo-600/10 border-indigo-500/50' : 'bg-zinc-950 border-white/5 hover:border-white/10'}`}
-                                onClick={() => setConfig({...config, timeShift: !config.timeShift})}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className={`p-2 rounded-lg ${config.timeShift ? 'bg-indigo-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
-                                        <CalendarClock className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h4 className={`text-sm font-bold ${config.timeShift ? 'text-indigo-200' : 'text-zinc-300'}`}>Smart Time Shift</h4>
-                                        <p className="text-[10px] text-zinc-500">Adjust release dates to my timezone.</p>
-                                    </div>
-                                </div>
-                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${config.timeShift ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-zinc-700'}`}>
-                                    {config.timeShift && <CheckCircle className="w-3.5 h-3.5" />}
-                                </div>
-                            </div>
-
+                            
                             {/* Spoilers Toggle */}
                             <div 
                                 className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${config.spoilers ? 'bg-red-500/10 border-red-500/50' : 'bg-zinc-950 border-white/5 hover:border-white/10'}`}
@@ -96,23 +76,6 @@ const MigrationModal: React.FC = () => {
                                     {config.spoilers && <CheckCircle className="w-3.5 h-3.5" />}
                                 </div>
                             </div>
-
-                            {/* Timezone (If shifting) */}
-                            {config.timeShift && (
-                                <div className="p-4 bg-zinc-950 border border-white/10 rounded-2xl flex items-center justify-between animate-fade-in">
-                                    <div className="flex items-center gap-3">
-                                        <Globe className="w-4 h-4 text-zinc-500" />
-                                        <span className="text-xs font-bold text-zinc-400">Target Timezone</span>
-                                    </div>
-                                    <select 
-                                        value={config.timezone} 
-                                        onChange={(e) => setConfig({...config, timezone: e.target.value})}
-                                        className="bg-transparent text-xs font-mono text-indigo-400 outline-none text-right w-40"
-                                    >
-                                        {(Intl as any).supportedValuesOf('timeZone').map((tz: string) => (<option key={tz} value={tz}>{tz}</option>))}
-                                    </select>
-                                </div>
-                            )}
                         </div>
 
                         <button 

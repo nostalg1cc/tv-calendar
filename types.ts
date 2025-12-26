@@ -38,7 +38,8 @@ export interface Episode {
   name: string;
   overview: string;
   vote_average: number;
-  air_date: string;
+  air_date: string; // Used for grouping (YYYY-MM-DD)
+  air_date_iso?: string; // Full ISO timestamp for display
   episode_number: number;
   season_number: number;
   still_path: string | null;
@@ -67,7 +68,7 @@ export interface AppSettings {
   compactCalendar: boolean;
   timezone: string;
   country: string;
-  timeShift: boolean;
+  // timeShift removed
   hideTheatrical: boolean;
   ignoreSpecials: boolean;
   spoilerConfig: {
@@ -101,7 +102,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   compactCalendar: true,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   country: 'US',
-  timeShift: false,
   hideTheatrical: false,
   ignoreSpecials: true,
   spoilerConfig: { images: true, overview: true, title: false, includeMovies: false, replacementMode: 'blur' },

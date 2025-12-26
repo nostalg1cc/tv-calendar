@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Play, Plus, Check, Star, Loader2, Calendar, Clock, MonitorPlay, Ticket, ChevronDown, Video, Youtube, ExternalLink, Disc, Trophy, Globe } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails, getMovieReleaseDates } from '../services/tmdb';
-import { getTVDBSeasonDates } from '../services/thetvdb';
+import { getTVMazeEpisodes } from '../services/tvmaze';
 import { TVShow, Episode, Season, Video as VideoType } from '../types';
 import { useStore } from '../store';
 import { format, parseISO, isFuture } from 'date-fns';
@@ -33,8 +33,8 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     // Release Dates (Movies)
     const [releases, setReleases] = useState<{ date: string, type: string, country: string }[]>([]);
     
-    // TVDB Dates Override
-    const [tvdbOverrides, setTvdbOverrides] = useState<Record<number, string>>({});
+    // TVMaze Dates Override
+    const [tvmazeOverrides, setTvmazeOverrides] = useState<Record<number, string>>({});
 
     // Initial Fetch
     useEffect(() => {
@@ -95,7 +95,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
             setVideos([]);
             setSeasonData(null);
             setReleases([]);
-            setTvdbOverrides({});
+            setTvmazeOverrides({});
         }
     }, [isOpen, showId, mediaType, settings.country]);
 
@@ -108,11 +108,15 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                     const sData = await getSeasonDetails(details.id, selectedSeasonNum);
                     setSeasonData(sData);
 
-                    // Fetch TVDB Dates
-                    if (details.external_ids?.tvdb_id) {
-                         const overrides = await getTVDBSeasonDates(details.external_ids.tvdb_id, selectedSeasonNum);
-                         setTvdbOverrides(overrides);
+                    // Fetch TVMaze Dates for precision
+                    // Need to fetch full show episodes map then filter for season
+                    const mazeMap = await getTVMazeEpisodes(details.external_ids?.imdb_id, details.external_ids?.tvdb_id);
+                    if (mazeMap && mazeMap[selectedSeasonNum]) {
+                        setTvmazeOverrides(mazeMap[selectedSeasonNum]);
+                    } else {
+                        setTvmazeOverrides({});
                     }
+
                 } catch(e) {
                     console.error(e);
                 } finally {
@@ -136,8 +140,24 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     // --- SUB COMPONENTS ---
 
     const EpisodeItem: React.FC<{ ep: Episode }> = ({ ep }) => {
-        const airDate = tvdbOverrides[ep.episode_number] || ep.air_date;
-        const isUpcoming = airDate ? isFuture(parseISO(airDate)) : false;
+        // Use TVMaze override if available, otherwise TMDB date
+        const rawDate = tvmazeOverrides[ep.episode_number] || ep.air_date;
+        let displayDate = '';
+        let displayTime = '';
+
+        if (rawDate) {
+            if (rawDate.includes('T')) {
+                // ISO Timestamp (precise)
+                const d = new Date(rawDate);
+                displayDate = format(d, 'MMM d, yyyy');
+                displayTime = format(d, 'h:mm a'); // Local browser time
+            } else {
+                // Date string only
+                displayDate = format(parseISO(rawDate), 'MMM d, yyyy');
+            }
+        }
+        
+        const isUpcoming = rawDate ? isFuture(new Date(rawDate)) : false;
         const key = `episode-${details?.id}-${ep.season_number}-${ep.episode_number}`;
         const isWatched = history[key]?.is_watched;
 
@@ -155,10 +175,17 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-1">
                         <h4 className={`font-bold text-sm ${isUpcoming ? 'text-indigo-300' : 'text-zinc-200'}`}>{ep.name}</h4>
-                        {airDate && (
-                            <span className="text-[10px] font-mono text-zinc-500 whitespace-nowrap ml-4 uppercase tracking-wide">
-                                {format(parseISO(airDate), 'MMM d, yyyy')}
-                            </span>
+                        {displayDate && (
+                            <div className="text-right">
+                                <span className="block text-[10px] font-mono text-zinc-400 uppercase tracking-wide">
+                                    {displayDate}
+                                </span>
+                                {displayTime && (
+                                    <span className="block text-[9px] font-mono text-zinc-600">
+                                        {displayTime}
+                                    </span>
+                                )}
+                            </div>
                         )}
                     </div>
                     <p className="text-xs text-zinc-500 line-clamp-2 leading-relaxed">{ep.overview || "No description available."}</p>
