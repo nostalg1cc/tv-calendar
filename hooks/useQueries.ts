@@ -138,14 +138,14 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                                     finalIsoString = mazeEntry.timestamp;
                                 } else if (mazeEntry && mazeEntry.date) {
                                     // 2. Date only from TVMaze
-                                    if (isGlobalStreamer(details.networks)) {
+                                    if (isGlobalStreamer(details.networks || [])) {
                                         finalIsoString = `${mazeEntry.date}T08:00:00Z`; // Assume 12AM PT / 8AM UTC
                                     } else {
                                         finalIsoString = mazeEntry.date;
                                     }
                                 } else if (tmdbDateStr) {
                                     // 3. Fallback to TMDB
-                                    if (isGlobalStreamer(details.networks)) {
+                                    if (isGlobalStreamer(details.networks || [])) {
                                         finalIsoString = `${tmdbDateStr}T08:00:00Z`; // Assume 12AM PT / 8AM UTC
                                     } else {
                                         finalIsoString = tmdbDateStr;
