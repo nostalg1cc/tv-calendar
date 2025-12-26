@@ -4,7 +4,7 @@ import { getShowDetails, getSeasonDetails, getMovieReleaseDates, getMovieDetails
 import { getTVMazeEpisodes } from '../services/tvmaze';
 import { Episode } from '../types';
 import { useStore } from '../store';
-import { parseISO, subMonths, addMonths, addDays, format } from 'date-fns';
+import { parseISO, subMonths, addMonths, format } from 'date-fns';
 
 export const useShowData = (showId: number, mediaType: 'tv' | 'movie') => {
     const user = useStore(state => state.user);
@@ -34,15 +34,19 @@ export const useCalendarEpisodes = (targetDate: Date) => {
     const settings = useStore(state => state.settings);
     const hasKey = !!user?.tmdb_key;
     
+    // Explicitly use the setting or fallback to browser locale
     const userRegion = settings.country || getUserRegion();
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({
             queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion],
             queryFn: async (): Promise<Episode[]> => {
+                // --- MOVIES LOGIC ---
                 if (show.media_type === 'movie') {
-                    let releases = await getMovieReleaseDates(show.id);
+                    // Fetch all release dates
+                    let releases = await getMovieReleaseDates(show.id, true); // true = get full list to process manually
                     
+                    // Fallback to basic info if no specific releases found
                     if (releases.length === 0 && show.first_air_date) {
                         releases = [{ date: show.first_air_date, type: 'theatrical', country: 'US' }];
                     }
@@ -50,32 +54,41 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     const posterToUse = show.custom_poster_path || show.poster_path;
                     const relevantReleases: any[] = [];
                     
-                    const processCategory = (types: string[]) => {
-                         const candidates = releases.filter(r => types.includes(r.type));
-                         if (candidates.length > 0) {
-                             let best = candidates.find(r => r.country === userRegion);
-                             if (!best) {
-                                 const sorted = [...candidates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                                 best = sorted[0];
-                             }
-                             if (best) relevantReleases.push(best);
-                         }
-                    };
+                    // Logic: Find the BEST date for the User's Country
+                    // Priority: Digital/Physical in User Country -> Theatrical in User Country -> Earliest Global
+                    
+                    const userReleases = releases.filter(r => r.country === userRegion);
+                    const globalReleases = releases.filter(r => r.country !== userRegion);
 
-                    processCategory(['theatrical', 'premiere']);
-                    processCategory(['digital', 'physical']);
+                    // 1. Look for Digital in User Country (Type 4=Digital, 5=Physical)
+                    let bestDate = userReleases.find(r => r.type === 'digital' || r.type === 'physical');
+                    
+                    // 2. Look for Theatrical in User Country (Type 3=Theatrical, 2=Limited)
+                    if (!bestDate) {
+                        bestDate = userReleases.find(r => r.type === 'theatrical' || r.type === 'premiere');
+                    }
 
-                    return relevantReleases.map(r => {
-                        let normalizedType: 'theatrical' | 'digital' = 'theatrical';
-                        if (r.type === 'digital' || r.type === 'physical') normalizedType = 'digital';
-                        
-                        return {
+                    // 3. Fallback: Global Earliest (Digital preferred, then Theatrical)
+                    if (!bestDate) {
+                         // Sort global by date
+                         const sortedGlobal = globalReleases.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                         // Try to find a US digital release as a good fallback standard
+                         bestDate = sortedGlobal.find(r => r.country === 'US' && (r.type === 'digital' || r.type === 'physical'));
+                         // Otherwise just the earliest date overall
+                         if (!bestDate) bestDate = sortedGlobal[0];
+                    }
+
+                    if (bestDate) {
+                         let normalizedType: 'theatrical' | 'digital' = 'theatrical';
+                         if (bestDate.type === 'digital' || bestDate.type === 'physical') normalizedType = 'digital';
+                         
+                         return [{
                             id: show.id * -1, 
                             name: show.name,
                             overview: show.overview,
                             vote_average: show.vote_average,
-                            air_date: r.date.split('T')[0], // Use local date part for grouping
-                            air_date_iso: r.date,
+                            air_date: bestDate.date.split('T')[0], // YYYY-MM-DD
+                            air_date_iso: bestDate.date, // Preserve full ISO for time if available
                             episode_number: 1,
                             season_number: 0,
                             still_path: show.backdrop_path,
@@ -84,18 +97,21 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                             show_name: show.name,
                             is_movie: true,
                             release_type: normalizedType,
-                            release_country: r.country,
+                            release_country: bestDate.country,
                             show_backdrop_path: show.backdrop_path
-                        };
-                    });
-                } else {
-                    // 1. Fetch TMDB Details
+                        }];
+                    }
+                    return [];
+                } 
+                
+                // --- TV SHOWS LOGIC ---
+                else {
+                    // 1. Fetch TMDB Details (for metadata)
                     const details = await getShowDetails(show.id);
                     const eps: Episode[] = [];
                     const posterToUse = show.custom_poster_path || details.poster_path;
                     
-                    // 2. Fetch TVMaze Precise Dates
-                    // We use this for exact timezone conversion
+                    // 2. Fetch TVMaze Precise Dates (The Source of Truth for Airtime)
                     let tvmazeDates: Record<number, Record<number, string>> = {};
                     try {
                         tvmazeDates = await getTVMazeEpisodes(details.external_ids?.imdb_id, details.external_ids?.tvdb_id);
@@ -103,31 +119,37 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                         console.warn('TVMaze fetch failed', e);
                     }
 
+                    // We usually only care about the last season or two for the calendar to save bandwidth
+                    // But if it's a huge show, we might need a strategy. For now, fetch last 2 seasons + specials.
                     const seasonsToFetch = details.seasons?.slice(-2) || [];
                     const s0 = details.seasons?.find(s => s.season_number === 0);
                     if (s0 && !seasonsToFetch.some(s => s.season_number === 0)) seasonsToFetch.push(s0);
 
-                    // 3. Fetch Seasons
+                    // 3. Fetch Seasons and Merge Data
                     for (const season of seasonsToFetch) {
                         try {
                             const sData = await getSeasonDetails(show.id, season.season_number);
                             
                             sData.episodes.forEach(e => {
-                                let finalDateStr = e.air_date; // Default YYYY-MM-DD
+                                let finalDateStr = e.air_date; // Default YYYY-MM-DD from TMDB
                                 let fullIso = e.air_date;
 
+                                // Check TVMaze for a precise timestamp
                                 const mazeDate = tvmazeDates[e.season_number]?.[e.episode_number];
 
                                 if (mazeDate) {
                                     if (mazeDate.includes('T')) {
-                                        // Case A: We have a full timestamp with timezone! 
-                                        // (e.g. 2025-12-25T20:00:00-05:00)
-                                        // Convert to user's local date string for the calendar bucket
-                                        const d = new Date(mazeDate);
-                                        finalDateStr = format(d, 'yyyy-MM-dd');
+                                        // Precise ISO Timestamp available! (e.g. 2025-12-25T20:00:00-05:00)
+                                        // Create a Date object. This automatically converts to the Browser's Local Timezone.
+                                        const dateObj = new Date(mazeDate);
+                                        
+                                        // Format this LOCAL date as YYYY-MM-DD for the calendar bucket.
+                                        // This ensures if it airs at 10PM US time on the 25th, but it's 4AM on the 26th for the user,
+                                        // it appears on the 26th in their calendar.
+                                        finalDateStr = format(dateObj, 'yyyy-MM-dd');
                                         fullIso = mazeDate;
                                     } else {
-                                        // Case B: Date string only from TVMaze
+                                        // Just a date string from TVMaze
                                         finalDateStr = mazeDate;
                                         fullIso = mazeDate;
                                     }
@@ -136,8 +158,8 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                                 if (finalDateStr) {
                                     eps.push({
                                         ...e,
-                                        air_date: finalDateStr,
-                                        air_date_iso: fullIso,
+                                        air_date: finalDateStr, // Grouping Key (Local Day)
+                                        air_date_iso: fullIso,  // Display Time (Absolute)
                                         show_id: show.id,
                                         show_name: show.name,
                                         is_movie: false,
@@ -170,6 +192,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
         .flatMap(q => q.data || [])
         .filter(ep => {
              if (!ep.air_date) return false;
+             // Filter based on the *local* date calculated above
              const d = parseISO(ep.air_date);
              return d >= startWindow && d <= endWindow;
         });

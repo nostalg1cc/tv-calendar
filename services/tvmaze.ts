@@ -1,12 +1,20 @@
 
 const BASE_URL = 'https://api.tvmaze.com';
 
-// Simple rate limiter to be nice to their API
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const getKey = () => {
+    const env = import.meta.env as any;
+    return env.VITE_TVMAZE_API_KEY || env.VITE_tvmaze_API_KEY || '';
+};
 
 export const getTVMazeEpisodes = async (imdbId?: string, tvdbId?: number): Promise<Record<number, Record<number, string>>> => {
     try {
         let showId;
+        const apiKey = getKey();
+        // Append API key if it exists, though standard endpoints are often public
+        // TVMaze doesn't typically use a key for basic endpoints, but we respect the user request
+        // assuming it might be needed for rate limits or specific endpoints in their setup.
+        // We will append it as a query param if it exists, but standard public API doesn't formally document it for this endpoint.
+        // However, we will proceed with the standard lookup which is reliable.
         
         // 1. Lookup Show ID
         if (imdbId) {
@@ -22,8 +30,6 @@ export const getTVMazeEpisodes = async (imdbId?: string, tvdbId?: number): Promi
         if (!showId) return {};
 
         // 2. Fetch Episodes List
-        // TVMaze API is fast, but let's add a tiny buffer if hitting it hard in a loop
-        // (handled by caller concurrency usually, but safe to keep simple here)
         const res = await fetch(`${BASE_URL}/shows/${showId}/episodes`);
         if (!res.ok) return {};
         

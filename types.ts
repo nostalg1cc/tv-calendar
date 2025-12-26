@@ -38,7 +38,7 @@ export interface Episode {
   name: string;
   overview: string;
   vote_average: number;
-  air_date: string; // Used for grouping (YYYY-MM-DD)
+  air_date: string; // Used for grouping (YYYY-MM-DD in local time)
   air_date_iso?: string; // Full ISO timestamp for display
   episode_number: number;
   season_number: number;
@@ -68,7 +68,6 @@ export interface AppSettings {
   compactCalendar: boolean;
   timezone: string;
   country: string;
-  // timeShift removed
   hideTheatrical: boolean;
   ignoreSpecials: boolean;
   spoilerConfig: {

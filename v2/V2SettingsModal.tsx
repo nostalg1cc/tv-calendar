@@ -72,7 +72,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const [showRebuild, setShowRebuild] = useState(false);
 
     // Status Checks
-    const hasTheTvdbKey = Boolean((import.meta.env as any).VITE_THETVDB_API_KEY || (import.meta.env as any).thetvdb_api);
     const hasSupabase = !!supabase;
     const hasTmdbKey = !!user?.tmdb_key;
 
@@ -461,9 +460,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             <ConnectionStatus label="Supabase" active={hasSupabase} />
                                             <ConnectionStatus label="TMDB" active={hasTmdbKey} />
                                             <ConnectionStatus label="TVMaze" active={true} />
-                                            <ConnectionStatus label="TheTVDB" active={hasTheTvdbKey} />
                                         </div>
-                                        {!hasTheTvdbKey && <p className="text-[10px] text-text-muted mt-2">The app now prefers TVMaze for accurate dates. TheTVDB key is optional.</p>}
                                     </div>
                                 </div>
 
