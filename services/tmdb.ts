@@ -128,8 +128,13 @@ export const getVideos = async (mediaType: 'tv' | 'movie', id: number, season?: 
 };
 
 export const getShowDetails = async (id: number): Promise<TVShow> => {
-    const data = await fetchTMDB<any>(`/tv/${id}`);
-    return mapShow({ ...data, media_type: 'tv' });
+    // Request external_ids to link with TheTVDB
+    const data = await fetchTMDB<any>(`/tv/${id}?append_to_response=external_ids`);
+    const show = mapShow({ ...data, media_type: 'tv' });
+    if (data.external_ids) {
+        show.external_ids = data.external_ids;
+    }
+    return show;
 };
 
 export const getMovieDetails = async (id: number): Promise<TVShow> => {

@@ -13,6 +13,13 @@ export interface TVShow {
   original_language?: string;
   custom_poster_path?: string | null;
   networks?: Array<{ name: string, id: number, logo_path: string | null }>;
+  external_ids?: {
+    imdb_id?: string;
+    tvdb_id?: number;
+    facebook_id?: string;
+    instagram_id?: string;
+    twitter_id?: string;
+  };
 }
 
 export interface Season {

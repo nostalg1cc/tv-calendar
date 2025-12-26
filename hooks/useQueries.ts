@@ -1,6 +1,7 @@
 
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { getShowDetails, getSeasonDetails, getMovieReleaseDates, getMovieDetails } from '../services/tmdb';
+import { getTVDBSeasonDates } from '../services/thetvdb';
 import { Episode } from '../types';
 import { useStore } from '../store';
 import { parseISO, subMonths, addMonths, addDays, format } from 'date-fns';
@@ -43,16 +44,12 @@ const shouldShiftDate = (networks: any[], originCountry: string[], userRegion: s
     if (!isUserEast) return false;
 
     // 3. Check Network Type
-    // If we have network data, check if it's a broadcaster
     if (networks && networks.length > 0) {
         const networkName = networks[0].name;
-        // If it's a US broadcaster, shift it
         if (US_BROADCASTERS.some(b => networkName.includes(b))) return true;
-        // If it's Netflix/Disney/Apple/Amazon, usually don't shift (Global Drop)
         return false; 
     }
 
-    // Default Fallback if no network info: Shift if from US
     return true; 
 };
 
@@ -116,9 +113,11 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                         };
                     });
                 } else {
+                    // 1. Fetch TMDB Details (now includes external_ids)
                     const details = await getShowDetails(show.id);
                     const eps: Episode[] = [];
                     const posterToUse = show.custom_poster_path || details.poster_path;
+                    const tvdbId = details.external_ids?.tvdb_id;
                     
                     // Smart Shift Logic
                     const shiftDays = settings.timeShift && details.origin_country 
@@ -129,14 +128,30 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     const s0 = details.seasons?.find(s => s.season_number === 0);
                     if (s0 && !seasonsToFetch.some(s => s.season_number === 0)) seasonsToFetch.push(s0);
 
+                    // 2. Fetch Seasons
                     for (const season of seasonsToFetch) {
                         try {
+                            // Fetch TMDB season data
                             const sData = await getSeasonDetails(show.id, season.season_number);
+                            
+                            // Fetch TheTVDB air dates for this season if ID exists
+                            // This runs sequentially per season to be safe, but could be optimized later
+                            let tvdbDates: Record<number, string> = {};
+                            if (tvdbId) {
+                                tvdbDates = await getTVDBSeasonDates(tvdbId, season.season_number);
+                            }
+
                             sData.episodes.forEach(e => {
-                                if (e.air_date) {
-                                    let finalDate = e.air_date;
+                                // Prefer TheTVDB date if available, otherwise TMDB date
+                                let baseDate = tvdbDates[e.episode_number] || e.air_date;
+                                
+                                if (baseDate) {
+                                    let finalDate = baseDate;
+                                    
+                                    // Apply Time Shift only if we are using the TMDB date or if user wants shift applied globally
+                                    // Note: TVDB usually provides US airdate. We might still want to shift it.
                                     if (shiftDays > 0) {
-                                        const d = parseISO(e.air_date);
+                                        const d = parseISO(baseDate);
                                         finalDate = format(addDays(d, shiftDays), 'yyyy-MM-dd');
                                     }
 
