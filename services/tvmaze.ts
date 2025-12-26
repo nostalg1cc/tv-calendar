@@ -15,7 +15,7 @@ const getCountryName = (code: string) => {
     }
 };
 
-export const getTVMazeEpisodes = async (imdbId?: string, tvdbId?: number, countryCode: string = 'US'): Promise<Record<number, Record<number, string>>> => {
+export const getTVMazeEpisodes = async (imdbId?: string, tvdbId?: number, countryCode: string = 'US'): Promise<Record<number, Record<number, { date: string, timestamp?: string }>>> => {
     try {
         let showId;
         
@@ -32,7 +32,7 @@ export const getTVMazeEpisodes = async (imdbId?: string, tvdbId?: number, countr
 
         if (!showId) return {};
 
-        const map: Record<number, Record<number, string>> = {}; 
+        const map: Record<number, Record<number, { date: string, timestamp?: string }>> = {}; 
         let usedAlternate = false;
 
         // 2. Try Alternate Lists (e.g. "German Premiere") if not US
@@ -43,7 +43,7 @@ export const getTVMazeEpisodes = async (imdbId?: string, tvdbId?: number, countr
                     const lists = await listRes.json();
                     const countryName = getCountryName(countryCode);
                     
-                    // Fuzzy match for country in list name (e.g. "German Premiere", "UK Airing")
+                    // Fuzzy match for country in list name
                     const candidate = lists.find((l: any) => 
                         l.name && (
                             l.name.toLowerCase().includes(countryCode.toLowerCase()) || 
@@ -58,8 +58,10 @@ export const getTVMazeEpisodes = async (imdbId?: string, tvdbId?: number, countr
                             altEps.forEach((ep: any) => {
                                 if (ep.season && ep.number) {
                                     if (!map[ep.season]) map[ep.season] = {};
-                                    // Use airstamp (ISO) if available, else airdate
-                                    map[ep.season][ep.number] = ep.airstamp || ep.airdate; 
+                                    map[ep.season][ep.number] = {
+                                        date: ep.airdate,
+                                        timestamp: ep.airstamp // Precise ISO string
+                                    };
                                 }
                             });
                             usedAlternate = true;
@@ -71,20 +73,24 @@ export const getTVMazeEpisodes = async (imdbId?: string, tvdbId?: number, countr
             }
         }
 
-        // 3. If no alternate found, use standard episodes as base
-        if (!usedAlternate) {
-            const res = await fetch(`${BASE_URL}/shows/${showId}/episodes`);
-            if (res.ok) {
-                const episodes = await res.json();
-                episodes.forEach((ep: any) => {
-                    if (!map[ep.season]) map[ep.season] = {};
-                    // 'airstamp' is ISO 8601 with timezone (e.g., 2011-04-18T01:00:00+00:00)
-                    // If we have an alternate map already partially filled (unlikely here but good practice), don't overwrite
-                    if (!map[ep.season][ep.number]) {
-                        map[ep.season][ep.number] = ep.airstamp || ep.airdate; 
-                    }
-                });
-            }
+        // 3. If no alternate found (or to fill gaps), use standard episodes
+        // We only fetch if we haven't fully populated from alternate, or as a fallback base
+        // Actually, always fetching standard is safer to ensure we have data, 
+        // but we respect alternate overrides if they exist.
+        
+        const res = await fetch(`${BASE_URL}/shows/${showId}/episodes`);
+        if (res.ok) {
+            const episodes = await res.json();
+            episodes.forEach((ep: any) => {
+                if (!map[ep.season]) map[ep.season] = {};
+                // Only write if not already set by alternate list
+                if (!map[ep.season][ep.number]) {
+                    map[ep.season][ep.number] = {
+                        date: ep.airdate,
+                        timestamp: ep.airstamp
+                    };
+                }
+            });
         }
         
         return map;

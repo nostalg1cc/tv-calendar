@@ -17,26 +17,18 @@ interface ShowDetailsModalProps {
 const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, showId, mediaType }) => {
     const { addToWatchlist, watchlist, history, toggleWatched, settings } = useStore();
     
-    // Data State
     const [details, setDetails] = useState<TVShow | null>(null);
     const [loading, setLoading] = useState(true);
-    
-    // Episode/Season State
     const [selectedSeasonNum, setSelectedSeasonNum] = useState<number>(1);
     const [seasonData, setSeasonData] = useState<Season | null>(null);
     const [loadingSeason, setLoadingSeason] = useState(false);
-
-    // Video State
     const [videos, setVideos] = useState<VideoType[]>([]);
     const [playingVideo, setPlayingVideo] = useState<VideoType | null>(null);
-
-    // Release Dates (Movies)
     const [releases, setReleases] = useState<{ date: string, type: string, country: string }[]>([]);
     
-    // TVMaze Dates Override
-    const [tvmazeOverrides, setTvmazeOverrides] = useState<Record<number, string>>({});
+    // Store full object from TVMaze including timestamp
+    const [tvmazeOverrides, setTvmazeOverrides] = useState<Record<number, { date: string, timestamp?: string }>>({});
 
-    // Initial Fetch
     useEffect(() => {
         if (isOpen && showId) {
             setLoading(true);
@@ -46,39 +38,29 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                     const data = await fetcher(showId);
                     setDetails(data);
                     
-                    // Fetch Videos
                     getVideos(mediaType, showId).then(setVideos);
 
-                    // Fetch Release Dates for Movies
                     if (mediaType === 'movie') {
                         try {
                             let rels = await getMovieReleaseDates(showId, true);
-                            
                             if (rels.length === 0 && data.first_air_date) {
                                 rels = [{ date: data.first_air_date, type: 'theatrical', country: 'US' }];
                             }
-
                             const userCountry = settings.country || 'US';
-                            
                             const sorted = rels.sort((a, b) => {
                                 const aIsUser = a.country === userCountry;
                                 const bIsUser = b.country === userCountry;
-                                
                                 if (aIsUser && !bIsUser) return -1;
                                 if (!aIsUser && bIsUser) return 1;
-                                
                                 return new Date(a.date).getTime() - new Date(b.date).getTime();
                             });
-
                             const unique = sorted.filter((v, i, a) => a.findIndex(t => (t.type === v.type && t.date === v.date && t.country === v.country)) === i);
-
                             setReleases(unique);
                         } catch (e) {
                             console.warn("Failed to fetch release dates", e);
                         }
                     }
                     
-                    // Setup default season
                     if (mediaType === 'tv' && data.seasons && data.seasons.length > 0) {
                         const firstSeason = data.seasons.find(s => s.season_number > 0) || data.seasons[0];
                         setSelectedSeasonNum(firstSeason.season_number);
@@ -99,7 +81,6 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
         }
     }, [isOpen, showId, mediaType, settings.country]);
 
-    // Fetch Season Data when selector changes
     useEffect(() => {
         if (mediaType === 'tv' && details && selectedSeasonNum !== undefined) {
             setLoadingSeason(true);
@@ -108,11 +89,10 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                     const sData = await getSeasonDetails(details.id, selectedSeasonNum);
                     setSeasonData(sData);
 
-                    // Fetch TVMaze Dates for precision with COUNTRY override
                     const mazeMap = await getTVMazeEpisodes(
                         details.external_ids?.imdb_id, 
                         details.external_ids?.tvdb_id,
-                        settings.country // Pass user setting
+                        settings.country 
                     );
                     if (mazeMap && mazeMap[selectedSeasonNum]) {
                         setTvmazeOverrides(mazeMap[selectedSeasonNum]);
@@ -130,7 +110,6 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
         }
     }, [selectedSeasonNum, details, mediaType, settings.country]);
 
-    // Prevent body scroll
     useEffect(() => {
         if (isOpen) document.body.style.overflow = 'hidden';
         return () => { document.body.style.overflow = ''; };
@@ -140,27 +119,35 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
 
     const isAdded = details ? watchlist.some(s => s.id === details.id) : false;
 
-    // --- SUB COMPONENTS ---
-
     const EpisodeItem: React.FC<{ ep: Episode }> = ({ ep }) => {
-        // Use TVMaze override if available, otherwise TMDB date
-        const rawDate = tvmazeOverrides[ep.episode_number] || ep.air_date;
+        const mazeData = tvmazeOverrides[ep.episode_number];
+        
         let displayDate = '';
         let displayTime = '';
+        let dateObj: Date | null = null;
 
-        if (rawDate) {
-            if (rawDate.includes('T')) {
-                // ISO Timestamp (precise) -> Convert to local
-                const d = new Date(rawDate);
-                displayDate = format(d, 'MMM d, yyyy');
-                displayTime = format(d, 'h:mm a'); // Local browser time
-            } else {
-                // Date string only
-                displayDate = format(parseISO(rawDate), 'MMM d, yyyy');
+        // Priority 1: TVMaze Timestamp (ISO)
+        if (mazeData && mazeData.timestamp) {
+            dateObj = new Date(mazeData.timestamp);
+        } 
+        // Priority 2: TVMaze Date String
+        else if (mazeData && mazeData.date) {
+            dateObj = parseISO(mazeData.date); 
+        }
+        // Priority 3: TMDB Date
+        else if (ep.air_date) {
+             dateObj = parseISO(ep.air_date);
+        }
+
+        if (dateObj) {
+            displayDate = format(dateObj, 'MMM d, yyyy');
+            // Show time only if we have a full timestamp or we added it intelligently
+            if ((mazeData && mazeData.timestamp) || (ep.air_date_iso && ep.air_date_iso.includes('T'))) {
+                 displayTime = format(dateObj, 'h:mm a');
             }
         }
         
-        const isUpcoming = rawDate ? isFuture(new Date(rawDate)) : false;
+        const isUpcoming = dateObj ? isFuture(dateObj) : false;
         const key = `episode-${details?.id}-${ep.season_number}-${ep.episode_number}`;
         const isWatched = history[key]?.is_watched;
 
