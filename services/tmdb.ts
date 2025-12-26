@@ -142,18 +142,26 @@ export const getVideos = async (mediaType: 'tv' | 'movie', id: number, season?: 
 };
 
 export const getShowDetails = async (id: number): Promise<TVShow> => {
-    // Request external_ids to link with TheTVDB
-    const data = await fetchTMDB<any>(`/tv/${id}?append_to_response=external_ids`);
+    // Request external_ids and credits
+    const data = await fetchTMDB<any>(`/tv/${id}?append_to_response=external_ids,credits`);
     const show = mapShow({ ...data, media_type: 'tv' });
-    if (data.external_ids) {
-        show.external_ids = data.external_ids;
-    }
+    if (data.external_ids) show.external_ids = data.external_ids;
+    if (data.credits) show.credits = data.credits;
+    if (data.status) show.status = data.status;
+    if (data.genres) show.genres = data.genres;
+    // TV show runtime usually comes in episode_run_time array
+    if (data.episode_run_time && data.episode_run_time.length > 0) show.runtime = data.episode_run_time[0];
     return show;
 };
 
 export const getMovieDetails = async (id: number): Promise<TVShow> => {
-    const data = await fetchTMDB<any>(`/movie/${id}`);
-    return mapShow({ ...data, media_type: 'movie' });
+    const data = await fetchTMDB<any>(`/movie/${id}?append_to_response=credits`);
+    const movie = mapShow({ ...data, media_type: 'movie' });
+    if (data.credits) movie.credits = data.credits;
+    if (data.status) movie.status = data.status;
+    if (data.genres) movie.genres = data.genres;
+    if (data.runtime) movie.runtime = data.runtime;
+    return movie;
 };
 
 export const getSeasonDetails = async (id: number, seasonNumber: number): Promise<Season> => {
@@ -265,5 +273,5 @@ const mapShow = (data: any): TVShow => ({
     origin_country: data.origin_country,
     seasons: data.seasons,
     original_language: data.original_language,
-    networks: data.networks // Preserve network data for heuristic logic
+    networks: data.networks 
 });

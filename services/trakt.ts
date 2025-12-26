@@ -116,3 +116,11 @@ export const getTraktSeason = async (traktId: string | number, season: number) =
     if (!res.ok) return [];
     return res.json();
 };
+
+export const getTraktShowSummary = async (traktId: string | number) => {
+    const res = await fetch(`${TRAKT_API_URL}/shows/${traktId}?extended=full`, {
+         headers: getHeaders()
+    });
+    if (!res.ok) return null;
+    return res.json();
+};

@@ -12,7 +12,14 @@ export interface TVShow {
   seasons?: Season[];
   original_language?: string;
   custom_poster_path?: string | null;
+  status?: string;
+  runtime?: number;
+  genres?: { id: number, name: string }[];
   networks?: Array<{ name: string, id: number, logo_path: string | null }>;
+  credits?: {
+      cast: Array<{ id: number, name: string, character: string, profile_path: string | null }>;
+      crew: Array<{ id: number, name: string, job: string }>;
+  };
   external_ids?: {
     imdb_id?: string;
     tvdb_id?: number;
