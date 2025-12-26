@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Play, Plus, Check, Star, Loader2, MonitorPlay, Ticket, ChevronDown, Video, ExternalLink, Clock, Calendar, Hash, User, RefreshCw, Image, Layout } from 'lucide-react';
+import { X, Play, Plus, Check, Star, Loader2, MonitorPlay, Ticket, ChevronDown, Video, ExternalLink, Clock, Calendar, Hash, User, RefreshCw, Image, Layout, Download } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails, getMovieReleaseDates, getShowImages } from '../services/tmdb';
 import { getTVMazeEpisodes } from '../services/tvmaze';
 import { TVShow, Episode, Season, Video as VideoType } from '../types';
@@ -31,6 +31,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
     const [videos, setVideos] = useState<VideoType[]>([]);
     const [images, setImages] = useState<{posters: any[], backdrops: any[]}>({ posters: [], backdrops: [] });
     const [playingVideo, setPlayingVideo] = useState<VideoType | null>(null);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [releases, setReleases] = useState<{ date: string, type: string, country: string }[]>([]);
     
     // Third Party Data
@@ -105,6 +106,7 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
             setTraktStatus(null);
             setTraktOverrides({});
             setTvmazeOverrides({});
+            setPreviewImage(null);
             setActiveTab('overview');
         }
     }, [isOpen, showId, mediaType]);
@@ -176,6 +178,24 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
         if (isOpen) document.body.style.overflow = 'hidden';
         return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
+
+    const handleDownload = async (url: string) => {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = `tmdb-image-${showId}-${Date.now()}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (e) {
+            console.warn("Direct download failed, opening in new tab", e);
+            window.open(url, '_blank');
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -463,7 +483,11 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                                 <h3 className="text-sm font-black text-zinc-500 uppercase tracking-widest mb-4">Posters</h3>
                                                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                                                     {images.posters.slice(0, 10).map((img, idx) => (
-                                                        <div key={idx} className="aspect-[2/3] bg-zinc-900 rounded-lg overflow-hidden border border-white/5 hover:scale-105 transition-transform cursor-pointer">
+                                                        <div 
+                                                            key={idx} 
+                                                            onClick={() => setPreviewImage(getImageUrl(img.file_path, 'original'))}
+                                                            className="aspect-[2/3] bg-zinc-900 rounded-lg overflow-hidden border border-white/5 hover:scale-105 transition-transform cursor-pointer"
+                                                        >
                                                             <img src={getImageUrl(img.file_path, 'w342')} className="w-full h-full object-cover" loading="lazy" alt="" />
                                                         </div>
                                                     ))}
@@ -475,7 +499,11 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                                                 <h3 className="text-sm font-black text-zinc-500 uppercase tracking-widest mb-4">Backdrops</h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     {images.backdrops.slice(0, 6).map((img, idx) => (
-                                                        <div key={idx} className="aspect-video bg-zinc-900 rounded-lg overflow-hidden border border-white/5 hover:opacity-100 opacity-80 transition-opacity">
+                                                        <div 
+                                                            key={idx} 
+                                                            onClick={() => setPreviewImage(getImageUrl(img.file_path, 'original'))}
+                                                            className="aspect-video bg-zinc-900 rounded-lg overflow-hidden border border-white/5 hover:opacity-100 opacity-80 transition-opacity cursor-pointer"
+                                                        >
                                                             <img src={getImageUrl(img.file_path, 'w780')} className="w-full h-full object-cover" loading="lazy" alt="" />
                                                         </div>
                                                     ))}
@@ -576,6 +604,35 @@ const ShowDetailsModal: React.FC<ShowDetailsModalProps> = ({ isOpen, onClose, sh
                          </button>
                      </div>
                  </div>
+            )}
+
+            {/* Image Preview Overlay */}
+            {previewImage && (
+                <div className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-xl flex flex-col animate-fade-in" onClick={() => setPreviewImage(null)}>
+                    <div className="absolute top-4 right-4 flex gap-4 z-50">
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); handleDownload(previewImage); }}
+                            className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/5"
+                            title="Download"
+                        >
+                            <Download className="w-6 h-6" />
+                        </button>
+                        <button 
+                            onClick={() => setPreviewImage(null)}
+                            className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/5"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center p-4 sm:p-10">
+                        <img 
+                            src={previewImage} 
+                            className="max-w-full max-h-full object-contain shadow-2xl rounded-sm" 
+                            alt="Preview"
+                            onClick={(e) => e.stopPropagation()} 
+                        />
+                    </div>
+                </div>
             )}
         </div>
     );
