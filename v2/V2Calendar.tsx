@@ -162,6 +162,15 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         else handleViewChange(isMobile ? 'cards' : 'grid');
     };
 
+    const formatTime = (isoString?: string) => {
+        if (!isoString) return '';
+        try {
+            return format(parseISO(isoString), 'h:mm a');
+        } catch {
+            return '';
+        }
+    };
+
     const FilterToggle = ({ label, active, onClick, icon: Icon }: any) => (
         <button 
             onClick={onClick}
@@ -201,6 +210,33 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     <span className="text-[9px] font-bold bg-indigo-600/20 border border-indigo-500/50 text-indigo-200 px-2 py-0.5 rounded-full uppercase tracking-wide shadow-[0_0_10px_rgba(99,102,241,0.2)]">
                         Today
                     </span>
+                )}
+            </div>
+        );
+    };
+
+    const ReleaseBadge = ({ ep }: { ep: Episode }) => {
+        if (!ep.is_movie) {
+            return (
+                 <span className="bg-black/60 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-black text-white uppercase tracking-wider">
+                    S{ep.season_number} • E{ep.episode_number}
+                </span>
+            );
+        }
+        const isTheatrical = ep.release_type === 'theatrical';
+        const showFlag = ep.release_country && ep.release_country !== userRegion;
+
+        return (
+            <div className="flex items-center gap-2">
+                <span className={`flex items-center gap-1.5 px-2 py-1 rounded border backdrop-blur-md text-[9px] font-black uppercase tracking-wider ${isTheatrical ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                    {isTheatrical ? <Ticket className="w-3 h-3" /> : <MonitorPlay className="w-3 h-3" />}
+                    {isTheatrical ? 'Cinema' : 'Digital'}
+                </span>
+                {showFlag && (
+                     <span 
+                        className={`fi fi-${ep.release_country!.toLowerCase()} rounded-[2px] shadow-sm scale-110`} 
+                        title={`Release in ${ep.release_country}`}
+                     />
                 )}
             </div>
         );
@@ -395,8 +431,8 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 </div>
             )}
             
-            {/* --- CARDS & LIST VIEW --- */}
-            {(viewMode === 'cards' || viewMode === 'list') && (
+            {/* --- LIST VIEW (COMPACT) --- */}
+            {viewMode === 'list' && (
                 <div ref={cardScrollRef} className="flex-1 overflow-y-auto custom-scrollbar" data-context-type="calendar_bg">
                      {activeDays.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full opacity-30">
@@ -412,96 +448,137 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 return (
                                     <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-0">
                                         <DateHeader day={day} />
-                                        
-                                        {viewMode === 'list' ? (
-                                            /* --- LIST VIEW --- */
-                                            <div className="flex flex-col gap-px bg-panel">
-                                                {groupedEps.map((group, groupIdx) => {
-                                                    const firstEp = group[0];
-                                                    const showFlag = firstEp.is_movie && firstEp.release_country && firstEp.release_country !== userRegion;
-                                                    const isWatched = interactions[firstEp.is_movie ? `movie-${firstEp.show_id}` : `episode-${firstEp.show_id}-${firstEp.season_number}-${firstEp.episode_number}`]?.is_watched;
-                                                    
-                                                    return (
-                                                        <div 
-                                                            key={groupIdx} 
-                                                            className="p-4 bg-background border-b border-border flex items-center gap-4 cursor-pointer hover:bg-white/[0.02]"
-                                                            onClick={() => onSelectDay(day)}
-                                                        >
-                                                            <div className="w-10 h-14 bg-zinc-800 rounded shrink-0 overflow-hidden border border-white/5 relative">
-                                                                <img src={getImageUrl(firstEp.poster_path)} className={`w-full h-full object-cover ${isWatched ? 'grayscale opacity-50' : ''}`} alt=""/>
-                                                                {isWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-4 h-4 text-emerald-500" /></div>}
-                                                            </div>
-                                                            
-                                                            <div className="min-w-0 flex-1">
-                                                                <div className="flex items-center gap-2 mb-0.5">
-                                                                    <h4 className={`text-sm font-bold truncate ${isWatched ? 'text-text-muted line-through' : 'text-text-main'}`}>{firstEp.show_name}</h4>
-                                                                </div>
-                                                                
-                                                                <div className="flex items-center gap-2 text-xs text-text-muted">
-                                                                    {firstEp.is_movie ? (
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <span className={`px-1.5 py-0.5 rounded-[2px] text-[10px] font-black uppercase tracking-wider border ${firstEp.release_type === 'theatrical' ? 'text-pink-400 border-pink-500/20 bg-pink-500/5' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5'}`}>
-                                                                                {firstEp.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
-                                                                            </span>
-                                                                            {showFlag && <span className={`fi fi-${firstEp.release_country!.toLowerCase()} rounded-[1px]`} />}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="font-mono text-zinc-500">S{firstEp.season_number} E{firstEp.episode_number}</span>
-                                                                            {group.length > 1 && <span className="text-[10px] bg-white/10 px-1.5 rounded text-white font-bold">+{group.length - 1}</span>}
-                                                                        </div>
-                                                                    )}
-                                                                    <span className="truncate opacity-70 hidden sm:block">• {firstEp.name}</span>
-                                                                </div>
-                                                            </div>
-                                                            
-                                                            {firstEp.air_date_iso && (
-                                                                <div className="text-[10px] font-mono text-zinc-600 font-bold shrink-0">
-                                                                    {format(parseISO(firstEp.air_date_iso), 'h:mm a')}
-                                                                </div>
-                                                            )}
+                                        <div className="flex flex-col gap-px bg-panel">
+                                            {groupedEps.map((group, groupIdx) => {
+                                                const firstEp = group[0];
+                                                const showFlag = firstEp.is_movie && firstEp.release_country && firstEp.release_country !== userRegion;
+                                                const isWatched = interactions[firstEp.is_movie ? `movie-${firstEp.show_id}` : `episode-${firstEp.show_id}-${firstEp.season_number}-${firstEp.episode_number}`]?.is_watched;
+                                                
+                                                return (
+                                                    <div 
+                                                        key={groupIdx} 
+                                                        className="p-4 bg-background border-b border-border flex items-center gap-4 cursor-pointer hover:bg-white/[0.02]"
+                                                        onClick={() => onSelectDay(day)}
+                                                    >
+                                                        <div className="w-10 h-14 bg-zinc-800 rounded shrink-0 overflow-hidden border border-white/5 relative">
+                                                            <img src={getImageUrl(firstEp.poster_path)} className={`w-full h-full object-cover ${isWatched ? 'grayscale opacity-50' : ''}`} alt=""/>
+                                                            {isWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-4 h-4 text-emerald-500" /></div>}
                                                         </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        ) : (
-                                            /* --- CARD GRID VIEW --- */
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 p-3">
-                                                {groupedEps.map((group, groupIdx) => {
-                                                    const firstEp = group[0];
-                                                    const isWatched = interactions[firstEp.is_movie ? `movie-${firstEp.show_id}` : `episode-${firstEp.show_id}-${firstEp.season_number}-${firstEp.episode_number}`]?.is_watched;
-                                                    
-                                                    return (
-                                                        <div 
-                                                            key={groupIdx} 
-                                                            className="relative aspect-[2/3] rounded-xl overflow-hidden bg-zinc-800 border border-white/5 cursor-pointer group shadow-lg transition-transform hover:scale-[1.02] hover:z-10"
-                                                            onClick={() => onSelectDay(day)}
-                                                        >
-                                                            <img src={getImageUrl(firstEp.poster_path)} className={`w-full h-full object-cover transition-all duration-500 ${isWatched ? 'grayscale opacity-40' : 'group-hover:opacity-80'}`} alt="" />
-                                                            
-                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-3">
-                                                                <h4 className={`text-xs font-bold leading-tight line-clamp-2 mb-1 ${isWatched ? 'text-zinc-500 line-through' : 'text-white'}`}>{firstEp.show_name}</h4>
-                                                                
-                                                                <div className="flex items-center gap-2 mt-auto">
-                                                                    {firstEp.is_movie ? (
-                                                                        <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${firstEp.release_type === 'theatrical' ? 'text-pink-400 border-pink-500/20 bg-pink-500/10' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10'}`}>
+                                                        
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center gap-2 mb-0.5">
+                                                                <h4 className={`text-sm font-bold truncate ${isWatched ? 'text-text-muted line-through' : 'text-text-main'}`}>{firstEp.show_name}</h4>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-xs text-text-muted">
+                                                                {firstEp.is_movie ? (
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className={`px-1.5 py-0.5 rounded-[2px] text-[10px] font-black uppercase tracking-wider border ${firstEp.release_type === 'theatrical' ? 'text-pink-400 border-pink-500/20 bg-pink-500/5' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5'}`}>
                                                                             {firstEp.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
                                                                         </span>
-                                                                    ) : (
-                                                                        <span className="text-[9px] font-mono text-zinc-300 font-bold bg-white/10 px-1.5 py-0.5 rounded">S{firstEp.season_number} E{firstEp.episode_number}</span>
-                                                                    )}
-                                                                    {isWatched && <Check className="w-3.5 h-3.5 text-emerald-500 ml-auto" />}
-                                                                </div>
+                                                                        {showFlag && <span className={`fi fi-${firstEp.release_country!.toLowerCase()} rounded-[1px]`} />}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-mono text-zinc-500">S{firstEp.season_number} E{firstEp.episode_number}</span>
+                                                                        {group.length > 1 && <span className="text-[10px] bg-white/10 px-1.5 rounded text-white font-bold">+{group.length - 1}</span>}
+                                                                    </div>
+                                                                )}
+                                                                <span className="truncate opacity-70 hidden sm:block">• {firstEp.name}</span>
                                                             </div>
                                                         </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        )}
+                                                        
+                                                        {firstEp.air_date_iso && (
+                                                            <div className="text-[10px] font-mono text-zinc-600 font-bold shrink-0">
+                                                                {formatTime(firstEp.air_date_iso)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
                                     </div>
                                 )
                              })}
                          </div>
+                    )}
+                </div>
+            )}
+
+            {/* --- CARD VIEW (BACKDROP STYLE) --- */}
+            {viewMode === 'cards' && (
+                <div ref={cardScrollRef} className="flex-1 overflow-y-auto custom-scrollbar" data-context-type="calendar_bg">
+                    {activeDays.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full opacity-30">
+                            <CalendarIcon className="w-16 h-16 text-text-muted mb-4" />
+                            <p className="text-sm font-bold text-text-muted uppercase tracking-widest">No Events Found</p>
+                        </div>
+                    ) : (
+                        <div className="pb-32 pt-0">
+                            {activeDays.map(day => {
+                                const dayEps = getEpisodesForDay(day);
+                                const isTodayDate = isToday(day);
+                                const groupedEps = groupEpisodes(dayEps);
+
+                                return (
+                                    <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-0">
+                                        <DateHeader day={day} />
+
+                                        <div className="flex flex-col gap-px bg-panel">
+                                            {groupedEps.map((group, groupIdx) => {
+                                                const firstEp = group[0];
+                                                const bannerUrl = getBackdropUrl(firstEp.show_backdrop_path || firstEp.still_path || firstEp.poster_path);
+                                                const allWatched = group.every(ep => interactions[ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched);
+
+                                                return (
+                                                    <div 
+                                                        key={`${firstEp.show_id}-${groupIdx}`} 
+                                                        onClick={() => onSelectDay(day)} 
+                                                        className={`relative w-full bg-background group transition-all duration-300 ${allWatched ? 'opacity-60 grayscale' : ''}`}
+                                                        data-context-type="episode"
+                                                        data-context-meta={JSON.stringify(firstEp)}
+                                                    >
+                                                        <div className="w-full aspect-[21/9] sm:aspect-[3/1] relative overflow-hidden">
+                                                            <img src={bannerUrl} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
+                                                            <div className="absolute top-3 right-3"><ReleaseBadge ep={firstEp} /></div>
+                                                            <div className="absolute bottom-3 left-4"><h3 className="text-xl sm:text-2xl font-black text-white leading-none drop-shadow-md">{firstEp.show_name}</h3></div>
+                                                        </div>
+
+                                                        <div className="px-4 pb-4">
+                                                            <div className="space-y-1">
+                                                                {group.map(ep => {
+                                                                    const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
+                                                                    const isWatched = interactions[watchedKey]?.is_watched;
+                                                                    const timeStr = formatTime(ep.air_date_iso);
+
+                                                                    return (
+                                                                        <div key={ep.id} className="flex items-center justify-between gap-4 py-2 border-t border-border first:border-t-0">
+                                                                            <div className="min-w-0">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    {!ep.is_movie && <span className="text-[10px] font-mono font-bold text-text-muted">S{ep.season_number} E{ep.episode_number}</span>}
+                                                                                    <span className="text-sm text-text-muted font-medium truncate">{ep.name}</span>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2 mt-0.5">
+                                                                                    <Clock className="w-3 h-3 text-text-muted" />
+                                                                                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                                                                                        {timeStr}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <button onClick={(e) => { e.stopPropagation(); if (ep.show_id) toggleWatched({ tmdb_id: ep.show_id, media_type: ep.is_movie ? 'movie' : 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched }); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all border ${isWatched ? 'bg-card text-emerald-500 border-border' : 'bg-white/5 text-text-muted border-white/10 hover:bg-white hover:text-black'}`}><Check className="w-4 h-4" /></button>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
             )}
