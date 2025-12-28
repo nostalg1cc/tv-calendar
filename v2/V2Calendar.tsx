@@ -395,7 +395,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 </div>
             )}
             
-            {/* --- CARDS & LIST VIEW (Restored) --- */}
+            {/* --- CARDS & LIST VIEW --- */}
             {(viewMode === 'cards' || viewMode === 'list') && (
                 <div ref={cardScrollRef} className="flex-1 overflow-y-auto custom-scrollbar" data-context-type="calendar_bg">
                      {activeDays.length === 0 ? (
@@ -413,55 +413,91 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                     <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-0">
                                         <DateHeader day={day} />
                                         
-                                        <div className="flex flex-col gap-px bg-panel">
-                                            {groupedEps.map((group, groupIdx) => {
-                                                 const firstEp = group[0];
-                                                 const showFlag = firstEp.is_movie && firstEp.release_country && firstEp.release_country !== userRegion;
-                                                 const isWatched = interactions[firstEp.is_movie ? `movie-${firstEp.show_id}` : `episode-${firstEp.show_id}-${firstEp.season_number}-${firstEp.episode_number}`]?.is_watched;
-                                                 
-                                                 return (
-                                                     <div 
-                                                        key={groupIdx} 
-                                                        className="p-4 bg-background border-b border-border flex items-center gap-4 cursor-pointer hover:bg-white/[0.02]"
-                                                        onClick={() => onSelectDay(day)}
-                                                     >
-                                                         <div className="w-10 h-14 bg-zinc-800 rounded shrink-0 overflow-hidden border border-white/5 relative">
-                                                            <img src={getImageUrl(firstEp.poster_path)} className={`w-full h-full object-cover ${isWatched ? 'grayscale opacity-50' : ''}`} alt=""/>
-                                                            {isWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-4 h-4 text-emerald-500" /></div>}
-                                                         </div>
-                                                         
-                                                         <div className="min-w-0 flex-1">
-                                                             <div className="flex items-center gap-2 mb-0.5">
-                                                                <h4 className={`text-sm font-bold truncate ${isWatched ? 'text-text-muted line-through' : 'text-text-main'}`}>{firstEp.show_name}</h4>
-                                                             </div>
-                                                             
-                                                             <div className="flex items-center gap-2 text-xs text-text-muted">
-                                                                 {firstEp.is_movie ? (
-                                                                     <div className="flex items-center gap-1.5">
-                                                                        <span className={`px-1.5 py-0.5 rounded-[2px] text-[10px] font-black uppercase tracking-wider border ${firstEp.release_type === 'theatrical' ? 'text-pink-400 border-pink-500/20 bg-pink-500/5' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5'}`}>
+                                        {viewMode === 'list' ? (
+                                            /* --- LIST VIEW --- */
+                                            <div className="flex flex-col gap-px bg-panel">
+                                                {groupedEps.map((group, groupIdx) => {
+                                                    const firstEp = group[0];
+                                                    const showFlag = firstEp.is_movie && firstEp.release_country && firstEp.release_country !== userRegion;
+                                                    const isWatched = interactions[firstEp.is_movie ? `movie-${firstEp.show_id}` : `episode-${firstEp.show_id}-${firstEp.season_number}-${firstEp.episode_number}`]?.is_watched;
+                                                    
+                                                    return (
+                                                        <div 
+                                                            key={groupIdx} 
+                                                            className="p-4 bg-background border-b border-border flex items-center gap-4 cursor-pointer hover:bg-white/[0.02]"
+                                                            onClick={() => onSelectDay(day)}
+                                                        >
+                                                            <div className="w-10 h-14 bg-zinc-800 rounded shrink-0 overflow-hidden border border-white/5 relative">
+                                                                <img src={getImageUrl(firstEp.poster_path)} className={`w-full h-full object-cover ${isWatched ? 'grayscale opacity-50' : ''}`} alt=""/>
+                                                                {isWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-4 h-4 text-emerald-500" /></div>}
+                                                            </div>
+                                                            
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex items-center gap-2 mb-0.5">
+                                                                    <h4 className={`text-sm font-bold truncate ${isWatched ? 'text-text-muted line-through' : 'text-text-main'}`}>{firstEp.show_name}</h4>
+                                                                </div>
+                                                                
+                                                                <div className="flex items-center gap-2 text-xs text-text-muted">
+                                                                    {firstEp.is_movie ? (
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <span className={`px-1.5 py-0.5 rounded-[2px] text-[10px] font-black uppercase tracking-wider border ${firstEp.release_type === 'theatrical' ? 'text-pink-400 border-pink-500/20 bg-pink-500/5' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5'}`}>
+                                                                                {firstEp.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                                                                            </span>
+                                                                            {showFlag && <span className={`fi fi-${firstEp.release_country!.toLowerCase()} rounded-[1px]`} />}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="font-mono text-zinc-500">S{firstEp.season_number} E{firstEp.episode_number}</span>
+                                                                            {group.length > 1 && <span className="text-[10px] bg-white/10 px-1.5 rounded text-white font-bold">+{group.length - 1}</span>}
+                                                                        </div>
+                                                                    )}
+                                                                    <span className="truncate opacity-70 hidden sm:block">• {firstEp.name}</span>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            {firstEp.air_date_iso && (
+                                                                <div className="text-[10px] font-mono text-zinc-600 font-bold shrink-0">
+                                                                    {format(parseISO(firstEp.air_date_iso), 'h:mm a')}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        ) : (
+                                            /* --- CARD GRID VIEW --- */
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 p-3">
+                                                {groupedEps.map((group, groupIdx) => {
+                                                    const firstEp = group[0];
+                                                    const isWatched = interactions[firstEp.is_movie ? `movie-${firstEp.show_id}` : `episode-${firstEp.show_id}-${firstEp.season_number}-${firstEp.episode_number}`]?.is_watched;
+                                                    
+                                                    return (
+                                                        <div 
+                                                            key={groupIdx} 
+                                                            className="relative aspect-[2/3] rounded-xl overflow-hidden bg-zinc-800 border border-white/5 cursor-pointer group shadow-lg transition-transform hover:scale-[1.02] hover:z-10"
+                                                            onClick={() => onSelectDay(day)}
+                                                        >
+                                                            <img src={getImageUrl(firstEp.poster_path)} className={`w-full h-full object-cover transition-all duration-500 ${isWatched ? 'grayscale opacity-40' : 'group-hover:opacity-80'}`} alt="" />
+                                                            
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-3">
+                                                                <h4 className={`text-xs font-bold leading-tight line-clamp-2 mb-1 ${isWatched ? 'text-zinc-500 line-through' : 'text-white'}`}>{firstEp.show_name}</h4>
+                                                                
+                                                                <div className="flex items-center gap-2 mt-auto">
+                                                                    {firstEp.is_movie ? (
+                                                                        <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${firstEp.release_type === 'theatrical' ? 'text-pink-400 border-pink-500/20 bg-pink-500/10' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10'}`}>
                                                                             {firstEp.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
                                                                         </span>
-                                                                        {showFlag && <span className={`fi fi-${firstEp.release_country!.toLowerCase()} rounded-[1px]`} />}
-                                                                     </div>
-                                                                 ) : (
-                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="font-mono text-zinc-500">S{firstEp.season_number} E{firstEp.episode_number}</span>
-                                                                        {group.length > 1 && <span className="text-[10px] bg-white/10 px-1.5 rounded text-white font-bold">+{group.length - 1}</span>}
-                                                                     </div>
-                                                                 )}
-                                                                 <span className="truncate opacity-70 hidden sm:block">• {firstEp.name}</span>
-                                                             </div>
-                                                         </div>
-                                                         
-                                                         {firstEp.air_date_iso && (
-                                                             <div className="text-[10px] font-mono text-zinc-600 font-bold shrink-0">
-                                                                 {format(parseISO(firstEp.air_date_iso), 'h:mm a')}
-                                                             </div>
-                                                         )}
-                                                     </div>
-                                                 )
-                                            })}
-                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-[9px] font-mono text-zinc-300 font-bold bg-white/10 px-1.5 py-0.5 rounded">S{firstEp.season_number} E{firstEp.episode_number}</span>
+                                                                    )}
+                                                                    {isWatched && <Check className="w-3.5 h-3.5 text-emerald-500 ml-auto" />}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 )
                              })}
