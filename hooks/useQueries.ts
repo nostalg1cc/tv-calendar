@@ -29,6 +29,8 @@ const getUserRegion = () => {
     }
 };
 
+// Heuristic: Major streamers usually release at specific UTC times (e.g. 8AM UTC / 12AM PT)
+// If we only get a date string, assuming this time helps adjust for local user timezone.
 const isGlobalStreamer = (networks: any[]) => {
     if (!networks || networks.length === 0) return false;
     const streamers = ['Netflix', 'Disney+', 'Amazon', 'Apple TV+', 'Hulu', 'HBO Max', 'Peacock', 'Paramount+'];
@@ -56,25 +58,23 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
 
     const startWindowDate = isValid(targetDate) ? subMonths(targetDate, 1) : new Date();
     const traktStartDate = format(startWindowDate, 'yyyy-MM-dd');
-    const traktDays = 90; // Extended window to catch releases near month boundaries
+    const traktDays = 90; 
 
-    // 1. Fetch Trakt Data (if connected) - Now includes Movies and DVDs
+    // 1. Fetch Trakt Data (if connected) 
     const traktQuery = useQuery({
         queryKey: ['trakt_calendar', traktStartDate, traktDays, traktToken],
         queryFn: async () => {
             if (!traktToken) return {};
             try {
-                // Fetch Shows, Theatrical Movies, and Digital/DVD Releases in parallel
                 const [shows, movies, dvds] = await Promise.all([
                     getTraktCalendar(traktToken, traktStartDate, traktDays),
                     getTraktMovieCalendar(traktToken, traktStartDate, traktDays, 'movies'),
                     getTraktMovieCalendar(traktToken, traktStartDate, traktDays, 'dvd')
                 ]);
 
-                // Map: key -> array of entries (movies can have multiple dates: digital/theatrical)
                 const map: Record<string, TraktDateEntry[]> = {}; 
                 
-                // Process Shows (Key: tmdbId_S_E)
+                // Process Shows
                 if (Array.isArray(shows)) {
                     shows.forEach((item: any) => {
                          const tmdbId = item.show?.ids?.tmdb;
@@ -89,17 +89,15 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                     });
                 }
 
-                // Process Movies (Key: movie_tmdbId)
+                // Process Movies
                 const processMovie = (item: any, type: 'theatrical' | 'digital') => {
                     const tmdbId = item.movie?.ids?.tmdb;
                     const released = item.released;
                     if (tmdbId && released) {
                         const key = `movie_${tmdbId}`;
                         if (!map[key]) map[key] = [];
-                        // Avoid duplicates if same date and type (unlikely but safe)
-                        if (!map[key].some(e => e.date === released && e.type === type)) {
-                            map[key].push({ date: released, type });
-                        }
+                        // Don't dedupe strictly, we want both types if available
+                        map[key].push({ date: released, type });
                     }
                 };
 
@@ -113,13 +111,12 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
             }
         },
         enabled: !!traktToken && hasKey,
-        staleTime: 1000 * 60 * 60 * 1 // 1 hour
+        staleTime: 1000 * 60 * 60 * 1 
     });
 
     const traktMap = traktQuery.data || {};
 
     const showQueries = useQueries({
-        // Include traktToken in key to force refetch when token changes
         queries: watchlist.map(show => ({
             queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, traktToken ? 'trakt' : 'no-trakt'],
             queryFn: async (): Promise<Episode[]> => {
@@ -129,24 +126,15 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                         const results: Episode[] = [];
                         const traktEntries = traktMap[`movie_${show.id}`];
 
-                        // 1. If Trakt data exists, use it (could be multiple: theatrical and digital)
+                        // 1. If Trakt data exists, use it
                         if (traktEntries && traktEntries.length > 0) {
                             traktEntries.forEach(entry => {
                                 const posterToUse = show.custom_poster_path || show.poster_path;
+                                let dateObj = new Date(entry.date);
                                 
-                                // Date Parsing Logic:
-                                // If "2025-12-25" -> parseISO keeps it local 25th.
-                                // If "2025-12-25T08:00:00Z" -> new Date() adjusts to local.
-                                let dateObj: Date;
-                                if (entry.date.length === 10) {
-                                    dateObj = parseISO(entry.date);
-                                } else {
-                                    dateObj = new Date(entry.date);
-                                }
-
                                 if (!isNaN(dateObj.getTime())) {
                                     results.push({
-                                        id: show.id * -1 - (entry.type === 'digital' ? 99999 : 0), // Unique ID for keying
+                                        id: show.id * -1 - (entry.type === 'digital' ? 99999 : 0), 
                                         name: show.name,
                                         overview: show.overview,
                                         vote_average: show.vote_average,
@@ -166,7 +154,8 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                     });
                                 }
                             });
-                            return results;
+                            // If we have Trakt data, we trust it over TMDB for this specific item
+                            return results; 
                         }
 
                         // 2. Fallback to TMDB
@@ -180,49 +169,50 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                         const userReleases = releases.filter(r => r.country === userRegion);
                         const globalReleases = releases.filter(r => r.country !== userRegion);
 
-                        // Find distinct dates for Theatrical vs Digital
-                        const typesOfInterest = ['theatrical', 'digital'];
-                        const foundDates = new Set<string>();
+                        // Capture distinct types: Theatrical AND Digital
+                        const typesFound = new Set<string>();
 
-                        typesOfInterest.forEach(typeKey => {
-                            let best = userReleases.find(r => r.type === typeKey || (typeKey === 'digital' ? r.type === 'physical' : r.type === 'premiere'));
-                            if (!best && typeKey === 'theatrical') {
-                                // Fallback to global for theatrical mainly
-                                const sorted = globalReleases.filter(r => r.type === 'theatrical' || r.type === 'premiere').sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                                best = sorted[0];
-                            }
-                            if (!best && typeKey === 'digital') {
-                                // Fallback to US digital
-                                best = globalReleases.find(r => r.country === 'US' && (r.type === 'digital' || r.type === 'physical'));
-                            }
+                        // Helper to add if valid
+                        const addRelease = (r: any, forcedType: 'theatrical' | 'digital') => {
+                            const dateStr = r.date.split('T')[0];
+                            // Check if we already have this DATE + TYPE combo to avoid clutter
+                            const key = `${dateStr}-${forcedType}`;
+                            if (typesFound.has(key)) return;
+                            
+                            typesFound.add(key);
+                            results.push({
+                                id: show.id * -1 - (forcedType === 'digital' ? 99999 : 0), 
+                                name: show.name,
+                                overview: show.overview,
+                                vote_average: show.vote_average,
+                                air_date: dateStr, 
+                                air_date_iso: r.date, 
+                                episode_number: 1,
+                                season_number: 0,
+                                still_path: show.backdrop_path,
+                                poster_path: posterToUse,
+                                show_id: show.id,
+                                show_name: show.name,
+                                is_movie: true,
+                                release_type: forcedType,
+                                release_country: r.country,
+                                show_backdrop_path: show.backdrop_path
+                            });
+                        };
 
-                            if (best) {
-                                // Dedup dates
-                                const dateStr = best.date.split('T')[0]; // TMDB usually has T or not
-                                if (!foundDates.has(dateStr)) {
-                                    foundDates.add(dateStr);
-                                    
-                                    results.push({
-                                        id: show.id * -1 - (typeKey === 'digital' ? 99999 : 0), 
-                                        name: show.name,
-                                        overview: show.overview,
-                                        vote_average: show.vote_average,
-                                        air_date: dateStr, 
-                                        air_date_iso: best.date, 
-                                        episode_number: 1,
-                                        season_number: 0,
-                                        still_path: show.backdrop_path,
-                                        poster_path: posterToUse,
-                                        show_id: show.id,
-                                        show_name: show.name,
-                                        is_movie: true,
-                                        release_type: (typeKey === 'digital' ? 'digital' : 'theatrical'),
-                                        release_country: best.country,
-                                        show_backdrop_path: show.backdrop_path
-                                    });
-                                }
-                            }
-                        });
+                        // 1. Try to find Digital
+                        let digital = userReleases.find(r => r.type === 'digital' || r.type === 'physical');
+                        if (!digital) digital = globalReleases.find(r => r.country === 'US' && (r.type === 'digital' || r.type === 'physical'));
+                        if (digital) addRelease(digital, 'digital');
+
+                        // 2. Try to find Theatrical
+                        let theatrical = userReleases.find(r => r.type === 'theatrical' || r.type === 'premiere');
+                        if (!theatrical) {
+                            // Fallback Global
+                             const sorted = globalReleases.filter(r => r.type === 'theatrical' || r.type === 'premiere').sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                             theatrical = sorted[0];
+                        }
+                        if (theatrical) addRelease(theatrical, 'theatrical');
 
                         return results;
                     } 
@@ -263,6 +253,7 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                         finalIsoString = mazeEntry.timestamp;
                                         source = 'tvmaze';
                                     } else if (mazeEntry && mazeEntry.date) {
+                                        // TVMaze has a date but no timestamp?
                                         if (isGlobalStreamer(details.networks || [])) {
                                             finalIsoString = `${mazeEntry.date}T08:00:00Z`;
                                         } else {
@@ -270,24 +261,29 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                         }
                                         source = 'tvmaze';
                                     } else if (tmdbDateStr) {
+                                        // Fallback to TMDB
                                         if (isGlobalStreamer(details.networks || [])) {
-                                            finalIsoString = `${tmdbDateStr}T08:00:00Z`;
+                                            // Inject 8AM UTC for streamers to force proper day shift in local time
+                                            finalIsoString = `${tmdbDateStr}T08:00:00Z`; 
                                         } else {
                                             finalIsoString = tmdbDateStr;
                                         }
                                     }
 
                                     if (finalIsoString) {
+                                        // Key Logic: 
+                                        // If string has 'T' (timestamp), use new Date() to respect timezone shift.
+                                        // If string is just YYYY-MM-DD, parseISO keeps it strictly on that day (Local 00:00).
                                         let dateObj: Date;
-                                        // Strict parsing to avoid date shifting for non-timestamps
-                                        if (finalIsoString.length === 10) { // YYYY-MM-DD
-                                            dateObj = parseISO(finalIsoString);
-                                        } else {
+                                        if (finalIsoString.includes('T')) {
                                             dateObj = new Date(finalIsoString);
+                                        } else {
+                                            dateObj = parseISO(finalIsoString);
                                         }
 
                                         if (isNaN(dateObj.getTime())) return;
 
+                                        // We store the computed Local Date String (YYYY-MM-DD) for grouping in the calendar
                                         const localDateKey = format(dateObj, 'yyyy-MM-dd');
                                         
                                         eps.push({
@@ -330,17 +326,14 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
     const allEpisodes = showQueries
         .flatMap(q => q.data || [])
         .map(ep => {
-            // Apply Trakt Override for TV Episodes if available (Shows only)
-            // Movies are already handled in the queryFn logic to allow duplicates
+            // Apply Trakt Override for TV Episodes
             if (!ep.is_movie && ep.show_id && ep.season_number && ep.episode_number) {
                  const traktKey = `${ep.show_id}_${ep.season_number}_${ep.episode_number}`;
                  const traktEntries = traktMap[traktKey];
                  
                  if (traktEntries && traktEntries.length > 0) {
                      const entry = traktEntries[0];
-                     let dateObj: Date;
-                     if (entry.date.length === 10) dateObj = parseISO(entry.date);
-                     else dateObj = new Date(entry.date);
+                     let dateObj = new Date(entry.date); // Trakt usually sends ISO timestamp
 
                      if (!isNaN(dateObj.getTime())) {
                         return {

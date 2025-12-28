@@ -206,33 +206,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         );
     };
 
-    const ReleaseBadge = ({ ep }: { ep: Episode }) => {
-        if (!ep.is_movie) {
-            return (
-                 <span className="bg-black/60 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-black text-white uppercase tracking-wider">
-                    S{ep.season_number} • E{ep.episode_number}
-                </span>
-            );
-        }
-        const isTheatrical = ep.release_type === 'theatrical';
-        const showFlag = ep.release_country && ep.release_country !== userRegion;
-
-        return (
-            <div className="flex items-center gap-2">
-                <span className={`flex items-center gap-1.5 px-2 py-1 rounded border backdrop-blur-md text-[9px] font-black uppercase tracking-wider ${isTheatrical ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                    {isTheatrical ? <Ticket className="w-3 h-3" /> : <MonitorPlay className="w-3 h-3" />}
-                    {isTheatrical ? 'Cinema' : 'Digital'}
-                </span>
-                {showFlag && (
-                     <span 
-                        className={`fi fi-${ep.release_country!.toLowerCase()} rounded-[2px] shadow-sm scale-110`} 
-                        title={`Release in ${ep.release_country}`}
-                     />
-                )}
-            </div>
-        );
-    };
-
     const SingleEpisodeCell = ({ ep }: { ep: Episode }) => {
         const imageUrl = getImageUrl(ep.poster_path);
         const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
@@ -317,15 +290,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         );
     };
 
-    const formatTime = (isoString?: string) => {
-        if (!isoString) return '';
-        try {
-            return format(parseISO(isoString), 'h:mm a');
-        } catch {
-            return '';
-        }
-    };
-
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
             {/* Header */}
@@ -400,7 +364,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 </div>
             </header>
 
-            {/* ... rest of the component ... */}
+            {/* --- GRID VIEW --- */}
             {viewMode === 'grid' && (
                 <div className="hidden md:flex flex-col h-full min-h-0" data-context-type="calendar_bg">
                     <div className="grid grid-cols-7 border-b border-border bg-card/30 shrink-0">
@@ -431,7 +395,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 </div>
             )}
             
-            {/* Cards and List view omitted for brevity, assuming standard render logic similar to Grid */}
+            {/* --- CARDS & LIST VIEW (Restored) --- */}
             {(viewMode === 'cards' || viewMode === 'list') && (
                 <div ref={cardScrollRef} className="flex-1 overflow-y-auto custom-scrollbar" data-context-type="calendar_bg">
                      {activeDays.length === 0 ? (
@@ -448,21 +412,52 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                 return (
                                     <div key={day.toISOString()} id={isTodayDate ? 'v2-today-anchor' : undefined} className="scroll-mt-0">
                                         <DateHeader day={day} />
-                                        {/* Simplified Render: Reusing existing logic */}
+                                        
                                         <div className="flex flex-col gap-px bg-panel">
                                             {groupedEps.map((group, groupIdx) => {
                                                  const firstEp = group[0];
+                                                 const showFlag = firstEp.is_movie && firstEp.release_country && firstEp.release_country !== userRegion;
+                                                 const isWatched = interactions[firstEp.is_movie ? `movie-${firstEp.show_id}` : `episode-${firstEp.show_id}-${firstEp.season_number}-${firstEp.episode_number}`]?.is_watched;
+                                                 
                                                  return (
-                                                     <div key={groupIdx} className="p-4 bg-background border-b border-border">
-                                                         <div className="flex items-center gap-2">
-                                                             <div className="w-8 h-8 bg-zinc-800 rounded">
-                                                                <img src={getImageUrl(firstEp.poster_path)} className="w-full h-full object-cover rounded" alt=""/>
+                                                     <div 
+                                                        key={groupIdx} 
+                                                        className="p-4 bg-background border-b border-border flex items-center gap-4 cursor-pointer hover:bg-white/[0.02]"
+                                                        onClick={() => onSelectDay(day)}
+                                                     >
+                                                         <div className="w-10 h-14 bg-zinc-800 rounded shrink-0 overflow-hidden border border-white/5 relative">
+                                                            <img src={getImageUrl(firstEp.poster_path)} className={`w-full h-full object-cover ${isWatched ? 'grayscale opacity-50' : ''}`} alt=""/>
+                                                            {isWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-4 h-4 text-emerald-500" /></div>}
+                                                         </div>
+                                                         
+                                                         <div className="min-w-0 flex-1">
+                                                             <div className="flex items-center gap-2 mb-0.5">
+                                                                <h4 className={`text-sm font-bold truncate ${isWatched ? 'text-text-muted line-through' : 'text-text-main'}`}>{firstEp.show_name}</h4>
                                                              </div>
-                                                             <div>
-                                                                 <p className="text-sm font-bold text-white">{firstEp.show_name}</p>
-                                                                 <p className="text-xs text-zinc-500">{firstEp.is_movie ? 'Movie' : `${group.length} Episodes`}</p>
+                                                             
+                                                             <div className="flex items-center gap-2 text-xs text-text-muted">
+                                                                 {firstEp.is_movie ? (
+                                                                     <div className="flex items-center gap-1.5">
+                                                                        <span className={`px-1.5 py-0.5 rounded-[2px] text-[10px] font-black uppercase tracking-wider border ${firstEp.release_type === 'theatrical' ? 'text-pink-400 border-pink-500/20 bg-pink-500/5' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5'}`}>
+                                                                            {firstEp.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
+                                                                        </span>
+                                                                        {showFlag && <span className={`fi fi-${firstEp.release_country!.toLowerCase()} rounded-[1px]`} />}
+                                                                     </div>
+                                                                 ) : (
+                                                                     <div className="flex items-center gap-2">
+                                                                        <span className="font-mono text-zinc-500">S{firstEp.season_number} E{firstEp.episode_number}</span>
+                                                                        {group.length > 1 && <span className="text-[10px] bg-white/10 px-1.5 rounded text-white font-bold">+{group.length - 1}</span>}
+                                                                     </div>
+                                                                 )}
+                                                                 <span className="truncate opacity-70 hidden sm:block">• {firstEp.name}</span>
                                                              </div>
                                                          </div>
+                                                         
+                                                         {firstEp.air_date_iso && (
+                                                             <div className="text-[10px] font-mono text-zinc-600 font-bold shrink-0">
+                                                                 {format(parseISO(firstEp.air_date_iso), 'h:mm a')}
+                                                             </div>
+                                                         )}
                                                      </div>
                                                  )
                                             })}
