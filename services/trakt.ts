@@ -72,6 +72,14 @@ export const getTraktCalendar = async (token: string, startDate: string, days: n
     return res.json();
 };
 
+export const getTraktMovieCalendar = async (token: string, startDate: string, days: number, type: 'movies' | 'dvd') => {
+    const res = await fetch(`${TRAKT_API_URL}/calendars/my/${type}/${startDate}/${days}`, {
+        headers: getHeaders(token)
+    });
+    if (!res.ok) return [];
+    return res.json();
+};
+
 export const getWatchedHistory = async (token: string, type: 'movies' | 'shows' = 'shows') => {
     // limit to 100 for now to prevent massive payloads, or handle pagination in app
     const res = await fetch(`${TRAKT_API_URL}/sync/watched/${type}?extended=noseasons`, {

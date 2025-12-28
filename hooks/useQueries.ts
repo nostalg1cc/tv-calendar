@@ -2,7 +2,7 @@
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { getShowDetails, getSeasonDetails, getMovieReleaseDates, getMovieDetails } from '../services/tmdb';
 import { getTVMazeEpisodes } from '../services/tvmaze';
-import { getTraktCalendar } from '../services/trakt';
+import { getTraktCalendar, getTraktMovieCalendar } from '../services/trakt';
 import { Episode } from '../types';
 import { useStore } from '../store';
 import { parseISO, subMonths, addMonths, format } from 'date-fns';
@@ -35,6 +35,11 @@ const isGlobalStreamer = (networks: any[]) => {
     return networks.some(n => streamers.some(s => n.name.includes(s)));
 };
 
+interface TraktDateEntry {
+    date: string; // ISO
+    type?: 'theatrical' | 'digital';
+}
+
 export const useCalendarEpisodes = (targetDate: Date) => {
     const watchlist = useStore(state => state.watchlist);
     const user = useStore(state => state.user);
@@ -45,31 +50,62 @@ export const useCalendarEpisodes = (targetDate: Date) => {
     const userRegion = settings.country || getUserRegion();
 
     const startWindowDate = subMonths(targetDate, 1);
-    // Trakt API max days is 31 usually, but let's try fetching 60 days in chunks if needed or just 31 centered
-    // For now, let's fetch a 60 day window from startWindowDate (2 months)
     const traktStartDate = format(startWindowDate, 'yyyy-MM-dd');
     const traktDays = 60; 
 
-    // 1. Fetch Trakt Data (if connected)
+    // 1. Fetch Trakt Data (if connected) - Now includes Movies and DVDs
     const traktQuery = useQuery({
         queryKey: ['trakt_calendar', traktStartDate, traktDays, traktToken],
         queryFn: async () => {
             if (!traktToken) return {};
             try {
-                const data = await getTraktCalendar(traktToken, traktStartDate, traktDays);
-                const map: Record<string, string> = {}; // "tmdb_s_e" -> iso_date
+                // Fetch Shows, Theatrical Movies, and Digital/DVD Releases in parallel
+                const [shows, movies, dvds] = await Promise.all([
+                    getTraktCalendar(traktToken, traktStartDate, traktDays),
+                    getTraktMovieCalendar(traktToken, traktStartDate, traktDays, 'movies'),
+                    getTraktMovieCalendar(traktToken, traktStartDate, traktDays, 'dvd')
+                ]);
+
+                const map: Record<string, TraktDateEntry> = {}; 
                 
-                if (Array.isArray(data)) {
-                    data.forEach((item: any) => {
+                // Process Shows (Key: tmdbId_S_E)
+                if (Array.isArray(shows)) {
+                    shows.forEach((item: any) => {
                          const tmdbId = item.show?.ids?.tmdb;
                          const s = item.episode?.season;
                          const e = item.episode?.number;
-                         const airtime = item.first_aired; // ISO UTC
+                         const airtime = item.first_aired; 
                          if (tmdbId && s && e && airtime) {
-                             map[`${tmdbId}_${s}_${e}`] = airtime;
+                             map[`${tmdbId}_${s}_${e}`] = { date: airtime };
                          }
                     });
                 }
+
+                // Process Movies (Key: movie_tmdbId)
+                // We prefer Digital (DVD) dates for home tracking if available in window
+                
+                // 1. Add Theatrical first
+                if (Array.isArray(movies)) {
+                    movies.forEach((item: any) => {
+                        const tmdbId = item.movie?.ids?.tmdb;
+                        const released = item.released;
+                        if (tmdbId && released) {
+                            map[`movie_${tmdbId}`] = { date: released, type: 'theatrical' };
+                        }
+                    });
+                }
+
+                // 2. Overwrite with Digital/DVD if available (Tracking availability)
+                if (Array.isArray(dvds)) {
+                    dvds.forEach((item: any) => {
+                         const tmdbId = item.movie?.ids?.tmdb;
+                         const released = item.released;
+                         if (tmdbId && released) {
+                             map[`movie_${tmdbId}`] = { date: released, type: 'digital' };
+                         }
+                    });
+                }
+
                 return map;
             } catch (e) {
                 console.warn("Trakt calendar fetch failed", e);
@@ -83,11 +119,40 @@ export const useCalendarEpisodes = (targetDate: Date) => {
     const traktMap = traktQuery.data || {};
 
     const showQueries = useQueries({
+        // Include traktToken in key to force refetch when token changes
         queries: watchlist.map(show => ({
-            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion],
+            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, traktToken ? 'trakt' : 'no-trakt'],
             queryFn: async (): Promise<Episode[]> => {
+                
                 // --- MOVIES LOGIC ---
                 if (show.media_type === 'movie') {
+                    // 1. Check Trakt Override First
+                    const traktEntry = traktMap[`movie_${show.id}`];
+                    
+                    if (traktEntry) {
+                        const posterToUse = show.custom_poster_path || show.poster_path;
+                        return [{
+                            id: show.id * -1, 
+                            name: show.name,
+                            overview: show.overview,
+                            vote_average: show.vote_average,
+                            air_date: traktEntry.date.split('T')[0], 
+                            air_date_iso: traktEntry.date, 
+                            episode_number: 1,
+                            season_number: 0,
+                            still_path: show.backdrop_path,
+                            poster_path: posterToUse,
+                            show_id: show.id,
+                            show_name: show.name,
+                            is_movie: true,
+                            release_type: traktEntry.type || 'digital',
+                            release_country: 'Global', // Trakt is generally global/US based for these calendars
+                            show_backdrop_path: show.backdrop_path,
+                            air_date_source: 'trakt'
+                        }];
+                    }
+
+                    // 2. Fallback to TMDB
                     let releases = await getMovieReleaseDates(show.id, true);
                     
                     if (releases.length === 0 && show.first_air_date) {
@@ -227,7 +292,7 @@ export const useCalendarEpisodes = (targetDate: Date) => {
                     return eps;
                 }
             },
-            staleTime: 1000 * 60 * 60 * 12, 
+            staleTime: 1000 * 60 * 60 * 1, // Reduced from 12h to 1h to allow more frequent refreshes
             enabled: hasKey && !!show.id, 
             retry: 1
         }))
@@ -242,17 +307,17 @@ export const useCalendarEpisodes = (targetDate: Date) => {
     const allEpisodes = showQueries
         .flatMap(q => q.data || [])
         .map(ep => {
-            // Apply Trakt Override if available
+            // Apply Trakt Override for TV Episodes if available
             if (ep.show_id && ep.season_number && ep.episode_number) {
                  const traktKey = `${ep.show_id}_${ep.season_number}_${ep.episode_number}`;
-                 const traktIso = traktMap[traktKey];
+                 const traktEntry = traktMap[traktKey];
                  
-                 if (traktIso) {
-                     const dateObj = new Date(traktIso);
+                 if (traktEntry) {
+                     const dateObj = new Date(traktEntry.date);
                      return {
                          ...ep,
                          air_date: format(dateObj, 'yyyy-MM-dd'),
-                         air_date_iso: traktIso,
+                         air_date_iso: traktEntry.date,
                          air_date_source: 'trakt' as const
                      };
                  }
