@@ -81,8 +81,8 @@ export const getTraktMovieCalendar = async (token: string, startDate: string, da
 };
 
 export const getWatchedHistory = async (token: string, type: 'movies' | 'shows' = 'shows') => {
-    // limit to 100 for now to prevent massive payloads, or handle pagination in app
-    const res = await fetch(`${TRAKT_API_URL}/sync/watched/${type}?extended=noseasons`, {
+    // Fetch full history (remove extended=noseasons to get episodes)
+    const res = await fetch(`${TRAKT_API_URL}/sync/watched/${type}`, {
         headers: getHeaders(token)
     });
     if (!res.ok) throw new Error('Failed to fetch history');

@@ -4,6 +4,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { AppSettings, DEFAULT_SETTINGS, TVShow, User, WatchedItem, Reminder } from '../types';
 import { supabase } from '../services/supabase';
 import { setApiToken } from '../services/tmdb';
+import { getWatchedHistory } from '../services/trakt';
 
 const hexToRgb = (hex: string) => {
     const bigint = parseInt(hex.replace('#', ''), 16);
@@ -90,6 +91,7 @@ interface State {
     setTraktProfile: (profile: any) => void;
     isSyncing: boolean;
     triggerCloudSync: () => Promise<void>;
+    syncFromDB: () => Promise<void>;
     fullSyncRequired?: boolean;
     performFullSync?: (settings?: Partial<AppSettings>) => void;
     syncProgress?: { current: number, total: number };
@@ -326,24 +328,61 @@ export const useStore = create<State>()(
                 }
             },
 
+            // New action for lightweight polling
+            syncFromDB: async () => {
+                const { user, history } = get();
+                if (!user?.is_cloud || !supabase) return;
+
+                const { data } = await supabase.from('interactions').select('*').eq('user_id', user.id);
+                if (!data) return;
+
+                let hasChanges = false;
+                const newHistory = { ...history };
+
+                data.forEach((row: any) => {
+                    const key = row.media_type === 'episode' 
+                        ? `episode-${row.tmdb_id}-${row.season_number}-${row.episode_number}`
+                        : `${row.media_type}-${row.tmdb_id}`;
+                    
+                    const existing = newHistory[key];
+                    
+                    // UNION MERGE Logic: If DB has it as watched, we mark it watched locally.
+                    // This ensures manual updates on other devices propagate here.
+                    if (row.is_watched && (!existing || !existing.is_watched)) {
+                        newHistory[key] = {
+                            tmdb_id: row.tmdb_id,
+                            media_type: row.media_type,
+                            season_number: row.season_number,
+                            episode_number: row.episode_number,
+                            is_watched: true,
+                            rating: row.rating,
+                            watched_at: row.watched_at
+                        };
+                        hasChanges = true;
+                    }
+                });
+                
+                if (hasChanges) {
+                    set({ history: newHistory });
+                }
+            },
+
             triggerCloudSync: async () => {
                 const { user } = get();
                 if (!user || !user.is_cloud || !supabase) return;
                 
                 set({ isSyncing: true });
                 try {
+                    // 1. Profile & Settings
                     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
                     if (profile) {
                         if (profile.settings) {
                             const newSettings = { ...get().settings, ...profile.settings };
                             if (!newSettings.country) newSettings.country = 'US';
-                            
-                            // Restore Trakt credentials to local storage
                             if (newSettings.traktClient) {
                                 localStorage.setItem('trakt_client_id', newSettings.traktClient.id);
                                 localStorage.setItem('trakt_client_secret', newSettings.traktClient.secret);
                             }
-
                             set({ settings: newSettings });
                             applyTheme(newSettings);
                         }
@@ -355,6 +394,7 @@ export const useStore = create<State>()(
                         if (profile.trakt_profile) set({ traktProfile: profile.trakt_profile });
                     }
 
+                    // 2. Watchlist
                     const { data: watchlistData } = await supabase.from('watchlist').select('*');
                     if (watchlistData) {
                         const currentSettings = get().settings;
@@ -372,10 +412,13 @@ export const useStore = create<State>()(
                         set({ watchlist: mapped });
                     }
 
-                    const { data: history } = await supabase.from('interactions').select('*');
-                    if (history) {
-                        const map: Record<string, WatchedItem> = {};
-                        history.forEach((h: any) => {
+                    // 3. Merged History (DB + Trakt)
+                    const map: Record<string, WatchedItem> = {};
+
+                    // A. Fetch DB History
+                    const { data: dbHistory } = await supabase.from('interactions').select('*');
+                    if (dbHistory) {
+                        dbHistory.forEach((h: any) => {
                             const key = h.media_type === 'episode' 
                                 ? `episode-${h.tmdb_id}-${h.season_number}-${h.episode_number}`
                                 : `${h.media_type}-${h.tmdb_id}`;
@@ -389,8 +432,69 @@ export const useStore = create<State>()(
                                 watched_at: h.watched_at
                             };
                         });
-                        set({ history: map });
                     }
+
+                    // B. Fetch & Merge Trakt History
+                    const currentTraktToken = get().traktToken;
+                    if (currentTraktToken) {
+                        try {
+                            const [traktMovies, traktShows] = await Promise.all([
+                                getWatchedHistory(currentTraktToken, 'movies'),
+                                getWatchedHistory(currentTraktToken, 'shows')
+                            ]);
+
+                            // Merge Movies
+                            if (Array.isArray(traktMovies)) {
+                                traktMovies.forEach((m: any) => {
+                                    if (m.movie?.ids?.tmdb) {
+                                        const tmdbId = m.movie.ids.tmdb;
+                                        const key = `movie-${tmdbId}`;
+                                        const existing = map[key];
+                                        // Union logic: If watched in Trakt, it's watched.
+                                        map[key] = {
+                                            tmdb_id: tmdbId,
+                                            media_type: 'movie',
+                                            is_watched: true,
+                                            rating: existing?.rating,
+                                            watched_at: m.last_watched_at || existing?.watched_at
+                                        };
+                                    }
+                                });
+                            }
+
+                            // Merge Shows/Episodes
+                            if (Array.isArray(traktShows)) {
+                                traktShows.forEach((s: any) => {
+                                    const showTmdbId = s.show?.ids?.tmdb;
+                                    if (showTmdbId && s.seasons) {
+                                        s.seasons.forEach((season: any) => {
+                                            if (season.episodes) {
+                                                season.episodes.forEach((ep: any) => {
+                                                    const key = `episode-${showTmdbId}-${season.number}-${ep.number}`;
+                                                    const existing = map[key];
+                                                    map[key] = {
+                                                        tmdb_id: showTmdbId,
+                                                        media_type: 'episode',
+                                                        season_number: season.number,
+                                                        episode_number: ep.number,
+                                                        is_watched: true,
+                                                        rating: existing?.rating,
+                                                        watched_at: ep.last_watched_at || existing?.watched_at
+                                                    };
+                                                });
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            console.error("Trakt sync failed inside cloud sync", e);
+                        }
+                    }
+
+                    // Commit merged map
+                    set({ history: map });
+
                 } catch (e) {
                     console.error("Sync error", e);
                 } finally {

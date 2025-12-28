@@ -48,6 +48,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AuthListener = () => {
     const login = useStore((state) => state.login);
     const logout = useStore((state) => state.logout);
+    const syncFromDB = useStore((state) => state.syncFromDB);
     const currentUser = useStore((state) => state.user);
 
     useEffect(() => {
@@ -80,6 +81,18 @@ const AuthListener = () => {
         });
         return () => subscription.unsubscribe();
     }, [currentUser?.id]); // Re-subscribe if current user ID changes to ensure freshness logic works
+
+    // Polling for DB updates (Live Sync Listener)
+    useEffect(() => {
+        if (!currentUser?.is_cloud) return;
+
+        const intervalId = setInterval(() => {
+            syncFromDB();
+        }, 5000); // Check every 5 seconds
+
+        return () => clearInterval(intervalId);
+    }, [currentUser?.is_cloud]);
+
     return null;
 };
 
