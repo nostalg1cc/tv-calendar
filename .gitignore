@@ -100,3 +100,6 @@ dist-ssr
 
 # SQL Dumps
 -1.sqlstuff/
+
+# Documentation
+walkthrough.md

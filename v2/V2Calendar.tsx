@@ -224,7 +224,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
             );
         }
         const isTheatrical = ep.release_type === 'theatrical';
-        const showFlag = ep.release_country && ep.release_country !== userRegion;
 
         return (
             <div className="flex items-center gap-2">
@@ -232,12 +231,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     {isTheatrical ? <Ticket className="w-3 h-3" /> : <MonitorPlay className="w-3 h-3" />}
                     {isTheatrical ? 'Cinema' : 'Digital'}
                 </span>
-                {showFlag && (
-                     <span 
-                        className={`fi fi-${ep.release_country!.toLowerCase()} rounded-[2px] shadow-sm scale-110`} 
-                        title={`Release in ${ep.release_country}`}
-                     />
-                )}
             </div>
         );
     };
@@ -246,7 +239,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         const imageUrl = getImageUrl(ep.poster_path);
         const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
         const isWatched = interactions[watchedKey]?.is_watched;
-        const showFlag = ep.is_movie && ep.release_country && ep.release_country !== userRegion;
 
         return (
             <div 
@@ -268,7 +260,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                     {ep.release_type === 'theatrical' ? <Ticket className="w-2 h-2" /> : <MonitorPlay className="w-2 h-2" />}
                                     {ep.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
                                 </span>
-                                {showFlag && <span className={`fi fi-${ep.release_country!.toLowerCase()} rounded-[1px] text-[10px]`} />}
                             </div>
                         ) : (
                             <span className={`text-[9px] font-mono font-bold ${isWatched ? 'text-zinc-600' : 'text-zinc-300'}`}>S{ep.season_number} E{ep.episode_number}</span>
@@ -288,7 +279,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     const count = group.length;
                     const posterSrc = getImageUrl(first.poster_path);
                     const allWatched = group.every(ep => interactions[ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched);
-                    const showFlag = first.is_movie && first.release_country && first.release_country !== userRegion;
 
                     return (
                         <div 
@@ -307,7 +297,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                     {first.is_movie ? (
                                         <div className="flex items-center gap-1">
                                             <span className={`text-[7px] font-black uppercase tracking-wider ${first.release_type === 'theatrical' ? 'text-pink-500' : 'text-emerald-500'}`}>{first.release_type === 'theatrical' ? 'Cinema' : 'Digital'}</span>
-                                            {showFlag && <span className={`fi fi-${first.release_country!.toLowerCase()} rounded-[1px] w-2 h-1.5`} />}
                                         </div>
                                     ) : (
                                         count > 1 ? (
@@ -451,7 +440,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                         <div className="flex flex-col gap-px bg-panel">
                                             {groupedEps.map((group, groupIdx) => {
                                                 const firstEp = group[0];
-                                                const showFlag = firstEp.is_movie && firstEp.release_country && firstEp.release_country !== userRegion;
                                                 const isWatched = interactions[firstEp.is_movie ? `movie-${firstEp.show_id}` : `episode-${firstEp.show_id}-${firstEp.season_number}-${firstEp.episode_number}`]?.is_watched;
                                                 
                                                 return (
@@ -475,7 +463,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                                         <span className={`px-1.5 py-0.5 rounded-[2px] text-[10px] font-black uppercase tracking-wider border ${firstEp.release_type === 'theatrical' ? 'text-pink-400 border-pink-500/20 bg-pink-500/5' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5'}`}>
                                                                             {firstEp.release_type === 'theatrical' ? 'Cinema' : 'Digital'}
                                                                         </span>
-                                                                        {showFlag && <span className={`fi fi-${firstEp.release_country!.toLowerCase()} rounded-[1px]`} />}
                                                                     </div>
                                                                 ) : (
                                                                     <div className="flex items-center gap-2">
