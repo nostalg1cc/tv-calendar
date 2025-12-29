@@ -5,21 +5,7 @@ import { useStore } from '../store';
 import { getImageUrl } from '../services/tmdb';
 import { TVShow } from '../types';
 import ShowDetailsModal from '../components/ShowDetailsModal';
-
-const RatingBanner: React.FC<{ vote: number }> = ({ vote }) => {
-    const score = vote ? vote.toFixed(1) : 'NR';
-    let bg = 'bg-zinc-700';
-    if (vote >= 7) bg = 'bg-emerald-500';
-    else if (vote >= 5) bg = 'bg-yellow-500';
-    else if (vote > 0) bg = 'bg-red-500';
-    
-    return (
-        <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/70 backdrop-blur-md border border-white/10 rounded px-1.5 py-0.5 z-10">
-            <div className={`w-1.5 h-1.5 rounded-full ${bg} shadow-[0_0_6px_currentColor]`} />
-            <span className="text-[9px] font-bold text-white font-mono">{score}</span>
-        </div>
-    );
-};
+import RatingBadge from '../components/RatingBadge';
 
 const V2Library: React.FC = () => {
     const { watchlist, removeFromWatchlist } = useStore();
@@ -147,7 +133,7 @@ const V2Library: React.FC = () => {
                                 <div className={`relative overflow-hidden rounded-lg bg-zinc-900 border border-white/10 shadow-lg ${view === 'grid' ? 'aspect-[2/3]' : 'w-12 h-16 shrink-0'}`}>
                                     <img src={getImageUrl(item.custom_poster_path || item.poster_path)} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" alt="" />
                                     {/* Rating Banner */}
-                                    <RatingBanner vote={item.vote_average} />
+                                    <RatingBadge tmdbId={item.id} mediaType={item.media_type} tmdbRating={item.vote_average} />
                                     
                                     {/* Grid Overlay Actions */}
                                     {view === 'grid' && (

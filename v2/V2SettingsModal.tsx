@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2, ChevronDown, ChevronUp, QrCode } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
@@ -8,6 +8,8 @@ import { getDeviceCode, pollToken, getTraktProfile } from '../services/trakt';
 import toast from 'react-hot-toast';
 import LegacyImportModal from '../components/LegacyImportModal';
 import RebuildModal from '../components/RebuildModal';
+import QRCode from 'react-qr-code';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 interface V2SettingsModalProps {
     isOpen: boolean;
@@ -60,10 +62,15 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const { settings, updateSettings, user, login, logout, triggerCloudSync, isSyncing, importBackup, traktToken, traktProfile, setTraktToken, setTraktProfile } = useStore();
     const [activeTab, setActiveTab] = useState<TabId>('general');
     
-    // Local state for API key
-    const [localApiKey, setLocalApiKey] = useState(user?.tmdb_key || '');
+    // API Keys State
+    const [localTmdbKey, setLocalTmdbKey] = useState(user?.tmdb_key || '');
+    const [localOmdbKey, setLocalOmdbKey] = useState(user?.omdb_key || '');
     const [showKey, setShowKey] = useState(false);
     const [isSavingKey, setIsSavingKey] = useState(false);
+    
+    // QR Export/Import State
+    const [showQrExport, setShowQrExport] = useState(false);
+    const [showQrScanner, setShowQrScanner] = useState(false);
     
     // Custom Theme State
     const [customColor, setCustomColor] = useState(settings.customThemeColor || '#6366f1');
@@ -86,41 +93,89 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const hasSupabase = !!supabase;
     const hasTmdbKey = !!user?.tmdb_key;
     const hasTrakt = !!traktToken;
+    const hasOmdb = !!user?.omdb_key;
 
     useEffect(() => {
-        setLocalApiKey(user?.tmdb_key || '');
-    }, [user?.tmdb_key]);
+        setLocalTmdbKey(user?.tmdb_key || '');
+        setLocalOmdbKey(user?.omdb_key || '');
+    }, [user?.tmdb_key, user?.omdb_key]);
 
-    const handleSaveKey = async () => {
+    const handleSaveKeys = async () => {
         if (!user) return;
         setIsSavingKey(true);
         
         try {
-            const cleanKey = localApiKey.trim();
-            const updatedUser = { ...user, tmdb_key: cleanKey };
-            login(updatedUser); 
-            setApiToken(cleanKey); 
+            const cleanTmdb = localTmdbKey.trim();
+            const cleanOmdb = localOmdbKey.trim();
             
+            const updatedUser = { 
+                ...user, 
+                tmdb_key: cleanTmdb,
+                omdb_key: cleanOmdb 
+            };
+            
+            login(updatedUser); 
+            if(cleanTmdb) setApiToken(cleanTmdb); 
+            
+            // Sync to Supabase profile
             if (user.is_cloud && supabase) {
+                // Store in profile settings as backup since columns might be restricted
+                const newSettings = { ...settings, omdbKey: cleanOmdb }; 
+                updateSettings(newSettings);
+
                 const { error } = await supabase
                     .from('profiles')
-                    .update({ tmdb_key: cleanKey })
+                    .update({ tmdb_key: cleanTmdb, settings: newSettings })
                     .eq('id', user.id);
                 
                 if (error) {
                     console.error("Cloud save failed:", error);
-                    toast.error("Saved locally, but cloud sync failed.");
+                    toast.error("Saved locally, cloud sync issue.");
                 } else {
-                    toast.success("API Key saved to cloud!");
+                    toast.success("Keys saved to cloud!");
                 }
             } else {
-                toast.success("API Key saved locally!");
+                toast.success("Keys saved locally!");
             }
         } catch (e) {
-            console.error("Error saving key", e);
+            console.error("Error saving keys", e);
         } finally {
             setIsSavingKey(false);
         }
+    };
+
+    const handleQrScan = (result: any) => {
+        if (result?.[0]?.rawValue) {
+            try {
+                const data = JSON.parse(result[0].rawValue);
+                if (data.type === 'tv_cal_keys') {
+                    setLocalTmdbKey(data.tmdb || '');
+                    setLocalOmdbKey(data.omdb || '');
+                    setTraktClientId(data.traktId || '');
+                    setTraktClientSecret(data.traktSecret || '');
+                    
+                    // Auto save
+                    if (data.traktId && data.traktSecret) {
+                         updateSettings({ traktClient: { id: data.traktId, secret: data.traktSecret } });
+                    }
+                    
+                    toast.success("Keys imported! Click Save to apply.");
+                    setShowQrScanner(false);
+                }
+            } catch (e) {
+                toast.error("Invalid QR Code");
+            }
+        }
+    };
+    
+    const getQrData = () => {
+        return JSON.stringify({
+            type: 'tv_cal_keys',
+            tmdb: localTmdbKey,
+            omdb: localOmdbKey,
+            traktId: traktClientId,
+            traktSecret: traktClientSecret
+        });
     };
 
     const handleExport = () => {
@@ -192,16 +247,13 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
             return;
         }
 
-        // Ensure current inputs are saved before starting
         saveTraktSecrets();
-
         setIsPollingTrakt(true);
         try {
             const data = await getDeviceCode();
             setTraktCode(data.user_code);
             setTraktUrl(data.verification_url);
             
-            // Start Polling
             const interval = setInterval(async () => {
                 const poll = await pollToken(data.device_code);
                 if (poll.status === 200) {
@@ -213,8 +265,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                     setTraktCode(null);
                     setTraktUrl(null);
                     toast.success("Trakt account connected!");
-                    
-                    // Force refresh to update dates
                     setTimeout(() => window.location.reload(), 1500);
                 } else if (poll.status === 404 || poll.status === 409 || poll.status === 410) {
                     clearInterval(interval);
@@ -286,9 +336,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                         <TabButton id="data" label="Data & API" icon={Database} />
                         <TabButton id="account" label="Account" icon={User} />
                     </nav>
-                    <div className="p-4 border-t border-border">
-                        <p className="text-[10px] text-text-muted text-center font-mono">v2.1.0 • Stable</p>
-                    </div>
                 </div>
 
                 {/* Mobile Header */}
@@ -320,7 +367,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                 <div>
                                     <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Settings className="w-5 h-5 text-indigo-500" /> Preferences</h3>
                                     
-                                    {/* REGION SETTING */}
                                     <div className="mb-6 bg-card/40 p-4 rounded-xl border border-border">
                                         <label className="text-sm font-bold text-text-main mb-2 block flex items-center gap-2">
                                             <Globe className="w-4 h-4 text-indigo-400" /> Region / Country
@@ -337,9 +383,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             </select>
                                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted text-xs">▼</div>
                                         </div>
-                                        <p className="text-xs text-text-muted mt-2 leading-relaxed">
-                                            Determines which release dates are shown for movies in the calendar. If a release date for your country isn't available, we'll show the earliest global release.
-                                        </p>
                                     </div>
 
                                     <div className="space-y-1 divide-y divide-border border-y border-border">
@@ -363,7 +406,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                         </select>
                                         <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">▼</div>
                                     </div>
-                                    <p className="text-xs text-text-muted mt-2 ml-1">Used for accurate release date calculations.</p>
                                 </div>
                             </div>
                         )}
@@ -374,7 +416,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                 <div>
                                     <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Palette className="w-5 h-5 text-indigo-500" /> Interface Theme</h3>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                                        {/* Preset Themes */}
                                         {THEMES.map(theme => (
                                             <button 
                                                 key={theme.id}
@@ -389,7 +430,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             </button>
                                         ))}
                                         
-                                        {/* Custom Theme Picker */}
                                         <label 
                                             className={`
                                                 relative p-4 rounded-2xl border transition-all flex flex-col items-center gap-3 cursor-pointer group
@@ -534,7 +574,8 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                                         {isPollingTrakt ? <Loader2 className="w-5 h-5 animate-spin" /> : <LinkIcon className="w-5 h-5" />}
                                                         Connect Trakt Account
                                                     </button>
-
+                                                    
+                                                    {/* Secrets Config */}
                                                     <button 
                                                         onClick={() => setShowTraktConfig(!showTraktConfig)}
                                                         className="w-full flex items-center justify-between text-xs font-bold text-zinc-500 hover:text-white px-2 py-2 rounded hover:bg-white/5 transition-colors"
@@ -571,9 +612,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                                             >
                                                                 Save Secrets
                                                             </button>
-                                                            <p className="text-[10px] text-zinc-600 text-center">
-                                                                Create an app at <a href="https://trakt.tv/oauth/apps" target="_blank" rel="noreferrer" className="text-red-400 hover:underline">trakt.tv/oauth/apps</a> with redirect URI: urn:ietf:wg:oauth:2.0:oob
-                                                            </p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -616,70 +654,78 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                         {activeTab === 'data' && (
                             <div className="space-y-10 max-w-2xl animate-fade-in">
                                 <div>
-                                    <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Key className="w-5 h-5 text-amber-500" /> API Configuration</h3>
-                                    <div className="bg-card/50 p-6 rounded-2xl border border-border">
-                                        <label className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 block">TMDB API Key</label>
-                                        <div className="flex gap-2">
-                                            <div className="relative flex-1">
-                                                <input 
+                                    <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Key className="w-5 h-5 text-amber-500" /> API Keys</h3>
+                                    <div className="bg-card/50 p-6 rounded-2xl border border-border space-y-4">
+                                        
+                                        {/* TMDB Key */}
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-text-muted uppercase tracking-widest block">TMDB API Key</label>
+                                            <div className="relative">
+                                                 <input 
                                                     type={showKey ? "text" : "password"} 
-                                                    value={localApiKey}
-                                                    onChange={(e) => setLocalApiKey(e.target.value)}
-                                                    className="w-full bg-black/50 border border-border rounded-xl px-4 py-3 text-sm text-text-main font-mono focus:border-indigo-500 focus:outline-none transition-all"
-                                                    placeholder="Enter your TMDB API Key"
+                                                    value={localTmdbKey}
+                                                    onChange={(e) => setLocalTmdbKey(e.target.value)}
+                                                    className="w-full bg-black/50 border border-border rounded-xl px-4 py-3 text-sm text-text-main font-mono focus:border-indigo-500 focus:outline-none transition-all pr-12"
+                                                    placeholder="Required for data fetching"
                                                 />
-                                                <button onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-xs font-bold uppercase">
-                                                    {showKey ? 'Hide' : 'Show'}
-                                                </button>
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                    {hasTmdbKey ? <Check className="w-4 h-4 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
+                                                </div>
                                             </div>
+                                        </div>
+
+                                        {/* OMDB Key */}
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-text-muted uppercase tracking-widest block">OMDB API Key</label>
+                                            <div className="relative">
+                                                 <input 
+                                                    type={showKey ? "text" : "password"} 
+                                                    value={localOmdbKey}
+                                                    onChange={(e) => setLocalOmdbKey(e.target.value)}
+                                                    className="w-full bg-black/50 border border-border rounded-xl px-4 py-3 text-sm text-text-main font-mono focus:border-indigo-500 focus:outline-none transition-all pr-12"
+                                                    placeholder="Optional: For Rotten Tomatoes/IMDb ratings"
+                                                />
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                    {hasOmdb ? <Check className="w-4 h-4 text-emerald-500" /> : <div className="w-4 h-4" />}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-2 pt-2">
+                                            <button onClick={() => setShowKey(!showKey)} className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-bold text-zinc-400 hover:text-white transition-colors">
+                                                {showKey ? 'Hide Keys' : 'Show Keys'}
+                                            </button>
                                             <button 
-                                                onClick={handleSaveKey} 
+                                                onClick={handleSaveKeys} 
                                                 disabled={isSavingKey}
-                                                className="px-4 rounded-xl bg-white/5 hover:bg-white/10 text-text-main font-bold text-xs border border-border flex items-center gap-2 disabled:opacity-50"
+                                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-2 ml-auto"
                                             >
                                                 {isSavingKey ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                                                Save
+                                                Save Keys
                                             </button>
                                         </div>
-                                        <p className="text-xs text-text-muted mt-3">
-                                            Required for fetching show data. Get one at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">themoviedb.org</a>. Accepts v3 (short) or v4 (long) keys.
-                                        </p>
                                     </div>
                                     
-                                    <div className="mt-6">
-                                        <h4 className="text-sm font-bold text-text-main mb-3">Connection Status</h4>
-                                        <div className="flex flex-wrap gap-2">
-                                            <ConnectionStatus label="Supabase" active={hasSupabase} />
-                                            <ConnectionStatus label="TMDB" active={hasTmdbKey} />
-                                            <ConnectionStatus label="Trakt" active={hasTrakt} />
-                                            <ConnectionStatus label="TVMaze" active={true} />
-                                        </div>
+                                    {/* QR Transfer */}
+                                    <div className="mt-4 flex gap-3">
+                                        <button 
+                                            onClick={() => setShowQrExport(true)}
+                                            className="flex-1 py-3 bg-zinc-800 border border-white/5 rounded-xl text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <QrCode className="w-4 h-4" /> Share Keys via QR
+                                        </button>
+                                        <button 
+                                            onClick={() => setShowQrScanner(true)}
+                                            className="flex-1 py-3 bg-zinc-800 border border-white/5 rounded-xl text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <Smartphone className="w-4 h-4" /> Scan Key QR
+                                        </button>
                                     </div>
                                 </div>
 
                                 <div>
                                     <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Database className="w-5 h-5 text-indigo-500" /> Data Management</h3>
                                     
-                                    {/* Troubleshooting Section */}
-                                    <div className="mb-6 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <h4 className="text-sm font-bold text-amber-500 flex items-center gap-2">
-                                                    <Wrench className="w-4 h-4" /> Troubleshooting
-                                                </h4>
-                                                <p className="text-xs text-text-muted mt-1 max-w-sm">
-                                                    Seeing incorrect dates or missing episodes? Force a complete calendar rebuild.
-                                                </p>
-                                            </div>
-                                            <button 
-                                                onClick={() => setShowRebuild(true)}
-                                                className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 rounded-lg text-xs font-bold transition-colors"
-                                            >
-                                                Rebuild Calendar
-                                            </button>
-                                        </div>
-                                    </div>
-
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <button onClick={handleExport} className="p-4 bg-card border border-border rounded-2xl flex items-center gap-3 hover:bg-card/80 transition-colors text-left group">
                                             <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><Download className="w-5 h-5" /></div>
@@ -698,19 +744,17 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                         <button onClick={() => setShowLegacyImport(true)} className="p-4 bg-card border border-border rounded-2xl flex items-center gap-3 hover:bg-card/80 transition-colors text-left group">
                                             <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform"><FileJson className="w-5 h-5" /></div>
                                             <div>
-                                                <div className="text-sm font-bold text-text-main">Import Legacy Profile</div>
-                                                <div className="text-xs text-text-muted">Manual selection from old format</div>
+                                                <div className="text-sm font-bold text-text-main">Legacy Import</div>
+                                                <div className="text-xs text-text-muted">Manual selection</div>
                                             </div>
                                         </button>
-                                        {user?.is_cloud && (
-                                            <button onClick={() => triggerCloudSync()} disabled={isSyncing} className="col-span-full p-4 bg-card border border-border rounded-2xl flex items-center gap-3 hover:bg-card/80 transition-colors text-left group disabled:opacity-50">
-                                                <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform"><RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /></div>
-                                                <div>
-                                                    <div className="text-sm font-bold text-text-main">Force Cloud Sync</div>
-                                                    <div className="text-xs text-text-muted">{isSyncing ? 'Syncing...' : 'Push local changes to cloud'}</div>
-                                                </div>
-                                            </button>
-                                        )}
+                                        <button onClick={() => setShowRebuild(true)} className="p-4 bg-card border border-border rounded-2xl flex items-center gap-3 hover:bg-card/80 transition-colors text-left group">
+                                            <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform"><Wrench className="w-5 h-5" /></div>
+                                            <div>
+                                                <div className="text-sm font-bold text-text-main">Rebuild Calendar</div>
+                                                <div className="text-xs text-text-muted">Fix sync issues</div>
+                                            </div>
+                                        </button>
                                     </div>
                                     <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
                                 </div>
@@ -735,19 +779,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                     </div>
                                     <button onClick={logout} className="ml-auto p-3 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500/20 transition-colors"><LogOut className="w-5 h-5" /></button>
                                 </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                     <div className="p-6 rounded-3xl bg-card/30 border border-border flex flex-col items-center text-center">
-                                         <Monitor className="w-8 h-8 text-text-muted mb-3" />
-                                         <h5 className="font-bold text-text-main text-sm">Desktop</h5>
-                                         <p className="text-xs text-text-muted mt-1">Best for management</p>
-                                     </div>
-                                     <div className="p-6 rounded-3xl bg-card/30 border border-border flex flex-col items-center text-center">
-                                         <Smartphone className="w-8 h-8 text-text-muted mb-3" />
-                                         <h5 className="font-bold text-text-main text-sm">Mobile</h5>
-                                         <p className="text-xs text-text-muted mt-1">Best for tracking</p>
-                                     </div>
-                                </div>
                             </div>
                         )}
                     </div>
@@ -756,6 +787,37 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
             
             {showLegacyImport && <LegacyImportModal isOpen={showLegacyImport} onClose={() => setShowLegacyImport(false)} />}
             {showRebuild && <RebuildModal isOpen={showRebuild} onClose={() => setShowRebuild(false)} />}
+            
+            {/* QR Export Modal */}
+            {showQrExport && (
+                <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in" onClick={() => setShowQrExport(false)}>
+                    <div className="bg-white p-8 rounded-3xl text-center max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-black font-black text-xl mb-4">Scan to Import Keys</h3>
+                        <div className="bg-white p-2 rounded-xl mb-6 inline-block">
+                             <QRCode value={getQrData()} size={200} />
+                        </div>
+                        <p className="text-zinc-500 text-xs mb-6">
+                            Open TV Calendar on your mobile device, go to Settings, and select "Scan Key QR" to transfer your API keys instantly.
+                        </p>
+                        <button onClick={() => setShowQrExport(false)} className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold">Done</button>
+                    </div>
+                </div>
+            )}
+            
+            {/* QR Scanner Overlay */}
+            {showQrScanner && (
+                <div className="fixed inset-0 z-[250] bg-black flex flex-col animate-fade-in">
+                    <div className="flex justify-between items-center p-6 absolute top-0 w-full z-10 bg-gradient-to-b from-black/80 to-transparent">
+                        <h2 className="text-white font-bold">Scan Settings QR</h2>
+                        <button onClick={() => setShowQrScanner(false)} className="p-3 bg-white/10 rounded-full text-white backdrop-blur-md">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center">
+                        <Scanner onScan={handleQrScan} />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

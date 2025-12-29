@@ -6,20 +6,7 @@ import { getCollection, getBackdropUrl, getImageUrl, getRecommendations } from '
 import { TVShow } from '../types';
 import ShowDetailsModal from '../components/ShowDetailsModal';
 import V2TrailerModal from './V2TrailerModal';
-
-const RatingBanner: React.FC<{ vote: number }> = ({ vote }) => {
-    const score = vote.toFixed(1);
-    let bg = 'bg-yellow-500';
-    if (vote >= 7) bg = 'bg-emerald-500';
-    if (vote < 5) bg = 'bg-red-500';
-    
-    return (
-        <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-md px-1.5 py-0.5 z-20">
-            <div className={`w-1.5 h-1.5 rounded-full ${bg} shadow-[0_0_8px_currentColor]`} />
-            <span className="text-[10px] font-bold text-white">{score}</span>
-        </div>
-    );
-};
+import RatingBadge from '../components/RatingBadge';
 
 const V2Discover: React.FC = () => {
     const { watchlist, addToWatchlist } = useStore();
@@ -55,12 +42,11 @@ const V2Discover: React.FC = () => {
         }
 
         // 3. Fetch Genre Lists
-        // Horror (27), Action (28)
         getCollection('/discover/movie', 'movie', 1, { with_genres: '27', sort_by: 'vote_average.desc', 'vote_count.gte': '300' }).then(setTopHorror);
         getCollection('/discover/movie', 'movie', 1, { with_genres: '28', sort_by: 'popularity.desc' }).then(setTopAction);
         getCollection('/movie/now_playing', 'movie', 1).then(setInTheaters);
 
-    }, []); // Run once on mount
+    }, []);
 
     // Hero Auto-Rotation
     useEffect(() => {
@@ -171,7 +157,7 @@ const V2Discover: React.FC = () => {
                                         <span className="text-[160px] leading-[0.8] font-black text-[#1a1a1a] stroke-white tracking-tighter" style={{ WebkitTextStroke: '2px #333' }}>{idx + 1}</span>
                                         <div className="relative w-[130px] aspect-[2/3] rounded-lg overflow-hidden bg-zinc-900 border border-white/10 shadow-2xl z-10 transition-transform duration-300 group-hover/card:scale-105 origin-bottom -ml-8 mb-2">
                                             <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover" loading="lazy" alt="" />
-                                            <RatingBanner vote={show.vote_average} />
+                                            <RatingBadge tmdbId={show.id} mediaType={show.media_type} tmdbRating={show.vote_average} />
                                             {isAdded && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Check className="w-8 h-8 text-emerald-500" /></div>}
                                         </div>
                                     </div>
@@ -185,7 +171,7 @@ const V2Discover: React.FC = () => {
                                     onClick={() => setDetailsId({id: show.id, type: show.media_type})}
                                 >
                                     <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover transition-opacity group-hover/card:opacity-40" loading="lazy" alt="" />
-                                    <RatingBanner vote={show.vote_average} />
+                                    <RatingBadge tmdbId={show.id} mediaType={show.media_type} tmdbRating={show.vote_average} />
                                     
                                     {isAdded && (
                                         <div className="absolute top-2 left-2 bg-emerald-500/20 border border-emerald-500/30 p-1 rounded-full backdrop-blur-md">
