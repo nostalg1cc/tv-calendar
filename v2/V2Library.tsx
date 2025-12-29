@@ -133,7 +133,7 @@ const V2Library: React.FC = () => {
                                 <div className={`relative overflow-hidden rounded-lg bg-zinc-900 border border-white/10 shadow-lg ${view === 'grid' ? 'aspect-[2/3]' : 'w-12 h-16 shrink-0'}`}>
                                     <img src={getImageUrl(item.custom_poster_path || item.poster_path)} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" alt="" />
                                     {/* Rating Banner */}
-                                    <RatingBadge tmdbId={item.id} mediaType={item.media_type} tmdbRating={item.vote_average} />
+                                    <RatingBadge rating={item.vote_average} />
                                     
                                     {/* Grid Overlay Actions */}
                                     {view === 'grid' && (

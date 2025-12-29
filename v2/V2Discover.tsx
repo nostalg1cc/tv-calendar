@@ -157,7 +157,7 @@ const V2Discover: React.FC = () => {
                                         <span className="text-[160px] leading-[0.8] font-black text-[#1a1a1a] stroke-white tracking-tighter" style={{ WebkitTextStroke: '2px #333' }}>{idx + 1}</span>
                                         <div className="relative w-[130px] aspect-[2/3] rounded-lg overflow-hidden bg-zinc-900 border border-white/10 shadow-2xl z-10 transition-transform duration-300 group-hover/card:scale-105 origin-bottom -ml-8 mb-2">
                                             <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover" loading="lazy" alt="" />
-                                            <RatingBadge tmdbId={show.id} mediaType={show.media_type} tmdbRating={show.vote_average} />
+                                            <RatingBadge rating={show.vote_average} />
                                             {isAdded && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Check className="w-8 h-8 text-emerald-500" /></div>}
                                         </div>
                                     </div>
@@ -171,7 +171,7 @@ const V2Discover: React.FC = () => {
                                     onClick={() => setDetailsId({id: show.id, type: show.media_type})}
                                 >
                                     <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover transition-opacity group-hover/card:opacity-40" loading="lazy" alt="" />
-                                    <RatingBadge tmdbId={show.id} mediaType={show.media_type} tmdbRating={show.vote_average} />
+                                    <RatingBadge rating={show.vote_average} />
                                     
                                     {isAdded && (
                                         <div className="absolute top-2 left-2 bg-emerald-500/20 border border-emerald-500/30 p-1 rounded-full backdrop-blur-md">
