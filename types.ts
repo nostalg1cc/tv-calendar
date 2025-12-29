@@ -68,7 +68,6 @@ export interface User {
   email?: string;
   is_cloud: boolean;
   tmdb_key?: string;
-  omdb_key?: string;
 }
 
 export interface AppSettings {

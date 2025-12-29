@@ -9,6 +9,7 @@ import { useCalendarEpisodes } from '../hooks/useQueries';
 import { Episode } from '../types';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
 import CalendarSearchModal from '../components/CalendarSearchModal';
+import RatingBadge from '../components/RatingBadge';
 
 interface V2CalendarProps {
     selectedDay: Date;
@@ -35,13 +36,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         });
         return map;
     }, [rawEpisodes]);
-
-    // Derive user region to compare against release country
-    const userRegion = useMemo(() => {
-        try {
-            return (navigator.language.split('-')[1] || 'US').toUpperCase();
-        } catch { return 'US'; }
-    }, []);
 
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -189,22 +183,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     );
 
     // --- SUB-COMPONENTS ---
-    const RatingBanner = ({ vote }: { vote?: number }) => {
-        if (!settings.showCalendarRatings || !vote) return null;
-        const score = vote.toFixed(1);
-        let bg = 'bg-zinc-700';
-        if (vote >= 7) bg = 'bg-emerald-500';
-        else if (vote >= 5) bg = 'bg-yellow-500';
-        else if (vote > 0) bg = 'bg-red-500';
-        
-        return (
-            <div className="absolute top-1 right-1 flex items-center gap-1 bg-black/60 backdrop-blur-md border border-white/10 rounded px-1 py-0.5 z-20">
-                <div className={`w-1 h-1 rounded-full ${bg}`} />
-                <span className="text-[8px] font-bold text-white">{score}</span>
-            </div>
-        );
-    };
-
+    
     const DateHeader = ({ day }: { day: Date }) => {
         const isTodayDate = isToday(day);
         return (
@@ -265,7 +244,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 <div className="absolute inset-0 bg-cover bg-center blur-xl opacity-30 scale-110" style={{ backgroundImage: `url(${imageUrl})` }} />
                 <div className="absolute inset-0 flex items-center justify-center">
                     <img src={imageUrl} className={`h-full w-auto max-w-full object-contain shadow-2xl relative z-10 transition-all duration-300 ${isWatched ? 'grayscale opacity-50' : 'opacity-100'}`} alt="" />
-                    <RatingBanner vote={ep.vote_average} />
+                    {settings.showCalendarRatings && <RatingBadge rating={ep.vote_average} className="absolute top-1 right-1" />}
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent z-20 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 right-0 p-2 flex flex-col justify-end h-full z-30 pointer-events-none">
@@ -474,6 +453,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex items-center gap-2 mb-0.5">
                                                                 <h4 className={`text-sm font-bold truncate ${isWatched ? 'text-text-muted line-through' : 'text-text-main'}`}>{firstEp.show_name}</h4>
+                                                                {settings.showCalendarRatings && <RatingBadge rating={firstEp.vote_average} className="static" />}
                                                             </div>
                                                             <div className="flex items-center gap-2 text-xs text-text-muted">
                                                                 {firstEp.is_movie ? (
@@ -546,6 +526,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                                             <img src={bannerUrl} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
                                                             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
                                                             <div className="absolute top-3 right-3"><ReleaseBadge ep={firstEp} /></div>
+                                                            {settings.showCalendarRatings && <RatingBadge rating={firstEp.vote_average} className="absolute top-3 right-28" />}
                                                             <div className="absolute bottom-3 left-4"><h3 className="text-xl sm:text-2xl font-black text-white leading-none drop-shadow-md">{firstEp.show_name}</h3></div>
                                                         </div>
 

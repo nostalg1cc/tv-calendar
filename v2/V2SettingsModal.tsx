@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2, ChevronDown, ChevronUp, QrCode } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2, ChevronDown, ChevronUp, QrCode, Star } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
@@ -64,7 +64,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     
     // API Keys State
     const [localTmdbKey, setLocalTmdbKey] = useState(user?.tmdb_key || '');
-    const [localOmdbKey, setLocalOmdbKey] = useState(user?.omdb_key || '');
     const [showKey, setShowKey] = useState(false);
     const [isSavingKey, setIsSavingKey] = useState(false);
     
@@ -93,12 +92,10 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const hasSupabase = !!supabase;
     const hasTmdbKey = !!user?.tmdb_key;
     const hasTrakt = !!traktToken;
-    const hasOmdb = !!user?.omdb_key;
 
     useEffect(() => {
         setLocalTmdbKey(user?.tmdb_key || '');
-        setLocalOmdbKey(user?.omdb_key || '');
-    }, [user?.tmdb_key, user?.omdb_key]);
+    }, [user?.tmdb_key]);
 
     const handleSaveKeys = async () => {
         if (!user) return;
@@ -106,12 +103,10 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
         
         try {
             const cleanTmdb = localTmdbKey.trim();
-            const cleanOmdb = localOmdbKey.trim();
             
             const updatedUser = { 
                 ...user, 
-                tmdb_key: cleanTmdb,
-                omdb_key: cleanOmdb 
+                tmdb_key: cleanTmdb
             };
             
             login(updatedUser); 
@@ -119,8 +114,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
             
             // Sync to Supabase profile
             if (user.is_cloud && supabase) {
-                // Store in profile settings as backup since columns might be restricted
-                const newSettings = { ...settings, omdbKey: cleanOmdb }; 
+                const newSettings = { ...settings }; 
                 updateSettings(newSettings);
 
                 const { error } = await supabase
@@ -150,16 +144,15 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                 const data = JSON.parse(result[0].rawValue);
                 if (data.type === 'tv_cal_keys') {
                     setLocalTmdbKey(data.tmdb || '');
-                    setLocalOmdbKey(data.omdb || '');
                     setTraktClientId(data.traktId || '');
                     setTraktClientSecret(data.traktSecret || '');
                     
-                    // Auto save
+                    // Auto save trakt immediately, user must click save for TMDB
                     if (data.traktId && data.traktSecret) {
                          updateSettings({ traktClient: { id: data.traktId, secret: data.traktSecret } });
                     }
                     
-                    toast.success("Keys imported! Click Save to apply.");
+                    toast.success("Keys imported! Click 'Save Keys' to apply TMDB key.");
                     setShowQrScanner(false);
                 }
             } catch (e) {
@@ -172,7 +165,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
         return JSON.stringify({
             type: 'tv_cal_keys',
             tmdb: localTmdbKey,
-            omdb: localOmdbKey,
             traktId: traktClientId,
             traktSecret: traktClientSecret
         });
@@ -310,13 +302,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
         </div>
     );
 
-    const ConnectionStatus = ({ label, active }: { label: string, active: boolean }) => (
-        <div className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border ${active ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-            {active ? <ShieldCheck className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-            {label}: {active ? 'Connected' : 'Missing'}
-        </div>
-    );
-
     return (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-0 md:p-12" onClick={onClose}>
             <div className="absolute inset-0 bg-black/80 backdrop-blur-xl animate-fade-in" />
@@ -449,6 +434,18 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             <span className={`text-xs font-bold uppercase tracking-wider ${settings.baseTheme === 'custom' ? 'text-text-main' : 'text-text-muted'}`}>Custom</span>
                                         </label>
                                     </div>
+                                </div>
+                                
+                                <div>
+                                     <h3 className="text-xl font-bold text-text-main mb-6">Display Options</h3>
+                                     <div className="space-y-4">
+                                         <Toggle 
+                                            label="Show Calendar Ratings" 
+                                            description="Display rating score badges on the calendar views." 
+                                            active={!!settings.showCalendarRatings} 
+                                            onToggle={() => updateSettings({ showCalendarRatings: !settings.showCalendarRatings })} 
+                                        />
+                                     </div>
                                 </div>
 
                                 <div>
@@ -659,34 +656,17 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                         
                                         {/* TMDB Key */}
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-text-muted uppercase tracking-widest block">TMDB API Key</label>
+                                            <label className="text-[10px] font-black text-text-muted uppercase tracking-widest block">Metadata Provider (TMDB)</label>
                                             <div className="relative">
                                                  <input 
                                                     type={showKey ? "text" : "password"} 
                                                     value={localTmdbKey}
                                                     onChange={(e) => setLocalTmdbKey(e.target.value)}
                                                     className="w-full bg-black/50 border border-border rounded-xl px-4 py-3 text-sm text-text-main font-mono focus:border-indigo-500 focus:outline-none transition-all pr-12"
-                                                    placeholder="Required for data fetching"
+                                                    placeholder="Required for show data"
                                                 />
                                                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                                                     {hasTmdbKey ? <Check className="w-4 h-4 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* OMDB Key */}
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-text-muted uppercase tracking-widest block">OMDB API Key</label>
-                                            <div className="relative">
-                                                 <input 
-                                                    type={showKey ? "text" : "password"} 
-                                                    value={localOmdbKey}
-                                                    onChange={(e) => setLocalOmdbKey(e.target.value)}
-                                                    className="w-full bg-black/50 border border-border rounded-xl px-4 py-3 text-sm text-text-main font-mono focus:border-indigo-500 focus:outline-none transition-all pr-12"
-                                                    placeholder="Optional: For Rotten Tomatoes/IMDb ratings"
-                                                />
-                                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                    {hasOmdb ? <Check className="w-4 h-4 text-emerald-500" /> : <div className="w-4 h-4" />}
                                                 </div>
                                             </div>
                                         </div>
