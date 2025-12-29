@@ -189,6 +189,22 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     );
 
     // --- SUB-COMPONENTS ---
+    const RatingBanner = ({ vote }: { vote?: number }) => {
+        if (!settings.showCalendarRatings || !vote) return null;
+        const score = vote.toFixed(1);
+        let bg = 'bg-zinc-700';
+        if (vote >= 7) bg = 'bg-emerald-500';
+        else if (vote >= 5) bg = 'bg-yellow-500';
+        else if (vote > 0) bg = 'bg-red-500';
+        
+        return (
+            <div className="absolute top-1 right-1 flex items-center gap-1 bg-black/60 backdrop-blur-md border border-white/10 rounded px-1 py-0.5 z-20">
+                <div className={`w-1 h-1 rounded-full ${bg}`} />
+                <span className="text-[8px] font-bold text-white">{score}</span>
+            </div>
+        );
+    };
+
     const DateHeader = ({ day }: { day: Date }) => {
         const isTodayDate = isToday(day);
         return (
@@ -249,6 +265,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 <div className="absolute inset-0 bg-cover bg-center blur-xl opacity-30 scale-110" style={{ backgroundImage: `url(${imageUrl})` }} />
                 <div className="absolute inset-0 flex items-center justify-center">
                     <img src={imageUrl} className={`h-full w-auto max-w-full object-contain shadow-2xl relative z-10 transition-all duration-300 ${isWatched ? 'grayscale opacity-50' : 'opacity-100'}`} alt="" />
+                    <RatingBanner vote={ep.vote_average} />
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent z-20 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 right-0 p-2 flex flex-col justify-end h-full z-30 pointer-events-none">
@@ -382,6 +399,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                     <div className="h-px bg-border my-1" />
                                     <FilterToggle label="Digital Releases Only" icon={MonitorPlay} active={settings.hideTheatrical} onClick={() => updateSettings({ hideTheatrical: !settings.hideTheatrical })} />
                                     <FilterToggle label="Show Hidden Items" icon={EyeOff} active={showHidden} onClick={() => setShowHidden(!showHidden)} />
+                                    <FilterToggle label="Show Ratings" icon={Clock} active={!!settings.showCalendarRatings} onClick={() => updateSettings({ showCalendarRatings: !settings.showCalendarRatings })} />
                                 </div>
                             </div>
                         )}

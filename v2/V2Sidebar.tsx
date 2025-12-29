@@ -88,7 +88,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                     <NavItem to="/calendar" icon={Calendar} label="Calendar" />
                     <NavItem to="/discover" icon={Compass} label="Discovery" />
                     <NavItem to="/library" icon={List} label="Library" />
-                    <NavItem to="/community" icon={MessageSquare} label="Circles" />
+                    {/* Community Removed */}
                     <div className="my-2 mx-4 h-px bg-border" />
                     <NavItem to="#" icon={Search} label="Search" onClick={onOpenSearch} />
                     <NavItem to="/ipoint" icon={Globe} label="IPoint Tool" />
@@ -127,8 +127,8 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                     <Link to="/calendar" className={`transition-all duration-300 ${isActive('/calendar') ? 'text-text-main scale-110' : 'text-text-muted hover:text-text-main'}`}>
                         <Calendar className="w-6 h-6 stroke-[2.5px]" />
                     </Link>
-                    <Link to="/community" className={`transition-all duration-300 ${isActive('/community') ? 'text-text-main scale-110' : 'text-text-muted hover:text-text-main'}`}>
-                        <MessageSquare className="w-6 h-6 stroke-[2.5px]" />
+                    <Link to="/discover" className={`transition-all duration-300 ${isActive('/discover') ? 'text-text-main scale-110' : 'text-text-muted hover:text-text-main'}`}>
+                        <Compass className="w-6 h-6 stroke-[2.5px]" />
                     </Link>
                     
                     <button onClick={onOpenSearch} className="text-text-muted hover:text-text-main transition-all active:scale-95">
@@ -170,10 +170,11 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                                 <Globe className="w-6 h-6 text-blue-400" />
                                 <span className="text-xs font-bold text-text-main">IPoint</span>
                             </Link>
-                            <Link to="/discover" onClick={() => setIsMenuOpen(false)} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-card border border-border hover:bg-card/80 transition-colors">
-                                <Compass className="w-6 h-6 text-purple-400" />
-                                <span className="text-xs font-bold text-text-main">Discover</span>
-                            </Link>
+                             {/* Placeholder for removed item */}
+                            <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-card/50 border border-border opacity-50">
+                                <MessageSquare className="w-6 h-6 text-zinc-600" />
+                                <span className="text-xs font-bold text-zinc-500">Community (Disabled)</span>
+                            </div>
                         </div>
 
                         <button onClick={logout} className="w-full flex items-center justify-center gap-3 p-4 rounded-2xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors border border-red-500/10">

@@ -105,6 +105,7 @@ export interface AppSettings {
       id: string;
       secret: string;
   };
+  showCalendarRatings?: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -122,7 +123,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   hiddenItems: [],
   calendarFilterTv: true,
   calendarFilterMovies: true,
-  customPosters: {}
+  customPosters: {},
+  showCalendarRatings: false
 };
 
 export interface WatchedItem {
