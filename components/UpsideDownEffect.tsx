@@ -4,15 +4,26 @@ import { Zap, X } from 'lucide-react';
 
 const UpsideDownEffect: React.FC = () => {
     const [enabled, setEnabled] = useState(false);
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
     // Inject transparency styles into the document when enabled
     useEffect(() => {
         if (enabled) {
             document.body.classList.add('upside-down-mode');
+            const handleMouseMove = (e: MouseEvent) => {
+                // Calculate normalized mouse position (-1 to 1)
+                const x = (e.clientX / window.innerWidth) * 2 - 1;
+                const y = (e.clientY / window.innerHeight) * 2 - 1;
+                setMousePos({ x, y });
+            };
+            window.addEventListener('mousemove', handleMouseMove);
+            return () => {
+                document.body.classList.remove('upside-down-mode');
+                window.removeEventListener('mousemove', handleMouseMove);
+            };
         } else {
             document.body.classList.remove('upside-down-mode');
         }
-        return () => document.body.classList.remove('upside-down-mode');
     }, [enabled]);
 
     if (!enabled) {
@@ -39,73 +50,77 @@ const UpsideDownEffect: React.FC = () => {
 
             {/* --- GLOBAL CSS OVERRIDES FOR TRANSPARENCY --- */}
             <style>{`
-                /* Darken base background to blend with effect */
+                /* 1. Base Transparency */
                 body.upside-down-mode {
-                    background-color: #050505 !important;
+                    background-color: #020202 !important;
                 }
 
-                /* Make main layout containers semi-transparent */
+                /* 2. Force Main Containers Transparent */
                 body.upside-down-mode .bg-background,
                 body.upside-down-mode .bg-panel,
                 body.upside-down-mode .bg-card,
                 body.upside-down-mode .bg-\[\#020202\],
-                body.upside-down-mode .bg-\[\#050505\],
                 body.upside-down-mode .bg-\[\#09090b\],
                 body.upside-down-mode .bg-zinc-950,
-                body.upside-down-mode .bg-zinc-900 {
-                    background-color: rgba(0, 2, 10, 0.45) !important;
-                    backdrop-filter: blur(3px);
+                body.upside-down-mode .bg-zinc-900,
+                body.upside-down-mode .bg-black {
+                    background-color: rgba(5, 10, 20, 0.65) !important; /* Slight dark tint to keep text readable */
+                    backdrop-filter: blur(0px); /* Reduce blur so we can see the particles clearly */
                     border-color: rgba(255,255,255,0.08) !important;
                 }
 
-                /* Sidebar and Agenda specific handling for readability */
-                body.upside-down-mode nav, 
-                body.upside-down-mode aside {
-                    background-color: rgba(0, 0, 0, 0.6) !important;
-                    backdrop-filter: blur(12px);
-                    box-shadow: 10px 0 30px -10px rgba(0,0,0,0.5);
+                /* 3. Specific Component Overrides */
+                
+                /* Sidebar */
+                body.upside-down-mode nav {
+                    background-color: rgba(0, 0, 0, 0.4) !important;
+                    border-right: 1px solid rgba(255,255,255,0.05) !important;
                 }
 
-                /* Reduce opacity of overlay gradients in posters to see effect */
-                body.upside-down-mode .bg-gradient-to-t,
-                body.upside-down-mode .bg-gradient-to-r {
-                    opacity: 0.6;
+                /* Agenda / Right Sidebar */
+                body.upside-down-mode aside {
+                    background-color: rgba(0, 0, 0, 0.5) !important;
+                    border-left: 1px solid rgba(255,255,255,0.05) !important;
                 }
-                
-                /* Animation Definitions */
-                @keyframes flash-deep {
-                    0%, 100% { opacity: 0; }
-                    2% { opacity: 0.4; } 
-                    3% { opacity: 0.1; }
-                    5% { opacity: 0.3; } 
-                    40% { opacity: 0; }
+
+                /* Calendar Headers */
+                body.upside-down-mode header,
+                body.upside-down-mode .sticky {
+                    background-color: rgba(0, 0, 0, 0.6) !important;
+                    backdrop-filter: blur(8px) !important;
                 }
+
+                /* Calendar Empty Cells */
+                body.upside-down-mode .bg-white\/\[0\.01\] {
+                    background-color: transparent !important;
+                }
+
+                /* Reduce gradient opacities on posters so effects bleed through images slightly less, 
+                   but we want the UI background to be the main transparent element */
                 
-                @keyframes flash-burst {
+                /* --- ANIMATIONS --- */
+                
+                @keyframes flash-internal {
                     0%, 90% { opacity: 0; }
-                    92% { opacity: 0.6; filter: brightness(2); }
+                    92% { opacity: 0.6; filter: brightness(1.5); } 
                     93% { opacity: 0.2; }
                     94% { opacity: 0.4; }
                     96% { opacity: 0; }
                 }
 
-                @keyframes ash-fall {
-                    0% { 
-                        transform: translateY(-10vh) translateX(0) rotate(0deg) scale(1); 
-                        opacity: 0; 
-                    }
-                    10% { opacity: 0.8; }
-                    50% { transform: translateY(50vh) translateX(20px) rotate(180deg); }
+                @keyframes spore-drift {
+                    0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+                    10% { opacity: 1; }
+                    25% { transform: translate(20px, 20vh) rotate(90deg); }
+                    50% { transform: translate(-15px, 40vh) rotate(180deg); }
+                    75% { transform: translate(10px, 60vh) rotate(270deg); }
                     90% { opacity: 0.8; }
-                    100% { 
-                        transform: translateY(110vh) translateX(-20px) rotate(360deg) scale(0.8); 
-                        opacity: 0; 
-                    }
+                    100% { transform: translate(-5px, 80vh) rotate(360deg); opacity: 0; }
                 }
 
-                @keyframes fog-drift {
+                @keyframes fog-roll {
                     0% { background-position: 0% 0%; }
-                    100% { background-position: 200% 0%; }
+                    100% { background-position: 100% 0%; }
                 }
             `}</style>
 
@@ -113,73 +128,61 @@ const UpsideDownEffect: React.FC = () => {
             {/* z-index -1 to sit BEHIND the app content */}
             <div className="fixed inset-0 z-[-1] pointer-events-none overflow-hidden select-none">
                 
-                {/* 1. Deep Base with Vignette */}
-                <div className="absolute inset-0 bg-[#02040a]" />
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#000000_90%)] z-10" />
+                {/* 1. Deep Void Base */}
+                <div className="absolute inset-0 bg-[#02050c]" />
 
-                {/* 2. Red Lightning (Behind Clouds) */}
-                <div className="absolute inset-0 z-0">
-                     {/* Distant reddish glow pulsing */}
-                     <div className="absolute top-[-20%] left-[10%] w-[100vw] h-[100vw] bg-[radial-gradient(circle,rgba(150,0,0,0.15)_0%,transparent_60%)] animate-[pulse_4s_ease-in-out_infinite]" />
-                     
-                     {/* Sharp Lightning Bursts */}
-                     <div className="absolute top-[10%] right-[20%] w-[60vw] h-[60vw] bg-[radial-gradient(circle,rgba(255,50,50,0.4)_0%,transparent_70%)] animate-[flash-burst_9s_infinite_linear]" style={{ mixBlendMode: 'color-dodge' }} />
-                     <div className="absolute bottom-[-10%] left-[-10%] w-[80vw] h-[80vw] bg-[radial-gradient(circle,rgba(200,20,20,0.3)_0%,transparent_70%)] animate-[flash-deep_14s_infinite_linear]" style={{ mixBlendMode: 'color-dodge' }} />
+                {/* 2. Red Internal Lightning (Behind the fog to look volumetric) */}
+                <div className="absolute inset-0">
+                     <div className="absolute top-[-20%] left-[20%] w-[60vw] h-[60vw] bg-[radial-gradient(circle,rgba(200,20,20,0.6)_0%,transparent_70%)] animate-[flash-internal_8s_infinite_ease-in-out] mix-blend-screen opacity-60" />
+                     <div className="absolute bottom-[10%] right-[-10%] w-[80vw] h-[80vw] bg-[radial-gradient(circle,rgba(255,0,0,0.4)_0%,transparent_60%)] animate-[flash-internal_11s_infinite_linear] mix-blend-screen opacity-50" style={{ animationDelay: '2s' }} />
                 </div>
 
-                {/* 3. Moving Fog/Clouds (SVG Noise Texture) */}
-                <div className="absolute inset-0 z-10 opacity-40 mix-blend-overlay">
-                    <svg className="hidden">
-                        <filter id="fog-noise">
-                            <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="3" seed="1" result="noise" />
-                            <feDiffuseLighting in="noise" lightingColor="#fff" surfaceScale="2">
-                                <feDistantLight azimuth="45" elevation="60" />
-                            </feDiffuseLighting>
+                {/* 3. Rolling Fog / Clouds Texture */}
+                <div className="absolute inset-0 opacity-40 mix-blend-overlay">
+                     <svg className="hidden">
+                        <filter id="cloud-texture">
+                            <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="4" seed="5" />
+                            <feColorMatrix type="matrix" values="0 0 0 0 0.2  0 0 0 0 0.3  0 0 0 0 0.4  0 0 0 1 0" />
                         </filter>
                     </svg>
-                    {/* Applying the filter to a div that moves */}
                     <div 
-                        className="absolute inset-0 w-[200%] h-full animate-[fog-drift_60s_linear_infinite]"
-                        style={{ 
-                            background: '#1a2333',
-                            filter: 'url(#fog-noise)',
-                            opacity: 0.6
-                        }} 
+                        className="absolute inset-0 w-[200%] h-full animate-[fog-roll_80s_linear_infinite]"
+                        style={{ filter: 'url(#cloud-texture)' }} 
                     />
                 </div>
 
-                {/* 4. Film Grain / Static */}
-                <div className="absolute inset-0 z-20 opacity-[0.08] mix-blend-overlay pointer-events-none" 
-                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E")` }} 
-                />
+                {/* 4. Vignette */}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,#000000_100%)] opacity-80" />
             </div>
 
 
             {/* --- FOREGROUND LAYER (Particles) --- */}
             {/* z-index 9999 to sit ON TOP of the app content */}
-            <div className="fixed inset-0 z-[9999] pointer-events-none overflow-hidden select-none">
-                
-                {/* Ash Particles */}
-                {/* Using a perspective container for depth feeling if needed, mostly 2D drift */}
-                {[...Array(50)].map((_, i) => {
-                    // Randomize initial positions and sizes
+            <div 
+                className="fixed inset-0 z-[9999] pointer-events-none overflow-hidden select-none transition-transform duration-200 ease-out"
+                style={{
+                    transform: `translate(${mousePos.x * -20}px, ${mousePos.y * -20}px)` // Parallax effect against mouse
+                }}
+            >
+                {[...Array(60)].map((_, i) => {
                     const left = Math.random() * 100;
-                    const duration = Math.random() * 10 + 10; // 10-20s
-                    const delay = Math.random() * -20;
-                    const size = Math.random() * 4 + 2;
-                    const rotation = Math.random() * 360;
+                    const duration = Math.random() * 20 + 20; // 20s - 40s (Very Slow)
+                    const delay = Math.random() * -40;
+                    const size = Math.random() * 3 + 2;
+                    const isRound = Math.random() > 0.3; // 70% round spores
                     
                     return (
                         <div 
                             key={i}
-                            className="absolute bg-slate-400/50 shadow-[0_0_5px_rgba(255,255,255,0.2)] animate-[ash-fall_linear_infinite]"
+                            className={`
+                                absolute bg-slate-400/60 animate-[spore-drift_linear_infinite] shadow-[0_0_8px_rgba(200,200,255,0.2)]
+                                ${isRound ? 'rounded-full' : 'rounded-sm'} blur-[1px]
+                            `}
                             style={{
                                 width: size + 'px',
-                                height: (Math.random() > 0.5 ? size : size * 1.5) + 'px', // Some rectangular
+                                height: (isRound ? size : size * 1.2) + 'px', 
                                 left: left + '%',
-                                top: '-5%',
-                                borderRadius: Math.random() > 0.7 ? '50%' : '1px', // Mostly sharp/square shards
-                                transform: `rotate(${rotation}deg)`,
+                                top: '-10%', // Start above screen
                                 animationDuration: duration + 's',
                                 animationDelay: delay + 's',
                             }}
