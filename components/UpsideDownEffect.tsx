@@ -1,9 +1,19 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, X } from 'lucide-react';
 
 const UpsideDownEffect: React.FC = () => {
     const [enabled, setEnabled] = useState(false);
+
+    // Inject transparency styles into the document when enabled
+    useEffect(() => {
+        if (enabled) {
+            document.body.classList.add('upside-down-mode');
+        } else {
+            document.body.classList.remove('upside-down-mode');
+        }
+        return () => document.body.classList.remove('upside-down-mode');
+    }, [enabled]);
 
     if (!enabled) {
         return (
@@ -21,126 +31,161 @@ const UpsideDownEffect: React.FC = () => {
         <>
             <button 
                 onClick={() => setEnabled(false)}
-                className="fixed bottom-6 left-6 z-[9999] flex items-center justify-center w-12 h-12 bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md"
+                className="fixed bottom-6 left-6 z-[9999] flex items-center justify-center w-12 h-12 bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-lg"
                 title="Exit Reality"
             >
                 <X className="w-5 h-5" />
             </button>
 
-            {/* Container for the effect, ensuring it doesn't block clicks on underlying elements */}
-            <div className="fixed inset-0 z-[9990] pointer-events-none overflow-hidden font-sans select-none">
+            {/* --- GLOBAL CSS OVERRIDES FOR TRANSPARENCY --- */}
+            <style>{`
+                /* Darken base background to blend with effect */
+                body.upside-down-mode {
+                    background-color: #050505 !important;
+                }
+
+                /* Make main layout containers semi-transparent */
+                body.upside-down-mode .bg-background,
+                body.upside-down-mode .bg-panel,
+                body.upside-down-mode .bg-card,
+                body.upside-down-mode .bg-\[\#020202\],
+                body.upside-down-mode .bg-\[\#050505\],
+                body.upside-down-mode .bg-\[\#09090b\],
+                body.upside-down-mode .bg-zinc-950,
+                body.upside-down-mode .bg-zinc-900 {
+                    background-color: rgba(0, 2, 10, 0.45) !important;
+                    backdrop-filter: blur(3px);
+                    border-color: rgba(255,255,255,0.08) !important;
+                }
+
+                /* Sidebar and Agenda specific handling for readability */
+                body.upside-down-mode nav, 
+                body.upside-down-mode aside {
+                    background-color: rgba(0, 0, 0, 0.6) !important;
+                    backdrop-filter: blur(12px);
+                    box-shadow: 10px 0 30px -10px rgba(0,0,0,0.5);
+                }
+
+                /* Reduce opacity of overlay gradients in posters to see effect */
+                body.upside-down-mode .bg-gradient-to-t,
+                body.upside-down-mode .bg-gradient-to-r {
+                    opacity: 0.6;
+                }
                 
-                {/* SVG Filters for Organic Textures */}
-                <svg className="hidden">
-                    <filter id="cloud-noise">
-                        <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="4" seed="5" />
-                        <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.4 0" />
-                        <feComposite operator="in" in2="SourceGraphic" result="monoNoise"/>
-                        <feBlend in="SourceGraphic" in2="monoNoise" mode="screen" />
-                    </filter>
-                </svg>
-
-                {/* 1. Base Atmosphere: Dark, cold, oppressive blue-grey */}
-                <div className="absolute inset-0 bg-[#080b14] opacity-95" />
-
-                {/* 2. Procedural Fog/Clouds Layer */}
-                <div className="absolute inset-0 opacity-60 mix-blend-overlay animate-drift">
-                     {/* We use a large div with the SVG filter applied to create the cloudy texture */}
-                    <div className="w-[120%] h-[120%] -top-[10%] -left-[10%] absolute bg-[#2a3b55]" style={{ filter: 'url(#cloud-noise)' }} />
-                </div>
+                /* Animation Definitions */
+                @keyframes flash-deep {
+                    0%, 100% { opacity: 0; }
+                    2% { opacity: 0.4; } 
+                    3% { opacity: 0.1; }
+                    5% { opacity: 0.3; } 
+                    40% { opacity: 0; }
+                }
                 
-                {/* 3. Red Lightning (Emitting FROM the clouds) */}
-                {/* Using Color Dodge on the cloud texture creates the "internal lighting" look */}
-                <div className="absolute inset-0 mix-blend-color-dodge opacity-80">
-                     {/* Primary Bolt Source */}
-                     <div className="absolute top-[-10%] left-[20%] w-[80vw] h-[80vw] bg-[radial-gradient(circle,rgba(255,50,50,0.8)_0%,transparent_60%)] animate-flash opacity-0 blur-3xl" />
-                     {/* Secondary Distant Bolt */}
-                     <div className="absolute bottom-[10%] right-[-10%] w-[60vw] h-[60vw] bg-[radial-gradient(circle,rgba(220,20,20,0.6)_0%,transparent_70%)] animate-flash-delayed opacity-0 blur-2xl" />
+                @keyframes flash-burst {
+                    0%, 90% { opacity: 0; }
+                    92% { opacity: 0.6; filter: brightness(2); }
+                    93% { opacity: 0.2; }
+                    94% { opacity: 0.4; }
+                    96% { opacity: 0; }
+                }
+
+                @keyframes ash-fall {
+                    0% { 
+                        transform: translateY(-10vh) translateX(0) rotate(0deg) scale(1); 
+                        opacity: 0; 
+                    }
+                    10% { opacity: 0.8; }
+                    50% { transform: translateY(50vh) translateX(20px) rotate(180deg); }
+                    90% { opacity: 0.8; }
+                    100% { 
+                        transform: translateY(110vh) translateX(-20px) rotate(360deg) scale(0.8); 
+                        opacity: 0; 
+                    }
+                }
+
+                @keyframes fog-drift {
+                    0% { background-position: 0% 0%; }
+                    100% { background-position: 200% 0%; }
+                }
+            `}</style>
+
+            {/* --- BACKGROUND LAYER (Atmosphere & Lighting) --- */}
+            {/* z-index -1 to sit BEHIND the app content */}
+            <div className="fixed inset-0 z-[-1] pointer-events-none overflow-hidden select-none">
+                
+                {/* 1. Deep Base with Vignette */}
+                <div className="absolute inset-0 bg-[#02040a]" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#000000_90%)] z-10" />
+
+                {/* 2. Red Lightning (Behind Clouds) */}
+                <div className="absolute inset-0 z-0">
+                     {/* Distant reddish glow pulsing */}
+                     <div className="absolute top-[-20%] left-[10%] w-[100vw] h-[100vw] bg-[radial-gradient(circle,rgba(150,0,0,0.15)_0%,transparent_60%)] animate-[pulse_4s_ease-in-out_infinite]" />
+                     
+                     {/* Sharp Lightning Bursts */}
+                     <div className="absolute top-[10%] right-[20%] w-[60vw] h-[60vw] bg-[radial-gradient(circle,rgba(255,50,50,0.4)_0%,transparent_70%)] animate-[flash-burst_9s_infinite_linear]" style={{ mixBlendMode: 'color-dodge' }} />
+                     <div className="absolute bottom-[-10%] left-[-10%] w-[80vw] h-[80vw] bg-[radial-gradient(circle,rgba(200,20,20,0.3)_0%,transparent_70%)] animate-[flash-deep_14s_infinite_linear]" style={{ mixBlendMode: 'color-dodge' }} />
                 </div>
 
-                {/* 4. Film Grain / Static overlay for grittiness */}
-                <div className="absolute inset-0 bg-transparent opacity-10 mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E")` }} />
+                {/* 3. Moving Fog/Clouds (SVG Noise Texture) */}
+                <div className="absolute inset-0 z-10 opacity-40 mix-blend-overlay">
+                    <svg className="hidden">
+                        <filter id="fog-noise">
+                            <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="3" seed="1" result="noise" />
+                            <feDiffuseLighting in="noise" lightingColor="#fff" surfaceScale="2">
+                                <feDistantLight azimuth="45" elevation="60" />
+                            </feDiffuseLighting>
+                        </filter>
+                    </svg>
+                    {/* Applying the filter to a div that moves */}
+                    <div 
+                        className="absolute inset-0 w-[200%] h-full animate-[fog-drift_60s_linear_infinite]"
+                        style={{ 
+                            background: '#1a2333',
+                            filter: 'url(#fog-noise)',
+                            opacity: 0.6
+                        }} 
+                    />
+                </div>
 
-                {/* 5. Heavy Vignette */}
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_10%,rgba(0,0,0,0.9)_90%)]" />
+                {/* 4. Film Grain / Static */}
+                <div className="absolute inset-0 z-20 opacity-[0.08] mix-blend-overlay pointer-events-none" 
+                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E")` }} 
+                />
+            </div>
 
-                {/* 6. Ash Particles */}
-                {/* Less round, varying opacity, rotation */}
-                <div className="absolute inset-0 perspective-[500px]">
-                    {[...Array(60)].map((_, i) => (
+
+            {/* --- FOREGROUND LAYER (Particles) --- */}
+            {/* z-index 9999 to sit ON TOP of the app content */}
+            <div className="fixed inset-0 z-[9999] pointer-events-none overflow-hidden select-none">
+                
+                {/* Ash Particles */}
+                {/* Using a perspective container for depth feeling if needed, mostly 2D drift */}
+                {[...Array(50)].map((_, i) => {
+                    // Randomize initial positions and sizes
+                    const left = Math.random() * 100;
+                    const duration = Math.random() * 10 + 10; // 10-20s
+                    const delay = Math.random() * -20;
+                    const size = Math.random() * 4 + 2;
+                    const rotation = Math.random() * 360;
+                    
+                    return (
                         <div 
                             key={i}
-                            className="absolute bg-slate-400/40 animate-ash"
+                            className="absolute bg-slate-400/50 shadow-[0_0_5px_rgba(255,255,255,0.2)] animate-[ash-fall_linear_infinite]"
                             style={{
-                                width: Math.random() * 4 + 2 + 'px',
-                                height: Math.random() * 4 + 2 + 'px',
-                                left: Math.random() * 100 + '%',
-                                top: Math.random() * 100 + '%',
-                                borderRadius: Math.random() > 0.6 ? '1px' : '0px', // Almost squares
-                                transform: `rotate(${Math.random() * 360}deg)`,
-                                animationDuration: Math.random() * 8 + 12 + 's', // Slower fall
-                                animationDelay: -Math.random() * 20 + 's',
-                                opacity: Math.random() * 0.4 + 0.1
+                                width: size + 'px',
+                                height: (Math.random() > 0.5 ? size : size * 1.5) + 'px', // Some rectangular
+                                left: left + '%',
+                                top: '-5%',
+                                borderRadius: Math.random() > 0.7 ? '50%' : '1px', // Mostly sharp/square shards
+                                transform: `rotate(${rotation}deg)`,
+                                animationDuration: duration + 's',
+                                animationDelay: delay + 's',
                             }}
                         />
-                    ))}
-                </div>
-
-                {/* CSS styles inline for portability */}
-                <style>{`
-                    @keyframes flash {
-                        0% { opacity: 0; }
-                        2% { opacity: 1; filter: brightness(1.5); } 
-                        4% { opacity: 0.1; }
-                        6% { opacity: 0.8; } 
-                        40% { opacity: 0; }
-                        100% { opacity: 0; }
-                    }
-                    
-                    @keyframes flash-delayed {
-                        0%, 50% { opacity: 0; }
-                        52% { opacity: 0.6; }
-                        54% { opacity: 0.1; }
-                        56% { opacity: 0.4; }
-                        70% { opacity: 0; }
-                        100% { opacity: 0; }
-                    }
-
-                    @keyframes ash {
-                        0% { 
-                            transform: translateY(0) translateX(0) rotate(0deg) scale(1); 
-                            opacity: 0; 
-                        }
-                        10% { opacity: 1; }
-                        100% { 
-                            transform: translateY(-110vh) translateX(-40px) rotate(720deg) scale(0.5); 
-                            opacity: 0; 
-                        }
-                    }
-
-                    @keyframes drift {
-                        0%, 100% { transform: scale(1) translate(0, 0); }
-                        50% { transform: scale(1.05) translate(-10px, 5px); }
-                    }
-                    
-                    .animate-flash {
-                        animation: flash 7s infinite linear;
-                    }
-
-                    .animate-flash-delayed {
-                        animation: flash-delayed 7s infinite linear;
-                    }
-                    
-                    .animate-ash {
-                        animation-name: ash;
-                        animation-timing-function: linear;
-                        animation-iteration-count: infinite;
-                    }
-
-                    .animate-drift {
-                        animation: drift 20s ease-in-out infinite;
-                    }
-                `}</style>
+                    );
+                })}
             </div>
         </>
     );
