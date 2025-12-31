@@ -14,6 +14,7 @@ import ApiKeyPrompt from '../components/ApiKeyPrompt';
 import ContextMenu from '../components/ContextMenu';
 import PosterPickerModal from '../components/PosterPickerModal';
 import ShowDetailsModal from '../components/ShowDetailsModal';
+import UpsideDownEffect from '../components/UpsideDownEffect';
 
 const V2Dashboard: React.FC = () => {
     const [calendarDate, setCalendarDate] = useState(new Date());
@@ -48,6 +49,7 @@ const V2Dashboard: React.FC = () => {
     return (
         <div className="flex h-screen w-screen bg-background text-text-main overflow-hidden font-sans selection:bg-indigo-500/30">
             <ContextMenu onEditPoster={handleEditPoster} />
+            <UpsideDownEffect />
             
             <V2Sidebar 
                 onOpenSettings={() => setIsSettingsOpen(true)} 
