@@ -8,48 +8,50 @@ const UpsideDownEffect: React.FC = () => {
     const requestRef = useRef<number>();
     const mouseRef = useRef({ x: -1000, y: -1000 });
     
-    // --- PARTICLE SYSTEM CONFIG ---
-    const PARTICLE_COUNT = 150;
-    const REPULSION_RADIUS = 150;
-    const REPULSION_STRENGTH = 2; // Gentle push
-    const DRAG = 0.95; // Friction
+    // --- CONFIG ---
+    const PARTICLE_COUNT = 50; // Fewer particles
+    const MOUSE_RADIUS = 300;  // Wider interaction area
+    const PUSH_FORCE = 20;     // Much gentler push (was 60)
+    const DRAG_SPEED = 0.02;   // Slower return to origin
 
     // --- TYPES ---
     type Particle = {
-        x: number;
+        originX: number; 
+        originY: number; 
+        x: number;       
         y: number;
-        vx: number;
-        vy: number;
+        offX: number;    
+        offY: number;
         size: number;
-        angle: number;
-        spin: number;
-        alpha: number;
-        baseVx: number;
-        baseVy: number;
+        aspect: number; // For non-square shapes
+        rotation: number;
+        rotSpeed: number;
+        opacity: number;
+        fallSpeed: number;
     };
     
     const particles = useRef<Particle[]>([]);
 
-    // Initialize Particles
     const initParticles = useCallback((width: number, height: number) => {
         particles.current = [];
         for (let i = 0; i < PARTICLE_COUNT; i++) {
             particles.current.push({
-                x: Math.random() * width,
-                y: Math.random() * height,
-                vx: 0,
-                vy: 0,
-                baseVx: (Math.random() - 0.5) * 0.5, // Very slow horizontal drift
-                baseVy: Math.random() * 0.5 + 0.2,   // Slow downward fall
-                size: Math.random() * 3 + 1,         // Small ash flakes
-                angle: Math.random() * 360,
-                spin: (Math.random() - 0.5) * 2,
-                alpha: Math.random() * 0.6 + 0.2
+                originX: Math.random() * width,
+                originY: Math.random() * height,
+                x: 0,
+                y: 0,
+                offX: 0,
+                offY: 0,
+                size: Math.random() * 5 + 3, // Bigger: 3px to 8px
+                aspect: Math.random() * 0.5 + 0.5, // 0.5 to 1.0 aspect ratio
+                rotation: Math.random() * 360,
+                rotSpeed: (Math.random() - 0.5) * 0.5, // Slower rotation
+                opacity: Math.random() * 0.4 + 0.1,
+                fallSpeed: Math.random() * 0.3 + 0.1 // Very slow fall
             });
         }
     }, []);
 
-    // Animation Loop
     const animate = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -58,57 +60,63 @@ const UpsideDownEffect: React.FC = () => {
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        particles.current.forEach(p => {
-            // 1. Calculate Distance to Mouse
-            const dx = p.x - mouseRef.current.x;
-            const dy = p.y - mouseRef.current.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+        const mouse = mouseRef.current;
 
-            // 2. Repulsion Physics (Push away if close)
-            if (distance < REPULSION_RADIUS) {
-                const forceDirectionX = dx / distance;
-                const forceDirectionY = dy / distance;
-                const force = (REPULSION_RADIUS - distance) / REPULSION_RADIUS;
-                const strength = force * REPULSION_STRENGTH;
+        particles.current.forEach(p => {
+            // 1. Environmental Drift (Falling Ash)
+            p.originY += p.fallSpeed;
+            if (p.originY > canvas.height + 50) p.originY = -50;
+            
+            p.rotation += p.rotSpeed;
+
+            // 2. Mouse Interaction (Gentle Repulsion)
+            const dx = p.originX - mouse.x;
+            const dy = p.originY - mouse.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            let targetOffX = 0;
+            let targetOffY = 0;
+
+            if (dist < MOUSE_RADIUS) {
+                const angle = Math.atan2(dy, dx);
+                // Inverse smoothstep for gentle falloff
+                const force = Math.pow((MOUSE_RADIUS - dist) / MOUSE_RADIUS, 2); 
+                const moveDist = force * PUSH_FORCE;
                 
-                p.vx += forceDirectionX * strength;
-                p.vy += forceDirectionY * strength;
+                targetOffX = Math.cos(angle) * moveDist;
+                targetOffY = Math.sin(angle) * moveDist;
             }
 
-            // 3. Apply Velocity & Drag (Return to natural drift)
-            p.x += p.vx + p.baseVx;
-            p.y += p.vy + p.baseVy;
-            p.vx *= DRAG;
-            p.vy *= DRAG;
-            
-            p.angle += p.spin;
+            // 3. Smooth Interpolation (Damping)
+            p.offX += (targetOffX - p.offX) * DRAG_SPEED;
+            p.offY += (targetOffY - p.offY) * DRAG_SPEED;
 
-            // 4. Wrap around screen
-            if (p.y > canvas.height) p.y = -10;
-            if (p.x > canvas.width) p.x = 0;
-            if (p.x < 0) p.x = canvas.width;
+            // 4. Calculate Final Position
+            p.x = p.originX + p.offX;
+            p.y = p.originY + p.offY;
 
-            // 5. Draw Particle (Ash Shard)
+            // 5. Draw (Irregular Shard)
             ctx.save();
             ctx.translate(p.x, p.y);
-            ctx.rotate((p.angle * Math.PI) / 180);
-            ctx.globalAlpha = p.alpha;
-            ctx.fillStyle = '#b0b8c4'; // Blue-ish grey ash
-            // Draw irregular shape (diamond/shard)
+            ctx.rotate((p.rotation * Math.PI) / 180);
+            ctx.scale(1, p.aspect); // Apply aspect ratio
+            ctx.globalAlpha = p.opacity;
+            ctx.fillStyle = '#9ca3af'; // Zinc-400
+            
             ctx.beginPath();
             ctx.moveTo(0, -p.size);
-            ctx.lineTo(p.size / 2, 0);
+            ctx.lineTo(p.size * 0.5, 0);
             ctx.lineTo(0, p.size);
-            ctx.lineTo(-p.size / 2, 0);
+            ctx.lineTo(-p.size * 0.5, 0);
             ctx.closePath();
             ctx.fill();
+            
             ctx.restore();
         });
 
         requestRef.current = requestAnimationFrame(animate);
     }, []);
 
-    // Setup Canvas & Listeners
     useEffect(() => {
         if (enabled) {
             const handleResize = () => {
@@ -118,7 +126,6 @@ const UpsideDownEffect: React.FC = () => {
                     initParticles(window.innerWidth, window.innerHeight);
                 }
             };
-
             const handleMouseMove = (e: MouseEvent) => {
                 mouseRef.current = { x: e.clientX, y: e.clientY };
             };
@@ -126,9 +133,8 @@ const UpsideDownEffect: React.FC = () => {
             window.addEventListener('resize', handleResize);
             window.addEventListener('mousemove', handleMouseMove);
             
-            handleResize(); // Init
+            handleResize(); 
             requestRef.current = requestAnimationFrame(animate);
-
             document.body.classList.add('upside-down-mode');
 
             return () => {
@@ -158,102 +164,105 @@ const UpsideDownEffect: React.FC = () => {
         <>
             <button 
                 onClick={() => setEnabled(false)}
-                className="fixed bottom-6 left-6 z-[9999] flex items-center justify-center w-12 h-12 bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-lg"
+                className="fixed bottom-6 left-6 z-[9999] flex items-center justify-center w-12 h-12 bg-zinc-800/50 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-lg"
                 title="Exit Reality"
             >
                 <X className="w-5 h-5" />
             </button>
 
-            {/* --- GLOBAL CSS OVERRIDES FOR EXTREME TRANSPARENCY --- */}
+            {/* GLOBAL TRANSPARENCY OVERRIDES */}
             <style>{`
-                /* 1. Force Backgrounds to be visible through content */
+                /* 
+                   OVERRIDE STRATEGY:
+                   1. Redefine CSS Variables to be transparent.
+                   2. Force specific classes to be transparent with !important.
+                */
+
                 body.upside-down-mode {
-                    background-color: #000000 !important;
+                    /* Redefine theme variables to transparency */
+                    --bg-main: rgba(0, 0, 0, 0.05) !important;
+                    --bg-panel: rgba(20, 20, 25, 0.2) !important;
+                    --bg-card: rgba(30, 30, 35, 0.2) !important;
+                    background-color: #050505 !important;
                 }
 
-                /* 2. Target specific structure elements to be transparent */
-                body.upside-down-mode nav, 
+                /* Specific Container Overrides */
+                body.upside-down-mode #root,
+                body.upside-down-mode nav,
                 body.upside-down-mode aside,
-                body.upside-down-mode header,
-                body.upside-down-mode main {
-                    background-color: rgba(0, 0, 0, 0.1) !important; /* 10% opacity as requested */
-                    backdrop-filter: blur(2px) !important;
-                    border-color: rgba(255, 255, 255, 0.05) !important;
-                }
-
-                /* 3. Target Tailwind Utility Classes used in V2 Components */
-                body.upside-down-mode .bg-background,
-                body.upside-down-mode .bg-panel,
-                body.upside-down-mode .bg-card,
-                body.upside-down-mode .bg-zinc-950,
-                body.upside-down-mode .bg-zinc-900,
-                body.upside-down-mode .bg-zinc-800,
-                body.upside-down-mode .bg-black {
-                    background-color: rgba(0, 0, 0, 0.15) !important;
-                    box-shadow: none !important;
+                body.upside-down-mode main,
+                body.upside-down-mode header {
+                    background-color: transparent !important;
+                    border-color: rgba(255, 255, 255, 0.1) !important;
+                    backdrop-filter: none !important; /* Remove blur to see particles clearly */
                 }
                 
-                /* 4. Calendar specific transparency */
+                /* Force transparency on common background utilities */
+                body.upside-down-mode .bg-background,
+                body.upside-down-mode .bg-panel,
+                body.upside-down-mode .bg-black,
+                body.upside-down-mode .bg-zinc-950,
+                body.upside-down-mode .bg-zinc-900,
+                body.upside-down-mode .bg-\[\#050505\],
+                body.upside-down-mode .bg-\[\#09090b\],
+                body.upside-down-mode .bg-\[\#020202\] {
+                    background-color: rgba(10, 10, 15, 0.3) !important;
+                    backdrop-filter: blur(2px) !important; /* Slight blur for readability */
+                }
+
+                /* Calendar Specifics */
                 body.upside-down-mode .bg-white\\/\\[0\\.01\\], 
                 body.upside-down-mode .bg-white\\/\\[0\\.04\\] {
                     background-color: transparent !important;
                 }
+                
+                /* Text Contrast Bump */
+                body.upside-down-mode .text-zinc-900 { color: #ddd !important; }
+                body.upside-down-mode .text-text-main { text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
 
-                /* 5. Reduce Text Contrast slightly to blend */
-                body.upside-down-mode .text-zinc-900 { color: #ccc !important; }
-
-                /* 6. Animations */
-                @keyframes deep-flash {
+                /* Animations */
+                @keyframes flash-red {
                     0%, 100% { opacity: 0; }
-                    2% { opacity: 0.8; filter: brightness(1.2); }
-                    3% { opacity: 0.1; }
-                    6% { opacity: 0.4; }
-                    50% { opacity: 0; }
+                    2% { opacity: 0.8; filter: brightness(1.5); }
+                    3% { opacity: 0.2; }
+                    6% { opacity: 0.5; }
+                    15% { opacity: 0; }
                 }
-
-                @keyframes slow-fog {
-                    0% { background-position: 0% 0%; }
-                    100% { background-position: 100% 0%; }
+                
+                @keyframes fog-move {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(-50%); }
                 }
             `}</style>
 
-            {/* --- BACKGROUND LAYER (Atmosphere & Lighting) --- */}
-            {/* z-index -1 to sit BEHIND the app content */}
-            <div className="fixed inset-0 z-[-1] pointer-events-none overflow-hidden select-none">
+            {/* BACKGROUND ATMOSPHERE (Fixed z-index -1) */}
+            <div className="fixed inset-0 z-[-1] pointer-events-none overflow-hidden select-none bg-[#03050a]">
                 
-                {/* 1. Deep Void Base */}
-                <div className="absolute inset-0 bg-[#03050a]" />
+                {/* 1. Base Gradient */}
+                <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a12] to-[#020205]" />
 
-                {/* 2. Red Internal Lightning (Behind the fog to look volumetric) */}
-                <div className="absolute inset-0 mix-blend-screen">
-                     {/* Giant distant glow */}
-                     <div className="absolute -top-[20%] -left-[10%] w-[80vw] h-[80vw] bg-[radial-gradient(circle,rgba(255,0,0,0.15)_0%,transparent_70%)] animate-[pulse_8s_infinite]" />
-                     
-                     {/* Sharp flashes */}
-                     <div className="absolute top-[10%] left-[30%] w-[60vw] h-[60vw] bg-[radial-gradient(circle,rgba(255,50,50,0.5)_0%,transparent_60%)] animate-[deep-flash_12s_infinite_linear]" />
-                     <div className="absolute bottom-[0%] right-[10%] w-[50vw] h-[50vw] bg-[radial-gradient(circle,rgba(200,20,20,0.4)_0%,transparent_60%)] animate-[deep-flash_19s_infinite_linear]" style={{ animationDelay: '5s' }} />
+                {/* 2. Lightning Flashes (Behind Fog) */}
+                <div className="absolute inset-0 z-0 mix-blend-screen">
+                     <div className="absolute top-[-20%] left-[10%] w-[90vw] h-[90vw] bg-[radial-gradient(circle,rgba(220,40,40,0.4)_0%,transparent_70%)] animate-[flash-red_12s_infinite_linear]" />
+                     <div className="absolute bottom-[-10%] right-[-10%] w-[80vw] h-[80vw] bg-[radial-gradient(circle,rgba(180,30,30,0.3)_0%,transparent_60%)] animate-[flash-red_18s_infinite_linear]" style={{ animationDelay: '7s' }} />
                 </div>
 
-                {/* 3. Rolling Fog / Clouds Texture */}
-                <div className="absolute inset-0 opacity-50 mix-blend-overlay">
-                     <svg className="hidden">
-                        <filter id="cloud-texture">
-                            <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="5" seed="10" />
-                            <feColorMatrix type="matrix" values="0 0 0 0 0.2  0 0 0 0 0.3  0 0 0 0 0.4  0 0 0 1 0" />
-                        </filter>
-                    </svg>
+                {/* 3. Rolling Fog (SVG Noise - Stronger Opacity) */}
+                <div className="absolute inset-0 z-10 opacity-40 mix-blend-overlay">
                     <div 
-                        className="absolute inset-0 w-[200%] h-full animate-[slow-fog_60s_linear_infinite]"
-                        style={{ filter: 'url(#cloud-texture)' }} 
+                        className="absolute inset-0 w-[200%] h-full animate-[fog-move_80s_linear_infinite]"
+                        style={{ 
+                            background: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 400 400\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.005\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\' opacity=\'1\'/%3E%3C/svg%3E")',
+                            backgroundSize: 'cover'
+                        }} 
                     />
                 </div>
 
                 {/* 4. Vignette */}
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#000000_100%)] opacity-90" />
+                <div className="absolute inset-0 z-20 bg-[radial-gradient(circle_at_center,transparent_0%,#000000_120%)] opacity-80" />
             </div>
 
-            {/* --- FOREGROUND LAYER (Canvas Particles) --- */}
-            {/* z-index 9999 to sit ON TOP of everything */}
+            {/* FOREGROUND PARTICLES (Canvas z-index 9999) */}
             <canvas 
                 ref={canvasRef}
                 className="fixed inset-0 z-[9999] pointer-events-none"

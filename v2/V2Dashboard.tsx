@@ -47,7 +47,7 @@ const V2Dashboard: React.FC = () => {
     };
 
     return (
-        <div className="flex h-screen w-screen bg-background text-text-main overflow-hidden font-sans selection:bg-indigo-500/30">
+        <div className="flex h-screen w-screen text-text-main overflow-hidden font-sans selection:bg-indigo-500/30 relative">
             <ContextMenu onEditPoster={handleEditPoster} />
             <UpsideDownEffect />
             

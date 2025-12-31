@@ -234,12 +234,12 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
             )}
 
             <aside className={`
-                flex flex-col bg-[#050505] z-[100] overflow-hidden
+                flex flex-col bg-background z-[100] overflow-hidden
                 xl:w-[320px] xl:border-l xl:border-white/5 xl:shrink-0 xl:relative xl:h-full xl:translate-y-0 xl:rounded-none xl:border-t-0
                 fixed bottom-0 left-0 right-0 h-[80vh] rounded-t-[2.5rem] border-t border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.9)] transition-transform duration-300 cubic-bezier(0.2, 0, 0, 1)
                 ${isOpen ? 'translate-y-0' : 'translate-y-[110%] xl:translate-y-0'}
             `}>
-                <div className="xl:hidden shrink-0 pt-4 pb-2 px-6 flex items-center justify-between bg-zinc-950 border-b border-white/5 relative">
+                <div className="xl:hidden shrink-0 pt-4 pb-2 px-6 flex items-center justify-between bg-panel border-b border-white/5 relative">
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-zinc-800 rounded-full" />
                     <div className="mt-4">
                         <h2 className="text-lg font-black text-white">{format(selectedDay, 'EEEE')}</h2>
@@ -250,7 +250,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#050505]">
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-background">
                     {dayEps.length > 0 ? (
                         <div className="flex flex-col pb-10 xl:pb-0">
                             {Object.values(groupedEps).map((group, idx) => (
@@ -268,7 +268,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                     )}
                 </div>
 
-                <footer className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-white/5 bg-zinc-950/40">
+                <footer className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-white/5 bg-panel/40">
                     <div className="flex items-center gap-3">
                         {user?.is_cloud ? (
                              <div className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all ${isSyncing ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-emerald-500/10 border-emerald-500/20'}`}>

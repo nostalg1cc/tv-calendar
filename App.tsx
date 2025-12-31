@@ -104,7 +104,7 @@ const App: React.FC = () => {
     >
         <HashRouter>
             <AuthListener />
-            <div className="bg-[#020202] text-zinc-100 min-h-screen font-sans antialiased selection:bg-indigo-500/30">
+            <div className="text-zinc-100 min-h-screen font-sans antialiased selection:bg-indigo-500/30">
                 <Routes>
                     <Route path="/login" element={<V2LoginPage />} />
                     <Route path="/*" element={

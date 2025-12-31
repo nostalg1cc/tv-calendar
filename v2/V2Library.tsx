@@ -41,13 +41,13 @@ const V2Library: React.FC = () => {
     }, [watchlist, typeFilter, search, sort]);
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-[#050505] overflow-hidden">
+        <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
             {/* Header Stats */}
-            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-zinc-950/50">
+            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-panel/50">
                 <div className="flex items-center gap-6">
                     <div>
                         <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Total Items</p>
-                        <p className="text-xl font-black text-white">{watchlist.length}</p>
+                        <p className="text-xl font-black text-text-main">{watchlist.length}</p>
                     </div>
                     <div className="w-px h-8 bg-white/10" />
                     <div className="flex gap-4">
@@ -76,7 +76,7 @@ const V2Library: React.FC = () => {
             </div>
 
             {/* Toolbar */}
-            <div className="px-6 py-2 border-b border-white/5 flex items-center justify-between bg-[#050505]">
+            <div className="px-6 py-2 border-b border-white/5 flex items-center justify-between bg-background">
                 <div className="flex gap-2">
                     {(['all', 'tv', 'movie'] as const).map(t => (
                         <button 
