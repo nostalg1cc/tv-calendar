@@ -1,30 +1,146 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Zap, X } from 'lucide-react';
 
 const UpsideDownEffect: React.FC = () => {
     const [enabled, setEnabled] = useState(false);
-    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const requestRef = useRef<number>();
+    const mouseRef = useRef({ x: -1000, y: -1000 });
+    
+    // --- PARTICLE SYSTEM CONFIG ---
+    const PARTICLE_COUNT = 150;
+    const REPULSION_RADIUS = 150;
+    const REPULSION_STRENGTH = 2; // Gentle push
+    const DRAG = 0.95; // Friction
 
-    // Inject transparency styles into the document when enabled
+    // --- TYPES ---
+    type Particle = {
+        x: number;
+        y: number;
+        vx: number;
+        vy: number;
+        size: number;
+        angle: number;
+        spin: number;
+        alpha: number;
+        baseVx: number;
+        baseVy: number;
+    };
+    
+    const particles = useRef<Particle[]>([]);
+
+    // Initialize Particles
+    const initParticles = useCallback((width: number, height: number) => {
+        particles.current = [];
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            particles.current.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: 0,
+                vy: 0,
+                baseVx: (Math.random() - 0.5) * 0.5, // Very slow horizontal drift
+                baseVy: Math.random() * 0.5 + 0.2,   // Slow downward fall
+                size: Math.random() * 3 + 1,         // Small ash flakes
+                angle: Math.random() * 360,
+                spin: (Math.random() - 0.5) * 2,
+                alpha: Math.random() * 0.6 + 0.2
+            });
+        }
+    }, []);
+
+    // Animation Loop
+    const animate = useCallback(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        particles.current.forEach(p => {
+            // 1. Calculate Distance to Mouse
+            const dx = p.x - mouseRef.current.x;
+            const dy = p.y - mouseRef.current.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // 2. Repulsion Physics (Push away if close)
+            if (distance < REPULSION_RADIUS) {
+                const forceDirectionX = dx / distance;
+                const forceDirectionY = dy / distance;
+                const force = (REPULSION_RADIUS - distance) / REPULSION_RADIUS;
+                const strength = force * REPULSION_STRENGTH;
+                
+                p.vx += forceDirectionX * strength;
+                p.vy += forceDirectionY * strength;
+            }
+
+            // 3. Apply Velocity & Drag (Return to natural drift)
+            p.x += p.vx + p.baseVx;
+            p.y += p.vy + p.baseVy;
+            p.vx *= DRAG;
+            p.vy *= DRAG;
+            
+            p.angle += p.spin;
+
+            // 4. Wrap around screen
+            if (p.y > canvas.height) p.y = -10;
+            if (p.x > canvas.width) p.x = 0;
+            if (p.x < 0) p.x = canvas.width;
+
+            // 5. Draw Particle (Ash Shard)
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate((p.angle * Math.PI) / 180);
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = '#b0b8c4'; // Blue-ish grey ash
+            // Draw irregular shape (diamond/shard)
+            ctx.beginPath();
+            ctx.moveTo(0, -p.size);
+            ctx.lineTo(p.size / 2, 0);
+            ctx.lineTo(0, p.size);
+            ctx.lineTo(-p.size / 2, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        });
+
+        requestRef.current = requestAnimationFrame(animate);
+    }, []);
+
+    // Setup Canvas & Listeners
     useEffect(() => {
         if (enabled) {
-            document.body.classList.add('upside-down-mode');
-            const handleMouseMove = (e: MouseEvent) => {
-                // Calculate normalized mouse position (-1 to 1)
-                const x = (e.clientX / window.innerWidth) * 2 - 1;
-                const y = (e.clientY / window.innerHeight) * 2 - 1;
-                setMousePos({ x, y });
+            const handleResize = () => {
+                if (canvasRef.current) {
+                    canvasRef.current.width = window.innerWidth;
+                    canvasRef.current.height = window.innerHeight;
+                    initParticles(window.innerWidth, window.innerHeight);
+                }
             };
+
+            const handleMouseMove = (e: MouseEvent) => {
+                mouseRef.current = { x: e.clientX, y: e.clientY };
+            };
+
+            window.addEventListener('resize', handleResize);
             window.addEventListener('mousemove', handleMouseMove);
+            
+            handleResize(); // Init
+            requestRef.current = requestAnimationFrame(animate);
+
+            document.body.classList.add('upside-down-mode');
+
             return () => {
-                document.body.classList.remove('upside-down-mode');
+                window.removeEventListener('resize', handleResize);
                 window.removeEventListener('mousemove', handleMouseMove);
+                if (requestRef.current) cancelAnimationFrame(requestRef.current);
+                document.body.classList.remove('upside-down-mode');
             };
         } else {
             document.body.classList.remove('upside-down-mode');
         }
-    }, [enabled]);
+    }, [enabled, animate, initParticles]);
 
     if (!enabled) {
         return (
@@ -48,77 +164,54 @@ const UpsideDownEffect: React.FC = () => {
                 <X className="w-5 h-5" />
             </button>
 
-            {/* --- GLOBAL CSS OVERRIDES FOR TRANSPARENCY --- */}
+            {/* --- GLOBAL CSS OVERRIDES FOR EXTREME TRANSPARENCY --- */}
             <style>{`
-                /* 1. Base Transparency */
+                /* 1. Force Backgrounds to be visible through content */
                 body.upside-down-mode {
-                    background-color: #020202 !important;
+                    background-color: #000000 !important;
                 }
 
-                /* 2. Force Main Containers Transparent */
+                /* 2. Target specific structure elements to be transparent */
+                body.upside-down-mode nav, 
+                body.upside-down-mode aside,
+                body.upside-down-mode header,
+                body.upside-down-mode main {
+                    background-color: rgba(0, 0, 0, 0.1) !important; /* 10% opacity as requested */
+                    backdrop-filter: blur(2px) !important;
+                    border-color: rgba(255, 255, 255, 0.05) !important;
+                }
+
+                /* 3. Target Tailwind Utility Classes used in V2 Components */
                 body.upside-down-mode .bg-background,
                 body.upside-down-mode .bg-panel,
                 body.upside-down-mode .bg-card,
-                body.upside-down-mode .bg-\[\#020202\],
-                body.upside-down-mode .bg-\[\#09090b\],
                 body.upside-down-mode .bg-zinc-950,
                 body.upside-down-mode .bg-zinc-900,
+                body.upside-down-mode .bg-zinc-800,
                 body.upside-down-mode .bg-black {
-                    background-color: rgba(5, 10, 20, 0.65) !important; /* Slight dark tint to keep text readable */
-                    backdrop-filter: blur(0px); /* Reduce blur so we can see the particles clearly */
-                    border-color: rgba(255,255,255,0.08) !important;
+                    background-color: rgba(0, 0, 0, 0.15) !important;
+                    box-shadow: none !important;
                 }
-
-                /* 3. Specific Component Overrides */
                 
-                /* Sidebar */
-                body.upside-down-mode nav {
-                    background-color: rgba(0, 0, 0, 0.4) !important;
-                    border-right: 1px solid rgba(255,255,255,0.05) !important;
-                }
-
-                /* Agenda / Right Sidebar */
-                body.upside-down-mode aside {
-                    background-color: rgba(0, 0, 0, 0.5) !important;
-                    border-left: 1px solid rgba(255,255,255,0.05) !important;
-                }
-
-                /* Calendar Headers */
-                body.upside-down-mode header,
-                body.upside-down-mode .sticky {
-                    background-color: rgba(0, 0, 0, 0.6) !important;
-                    backdrop-filter: blur(8px) !important;
-                }
-
-                /* Calendar Empty Cells */
-                body.upside-down-mode .bg-white\/\[0\.01\] {
+                /* 4. Calendar specific transparency */
+                body.upside-down-mode .bg-white\\/\\[0\\.01\\], 
+                body.upside-down-mode .bg-white\\/\\[0\\.04\\] {
                     background-color: transparent !important;
                 }
 
-                /* Reduce gradient opacities on posters so effects bleed through images slightly less, 
-                   but we want the UI background to be the main transparent element */
-                
-                /* --- ANIMATIONS --- */
-                
-                @keyframes flash-internal {
-                    0%, 90% { opacity: 0; }
-                    92% { opacity: 0.6; filter: brightness(1.5); } 
-                    93% { opacity: 0.2; }
-                    94% { opacity: 0.4; }
-                    96% { opacity: 0; }
+                /* 5. Reduce Text Contrast slightly to blend */
+                body.upside-down-mode .text-zinc-900 { color: #ccc !important; }
+
+                /* 6. Animations */
+                @keyframes deep-flash {
+                    0%, 100% { opacity: 0; }
+                    2% { opacity: 0.8; filter: brightness(1.2); }
+                    3% { opacity: 0.1; }
+                    6% { opacity: 0.4; }
+                    50% { opacity: 0; }
                 }
 
-                @keyframes spore-drift {
-                    0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
-                    10% { opacity: 1; }
-                    25% { transform: translate(20px, 20vh) rotate(90deg); }
-                    50% { transform: translate(-15px, 40vh) rotate(180deg); }
-                    75% { transform: translate(10px, 60vh) rotate(270deg); }
-                    90% { opacity: 0.8; }
-                    100% { transform: translate(-5px, 80vh) rotate(360deg); opacity: 0; }
-                }
-
-                @keyframes fog-roll {
+                @keyframes slow-fog {
                     0% { background-position: 0% 0%; }
                     100% { background-position: 100% 0%; }
                 }
@@ -129,67 +222,42 @@ const UpsideDownEffect: React.FC = () => {
             <div className="fixed inset-0 z-[-1] pointer-events-none overflow-hidden select-none">
                 
                 {/* 1. Deep Void Base */}
-                <div className="absolute inset-0 bg-[#02050c]" />
+                <div className="absolute inset-0 bg-[#03050a]" />
 
                 {/* 2. Red Internal Lightning (Behind the fog to look volumetric) */}
-                <div className="absolute inset-0">
-                     <div className="absolute top-[-20%] left-[20%] w-[60vw] h-[60vw] bg-[radial-gradient(circle,rgba(200,20,20,0.6)_0%,transparent_70%)] animate-[flash-internal_8s_infinite_ease-in-out] mix-blend-screen opacity-60" />
-                     <div className="absolute bottom-[10%] right-[-10%] w-[80vw] h-[80vw] bg-[radial-gradient(circle,rgba(255,0,0,0.4)_0%,transparent_60%)] animate-[flash-internal_11s_infinite_linear] mix-blend-screen opacity-50" style={{ animationDelay: '2s' }} />
+                <div className="absolute inset-0 mix-blend-screen">
+                     {/* Giant distant glow */}
+                     <div className="absolute -top-[20%] -left-[10%] w-[80vw] h-[80vw] bg-[radial-gradient(circle,rgba(255,0,0,0.15)_0%,transparent_70%)] animate-[pulse_8s_infinite]" />
+                     
+                     {/* Sharp flashes */}
+                     <div className="absolute top-[10%] left-[30%] w-[60vw] h-[60vw] bg-[radial-gradient(circle,rgba(255,50,50,0.5)_0%,transparent_60%)] animate-[deep-flash_12s_infinite_linear]" />
+                     <div className="absolute bottom-[0%] right-[10%] w-[50vw] h-[50vw] bg-[radial-gradient(circle,rgba(200,20,20,0.4)_0%,transparent_60%)] animate-[deep-flash_19s_infinite_linear]" style={{ animationDelay: '5s' }} />
                 </div>
 
                 {/* 3. Rolling Fog / Clouds Texture */}
-                <div className="absolute inset-0 opacity-40 mix-blend-overlay">
+                <div className="absolute inset-0 opacity-50 mix-blend-overlay">
                      <svg className="hidden">
                         <filter id="cloud-texture">
-                            <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="4" seed="5" />
+                            <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="5" seed="10" />
                             <feColorMatrix type="matrix" values="0 0 0 0 0.2  0 0 0 0 0.3  0 0 0 0 0.4  0 0 0 1 0" />
                         </filter>
                     </svg>
                     <div 
-                        className="absolute inset-0 w-[200%] h-full animate-[fog-roll_80s_linear_infinite]"
+                        className="absolute inset-0 w-[200%] h-full animate-[slow-fog_60s_linear_infinite]"
                         style={{ filter: 'url(#cloud-texture)' }} 
                     />
                 </div>
 
                 {/* 4. Vignette */}
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,#000000_100%)] opacity-80" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#000000_100%)] opacity-90" />
             </div>
 
-
-            {/* --- FOREGROUND LAYER (Particles) --- */}
-            {/* z-index 9999 to sit ON TOP of the app content */}
-            <div 
-                className="fixed inset-0 z-[9999] pointer-events-none overflow-hidden select-none transition-transform duration-200 ease-out"
-                style={{
-                    transform: `translate(${mousePos.x * -20}px, ${mousePos.y * -20}px)` // Parallax effect against mouse
-                }}
-            >
-                {[...Array(60)].map((_, i) => {
-                    const left = Math.random() * 100;
-                    const duration = Math.random() * 20 + 20; // 20s - 40s (Very Slow)
-                    const delay = Math.random() * -40;
-                    const size = Math.random() * 3 + 2;
-                    const isRound = Math.random() > 0.3; // 70% round spores
-                    
-                    return (
-                        <div 
-                            key={i}
-                            className={`
-                                absolute bg-slate-400/60 animate-[spore-drift_linear_infinite] shadow-[0_0_8px_rgba(200,200,255,0.2)]
-                                ${isRound ? 'rounded-full' : 'rounded-sm'} blur-[1px]
-                            `}
-                            style={{
-                                width: size + 'px',
-                                height: (isRound ? size : size * 1.2) + 'px', 
-                                left: left + '%',
-                                top: '-10%', // Start above screen
-                                animationDuration: duration + 's',
-                                animationDelay: delay + 's',
-                            }}
-                        />
-                    );
-                })}
-            </div>
+            {/* --- FOREGROUND LAYER (Canvas Particles) --- */}
+            {/* z-index 9999 to sit ON TOP of everything */}
+            <canvas 
+                ref={canvasRef}
+                className="fixed inset-0 z-[9999] pointer-events-none"
+            />
         </>
     );
 };
