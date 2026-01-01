@@ -1,18 +1,20 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Zap, X } from 'lucide-react';
+import React, { useEffect, useRef, useCallback } from 'react';
+import { useStore } from '../store';
 
 const UpsideDownEffect: React.FC = () => {
-    const [enabled, setEnabled] = useState(false);
+    const { settings } = useStore();
+    const enabled = settings.upsideDownMode || false;
+    
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const requestRef = useRef<number>();
+    const requestRef = useRef<number>(0);
     const mouseRef = useRef({ x: -1000, y: -1000 });
     
     // --- CONFIG ---
-    const PARTICLE_COUNT = 50; // Fewer particles
-    const MOUSE_RADIUS = 300;  // Wider interaction area
-    const PUSH_FORCE = 20;     // Much gentler push (was 60)
-    const DRAG_SPEED = 0.02;   // Slower return to origin
+    const PARTICLE_COUNT = 50; 
+    const MOUSE_RADIUS = 300; 
+    const PUSH_FORCE = 20; 
+    const DRAG_SPEED = 0.02;
 
     // --- TYPES ---
     type Particle = {
@@ -23,7 +25,7 @@ const UpsideDownEffect: React.FC = () => {
         offX: number;    
         offY: number;
         size: number;
-        aspect: number; // For non-square shapes
+        aspect: number; 
         rotation: number;
         rotSpeed: number;
         opacity: number;
@@ -42,12 +44,12 @@ const UpsideDownEffect: React.FC = () => {
                 y: 0,
                 offX: 0,
                 offY: 0,
-                size: Math.random() * 5 + 3, // Bigger: 3px to 8px
-                aspect: Math.random() * 0.5 + 0.5, // 0.5 to 1.0 aspect ratio
+                size: Math.random() * 5 + 3,
+                aspect: Math.random() * 0.5 + 0.5,
                 rotation: Math.random() * 360,
-                rotSpeed: (Math.random() - 0.5) * 0.5, // Slower rotation
+                rotSpeed: (Math.random() - 0.5) * 0.5,
                 opacity: Math.random() * 0.4 + 0.1,
-                fallSpeed: Math.random() * 0.3 + 0.1 // Very slow fall
+                fallSpeed: Math.random() * 0.3 + 0.1
             });
         }
     }, []);
@@ -63,13 +65,13 @@ const UpsideDownEffect: React.FC = () => {
         const mouse = mouseRef.current;
 
         particles.current.forEach(p => {
-            // 1. Environmental Drift (Falling Ash)
+            // 1. Environmental Drift 
             p.originY += p.fallSpeed;
             if (p.originY > canvas.height + 50) p.originY = -50;
             
             p.rotation += p.rotSpeed;
 
-            // 2. Mouse Interaction (Gentle Repulsion)
+            // 2. Mouse Interaction
             const dx = p.originX - mouse.x;
             const dy = p.originY - mouse.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -79,7 +81,6 @@ const UpsideDownEffect: React.FC = () => {
 
             if (dist < MOUSE_RADIUS) {
                 const angle = Math.atan2(dy, dx);
-                // Inverse smoothstep for gentle falloff
                 const force = Math.pow((MOUSE_RADIUS - dist) / MOUSE_RADIUS, 2); 
                 const moveDist = force * PUSH_FORCE;
                 
@@ -87,7 +88,7 @@ const UpsideDownEffect: React.FC = () => {
                 targetOffY = Math.sin(angle) * moveDist;
             }
 
-            // 3. Smooth Interpolation (Damping)
+            // 3. Smooth Interpolation
             p.offX += (targetOffX - p.offX) * DRAG_SPEED;
             p.offY += (targetOffY - p.offY) * DRAG_SPEED;
 
@@ -95,13 +96,13 @@ const UpsideDownEffect: React.FC = () => {
             p.x = p.originX + p.offX;
             p.y = p.originY + p.offY;
 
-            // 5. Draw (Irregular Shard)
+            // 5. Draw 
             ctx.save();
             ctx.translate(p.x, p.y);
             ctx.rotate((p.rotation * Math.PI) / 180);
-            ctx.scale(1, p.aspect); // Apply aspect ratio
+            ctx.scale(1, p.aspect); 
             ctx.globalAlpha = p.opacity;
-            ctx.fillStyle = '#9ca3af'; // Zinc-400
+            ctx.fillStyle = '#9ca3af'; 
             
             ctx.beginPath();
             ctx.moveTo(0, -p.size);
@@ -148,34 +149,20 @@ const UpsideDownEffect: React.FC = () => {
         }
     }, [enabled, animate, initParticles]);
 
-    if (!enabled) {
-        return (
-            <button 
-                onClick={() => setEnabled(true)}
-                className="fixed bottom-6 left-6 z-[9999] group flex items-center justify-center w-12 h-12 bg-red-900/20 hover:bg-red-900/80 text-red-500 hover:text-red-100 rounded-full transition-all duration-500 border border-red-900/50 backdrop-blur-sm shadow-[0_0_20px_rgba(153,27,27,0.3)] hover:shadow-[0_0_30px_rgba(220,38,38,0.6)]"
-                title="Enter the Upside Down"
-            >
-                <Zap className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            </button>
-        );
-    }
+    if (!enabled) return null;
 
     return (
         <>
-            <button 
-                onClick={() => setEnabled(false)}
-                className="fixed bottom-6 left-6 z-[9999] flex items-center justify-center w-12 h-12 bg-zinc-800/50 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded-full transition-all border border-white/10 backdrop-blur-md shadow-lg"
-                title="Exit Reality"
-            >
-                <X className="w-5 h-5" />
-            </button>
-
-            {/* GLOBAL TRANSPARENCY OVERRIDES */}
+            {/* GLOBAL TRANSPARENCY OVERRIDES & FONT */}
             <style>{`
+                /* Import Benguiat or similar if not local */
+                @import url('https://fonts.cdnfonts.com/css/itc-benguiat');
+
                 /* 
                    OVERRIDE STRATEGY:
                    1. Redefine CSS Variables to be transparent.
                    2. Force specific classes to be transparent with !important.
+                   3. Force Font Family
                 */
 
                 body.upside-down-mode {
@@ -184,6 +171,14 @@ const UpsideDownEffect: React.FC = () => {
                     --bg-panel: rgba(20, 20, 25, 0.2) !important;
                     --bg-card: rgba(30, 30, 35, 0.2) !important;
                     background-color: #050505 !important;
+                    
+                    /* Force Font */
+                    font-family: 'ITC Benguiat', 'Benguiat Bold', 'Benguiat', serif !important;
+                }
+
+                /* Override all text elements to use the font */
+                body.upside-down-mode * {
+                     font-family: 'ITC Benguiat', 'Benguiat Bold', 'Benguiat', serif !important;
                 }
 
                 /* Specific Container Overrides */
@@ -194,7 +189,7 @@ const UpsideDownEffect: React.FC = () => {
                 body.upside-down-mode header {
                     background-color: transparent !important;
                     border-color: rgba(255, 255, 255, 0.1) !important;
-                    backdrop-filter: none !important; /* Remove blur to see particles clearly */
+                    backdrop-filter: none !important; 
                 }
                 
                 /* Force transparency on common background utilities */
@@ -207,7 +202,7 @@ const UpsideDownEffect: React.FC = () => {
                 body.upside-down-mode .bg-\[\#09090b\],
                 body.upside-down-mode .bg-\[\#020202\] {
                     background-color: rgba(10, 10, 15, 0.3) !important;
-                    backdrop-filter: blur(2px) !important; /* Slight blur for readability */
+                    backdrop-filter: blur(2px) !important; 
                 }
 
                 /* Calendar Specifics */

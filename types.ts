@@ -106,6 +106,7 @@ export interface AppSettings {
       secret: string;
   };
   showCalendarRatings?: boolean;
+  upsideDownMode?: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -124,7 +125,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   calendarFilterTv: true,
   calendarFilterMovies: true,
   customPosters: {},
-  showCalendarRatings: false
+  showCalendarRatings: false,
+  upsideDownMode: false
 };
 
 export interface WatchedItem {
