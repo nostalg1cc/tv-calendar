@@ -1,4 +1,5 @@
 
+
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { AppSettings, DEFAULT_SETTINGS, TVShow, User, WatchedItem, Reminder } from '../types';
@@ -26,8 +27,16 @@ const applyTheme = (settings: AppSettings) => {
     const root = document.documentElement;
     const body = document.body;
     body.setAttribute('data-font', settings.appFont);
-    const theme = settings.baseTheme === 'auto' ? 'cosmic' : settings.baseTheme;
+    
+    let theme = settings.baseTheme === 'auto' ? 'cosmic' : settings.baseTheme;
+    
+    // Upside Down Mode override
+    if (settings.upsideDownMode) {
+        theme = 'upside-down';
+    }
+
     body.setAttribute('data-base-theme', theme);
+    
     if (theme === 'custom' && settings.customThemeColor) {
         const baseColor = hexToRgb(settings.customThemeColor);
         const white = [255, 255, 255];

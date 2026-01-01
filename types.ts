@@ -1,4 +1,5 @@
 
+
 export interface TVShow {
   id: number;
   name: string;
@@ -71,8 +72,9 @@ export interface User {
 }
 
 export interface AppSettings {
-  baseTheme: 'cosmic' | 'oled' | 'midnight' | 'forest' | 'dawn' | 'light' | 'auto' | 'custom';
+  baseTheme: 'cosmic' | 'oled' | 'midnight' | 'forest' | 'dawn' | 'light' | 'upside-down' | 'auto' | 'custom';
   appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system';
+  themeFontOverride: boolean;
   compactCalendar: boolean;
   timezone: string;
   country: string;
@@ -112,6 +114,7 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   baseTheme: 'cosmic',
   appFont: 'inter',
+  themeFontOverride: true,
   compactCalendar: true,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   country: 'US',

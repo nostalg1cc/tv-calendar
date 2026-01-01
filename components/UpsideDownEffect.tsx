@@ -1,13 +1,14 @@
 
+
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store';
 
 const UpsideDownEffect: React.FC = () => {
     const { settings } = useStore();
-    const enabled = settings.upsideDownMode || false;
+    const enabled = settings.baseTheme === 'upside-down' || !!settings.upsideDownMode;
     
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const requestRef = useRef<number>(0);
+    const requestRef = useRef<number | null>(null);
     const mouseRef = useRef({ x: -1000, y: -1000 });
     
     // --- CONFIG ---
@@ -25,9 +26,6 @@ const UpsideDownEffect: React.FC = () => {
         offX: number;    
         offY: number;
         size: number;
-        aspect: number; 
-        rotation: number;
-        rotSpeed: number;
         opacity: number;
         fallSpeed: number;
     };
@@ -44,11 +42,8 @@ const UpsideDownEffect: React.FC = () => {
                 y: 0,
                 offX: 0,
                 offY: 0,
-                size: Math.random() * 5 + 3,
-                aspect: Math.random() * 0.5 + 0.5,
-                rotation: Math.random() * 360,
-                rotSpeed: (Math.random() - 0.5) * 0.5,
-                opacity: Math.random() * 0.4 + 0.1,
+                size: Math.random() * 3 + 1, // Smaller, ash-like
+                opacity: Math.random() * 0.5 + 0.2,
                 fallSpeed: Math.random() * 0.3 + 0.1
             });
         }
@@ -69,8 +64,6 @@ const UpsideDownEffect: React.FC = () => {
             p.originY += p.fallSpeed;
             if (p.originY > canvas.height + 50) p.originY = -50;
             
-            p.rotation += p.rotSpeed;
-
             // 2. Mouse Interaction
             const dx = p.originX - mouse.x;
             const dy = p.originY - mouse.y;
@@ -96,23 +89,13 @@ const UpsideDownEffect: React.FC = () => {
             p.x = p.originX + p.offX;
             p.y = p.originY + p.offY;
 
-            // 5. Draw 
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.rotate((p.rotation * Math.PI) / 180);
-            ctx.scale(1, p.aspect); 
-            ctx.globalAlpha = p.opacity;
-            ctx.fillStyle = '#9ca3af'; 
-            
+            // 5. Draw (Soft Ash)
             ctx.beginPath();
-            ctx.moveTo(0, -p.size);
-            ctx.lineTo(p.size * 0.5, 0);
-            ctx.lineTo(0, p.size);
-            ctx.lineTo(-p.size * 0.5, 0);
-            ctx.closePath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(180, 180, 190, ${p.opacity})`;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = `rgba(200, 200, 210, 0.5)`;
             ctx.fill();
-            
-            ctx.restore();
         });
 
         requestRef.current = requestAnimationFrame(animate);
@@ -136,16 +119,13 @@ const UpsideDownEffect: React.FC = () => {
             
             handleResize(); 
             requestRef.current = requestAnimationFrame(animate);
-            document.body.classList.add('upside-down-mode');
+            // We don't add the class anymore, we rely on data-base-theme attribute which is set by store
 
             return () => {
                 window.removeEventListener('resize', handleResize);
                 window.removeEventListener('mousemove', handleMouseMove);
                 if (requestRef.current) cancelAnimationFrame(requestRef.current);
-                document.body.classList.remove('upside-down-mode');
             };
-        } else {
-            document.body.classList.remove('upside-down-mode');
         }
     }, [enabled, animate, initParticles]);
 
@@ -153,67 +133,46 @@ const UpsideDownEffect: React.FC = () => {
 
     return (
         <>
-            {/* GLOBAL TRANSPARENCY OVERRIDES & FONT */}
+            {/* THEME SPECIFIC STYLES */}
             <style>{`
-                /* Import Benguiat or similar if not local */
                 @import url('https://fonts.cdnfonts.com/css/itc-benguiat');
 
-                /* 
-                   OVERRIDE STRATEGY:
-                   1. Redefine CSS Variables to be transparent.
-                   2. Force specific classes to be transparent with !important.
-                   3. Force Font Family
-                */
-
-                body.upside-down-mode {
-                    /* Redefine theme variables to transparency */
+                /* Upside Down Theme Overrides */
+                body[data-base-theme="upside-down"] {
+                    /* Ensure font override works if enabled */
+                    ${settings.themeFontOverride ? `font-family: 'ITC Benguiat', 'Benguiat', serif !important;` : ''}
+                    
+                    /* Transparency for particles */
                     --bg-main: rgba(0, 0, 0, 0.05) !important;
                     --bg-panel: rgba(20, 20, 25, 0.2) !important;
                     --bg-card: rgba(30, 30, 35, 0.2) !important;
                     background-color: #050505 !important;
-                    
-                    /* Force Font */
-                    font-family: 'ITC Benguiat', 'Benguiat Bold', 'Benguiat', serif !important;
                 }
 
-                /* Override all text elements to use the font */
-                body.upside-down-mode * {
-                     font-family: 'ITC Benguiat', 'Benguiat Bold', 'Benguiat', serif !important;
-                }
+                ${settings.themeFontOverride ? `
+                body[data-base-theme="upside-down"] * {
+                     font-family: 'ITC Benguiat', 'Benguiat', serif !important;
+                }` : ''}
 
-                /* Specific Container Overrides */
-                body.upside-down-mode #root,
-                body.upside-down-mode nav,
-                body.upside-down-mode aside,
-                body.upside-down-mode main,
-                body.upside-down-mode header {
+                /* Container Overrides for Visibility */
+                body[data-base-theme="upside-down"] #root,
+                body[data-base-theme="upside-down"] nav,
+                body[data-base-theme="upside-down"] aside,
+                body[data-base-theme="upside-down"] main,
+                body[data-base-theme="upside-down"] header {
                     background-color: transparent !important;
                     border-color: rgba(255, 255, 255, 0.1) !important;
                     backdrop-filter: none !important; 
                 }
                 
-                /* Force transparency on common background utilities */
-                body.upside-down-mode .bg-background,
-                body.upside-down-mode .bg-panel,
-                body.upside-down-mode .bg-black,
-                body.upside-down-mode .bg-zinc-950,
-                body.upside-down-mode .bg-zinc-900,
-                body.upside-down-mode .bg-\[\#050505\],
-                body.upside-down-mode .bg-\[\#09090b\],
-                body.upside-down-mode .bg-\[\#020202\] {
+                body[data-base-theme="upside-down"] .bg-background,
+                body[data-base-theme="upside-down"] .bg-panel,
+                body[data-base-theme="upside-down"] .bg-black,
+                body[data-base-theme="upside-down"] .bg-zinc-950,
+                body[data-base-theme="upside-down"] .bg-zinc-900 {
                     background-color: rgba(10, 10, 15, 0.3) !important;
                     backdrop-filter: blur(2px) !important; 
                 }
-
-                /* Calendar Specifics */
-                body.upside-down-mode .bg-white\\/\\[0\\.01\\], 
-                body.upside-down-mode .bg-white\\/\\[0\\.04\\] {
-                    background-color: transparent !important;
-                }
-                
-                /* Text Contrast Bump */
-                body.upside-down-mode .text-zinc-900 { color: #ddd !important; }
-                body.upside-down-mode .text-text-main { text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
 
                 /* Animations */
                 @keyframes flash-red {

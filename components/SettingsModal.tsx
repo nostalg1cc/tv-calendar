@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { X, EyeOff, Sparkles, RefreshCw, AlertTriangle, Moon, Sun, User, Palette, Layers, Database, LogOut, ChevronRight, CheckCircle2, Download, Upload, Monitor, PenTool, Globe, CalendarClock, Signal, Loader2, Ban, Image } from 'lucide-react';
+import { X, EyeOff, Sparkles, RefreshCw, AlertTriangle, Moon, Sun, User, Palette, Layers, Database, LogOut, ChevronRight, CheckCircle2, Download, Upload, Monitor, PenTool, Globe, CalendarClock, Signal, Loader2, Ban, Image, Zap } from 'lucide-react';
 import { useStore } from '../store';
 
 // Mock Themes if context is gone
@@ -34,6 +34,7 @@ const BASE_THEMES = [
     { id: 'midnight', name: 'Midnight', color: '#0f172a', icon: Moon },
     { id: 'forest', name: 'Forest', color: '#05190b', icon: Moon },
     { id: 'dawn', name: 'Dawn', color: '#3f3f46', icon: Moon },
+    { id: 'upside-down', name: 'Upside Down', color: '#450a0a', icon: Zap },
     { id: 'light', name: 'Light', color: '#f4f4f5', icon: Sun },
 ];
 
@@ -57,6 +58,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       { id: 'account', label: 'Account', icon: User },
       { id: 'data', label: 'Data', icon: Database },
   ];
+
+  const Toggle = ({ active, onToggle, label, description }: { active: boolean; onToggle: () => void; label: string; description?: string }) => (
+        <div className="flex items-center justify-between py-3 cursor-pointer group" onClick={onToggle}>
+            <div className="flex-1 pr-4">
+                <h4 className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors">{label}</h4>
+                {description && <p className="text-xs text-zinc-500 mt-1">{description}</p>}
+            </div>
+            <button className={`w-10 h-6 rounded-full transition-colors relative ${active ? 'bg-indigo-600' : 'bg-zinc-700'}`}>
+                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${active ? 'translate-x-4' : ''}`} />
+            </button>
+        </div>
+    );
 
   if (!isOpen) return null;
 
@@ -98,13 +111,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 <div className="space-y-10 max-w-3xl">
                     <section>
                         <h3 className="text-2xl font-bold text-white mb-4">Typography</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                             {FONTS.map(font => (
                                 <button key={font.id} onClick={() => updateSettings({ appFont: font.id as any })} className={`p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group ${settings.appFont === font.id ? 'bg-indigo-600/10 border-indigo-500' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-600'}`}>
                                     <div className="flex justify-between items-start mb-2"><span className={`text-sm font-medium ${settings.appFont === font.id ? 'text-indigo-500' : 'text-zinc-400'}`}>{font.name}</span>{settings.appFont === font.id && <CheckCircle2 className="w-4 h-4 text-indigo-500" />}</div>
                                     <div style={{ fontFamily: font.family }} className="text-2xl text-white">The quick brown fox</div>
                                 </button>
                             ))}
+                        </div>
+                        <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+                             <Toggle 
+                                label="Allow Theme Fonts" 
+                                description="Let themes like Upside Down override the font family." 
+                                active={settings.themeFontOverride} 
+                                onToggle={() => updateSettings({ themeFontOverride: !settings.themeFontOverride })} 
+                            />
                         </div>
                     </section>
                     <div className="h-px bg-white/5" />
@@ -114,7 +135,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {BASE_THEMES.map(theme => (
                                     <button key={theme.id} onClick={() => updateSettings({ baseTheme: theme.id as any })} className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${settings.baseTheme === theme.id ? 'border-indigo-500 bg-zinc-900' : 'border-zinc-800 bg-zinc-900 opacity-60 hover:opacity-100'}`}>
-                                        <div className="w-8 h-8 rounded-full shadow-lg border border-white/10 flex items-center justify-center" style={{ backgroundColor: theme.color }}>{theme.id === 'auto' && <Sparkles className="w-4 h-4 text-white" />}{['cosmic', 'oled', 'midnight', 'forest', 'dawn'].includes(theme.id) && <Moon className="w-4 h-4 text-white/50" />}</div>
+                                        <div className="w-8 h-8 rounded-full shadow-lg border border-white/10 flex items-center justify-center" style={{ backgroundColor: theme.color }}>{theme.id === 'auto' && <Sparkles className="w-4 h-4 text-white" />}{['cosmic', 'oled', 'midnight', 'forest', 'dawn'].includes(theme.id) && <Moon className="w-4 h-4 text-white/50" />}{theme.id === 'upside-down' && <Zap className="w-4 h-4 text-white/80" />}</div>
                                         <span className="text-xs font-medium text-white">{theme.name}</span>
                                     </button>
                                 ))}
