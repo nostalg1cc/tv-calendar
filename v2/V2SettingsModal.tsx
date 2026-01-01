@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2, ChevronDown, ChevronUp, QrCode, Star, Zap } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2, ChevronDown, ChevronUp, QrCode, Star, Zap, Type } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
@@ -25,6 +25,7 @@ const THEMES = [
     { id: 'forest', name: 'Forest', color: '#05190b' },
     { id: 'dawn', name: 'Dawn', color: '#3f3f46' },
     { id: 'light', name: 'Light', color: '#f4f4f5' },
+    { id: 'upside-down', name: 'Upside Down', color: '#450a0a' },
 ];
 
 const FONTS = [
@@ -270,8 +271,8 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                         {activeTab === 'appearance' && (
                             <div className="space-y-10 max-w-2xl animate-fade-in">
                                 <div>
-                                    <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Palette className="w-5 h-5 text-indigo-500" /> Interface Theme</h3>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                    <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Palette className="w-5 h-5 text-indigo-500" /> Themes</h3>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
                                         {THEMES.map(theme => (
                                             <button key={theme.id} onClick={() => updateSettings({ baseTheme: theme.id as any })} className={`relative p-4 rounded-2xl border transition-all flex flex-col items-center gap-3 ${settings.baseTheme === theme.id ? 'bg-card border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'bg-card/50 border-border hover:bg-card'}`}>
                                                 <div className="w-8 h-8 rounded-full shadow-lg border border-white/10" style={{ backgroundColor: theme.color }} />
@@ -287,20 +288,22 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             <span className={`text-xs font-bold uppercase tracking-wider ${settings.baseTheme === 'custom' ? 'text-text-main' : 'text-text-muted'}`}>Custom</span>
                                         </label>
                                     </div>
+                                    
+                                    <div className="bg-card/30 p-1 rounded-xl border border-border">
+                                        <Toggle 
+                                            label="Apply Theme Font" 
+                                            description="Allow specific themes (like Upside Down) to override the application font."
+                                            active={settings.themeFontOverride}
+                                            icon={Type}
+                                            onToggle={() => updateSettings({ themeFontOverride: !settings.themeFontOverride })}
+                                        />
+                                    </div>
                                 </div>
                                 
                                 <div>
                                      <h3 className="text-xl font-bold text-text-main mb-6">Display Options</h3>
                                      <div className="space-y-4">
                                          <Toggle label="Show Calendar Ratings" description="Display rating score badges on the calendar views." active={!!settings.showCalendarRatings} onToggle={() => updateSettings({ showCalendarRatings: !settings.showCalendarRatings })} />
-                                         <div className="h-px bg-border/50" />
-                                         <Toggle 
-                                            label="Upside Down Mode" 
-                                            description="Enter the Hawkins atmosphere. Enables particle effects and retro fonts." 
-                                            active={!!settings.upsideDownMode}
-                                            icon={Zap}
-                                            onToggle={() => updateSettings({ upsideDownMode: !settings.upsideDownMode })} 
-                                        />
                                      </div>
                                 </div>
 
