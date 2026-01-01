@@ -27,10 +27,19 @@ const applyTheme = (settings: AppSettings) => {
     const body = document.body;
     body.setAttribute('data-font', settings.appFont);
     
-    // Priority: Upside Down Mode > Standard Base Theme
+    // Determine effective theme
     let themeToApply: string = settings.baseTheme === 'auto' ? 'cosmic' : settings.baseTheme;
     
-    if (settings.activeTheme === 'upside-down' || settings.upsideDownMode) {
+    // STRICT PRIORITY: 
+    // 1. If activeTheme is explicitly 'upside-down', use it.
+    // 2. If activeTheme is explicitly 'standard', use baseTheme (IGNORE legacy flags).
+    // 3. Fallback: If activeTheme is missing (legacy state), check legacy flag.
+    
+    if (settings.activeTheme === 'upside-down') {
+        themeToApply = 'upside-down';
+    } else if (settings.activeTheme === 'standard') {
+        // Keep themeToApply as baseTheme
+    } else if (settings.upsideDownMode) {
         themeToApply = 'upside-down';
     }
 
@@ -380,7 +389,13 @@ export const useStore = create<State>()(
                     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
                     if (profile) {
                         if (profile.settings) {
-                            const newSettings = { ...get().settings, ...profile.settings };
+                            // Ensure migration during sync
+                            const settings = profile.settings;
+                            if (!settings.activeTheme) {
+                                settings.activeTheme = settings.upsideDownMode ? 'upside-down' : 'standard';
+                            }
+
+                            const newSettings = { ...get().settings, ...settings };
                             if (!newSettings.country) newSettings.country = 'US';
                             if (newSettings.traktClient) {
                                 localStorage.setItem('trakt_client_id', newSettings.traktClient.id);
@@ -511,6 +526,11 @@ export const useStore = create<State>()(
             onRehydrateStorage: () => (state) => {
                 if (state) {
                     if (state.settings) {
+                        // MIGRATION: Ensure activeTheme is set if missing
+                        if (!state.settings.activeTheme) {
+                            state.settings.activeTheme = state.settings.upsideDownMode ? 'upside-down' : 'standard';
+                        }
+                        
                         applyTheme(state.settings);
                         if (state.settings.traktClient) {
                             localStorage.setItem('trakt_client_id', state.settings.traktClient.id);

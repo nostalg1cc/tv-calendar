@@ -279,7 +279,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                     <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Palette className="w-5 h-5 text-indigo-500" /> Visual Theme</h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <button 
-                                            onClick={() => updateSettings({ activeTheme: 'standard' })}
+                                            onClick={() => updateSettings({ activeTheme: 'standard', upsideDownMode: false })}
                                             className={`relative h-32 rounded-2xl border-2 flex items-center justify-center gap-3 transition-all ${!isUpsideDown ? 'bg-indigo-600/10 border-indigo-500 ring-2 ring-indigo-500/20' : 'bg-card border-border hover:border-text-muted hover:bg-card/80'}`}
                                         >
                                             <div className="flex flex-col items-center gap-2">
@@ -292,7 +292,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                         </button>
 
                                         <button 
-                                            onClick={() => updateSettings({ activeTheme: 'upside-down' })}
+                                            onClick={() => updateSettings({ activeTheme: 'upside-down', upsideDownMode: true })}
                                             className={`relative h-32 rounded-2xl border-2 flex items-center justify-center gap-3 transition-all overflow-hidden ${isUpsideDown ? 'bg-red-900/20 border-red-600 ring-2 ring-red-600/20' : 'bg-card border-border hover:border-text-muted hover:bg-card/80'}`}
                                         >
                                             <div className="flex flex-col items-center gap-2 relative z-10">

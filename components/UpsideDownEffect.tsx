@@ -4,8 +4,12 @@ import { useStore } from '../store';
 
 const UpsideDownEffect: React.FC = () => {
     const { settings } = useStore();
-    // Check activeTheme property
-    const enabled = settings.activeTheme === 'upside-down' || !!settings.upsideDownMode;
+    
+    // Strict Logic:
+    // If activeTheme is 'standard', ALWAYS disable.
+    // If activeTheme is 'upside-down', ALWAYS enable.
+    // Fallback: If activeTheme is undefined (legacy), check upsideDownMode.
+    const enabled = settings.activeTheme === 'upside-down' || (settings.activeTheme !== 'standard' && !!settings.upsideDownMode);
     
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef<number | null>(null);
