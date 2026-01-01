@@ -1,5 +1,4 @@
 
-
 export interface TVShow {
   id: number;
   name: string;
@@ -72,7 +71,10 @@ export interface User {
 }
 
 export interface AppSettings {
-  baseTheme: 'cosmic' | 'oled' | 'midnight' | 'forest' | 'dawn' | 'light' | 'upside-down' | 'auto' | 'custom';
+  // Visual Theme (Major Overhaul)
+  activeTheme: 'standard' | 'upside-down';
+  // Color Palette (Only applies to 'standard' theme)
+  baseTheme: 'cosmic' | 'oled' | 'midnight' | 'forest' | 'dawn' | 'light' | 'auto' | 'custom';
   appFont: 'inter' | 'outfit' | 'space' | 'lora' | 'system';
   themeFontOverride: boolean;
   compactCalendar: boolean;
@@ -108,10 +110,12 @@ export interface AppSettings {
       secret: string;
   };
   showCalendarRatings?: boolean;
-  upsideDownMode?: boolean;
+  // Legacy or deprecated flags can be optional
+  upsideDownMode?: boolean; 
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  activeTheme: 'standard',
   baseTheme: 'cosmic',
   appFont: 'inter',
   themeFontOverride: true,
@@ -128,8 +132,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   calendarFilterTv: true,
   calendarFilterMovies: true,
   customPosters: {},
-  showCalendarRatings: false,
-  upsideDownMode: false
+  showCalendarRatings: false
 };
 
 export interface WatchedItem {

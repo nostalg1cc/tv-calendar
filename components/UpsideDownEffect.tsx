@@ -1,11 +1,11 @@
 
-
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store';
 
 const UpsideDownEffect: React.FC = () => {
     const { settings } = useStore();
-    const enabled = settings.baseTheme === 'upside-down' || !!settings.upsideDownMode;
+    // Check activeTheme property
+    const enabled = settings.activeTheme === 'upside-down' || !!settings.upsideDownMode;
     
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef<number | null>(null);

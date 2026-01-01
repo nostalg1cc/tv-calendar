@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2, ChevronDown, ChevronUp, QrCode, Star, Zap, Type } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2, ChevronDown, ChevronUp, QrCode, Star, Zap, Type, Moon, Sun, Sparkles } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
@@ -18,14 +18,14 @@ interface V2SettingsModalProps {
 
 type TabId = 'general' | 'appearance' | 'spoilers' | 'integrations' | 'data' | 'account';
 
-const THEMES = [
+// Distinct Color Palettes (Removed Upside Down from here)
+const COLOR_MODES = [
     { id: 'cosmic', name: 'Cosmic', color: '#18181b' },
     { id: 'oled', name: 'OLED', color: '#000000' },
     { id: 'midnight', name: 'Midnight', color: '#0f172a' },
     { id: 'forest', name: 'Forest', color: '#05190b' },
     { id: 'dawn', name: 'Dawn', color: '#3f3f46' },
     { id: 'light', name: 'Light', color: '#f4f4f5' },
-    { id: 'upside-down', name: 'Upside Down', color: '#450a0a' },
 ];
 
 const FONTS = [
@@ -93,6 +93,9 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
     const hasSupabase = !!supabase;
     const hasTmdbKey = !!user?.tmdb_key;
     const hasTrakt = !!traktToken;
+    
+    // Theme Checks
+    const isUpsideDown = settings.activeTheme === 'upside-down';
 
     useEffect(() => {
         setLocalTmdbKey(user?.tmdb_key || '');
@@ -269,11 +272,65 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
 
                         {/* APPEARANCE */}
                         {activeTab === 'appearance' && (
-                            <div className="space-y-10 max-w-2xl animate-fade-in">
+                            <div className="space-y-12 max-w-3xl animate-fade-in">
+                                
+                                {/* 1. Visual Theme (Big Cards) */}
                                 <div>
-                                    <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Palette className="w-5 h-5 text-indigo-500" /> Themes</h3>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-                                        {THEMES.map(theme => (
+                                    <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Palette className="w-5 h-5 text-indigo-500" /> Visual Theme</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <button 
+                                            onClick={() => updateSettings({ activeTheme: 'standard' })}
+                                            className={`relative h-32 rounded-2xl border-2 flex items-center justify-center gap-3 transition-all ${!isUpsideDown ? 'bg-indigo-600/10 border-indigo-500 ring-2 ring-indigo-500/20' : 'bg-card border-border hover:border-text-muted hover:bg-card/80'}`}
+                                        >
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className={`p-2 rounded-full ${!isUpsideDown ? 'bg-indigo-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                                                    <Sparkles className="w-6 h-6" />
+                                                </div>
+                                                <span className={`text-sm font-bold uppercase tracking-wider ${!isUpsideDown ? 'text-indigo-400' : 'text-text-muted'}`}>Standard</span>
+                                            </div>
+                                            {!isUpsideDown && <div className="absolute top-3 right-3 bg-indigo-500 text-white rounded-full p-1"><Check className="w-3 h-3" /></div>}
+                                        </button>
+
+                                        <button 
+                                            onClick={() => updateSettings({ activeTheme: 'upside-down' })}
+                                            className={`relative h-32 rounded-2xl border-2 flex items-center justify-center gap-3 transition-all overflow-hidden ${isUpsideDown ? 'bg-red-900/20 border-red-600 ring-2 ring-red-600/20' : 'bg-card border-border hover:border-text-muted hover:bg-card/80'}`}
+                                        >
+                                            <div className="flex flex-col items-center gap-2 relative z-10">
+                                                <div className={`p-2 rounded-full ${isUpsideDown ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                                                    <Zap className="w-6 h-6" />
+                                                </div>
+                                                <span className={`text-sm font-bold uppercase tracking-wider ${isUpsideDown ? 'text-red-500' : 'text-text-muted'}`}>Upside Down</span>
+                                            </div>
+                                            {isUpsideDown && (
+                                                <>
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-red-900/20 to-transparent pointer-events-none" />
+                                                    <div className="absolute top-3 right-3 bg-red-600 text-white rounded-full p-1"><Check className="w-3 h-3" /></div>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Sub-setting for Theme Font */}
+                                    <div className="mt-4 bg-card/30 p-1 rounded-xl border border-border">
+                                        <Toggle 
+                                            label="Apply Theme Font" 
+                                            description="Allow specific themes (like Upside Down) to override the application font."
+                                            active={settings.themeFontOverride}
+                                            icon={Type}
+                                            onToggle={() => updateSettings({ themeFontOverride: !settings.themeFontOverride })}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* 2. Color Palette (Conditional) */}
+                                <div className={`transition-opacity duration-300 ${isUpsideDown ? 'opacity-40 pointer-events-none grayscale' : 'opacity-100'}`}>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-xl font-bold text-text-main flex items-center gap-2"><Moon className="w-5 h-5 text-indigo-500" /> Color Palette</h3>
+                                        {isUpsideDown && <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30 uppercase font-bold">Controlled by Theme</span>}
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                        {COLOR_MODES.map(theme => (
                                             <button key={theme.id} onClick={() => updateSettings({ baseTheme: theme.id as any })} className={`relative p-4 rounded-2xl border transition-all flex flex-col items-center gap-3 ${settings.baseTheme === theme.id ? 'bg-card border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'bg-card/50 border-border hover:bg-card'}`}>
                                                 <div className="w-8 h-8 rounded-full shadow-lg border border-white/10" style={{ backgroundColor: theme.color }} />
                                                 <span className={`text-xs font-bold uppercase tracking-wider ${settings.baseTheme === theme.id ? 'text-text-main' : 'text-text-muted'}`}>{theme.name}</span>
@@ -288,25 +345,9 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             <span className={`text-xs font-bold uppercase tracking-wider ${settings.baseTheme === 'custom' ? 'text-text-main' : 'text-text-muted'}`}>Custom</span>
                                         </label>
                                     </div>
-                                    
-                                    <div className="bg-card/30 p-1 rounded-xl border border-border">
-                                        <Toggle 
-                                            label="Apply Theme Font" 
-                                            description="Allow specific themes (like Upside Down) to override the application font."
-                                            active={settings.themeFontOverride}
-                                            icon={Type}
-                                            onToggle={() => updateSettings({ themeFontOverride: !settings.themeFontOverride })}
-                                        />
-                                    </div>
-                                </div>
-                                
-                                <div>
-                                     <h3 className="text-xl font-bold text-text-main mb-6">Display Options</h3>
-                                     <div className="space-y-4">
-                                         <Toggle label="Show Calendar Ratings" description="Display rating score badges on the calendar views." active={!!settings.showCalendarRatings} onToggle={() => updateSettings({ showCalendarRatings: !settings.showCalendarRatings })} />
-                                     </div>
                                 </div>
 
+                                {/* 3. Typography */}
                                 <div>
                                     <h3 className="text-xl font-bold text-text-main mb-6">Typography</h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -317,6 +358,14 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             </button>
                                         ))}
                                     </div>
+                                </div>
+
+                                {/* 4. Display Options */}
+                                <div>
+                                     <h3 className="text-xl font-bold text-text-main mb-6">Display Options</h3>
+                                     <div className="space-y-4">
+                                         <Toggle label="Show Calendar Ratings" description="Display rating score badges on the calendar views." active={!!settings.showCalendarRatings} onToggle={() => updateSettings({ showCalendarRatings: !settings.showCalendarRatings })} />
+                                     </div>
                                 </div>
                             </div>
                         )}

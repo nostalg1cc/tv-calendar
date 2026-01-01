@@ -1,5 +1,4 @@
 
-
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { AppSettings, DEFAULT_SETTINGS, TVShow, User, WatchedItem, Reminder } from '../types';
@@ -28,16 +27,16 @@ const applyTheme = (settings: AppSettings) => {
     const body = document.body;
     body.setAttribute('data-font', settings.appFont);
     
-    let theme = settings.baseTheme === 'auto' ? 'cosmic' : settings.baseTheme;
+    // Priority: Upside Down Mode > Standard Base Theme
+    let themeToApply: string = settings.baseTheme === 'auto' ? 'cosmic' : settings.baseTheme;
     
-    // Upside Down Mode override
-    if (settings.upsideDownMode) {
-        theme = 'upside-down';
+    if (settings.activeTheme === 'upside-down' || settings.upsideDownMode) {
+        themeToApply = 'upside-down';
     }
 
-    body.setAttribute('data-base-theme', theme);
+    body.setAttribute('data-base-theme', themeToApply);
     
-    if (theme === 'custom' && settings.customThemeColor) {
+    if (themeToApply === 'custom' && settings.customThemeColor) {
         const baseColor = hexToRgb(settings.customThemeColor);
         const white = [255, 255, 255];
         const black = [0, 0, 0];
@@ -337,7 +336,6 @@ export const useStore = create<State>()(
                 }
             },
 
-            // New action for lightweight polling
             syncFromDB: async () => {
                 const { user, history } = get();
                 if (!user?.is_cloud || !supabase) return;
@@ -354,9 +352,6 @@ export const useStore = create<State>()(
                         : `${row.media_type}-${row.tmdb_id}`;
                     
                     const existing = newHistory[key];
-                    
-                    // UNION MERGE Logic: If DB has it as watched, we mark it watched locally.
-                    // This ensures manual updates on other devices propagate here.
                     if (row.is_watched && (!existing || !existing.is_watched)) {
                         newHistory[key] = {
                             tmdb_id: row.tmdb_id,
@@ -382,7 +377,6 @@ export const useStore = create<State>()(
                 
                 set({ isSyncing: true });
                 try {
-                    // 1. Profile & Settings
                     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
                     if (profile) {
                         if (profile.settings) {
@@ -403,7 +397,6 @@ export const useStore = create<State>()(
                         if (profile.trakt_profile) set({ traktProfile: profile.trakt_profile });
                     }
 
-                    // 2. Watchlist
                     const { data: watchlistData } = await supabase.from('watchlist').select('*');
                     if (watchlistData) {
                         const currentSettings = get().settings;
@@ -421,10 +414,7 @@ export const useStore = create<State>()(
                         set({ watchlist: mapped });
                     }
 
-                    // 3. Merged History (DB + Trakt)
                     const map: Record<string, WatchedItem> = {};
-
-                    // A. Fetch DB History
                     const { data: dbHistory } = await supabase.from('interactions').select('*');
                     if (dbHistory) {
                         dbHistory.forEach((h: any) => {
@@ -443,7 +433,6 @@ export const useStore = create<State>()(
                         });
                     }
 
-                    // B. Fetch & Merge Trakt History
                     const currentTraktToken = get().traktToken;
                     if (currentTraktToken) {
                         try {
@@ -452,14 +441,12 @@ export const useStore = create<State>()(
                                 getWatchedHistory(currentTraktToken, 'shows')
                             ]);
 
-                            // Merge Movies
                             if (Array.isArray(traktMovies)) {
                                 traktMovies.forEach((m: any) => {
                                     if (m.movie?.ids?.tmdb) {
                                         const tmdbId = m.movie.ids.tmdb;
                                         const key = `movie-${tmdbId}`;
                                         const existing = map[key];
-                                        // Union logic: If watched in Trakt, it's watched.
                                         map[key] = {
                                             tmdb_id: tmdbId,
                                             media_type: 'movie',
@@ -471,7 +458,6 @@ export const useStore = create<State>()(
                                 });
                             }
 
-                            // Merge Shows/Episodes
                             if (Array.isArray(traktShows)) {
                                 traktShows.forEach((s: any) => {
                                     const showTmdbId = s.show?.ids?.tmdb;
@@ -501,7 +487,6 @@ export const useStore = create<State>()(
                         }
                     }
 
-                    // Commit merged map
                     set({ history: map });
 
                 } catch (e) {
