@@ -5,6 +5,7 @@ import { useStore } from '../store';
 import { getCollection, getBackdropUrl, getImageUrl, getRecommendations } from '../services/tmdb';
 import { TVShow } from '../types';
 import ShowDetailsModal from '../components/ShowDetailsModal';
+import V2ShowDetailsModal from './V2ShowDetailsModal'; // New Import
 import V2TrailerModal from './V2TrailerModal';
 import V2DiscoverModal from './V2DiscoverModal';
 import RatingBadge from '../components/RatingBadge';
@@ -30,12 +31,11 @@ interface DiscoverViewProps {
 }
 
 const V2Discover: React.FC = () => {
-    const { watchlist, addToWatchlist, setReminderCandidate } = useStore();
-    const [isBeta, setIsBeta] = useState(false);
+    const { watchlist, addToWatchlist, setReminderCandidate, settings } = useStore();
     
     // Data State
     const [heroItems, setHeroItems] = useState<TVShow[]>([]);
-    const [trending, setTrending] = useState<TVShow[]>([]); // Trending Movies
+    const [trending, setTrending] = useState<TVShow[]>([]);
     const [trendingTV, setTrendingTV] = useState<TVShow[]>([]);
     const [popularMovies, setPopularMovies] = useState<TVShow[]>([]);
     const [sciFiShows, setSciFiShows] = useState<TVShow[]>([]);
@@ -84,25 +84,7 @@ const V2Discover: React.FC = () => {
 
     return (
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#020202] relative">
-            {/* Header / Toggle */}
-            <div className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-end pointer-events-none">
-                 <div className="pointer-events-auto bg-black/50 backdrop-blur-xl border border-white/10 p-1 rounded-full flex gap-1 items-center">
-                     <button 
-                        onClick={() => setIsBeta(false)} 
-                        className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${!isBeta ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'}`}
-                     >
-                         Classic
-                     </button>
-                     <button 
-                        onClick={() => setIsBeta(true)} 
-                        className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${isBeta ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/50' : 'text-zinc-500 hover:text-white'}`}
-                     >
-                         <FlaskConical className="w-3 h-3" /> Beta
-                     </button>
-                 </div>
-            </div>
-
-            {isBeta ? (
+            {settings.useBetaLayouts ? (
                 <BetaView 
                     heroItems={heroItems}
                     trending={trending}
@@ -142,12 +124,21 @@ const V2Discover: React.FC = () => {
             )}
 
             {detailsId && (
-                <ShowDetailsModal 
-                    isOpen={!!detailsId}
-                    onClose={() => setDetailsId(null)}
-                    showId={detailsId.id}
-                    mediaType={detailsId.type}
-                />
+                settings.useBetaLayouts ? (
+                    <V2ShowDetailsModal 
+                        isOpen={!!detailsId}
+                        onClose={() => setDetailsId(null)}
+                        showId={detailsId.id}
+                        mediaType={detailsId.type}
+                    />
+                ) : (
+                    <ShowDetailsModal 
+                        isOpen={!!detailsId}
+                        onClose={() => setDetailsId(null)}
+                        showId={detailsId.id}
+                        mediaType={detailsId.type}
+                    />
+                )
             )}
             
             {trailerId && (

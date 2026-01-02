@@ -5,10 +5,11 @@ import { useStore } from '../store';
 import { getImageUrl } from '../services/tmdb';
 import { TVShow } from '../types';
 import ShowDetailsModal from '../components/ShowDetailsModal';
+import V2ShowDetailsModal from './V2ShowDetailsModal';
 import RatingBadge from '../components/RatingBadge';
 
 const V2Library: React.FC = () => {
-    const { watchlist, removeFromWatchlist } = useStore();
+    const { watchlist, removeFromWatchlist, settings } = useStore();
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState<'all' | 'tv' | 'movie'>('all');
     const [sort, setSort] = useState<'date_added' | 'rating' | 'name' | 'release'>('date_added');
@@ -182,12 +183,21 @@ const V2Library: React.FC = () => {
             </div>
 
             {selectedItem && (
-                <ShowDetailsModal 
-                    isOpen={!!selectedItem}
-                    onClose={() => setSelectedItem(null)}
-                    showId={selectedItem.id}
-                    mediaType={selectedItem.media_type}
-                />
+                settings.useBetaLayouts ? (
+                    <V2ShowDetailsModal 
+                        isOpen={!!selectedItem}
+                        onClose={() => setSelectedItem(null)}
+                        showId={selectedItem.id}
+                        mediaType={selectedItem.media_type}
+                    />
+                ) : (
+                    <ShowDetailsModal 
+                        isOpen={!!selectedItem}
+                        onClose={() => setSelectedItem(null)}
+                        showId={selectedItem.id}
+                        mediaType={selectedItem.media_type}
+                    />
+                )
             )}
         </div>
     );

@@ -14,9 +14,12 @@ import ApiKeyPrompt from '../components/ApiKeyPrompt';
 import ContextMenu from '../components/ContextMenu';
 import PosterPickerModal from '../components/PosterPickerModal';
 import ShowDetailsModal from '../components/ShowDetailsModal';
+import V2ShowDetailsModal from './V2ShowDetailsModal';
 import UpsideDownEffect from '../components/UpsideDownEffect';
+import { useStore } from '../store';
 
 const V2Dashboard: React.FC = () => {
+    const { settings } = useStore();
     const [calendarDate, setCalendarDate] = useState(new Date());
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -79,7 +82,6 @@ const V2Dashboard: React.FC = () => {
                 <Route path="discover" element={<V2Discover />} />
                 <Route path="library" element={<V2Library />} />
                 <Route path="ipoint" element={<V2IPoint />} />
-                {/* Community Route Removed */}
                 <Route path="*" element={<Navigate to="calendar" replace />} />
             </Routes>
 
@@ -106,14 +108,25 @@ const V2Dashboard: React.FC = () => {
             )}
 
             {detailsTarget && (
-                <ShowDetailsModal 
-                    isOpen={!!detailsTarget} 
-                    onClose={() => setDetailsTarget(null)} 
-                    showId={detailsTarget.showId} 
-                    mediaType={detailsTarget.mediaType}
-                    initialSeason={detailsTarget.season}
-                    initialEpisode={detailsTarget.episode}
-                />
+                settings.useBetaLayouts ? (
+                    <V2ShowDetailsModal 
+                        isOpen={!!detailsTarget} 
+                        onClose={() => setDetailsTarget(null)} 
+                        showId={detailsTarget.showId} 
+                        mediaType={detailsTarget.mediaType}
+                        initialSeason={detailsTarget.season}
+                        initialEpisode={detailsTarget.episode}
+                    />
+                ) : (
+                    <ShowDetailsModal 
+                        isOpen={!!detailsTarget} 
+                        onClose={() => setDetailsTarget(null)} 
+                        showId={detailsTarget.showId} 
+                        mediaType={detailsTarget.mediaType}
+                        initialSeason={detailsTarget.season}
+                        initialEpisode={detailsTarget.episode}
+                    />
+                )
             )}
 
             <ApiKeyPrompt />

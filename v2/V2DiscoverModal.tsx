@@ -5,6 +5,7 @@ import { TVShow } from '../types';
 import { getCollection, getImageUrl } from '../services/tmdb';
 import { useStore } from '../store';
 import ShowDetailsModal from '../components/ShowDetailsModal';
+import V2ShowDetailsModal from './V2ShowDetailsModal';
 
 interface V2DiscoverModalProps {
   isOpen: boolean;
@@ -23,7 +24,7 @@ const V2DiscoverModal: React.FC<V2DiscoverModalProps> = ({ isOpen, onClose, titl
   const [detailsId, setDetailsId] = useState<number | null>(null);
   
   const containerRef = useRef<HTMLDivElement>(null);
-  const { watchlist, addToWatchlist, setReminderCandidate } = useStore();
+  const { watchlist, addToWatchlist, setReminderCandidate, settings } = useStore();
 
   useEffect(() => {
     if (isOpen) {
@@ -162,12 +163,21 @@ const V2DiscoverModal: React.FC<V2DiscoverModalProps> = ({ isOpen, onClose, titl
         </div>
 
         {detailsId && (
-            <ShowDetailsModal 
-                isOpen={!!detailsId} 
-                onClose={() => setDetailsId(null)} 
-                showId={detailsId} 
-                mediaType={mediaType} 
-            />
+            settings.useBetaLayouts ? (
+                <V2ShowDetailsModal 
+                    isOpen={!!detailsId}
+                    onClose={() => setDetailsId(null)}
+                    showId={detailsId}
+                    mediaType={mediaType}
+                />
+            ) : (
+                <ShowDetailsModal 
+                    isOpen={!!detailsId}
+                    onClose={() => setDetailsId(null)}
+                    showId={detailsId}
+                    mediaType={mediaType}
+                />
+            )
         )}
     </div>
   );

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2, ChevronDown, ChevronUp, QrCode, Star, Zap, Type, Moon, Sun, Sparkles } from 'lucide-react';
+import { Settings, User, X, LogOut, Palette, EyeOff, Database, Key, Download, Upload, RefreshCw, Smartphone, Monitor, Check, FileJson, Layout, Image, Edit3, Globe, ShieldCheck, AlertCircle, Wrench, Link as LinkIcon, ExternalLink, Loader2, ChevronDown, ChevronUp, QrCode, Star, Zap, Type, Moon, Sun, Sparkles, FlaskConical } from 'lucide-react';
 import { useStore } from '../store';
 import { setApiToken } from '../services/tmdb';
 import { supabase } from '../services/supabase';
@@ -18,7 +18,7 @@ interface V2SettingsModalProps {
 
 type TabId = 'general' | 'appearance' | 'spoilers' | 'integrations' | 'data' | 'account';
 
-// Distinct Color Palettes (Removed Upside Down from here)
+// Distinct Color Palettes
 const COLOR_MODES = [
     { id: 'cosmic', name: 'Cosmic', color: '#18181b' },
     { id: 'oled', name: 'OLED', color: '#000000' },
@@ -101,7 +101,6 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
         setLocalTmdbKey(user?.tmdb_key || '');
     }, [user?.tmdb_key]);
 
-    // ... (Keep existing handlers: handleSaveKeys, handleQrScan, getQrData, handleExport, handleFileChange, handleCustomColorChange, saveTraktSecrets, startTraktAuth, disconnectTrakt)
     const handleSaveKeys = async () => {
         if (!user) return;
         setIsSavingKey(true);
@@ -274,6 +273,17 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                         {activeTab === 'appearance' && (
                             <div className="space-y-12 max-w-3xl animate-fade-in">
                                 
+                                {/* 0. Beta Layouts */}
+                                <div className="bg-indigo-900/10 border border-indigo-500/20 p-6 rounded-2xl">
+                                    <Toggle 
+                                        label="Beta Layouts" 
+                                        description="Try the new overhauled editorial design for Discovery and Details pages."
+                                        active={settings.useBetaLayouts}
+                                        icon={FlaskConical}
+                                        onToggle={() => updateSettings({ useBetaLayouts: !settings.useBetaLayouts })}
+                                    />
+                                </div>
+
                                 {/* 1. Visual Theme (Big Cards) */}
                                 <div>
                                     <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><Palette className="w-5 h-5 text-indigo-500" /> Visual Theme</h3>
@@ -317,7 +327,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                                             description="Allow specific themes (like Upside Down) to override the application font."
                                             active={settings.themeFontOverride}
                                             icon={Type}
-                                            onToggle={() => updateSettings({ themeFontOverride: !settings.themeFontOverride })}
+                                            onToggle={() => updateSettings({ themeFontOverride: !settings.themeFontOverride })} 
                                         />
                                     </div>
                                 </div>
@@ -370,7 +380,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                             </div>
                         )}
 
-                        {/* SPOILERS, INTEGRATIONS, DATA, ACCOUNT ... (unchanged content blocks) */}
+                        {/* SPOILERS */}
                         {activeTab === 'spoilers' && (
                              <div className="space-y-8 max-w-2xl animate-fade-in">
                                 <div>
@@ -387,6 +397,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                             </div>
                         )}
                         
+                        {/* INTEGRATIONS */}
                         {activeTab === 'integrations' && (
                              <div className="space-y-8 max-w-2xl animate-fade-in">
                                 <h3 className="text-xl font-bold text-text-main mb-6 flex items-center gap-2"><LinkIcon className="w-5 h-5 text-indigo-500" /> External Accounts</h3>
@@ -425,6 +436,7 @@ const V2SettingsModal: React.FC<V2SettingsModalProps> = ({ isOpen, onClose }) =>
                             </div>
                         )}
 
+                        {/* DATA */}
                         {activeTab === 'data' && (
                              <div className="space-y-10 max-w-2xl animate-fade-in">
                                 <div>

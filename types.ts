@@ -110,6 +110,8 @@ export interface AppSettings {
       secret: string;
   };
   showCalendarRatings?: boolean;
+  // Beta Features
+  useBetaLayouts: boolean;
   // Legacy or deprecated flags can be optional
   upsideDownMode?: boolean; 
 }
@@ -132,7 +134,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   calendarFilterTv: true,
   calendarFilterMovies: true,
   customPosters: {},
-  showCalendarRatings: false
+  showCalendarRatings: false,
+  useBetaLayouts: false
 };
 
 export interface WatchedItem {
