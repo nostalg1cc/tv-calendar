@@ -1,5 +1,4 @@
 
-// ... (imports)
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, Loader2, Plus, Check, Sparkles, Star, ArrowRight } from 'lucide-react';
 import { useStore } from '../store';
@@ -31,7 +30,11 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
             setTimeout(() => inputRef.current?.focus(), 100);
             setLoading(true);
             getPopularShows().then(setResults).finally(() => setLoading(false));
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
         }
+        return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
 
     useEffect(() => {
@@ -84,7 +87,7 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[200] bg-[#050505]/95 backdrop-blur-2xl flex flex-col animate-fade-in">
+        <div className="fixed inset-0 z-[9999] bg-[#050505]/95 backdrop-blur-2xl flex flex-col animate-fade-in">
             <div className="shrink-0 p-6 md:p-12 pb-0 flex flex-col relative z-20">
                 <button onClick={onClose} className="absolute top-6 right-6 p-3 rounded-full bg-white/5 hover:bg-white/10 text-zinc-500 hover:text-white"><X className="w-6 h-6" /></button>
                 <div className="max-w-5xl w-full mx-auto">
