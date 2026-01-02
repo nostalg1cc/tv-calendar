@@ -1,15 +1,15 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Compass, List, Settings, Search, LogOut, LayoutPanelLeft, Minimize2, Globe, MoreHorizontal, ChevronRight, User, MessageSquare } from 'lucide-react';
+import { Calendar, Compass, List, Settings, Search, LogOut, LayoutPanelLeft, Minimize2, Globe, MoreHorizontal, ChevronRight, User, MessageSquare, Zap, Database, Cloud } from 'lucide-react';
 import { useStore } from '../store';
 
 interface V2SidebarProps {
     onOpenSettings?: () => void;
-    onOpenSearch?: () => void;
+    onOpenSearch?: () => void; // Deprecated but kept for compatibility interface if needed
 }
 
-const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) => {
+const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
     const { user, logout, settings, updateSettings } = useStore();
     const mode = settings.v2SidebarMode || 'fixed';
     const location = useLocation();
@@ -76,6 +76,25 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
         return <Link to={to} className="block outline-none">{content}</Link>;
     };
 
+    const MobileNavItem = ({ to, icon: Icon, label, onClick }: { to?: string, icon: any, label: string, onClick?: () => void }) => {
+        const active = to ? isActive(to) : false; // Only check link activation if 'to' is present
+        
+        const content = (
+            <div 
+                className={`
+                    flex items-center justify-center gap-2 rounded-full transition-all duration-300 overflow-hidden whitespace-nowrap
+                    ${active ? 'bg-white text-black px-4 py-2.5' : 'text-zinc-500 w-10 h-10 hover:text-zinc-300'}
+                `}
+            >
+                <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'fill-current' : 'stroke-[2.5px]'}`} />
+                {active && <span className="text-xs font-bold">{label}</span>}
+            </div>
+        );
+
+        if (onClick) return <button onClick={onClick}>{content}</button>;
+        return <Link to={to!}>{content}</Link>;
+    };
+
     return (
         <>
             {/* DESKTOP SIDEBAR */}
@@ -88,9 +107,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                     <NavItem to="/calendar" icon={Calendar} label="Calendar" />
                     <NavItem to="/discover" icon={Compass} label="Discovery" />
                     <NavItem to="/library" icon={List} label="Library" />
-                    {/* Community Removed */}
                     <div className="my-2 mx-4 h-px bg-border" />
-                    <NavItem to="#" icon={Search} label="Search" onClick={onOpenSearch} />
                     <NavItem to="/ipoint" icon={Globe} label="IPoint Tool" />
                 </div>
 
@@ -119,65 +136,70 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
             <div className="md:hidden fixed bottom-6 left-0 right-0 z-[80] flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom,0px)] px-4">
                  <div 
                     className={`
-                        pointer-events-auto bg-panel/90 backdrop-blur-2xl border border-border rounded-full px-6 py-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-between gap-6 sm:gap-8 ring-1 ring-white/5 min-w-[320px] max-w-sm
+                        pointer-events-auto bg-black/90 backdrop-blur-3xl border border-white/10 rounded-full p-1.5 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] flex items-center gap-1 ring-1 ring-white/5
                         transform transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
                         ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-[150%] opacity-0 scale-95'}
                     `}
                  >
-                    <Link to="/calendar" className={`transition-all duration-300 ${isActive('/calendar') ? 'text-text-main scale-110' : 'text-text-muted hover:text-text-main'}`}>
-                        <Calendar className="w-6 h-6 stroke-[2.5px]" />
-                    </Link>
-                    <Link to="/discover" className={`transition-all duration-300 ${isActive('/discover') ? 'text-text-main scale-110' : 'text-text-muted hover:text-text-main'}`}>
-                        <Compass className="w-6 h-6 stroke-[2.5px]" />
-                    </Link>
+                    <MobileNavItem to="/calendar" icon={Calendar} label="Calendar" />
+                    <MobileNavItem to="/discover" icon={Compass} label="Discover" />
+                    <MobileNavItem to="/library" icon={List} label="Library" />
                     
-                    <button onClick={onOpenSearch} className="text-text-muted hover:text-text-main transition-all active:scale-95">
-                        <Search className="w-6 h-6 stroke-[2.5px]" />
-                    </button>
+                    <div className="w-px h-6 bg-white/10 mx-1" />
                     
-                    <Link to="/library" className={`transition-all duration-300 ${isActive('/library') ? 'text-text-main scale-110' : 'text-text-muted hover:text-text-main'}`}>
-                        <List className="w-6 h-6 stroke-[2.5px]" />
-                    </Link>
-                    
-                    <button onClick={() => setIsMenuOpen(true)} className={`transition-all duration-300 ${isMenuOpen ? 'text-text-main scale-110' : 'text-text-muted hover:text-text-main'}`}>
-                        <MoreHorizontal className="w-6 h-6 stroke-[2.5px]" />
+                    <button 
+                        onClick={() => setIsMenuOpen(true)} 
+                        className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${isMenuOpen ? 'bg-white/20 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                        <MoreHorizontal className="w-5 h-5 stroke-[2.5px]" />
                     </button>
                  </div>
             </div>
 
-            {/* MOBILE MENU DRAWER */}
+            {/* MOBILE MENU DRAWER (Replacing the old search/misc functionality) */}
             {isMenuOpen && (
                 <>
-                    <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm md:hidden animate-fade-in" onClick={() => setIsMenuOpen(false)} />
-                    <div className="fixed bottom-0 left-0 right-0 z-[100] bg-panel border-t border-border rounded-t-[2.5rem] p-6 pb-28 md:hidden animate-slide-up shadow-2xl">
-                        <div className="w-12 h-1.5 bg-card/50 rounded-full mx-auto mb-8" />
+                    <div className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-md md:hidden animate-fade-in" onClick={() => setIsMenuOpen(false)} />
+                    <div className="fixed bottom-0 left-0 right-0 z-[100] bg-[#09090b] border-t border-white/10 rounded-t-[2.5rem] p-6 pb-28 md:hidden animate-slide-up shadow-2xl">
+                        <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-8" />
                         
-                        <div className="flex items-center gap-5 mb-8 bg-card/40 p-5 rounded-3xl border border-border">
-                            <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center font-black text-xl text-white shadow-lg">
+                        <div className="flex items-center gap-4 mb-8 bg-white/5 p-4 rounded-3xl border border-white/5">
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center font-black text-lg text-white shadow-lg shadow-indigo-900/30">
                                 {user?.username?.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-bold text-text-main text-lg">{user?.username}</h3>
-                                <p className="text-xs text-text-muted font-medium">{user?.is_cloud ? 'Cloud Synced' : 'Local Account'}</p>
+                                <h3 className="font-bold text-white text-base">{user?.username}</h3>
+                                <p className="text-xs text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                                    {user?.is_cloud ? <Cloud className="w-3 h-3 text-emerald-500" /> : <Database className="w-3 h-3 text-orange-500" />}
+                                    {user?.is_cloud ? 'Cloud Synced' : 'Local Account'}
+                                </p>
                             </div>
-                            <button onClick={() => { setIsMenuOpen(false); onOpenSettings?.(); }} className="p-2 bg-white/5 rounded-full text-text-muted hover:text-text-main">
-                                <Settings className="w-5 h-5" />
-                            </button>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 mb-6">
-                            <Link to="/ipoint" onClick={() => setIsMenuOpen(false)} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-card border border-border hover:bg-card/80 transition-colors">
-                                <Globe className="w-6 h-6 text-blue-400" />
-                                <span className="text-xs font-bold text-text-main">IPoint</span>
+                            <Link 
+                                to="/ipoint" 
+                                onClick={() => setIsMenuOpen(false)} 
+                                className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-zinc-900 border border-white/5 hover:bg-zinc-800 transition-colors"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400">
+                                    <Globe className="w-5 h-5" />
+                                </div>
+                                <span className="text-xs font-bold text-white">IPoint Tool</span>
                             </Link>
-                             {/* Placeholder for removed item */}
-                            <div className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-card/50 border border-border opacity-50">
-                                <MessageSquare className="w-6 h-6 text-zinc-600" />
-                                <span className="text-xs font-bold text-zinc-500">Community (Disabled)</span>
-                            </div>
+
+                            <button 
+                                onClick={() => { setIsMenuOpen(false); onOpenSettings?.(); }} 
+                                className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-zinc-900 border border-white/5 hover:bg-zinc-800 transition-colors"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                                    <Settings className="w-5 h-5" />
+                                </div>
+                                <span className="text-xs font-bold text-white">Settings</span>
+                            </button>
                         </div>
 
-                        <button onClick={logout} className="w-full flex items-center justify-center gap-3 p-4 rounded-2xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors border border-red-500/10">
+                        <button onClick={logout} className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors border border-red-500/10">
                             <LogOut className="w-5 h-5" />
                             <span className="font-bold text-sm">Sign Out</span>
                         </button>
