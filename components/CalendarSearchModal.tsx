@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, X, Calendar, Film, Tv, MonitorPlay, Ticket, ChevronRight, Clock, CheckCircle2, Disc, Globe, Plus, Loader2, ArrowLeft } from 'lucide-react';
+import { Search, X, Calendar, Film, Tv, MonitorPlay, Ticket, ChevronRight, Clock, CheckCircle2, Globe, Plus, Loader2, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useStore } from '../store';
-import { TVShow, Episode } from '../types';
+import { TVShow } from '../types';
 import { getImageUrl, getBackdropUrl, getShowDetails, getSeasonDetails, getMovieReleaseDates, searchShows } from '../services/tmdb';
 import { format, parseISO, isFuture, isPast, compareAsc } from 'date-fns';
 
@@ -39,7 +39,11 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
             setSelectedItem(null);
             setGlobalResults([]);
             setTimeout(() => inputRef.current?.focus(), 100);
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
         }
+        return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
 
     // Local Filtering
@@ -73,11 +77,11 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
         
         // Switch back to library mode and select this item to show schedule
         setScope('library');
-        setQuery(''); // Clear query to show the item in context or just rely on selection
+        setQuery(''); 
         setSelectedItem(show);
     };
 
-    // Fetch Schedule Logic (Same as before)
+    // Fetch Schedule Logic
     useEffect(() => {
         if (!selectedItem) {
             setSchedule([]);
@@ -144,113 +148,117 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-            <div 
-                className="bg-[#09090b] border border-white/10 w-full max-w-5xl h-[80vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative"
-                onClick={e => e.stopPropagation()}
-            >
-                <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-black/50 rounded-full text-zinc-400 hover:text-white md:hidden z-50">
-                    <X className="w-5 h-5" />
-                </button>
+        <div className="fixed inset-0 z-[200] flex flex-col bg-[#050505] animate-fade-in">
+            {/* Top Bar */}
+            <div className="shrink-0 h-20 px-6 flex items-center justify-between border-b border-white/5 bg-[#09090b]">
+                <div className="flex items-center gap-4 w-full max-w-3xl mx-auto">
+                     {scope === 'global' ? (
+                        <button onClick={() => setScope('library')} className="p-2 rounded-full hover:bg-white/5 text-zinc-400 hover:text-white transition-colors">
+                            <ArrowLeft className="w-6 h-6" />
+                        </button>
+                     ) : (
+                        <Search className="w-6 h-6 text-zinc-500" />
+                     )}
+                     
+                     <input 
+                        ref={inputRef}
+                        type="text" 
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleGlobalSearch()}
+                        placeholder={scope === 'library' ? "Search your calendar..." : "Search global database..."}
+                        className="flex-1 bg-transparent border-none outline-none text-xl md:text-2xl font-medium text-white placeholder:text-zinc-700 h-full"
+                    />
+                    
+                    {query && scope === 'library' && (
+                         <button 
+                            onClick={handleGlobalSearch}
+                            className="hidden md:flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full text-xs font-bold transition-colors"
+                        >
+                            Global Search <ArrowRight className="w-3 h-3" />
+                        </button>
+                    )}
 
-                {/* Left Panel: Search & List */}
-                <div className={`flex flex-col w-full md:w-5/12 border-r border-white/5 bg-zinc-950 ${selectedItem ? 'hidden md:flex' : 'flex'}`}>
-                    
-                    {/* Search Header */}
-                    <div className="p-4 border-b border-white/5 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xs font-black text-zinc-500 uppercase tracking-widest">
-                                {scope === 'library' ? 'My Library' : 'Global Database'}
-                            </h2>
-                            {scope === 'global' && (
-                                <button 
-                                    onClick={() => setScope('library')} 
-                                    className="text-[10px] font-bold text-zinc-400 hover:text-white flex items-center gap-1"
-                                >
-                                    <ArrowLeft className="w-3 h-3" /> Back to Library
-                                </button>
-                            )}
-                        </div>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                            <input 
-                                ref={inputRef}
-                                type="text" 
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleGlobalSearch()}
-                                placeholder={scope === 'library' ? "Find in calendar..." : "Search TMDB..."}
-                                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 placeholder:text-zinc-600 transition-colors"
-                            />
-                        </div>
-                    </div>
-                    
-                    {/* List Area */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-zinc-500 hover:text-white transition-colors">
+                        <X className="w-8 h-8" />
+                    </button>
+                </div>
+            </div>
+
+            <div className="flex-1 flex overflow-hidden max-w-7xl w-full mx-auto">
+                {/* Left Panel: List */}
+                <div className={`flex-1 flex flex-col min-w-0 border-r border-white/5 bg-[#050505] ${selectedItem ? 'hidden lg:flex' : 'flex'}`}>
+                     <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
                         {scope === 'library' ? (
                             <>
                                 {localResults.length === 0 && query ? (
-                                    <div className="p-4 text-center">
-                                        <p className="text-sm text-zinc-500 mb-4">No matches in your library.</p>
+                                    <div className="flex flex-col items-center justify-center pt-20 opacity-50">
+                                        <Search className="w-12 h-12 text-zinc-700 mb-4" />
+                                        <p className="text-zinc-500 mb-4">No results in your calendar.</p>
                                         <button 
                                             onClick={handleGlobalSearch}
-                                            className="w-full py-3 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/20"
                                         >
                                             <Globe className="w-4 h-4" /> Search Global Database
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="space-y-1">
+                                    <div className="grid grid-cols-1 gap-2">
                                         {localResults.map(item => (
                                             <button
                                                 key={item.id}
                                                 onClick={() => setSelectedItem(item)}
-                                                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors text-left group ${selectedItem?.id === item.id ? 'bg-indigo-600 text-white' : 'hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200'}`}
+                                                className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all text-left group border ${selectedItem?.id === item.id ? 'bg-zinc-900 border-indigo-500/50' : 'bg-transparent border-transparent hover:bg-zinc-900 hover:border-white/5'}`}
                                             >
-                                                <div className="w-10 h-14 bg-black rounded overflow-hidden shrink-0 border border-white/5">
+                                                <div className="w-12 h-16 bg-black rounded-lg overflow-hidden shrink-0 border border-white/5 shadow-sm">
                                                     <img src={getImageUrl(item.poster_path)} className="w-full h-full object-cover" alt="" />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <h4 className="font-bold text-sm truncate">{item.name}</h4>
-                                                    <div className="flex items-center gap-1.5 text-xs opacity-70">
+                                                    <h4 className={`font-bold text-base truncate ${selectedItem?.id === item.id ? 'text-indigo-400' : 'text-zinc-200 group-hover:text-white'}`}>{item.name}</h4>
+                                                    <div className="flex items-center gap-2 text-xs opacity-60 text-zinc-400">
                                                         {item.media_type === 'movie' ? <Film className="w-3 h-3" /> : <Tv className="w-3 h-3" />}
                                                         <span>{item.first_air_date?.split('-')[0]}</span>
+                                                        <span className="w-1 h-1 rounded-full bg-zinc-600" />
+                                                        <span>{item.vote_average.toFixed(1)} ★</span>
                                                     </div>
                                                 </div>
-                                                <ChevronRight className={`w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity ${selectedItem?.id === item.id ? 'opacity-100' : ''}`} />
+                                                <ChevronRight className={`w-5 h-5 text-zinc-600 group-hover:text-zinc-400 transition-colors ${selectedItem?.id === item.id ? 'opacity-100 text-indigo-500' : ''}`} />
                                             </button>
                                         ))}
                                     </div>
                                 )}
                             </>
                         ) : (
-                            /* Global Search Results */
-                            <div className="space-y-1">
+                            <div className="grid grid-cols-1 gap-2">
                                 {isSearchingGlobal ? (
-                                    <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" /></div>
+                                    <div className="flex flex-col items-center justify-center pt-20">
+                                        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
+                                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Searching TMDB...</span>
+                                    </div>
                                 ) : globalResults.length === 0 ? (
-                                    <div className="text-center py-10 text-zinc-500">No results found on TMDB.</div>
+                                    <div className="text-center py-20 text-zinc-500">No results found.</div>
                                 ) : (
                                     globalResults.map(item => {
                                         const isAdded = watchlist.some(w => w.id === item.id);
                                         return (
-                                            <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-900 text-left group border border-transparent hover:border-white/5">
-                                                <div className="w-10 h-14 bg-black rounded overflow-hidden shrink-0 border border-white/5">
+                                            <div key={item.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-zinc-900 border border-transparent hover:border-white/5 group transition-colors">
+                                                <div className="w-12 h-16 bg-black rounded-lg overflow-hidden shrink-0 border border-white/5">
                                                     <img src={getImageUrl(item.poster_path)} className="w-full h-full object-cover" alt="" />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <h4 className="font-bold text-sm text-zinc-200 truncate">{item.name}</h4>
-                                                    <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                                                        <span className="uppercase font-bold text-[9px] border border-zinc-700 px-1 rounded">{item.media_type}</span>
+                                                    <h4 className="font-bold text-base text-zinc-200 truncate group-hover:text-white">{item.name}</h4>
+                                                    <div className="flex items-center gap-2 text-xs text-zinc-500 mt-1">
+                                                        <span className="uppercase font-bold text-[9px] border border-zinc-700 px-1.5 py-0.5 rounded">{item.media_type}</span>
                                                         <span>{item.first_air_date?.split('-')[0]}</span>
                                                     </div>
                                                 </div>
                                                 <button 
                                                     onClick={(e) => !isAdded && handleAddAndView(e, item)}
                                                     disabled={isAdded}
-                                                    className={`p-2 rounded-full transition-all ${isAdded ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-500 hover:text-white hover:bg-white/10'}`}
+                                                    className={`h-10 px-4 rounded-lg font-bold text-xs flex items-center gap-2 transition-all ${isAdded ? 'bg-zinc-800 text-zinc-500 cursor-default' : 'bg-white text-black hover:bg-zinc-200'}`}
                                                 >
                                                     {isAdded ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                                                    {isAdded ? 'Added' : 'Add'}
                                                 </button>
                                             </div>
                                         );
@@ -258,99 +266,83 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
                                 )}
                             </div>
                         )}
-                    </div>
+                     </div>
                 </div>
 
-                {/* Right Panel: Details & Schedule */}
-                <div className={`flex-1 flex-col bg-[#050505] overflow-hidden ${!selectedItem ? 'hidden md:flex items-center justify-center' : 'flex'}`}>
-                    {!selectedItem ? (
-                        <div className="text-zinc-600 flex flex-col items-center p-8 text-center">
-                            <div className="w-20 h-20 bg-zinc-900/50 rounded-full flex items-center justify-center mb-6">
-                                <Calendar className="w-8 h-8 opacity-50" />
-                            </div>
-                            <h3 className="text-lg font-bold text-zinc-400 mb-2">Select a Show</h3>
-                            <p className="text-sm max-w-xs leading-relaxed">
-                                View release dates, upcoming episodes, and airing schedules for items in your library.
-                            </p>
+                {/* Right Panel: Details (or Placeholder) */}
+                <div className={`flex-[1.5] flex-col bg-[#020202] border-l border-white/5 relative ${!selectedItem ? 'hidden lg:flex' : 'flex'}`}>
+                     {!selectedItem ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-zinc-700 opacity-50">
+                            <Calendar className="w-24 h-24 mb-6 stroke-1" />
+                            <h3 className="text-2xl font-black text-zinc-800 uppercase tracking-tighter">Select an Item</h3>
                         </div>
-                    ) : (
-                        <>
-                            {/* Header */}
-                            <div className="relative h-48 shrink-0">
+                     ) : (
+                        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+                             <div className="relative h-64 md:h-80 w-full shrink-0">
                                 <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${getBackdropUrl(selectedItem.backdrop_path)})` }} />
-                                <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/60 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-[#020202] via-[#020202]/50 to-transparent" />
                                 
-                                <div className="absolute bottom-0 left-0 p-6 w-full">
-                                    <button onClick={() => setSelectedItem(null)} className="md:hidden mb-4 flex items-center gap-1 text-zinc-400 text-xs font-bold uppercase tracking-wider">
-                                        <ChevronRight className="w-4 h-4 rotate-180" /> Back to search
-                                    </button>
-                                    <h2 className="text-3xl font-black text-white leading-none mb-2 drop-shadow-md">{selectedItem.name}</h2>
-                                    <p className="text-sm text-zinc-300 line-clamp-2 max-w-2xl drop-shadow-sm font-medium">{selectedItem.overview}</p>
-                                </div>
-                                <button onClick={onClose} className="absolute top-6 right-6 hidden md:block p-2 bg-black/40 hover:bg-white/10 rounded-full text-white transition-colors backdrop-blur-md">
-                                    <X className="w-5 h-5" />
+                                <button onClick={() => setSelectedItem(null)} className="absolute top-6 left-6 lg:hidden p-2 bg-black/50 backdrop-blur-md rounded-full text-white">
+                                    <ChevronRight className="w-6 h-6 rotate-180" />
                                 </button>
-                            </div>
 
-                            {/* Schedule List */}
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
-                                <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-6 sticky top-0 bg-[#050505] py-2 z-10 flex items-center gap-2">
-                                    <Clock className="w-3 h-3" /> Release Schedule
+                                <div className="absolute bottom-0 left-0 p-8 w-full">
+                                    <h2 className="text-4xl font-black text-white leading-none mb-4 drop-shadow-2xl">{selectedItem.name}</h2>
+                                    <p className="text-sm text-zinc-300 line-clamp-3 max-w-2xl font-medium leading-relaxed drop-shadow-md">{selectedItem.overview}</p>
+                                </div>
+                             </div>
+
+                             <div className="p-8">
+                                <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                                    <Clock className="w-4 h-4" /> Release Schedule
                                 </h3>
-                                
+
                                 {loadingSchedule ? (
                                     <div className="space-y-4">
-                                        {[1,2,3].map(i => <div key={i} className="h-16 bg-zinc-900/50 rounded-xl animate-pulse" />)}
+                                        {[1,2,3].map(i => <div key={i} className="h-20 bg-zinc-900 rounded-xl animate-pulse" />)}
                                     </div>
                                 ) : (
-                                    <div className="space-y-3 relative pb-10">
-                                        {/* Vertical Timeline Line */}
-                                        <div className="absolute left-[19px] top-4 bottom-4 w-px bg-zinc-800" />
-                                        
+                                    <div className="relative border-l border-zinc-800 ml-3 space-y-8 pb-10">
+                                        {schedule.length === 0 && (
+                                            <div className="pl-8 text-zinc-500 italic">No upcoming dates found.</div>
+                                        )}
                                         {schedule.map((event, idx) => {
-                                            const isPastEvent = isPast(parseISO(event.date));
                                             const isFutureEvent = isFuture(parseISO(event.date));
                                             const isPhysical = event.raw_type === 'physical';
                                             
                                             return (
-                                                <div key={idx} className={`relative flex items-center gap-4 p-4 rounded-xl border transition-all ${isFutureEvent ? 'bg-zinc-900 border-zinc-800 shadow-lg' : 'bg-transparent border-transparent opacity-60 hover:opacity-100 hover:bg-zinc-900/30'}`}>
-                                                    {/* Dot */}
-                                                    <div className={`relative z-10 w-2.5 h-2.5 rounded-full shrink-0 ml-1.5 ${isFutureEvent ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 'bg-zinc-700'}`} />
+                                                <div key={idx} className="relative pl-8 group">
+                                                    <div className={`absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-[#020202] ${isFutureEvent ? 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]' : 'bg-zinc-700'}`} />
                                                     
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                                {event.country && <span className={`fi fi-${event.country.toLowerCase()} rounded-[1px] shadow-sm`} />}
-                                                                <span className="text-sm font-bold text-white truncate pr-2">
-                                                                    {selectedItem.media_type === 'movie' ? event.type : `S${event.season} E${event.number} • ${event.title}`}
+                                                    <div className={`p-4 rounded-xl border transition-all ${isFutureEvent ? 'bg-zinc-900/50 border-zinc-800' : 'bg-transparent border-transparent opacity-60'}`}>
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className={`text-sm font-bold font-mono ${isFutureEvent ? 'text-indigo-300' : 'text-zinc-500'}`}>
+                                                                    {format(parseISO(event.date), 'MMM d, yyyy')}
                                                                 </span>
+                                                                {event.country && <span className={`fi fi-${event.country.toLowerCase()} rounded-[2px]`} />}
                                                             </div>
-                                                            <span className={`text-xs font-mono whitespace-nowrap ${isFutureEvent ? 'text-indigo-300 font-bold' : 'text-zinc-500'}`}>
-                                                                {format(parseISO(event.date), 'MMM d, yyyy')}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
                                                             {selectedItem.media_type === 'movie' && (
-                                                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${isPhysical ? 'text-purple-400 border-purple-500/20 bg-purple-500/5' : (event.is_digital ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' : 'text-pink-400 border-pink-500/20 bg-pink-500/5')}`}>
+                                                                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${isPhysical ? 'text-purple-400 border-purple-500/20 bg-purple-500/5' : (event.is_digital ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' : 'text-pink-400 border-pink-500/20 bg-pink-500/5')}`}>
                                                                     {isPhysical ? 'Physical' : (event.is_digital ? 'Digital' : 'Cinema')}
                                                                 </span>
                                                             )}
-                                                            {isPastEvent && <span className="text-[9px] font-bold text-zinc-600 uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Released</span>}
-                                                            {isFutureEvent && <span className="text-[9px] font-bold text-indigo-400 uppercase flex items-center gap-1"><Clock className="w-3 h-3" /> Upcoming</span>}
                                                         </div>
+                                                        <h4 className="text-base font-bold text-white leading-tight">
+                                                            {selectedItem.media_type === 'movie' ? event.type : `S${event.season} E${event.number} • ${event.title}`}
+                                                        </h4>
+                                                        {!selectedItem.media_type && event.overview && (
+                                                            <p className="text-xs text-zinc-500 mt-2 line-clamp-2">{event.overview}</p>
+                                                        )}
                                                     </div>
                                                 </div>
-                                            );
+                                            )
                                         })}
-                                        
-                                        {schedule.length === 0 && (
-                                            <div className="text-center py-10 text-zinc-500">No upcoming dates found.</div>
-                                        )}
                                     </div>
                                 )}
-                            </div>
-                        </>
-                    )}
+                             </div>
+                        </div>
+                     )}
                 </div>
             </div>
         </div>
