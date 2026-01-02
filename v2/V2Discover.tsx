@@ -8,6 +8,21 @@ import ShowDetailsModal from '../components/ShowDetailsModal';
 import V2TrailerModal from './V2TrailerModal';
 import RatingBadge from '../components/RatingBadge';
 
+// Interface for sub-components
+interface DiscoverViewProps {
+    heroItems: TVShow[];
+    trending: TVShow[];
+    recSource: TVShow | null;
+    recommendations: TVShow[];
+    inTheaters: TVShow[];
+    topHorror: TVShow[];
+    topAction: TVShow[];
+    onOpenDetails: (id: number, type: 'tv' | 'movie') => void;
+    onOpenTrailer?: (id: number, type: 'tv' | 'movie') => void;
+    onAdd: (e: React.MouseEvent, show: TVShow) => void;
+    watchlist: TVShow[];
+}
+
 const V2Discover: React.FC = () => {
     const { watchlist, addToWatchlist, setReminderCandidate } = useStore();
     const [isBeta, setIsBeta] = useState(false);
@@ -80,7 +95,7 @@ const V2Discover: React.FC = () => {
                     inTheaters={inTheaters}
                     topHorror={topHorror}
                     topAction={topAction}
-                    onOpenDetails={(id, type) => setDetailsId({id, type})}
+                    onOpenDetails={(id: number, type: 'tv'|'movie') => setDetailsId({id, type})}
                     onAdd={handleAdd}
                     watchlist={watchlist}
                 />
@@ -93,8 +108,8 @@ const V2Discover: React.FC = () => {
                     inTheaters={inTheaters}
                     topHorror={topHorror}
                     topAction={topAction}
-                    onOpenDetails={(id, type) => setDetailsId({id, type})}
-                    onOpenTrailer={(id, type) => setTrailerId({id, type})}
+                    onOpenDetails={(id: number, type: 'tv'|'movie') => setDetailsId({id, type})}
+                    onOpenTrailer={(id: number, type: 'tv'|'movie') => setTrailerId({id, type})}
                     onAdd={handleAdd}
                     watchlist={watchlist}
                 />
@@ -122,7 +137,7 @@ const V2Discover: React.FC = () => {
 };
 
 // --- BETA LAYOUT (Mosaic / Editorial) ---
-const BetaView = ({ heroItems, trending, recSource, recommendations, inTheaters, topHorror, topAction, onOpenDetails, onAdd, watchlist }: any) => {
+const BetaView: React.FC<DiscoverViewProps> = ({ heroItems, trending, recSource, recommendations, inTheaters, topHorror, topAction, onOpenDetails, onAdd, watchlist }) => {
     const hero = heroItems[0];
     if (!hero) return <div className="h-screen bg-black" />;
 
@@ -251,9 +266,9 @@ const BetaView = ({ heroItems, trending, recSource, recommendations, inTheaters,
 };
 
 // --- CLASSIC LAYOUT (Netflix Style) ---
-const ClassicView = ({ heroItems, trending, recSource, recommendations, inTheaters, topHorror, topAction, onOpenDetails, onOpenTrailer, onAdd, watchlist }: any) => {
+const ClassicView: React.FC<DiscoverViewProps> = ({ heroItems, trending, recSource, recommendations, inTheaters, topHorror, topAction, onOpenDetails, onOpenTrailer, onAdd, watchlist }) => {
     // Standard Horizontal Scroll Component
-    const Section = ({ title, items, isTop10, icon: Icon }: any) => {
+    const Section = ({ title, items, isTop10, icon: Icon }: { title: string, items: TVShow[], isTop10?: boolean, icon?: any }) => {
         if (!items || items.length === 0) return null;
         return (
             <div className="py-6 group/section">
@@ -307,7 +322,7 @@ const ClassicView = ({ heroItems, trending, recSource, recommendations, inTheate
                         <h1 className="text-4xl md:text-7xl font-bold text-white tracking-tighter mb-4 drop-shadow-2xl">{hero.name}</h1>
                         <p className="text-zinc-200 text-sm md:text-base line-clamp-3 mb-8 font-medium drop-shadow-md">{hero.overview}</p>
                         <div className="flex gap-4">
-                            <button onClick={() => onOpenTrailer(hero.id, hero.media_type)} className="px-6 py-3 bg-white text-black font-bold rounded-lg flex items-center gap-2 hover:bg-zinc-200 transition-colors"><Play className="w-5 h-5 fill-current" /> Play Trailer</button>
+                            <button onClick={() => onOpenTrailer && onOpenTrailer(hero.id, hero.media_type)} className="px-6 py-3 bg-white text-black font-bold rounded-lg flex items-center gap-2 hover:bg-zinc-200 transition-colors"><Play className="w-5 h-5 fill-current" /> Play Trailer</button>
                             <button onClick={(e) => onAdd(e, hero)} className="px-6 py-3 bg-zinc-800/80 text-white font-bold rounded-lg flex items-center gap-2 hover:bg-zinc-700 transition-colors backdrop-blur-md"><Plus className="w-5 h-5" /> My List</button>
                         </div>
                     </div>
