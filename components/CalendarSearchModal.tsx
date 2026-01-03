@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X, Calendar, Film, Tv, MonitorPlay, Ticket, ChevronRight, Clock, CheckCircle2, Globe, Plus, Loader2, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useStore } from '../store';
 import { TVShow } from '../types';
@@ -147,7 +148,7 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[200] flex flex-col bg-[#050505] animate-fade-in">
             {/* Top Bar */}
             <div className="shrink-0 h-20 px-6 flex items-center justify-between border-b border-white/5 bg-[#09090b]">
@@ -345,7 +346,8 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
                      )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
