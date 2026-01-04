@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { CalendarDays, Compass, GalleryHorizontalEnd, Settings, LogOut, LayoutPanelLeft, Minimize2, Earth, MoreHorizontal, User, Database, Cloud, RefreshCw, X, ChevronRight } from 'lucide-react';
+import { Settings, LogOut, LayoutPanelLeft, Minimize2, MoreHorizontal, User, Database, Cloud, RefreshCw, X, ChevronRight } from 'lucide-react';
+import { CalendarDaysIcon, CompassIcon, GalleryHorizontalEndIcon, EarthIcon, IconHandle } from '../components/icons/AnimatedIcons';
 import { useStore } from '../store';
 
 interface V2SidebarProps {
@@ -62,21 +63,25 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
         };
     }, []);
 
-    // Desktop Nav Item with custom animation prop
-    const NavItem: React.FC<{ to: string; icon: any; label: string; onClick?: () => void; animationClass?: string }> = ({ to, icon: Icon, label, onClick, animationClass }) => {
+    // Desktop Nav Item
+    const NavItem: React.FC<{ to: string; icon: any; label: string; onClick?: () => void }> = ({ to, icon: Icon, label, onClick }) => {
         const active = isActive(to);
         const isSlim = mode === 'collapsed';
+        const iconRef = useRef<IconHandle>(null);
         
-        // Base icon classes + animation override
+        // Use simpler classes, animation is handled by JS inside the icon now
         const iconClasses = `
-            w-5 h-5 shrink-0 transition-all duration-300
-            ${active ? 'scale-110 text-indigo-500 stroke-[2.5px]' : 'stroke-2 group-hover:text-zinc-300'}
-            ${animationClass || 'group-hover:scale-110'}
+            w-5 h-5 shrink-0 transition-colors duration-300
+            ${active ? 'text-indigo-500' : 'text-text-muted group-hover:text-text-main'}
         `;
 
         const content = (
-            <div className={`group flex items-center gap-4 px-3 py-2.5 rounded-lg transition-all duration-200 relative mx-2 ${active ? 'text-text-main' : 'text-text-muted hover:text-text-main hover:bg-white/[0.04]'} ${isSlim ? 'justify-center' : ''}`}>
-                <Icon className={iconClasses} />
+            <div 
+                className={`group flex items-center gap-4 px-3 py-2.5 rounded-lg transition-all duration-200 relative mx-2 ${active ? 'text-text-main' : 'text-text-muted hover:text-text-main hover:bg-white/[0.04]'} ${isSlim ? 'justify-center' : ''}`}
+                onMouseEnter={() => iconRef.current?.startAnimation()}
+                onMouseLeave={() => iconRef.current?.stopAnimation()}
+            >
+                <Icon ref={iconRef} className={iconClasses} size={20} />
                 {!isSlim && <span className={`text-[13px] tracking-wide ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>}
                 {active && !isSlim && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-indigo-500 rounded-r-full shadow-[0_0_12px_rgba(99,102,241,0.5)]" />}
             </div>
@@ -86,19 +91,25 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
         return <Link to={to} className="block outline-none">{content}</Link>;
     };
 
-    // Mobile Nav Item with smooth expansion
+    // Mobile Nav Item
     const MobileNavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
         const active = isActive(to);
+        const iconRef = useRef<IconHandle>(null);
         
         return (
-            <Link to={to} className="relative z-10 outline-none tap-highlight-transparent">
+            <Link 
+                to={to} 
+                className="relative z-10 outline-none tap-highlight-transparent"
+                onMouseEnter={() => iconRef.current?.startAnimation()}
+                onMouseLeave={() => iconRef.current?.stopAnimation()}
+            >
                 <div 
                     className={`
                         flex items-center justify-center gap-2 rounded-full transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
                         ${active ? 'bg-white text-black px-5 py-3' : 'text-zinc-500 w-12 h-12 hover:text-zinc-300'}
                     `}
                 >
-                    <Icon className={`w-6 h-6 flex-shrink-0 stroke-[2px] ${active ? 'text-black' : ''}`} />
+                    <Icon ref={iconRef} className={`w-6 h-6 flex-shrink-0 ${active ? 'text-black' : ''}`} size={24} />
                     
                     <span className={`
                         text-sm font-bold overflow-hidden whitespace-nowrap transition-all duration-500 ease-out
@@ -122,34 +133,30 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                 <div className="flex-1 py-6 space-y-1">
                     <NavItem 
                         to="/calendar" 
-                        icon={CalendarDays} 
+                        icon={CalendarDaysIcon} 
                         label="Calendar" 
-                        animationClass="group-hover:scale-110" 
                     />
                     <NavItem 
                         to="/discover" 
-                        icon={Compass} 
+                        icon={CompassIcon} 
                         label="Discovery" 
-                        animationClass="group-hover:rotate-45" 
                     />
                     <NavItem 
                         to="/library" 
-                        icon={GalleryHorizontalEnd} 
+                        icon={GalleryHorizontalEndIcon} 
                         label="Library" 
-                        animationClass="group-hover:scale-110 group-hover:-translate-x-0.5" 
                     />
                     <div className="my-2 mx-4 h-px bg-border" />
                     <NavItem 
                         to="/ipoint" 
-                        icon={Earth} 
+                        icon={EarthIcon} 
                         label="IPoint Tool" 
-                        animationClass="group-hover:animate-[spin_4s_linear_infinite]" 
                     />
                 </div>
 
                 <div className="mt-auto border-t border-border bg-background/50">
                     <div className="p-2 space-y-1">
-                        <NavItem to="#" icon={Settings} label="Settings" onClick={onOpenSettings} animationClass="group-hover:rotate-90" />
+                        <NavItem to="#" icon={Settings} label="Settings" onClick={onOpenSettings} />
                         <button onClick={() => updateSettings({ v2SidebarMode: mode === 'fixed' ? 'collapsed' : 'fixed' })} className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-lg text-text-muted hover:text-text-main hover:bg-white/[0.04] transition-colors ${mode === 'collapsed' ? 'justify-center' : ''}`}>
                             {mode === 'fixed' ? <Minimize2 className="w-5 h-5 group-hover:scale-90 transition-transform" /> : <LayoutPanelLeft className="w-5 h-5 group-hover:scale-110 transition-transform" />}
                         </button>
@@ -177,9 +184,9 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                         ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-[150%] opacity-0 scale-95'}
                     `}
                  >
-                    <MobileNavItem to="/calendar" icon={CalendarDays} label="Calendar" />
-                    <MobileNavItem to="/discover" icon={Compass} label="Discover" />
-                    <MobileNavItem to="/library" icon={GalleryHorizontalEnd} label="Library" />
+                    <MobileNavItem to="/calendar" icon={CalendarDaysIcon} label="Calendar" />
+                    <MobileNavItem to="/discover" icon={CompassIcon} label="Discover" />
+                    <MobileNavItem to="/library" icon={GalleryHorizontalEndIcon} label="Library" />
                     
                     <div className="w-px h-8 bg-white/10 mx-2" />
                     
@@ -225,7 +232,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                                        <Earth className="w-5 h-5 stroke-2" />
+                                        <EarthIcon className="w-5 h-5" />
                                     </div>
                                     <span className="text-sm font-bold text-white">IPoint Intelligence</span>
                                 </div>
