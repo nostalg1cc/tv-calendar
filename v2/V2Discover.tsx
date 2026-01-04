@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Play, Plus, Check, Info, ChevronRight, Star, Ticket, MonitorPlay, Sparkles, TrendingUp, FlaskConical, LayoutGrid, Newspaper, ArrowRight, Tv, Film, Heart } from 'lucide-react';
 import { useStore } from '../store';
 import { getCollection, getBackdropUrl, getImageUrl, getRecommendations } from '../services/tmdb';
-import { TVShow } from '../types';
+import { TVShow, WatchedItem } from '../types';
 import ShowDetailsModal from '../components/ShowDetailsModal';
 import V2ShowDetailsModal from './V2ShowDetailsModal'; // New Import
 import V2TrailerModal from './V2TrailerModal';
@@ -33,7 +33,7 @@ interface DiscoverViewProps {
     
     // Personalized
     forYouGenre: { name: string, items: TVShow[], type: 'tv'|'movie' } | null;
-    becauseWatched: { source: TVShow, items: TVShow[] }[];
+    becauseWatched: { source: TVShow, items: TVShow[], isWatched: boolean }[];
 
     onOpenDetails: (id: number, type: 'tv' | 'movie') => void;
     onOpenTrailer?: (id: number, type: 'tv' | 'movie') => void;
@@ -43,7 +43,7 @@ interface DiscoverViewProps {
 }
 
 const V2Discover: React.FC = () => {
-    const { watchlist, addToWatchlist, setReminderCandidate, settings } = useStore();
+    const { watchlist, addToWatchlist, setReminderCandidate, settings, history } = useStore();
     
     // Data State
     const [heroItems, setHeroItems] = useState<TVShow[]>([]);
@@ -58,7 +58,7 @@ const V2Discover: React.FC = () => {
     
     // Personalized State
     const [forYouGenre, setForYouGenre] = useState<{ name: string, items: TVShow[], type: 'tv'|'movie' } | null>(null);
-    const [becauseWatched, setBecauseWatched] = useState<{ source: TVShow, items: TVShow[] }[]>([]);
+    const [becauseWatched, setBecauseWatched] = useState<{ source: TVShow, items: TVShow[], isWatched: boolean }[]>([]);
 
     // Modals
     const [detailsId, setDetailsId] = useState<{id: number, type: 'tv'|'movie'} | null>(null);
@@ -117,20 +117,34 @@ const V2Discover: React.FC = () => {
                     });
             }
 
-            // 2. "Because You Watched" (Pick 2 random recent items)
+            // 2. "Because You Watched" / "Since you're interested in" (Pick 2 random recent items)
             const candidates = [...watchlist].reverse().slice(0, 10); // Pick from last 10 added
             const shuffled = candidates.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+            // Pre-calculate watched TV IDs (since history keys for TV are by episode)
+            const watchedShowIds = new Set<number>();
+            (Object.values(history) as WatchedItem[]).forEach(h => {
+                if (h.media_type === 'episode' && h.is_watched) watchedShowIds.add(h.tmdb_id);
+            });
 
             Promise.all(shuffled.map(async (source) => {
                 try {
                     const recs = await getRecommendations(source.id, source.media_type);
                     // Filter duplicates and existing
                     const validRecs = recs.filter(r => !watchlist.some(w => w.id === r.id));
-                    if (validRecs.length > 0) return { source, items: validRecs };
+                    
+                    let isSourceWatched = false;
+                    if (source.media_type === 'movie') {
+                        isSourceWatched = history[`movie-${source.id}`]?.is_watched || false;
+                    } else {
+                        isSourceWatched = watchedShowIds.has(source.id);
+                    }
+
+                    if (validRecs.length > 0) return { source, items: validRecs, isWatched: isSourceWatched };
                 } catch (e) { return null; }
                 return null;
             })).then(results => {
-                setBecauseWatched(results.filter(Boolean) as { source: TVShow, items: TVShow[] }[]);
+                setBecauseWatched(results.filter(Boolean) as { source: TVShow, items: TVShow[], isWatched: boolean }[]);
             });
         }
     }, [watchlist.length]); // Only re-run if watchlist size changes significantly (length is a decent proxy to avoid deep eq check)
@@ -326,17 +340,25 @@ const BetaView: React.FC<DiscoverViewProps> = (props) => {
             </div>
 
             {/* 2. THE TICKER */}
-            <div className="border-y border-white/10 bg-black py-3 overflow-hidden whitespace-nowrap">
-                <div className="inline-block animate-marquee">
+            <div className="border-y border-white/10 bg-black py-3 overflow-hidden whitespace-nowrap group">
+                <div className="inline-block animate-marquee group-hover:[animation-play-state:paused]">
                     {trending.slice(0,10).map((t: any) => (
-                        <span key={t.id} className="text-xs font-black text-zinc-600 uppercase tracking-[0.2em] mx-8">
+                        <button 
+                            key={t.id} 
+                            onClick={() => onOpenDetails(t.id, t.media_type)}
+                            className="text-xs font-black text-zinc-600 hover:text-white transition-colors uppercase tracking-[0.2em] mx-8 focus:outline-none"
+                        >
                             <span className="text-indigo-500 mr-2">↑</span> {t.name} <span className="ml-2 text-zinc-800">/</span>
-                        </span>
+                        </button>
                     ))}
                     {trending.slice(0,10).map((t: any) => (
-                        <span key={t.id + 'dup'} className="text-xs font-black text-zinc-600 uppercase tracking-[0.2em] mx-8">
+                        <button 
+                            key={t.id + 'dup'} 
+                            onClick={() => onOpenDetails(t.id, t.media_type)}
+                            className="text-xs font-black text-zinc-600 hover:text-white transition-colors uppercase tracking-[0.2em] mx-8 focus:outline-none"
+                        >
                             <span className="text-indigo-500 mr-2">↑</span> {t.name} <span className="ml-2 text-zinc-800">/</span>
-                        </span>
+                        </button>
                     ))}
                 </div>
             </div>
@@ -352,7 +374,12 @@ const BetaView: React.FC<DiscoverViewProps> = (props) => {
                             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent p-6 flex flex-col justify-end">
                                 <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Sparkles className="w-3 h-3" /> For You</div>
                                 <h3 className="text-2xl font-bold text-white leading-none mb-2">{recItem1.name}</h3>
-                                <p className="text-xs text-zinc-400 line-clamp-2">Because you watched {becauseWatched[0].source.name}</p>
+                                <p className="text-xs text-zinc-400 line-clamp-2">
+                                    {becauseWatched[0].isWatched 
+                                        ? `Because you watched ${becauseWatched[0].source.name}` 
+                                        : `Since you're interested in ${becauseWatched[0].source.name}`
+                                    }
+                                </p>
                             </div>
                         </div>
                     )}
@@ -411,7 +438,15 @@ const BetaView: React.FC<DiscoverViewProps> = (props) => {
             )}
             
             {becauseWatched.map((rec, i) => (
-                <CategorySection key={i} title={`Because you watch ${rec.source.name}`} items={rec.items} type={rec.source.media_type} onOpenDetails={onOpenDetails} onAdd={onAdd} watchlist={watchlist} />
+                <CategorySection 
+                    key={i} 
+                    title={rec.isWatched ? `Because you watched ${rec.source.name}` : `Since you're interested in ${rec.source.name}`} 
+                    items={rec.items} 
+                    type={rec.source.media_type} 
+                    onOpenDetails={onOpenDetails} 
+                    onAdd={onAdd} 
+                    watchlist={watchlist} 
+                />
             ))}
 
             <CategorySection title="Trending TV Shows" items={trendingTV} type="tv" onMore={() => onViewCategory("Trending TV", "/trending/tv/week", "tv")} onOpenDetails={onOpenDetails} onAdd={onAdd} watchlist={watchlist} />
@@ -508,7 +543,12 @@ const ClassicView: React.FC<DiscoverViewProps> = ({ heroItems, trending, trendin
                 {forYouGenre && <Section title={`Top Pick: ${forYouGenre.name}`} items={forYouGenre.items} icon={Heart} />}
                 
                 {becauseWatched.map((rec, i) => (
-                    <Section key={i} title={`Because you watch ${rec.source.name}`} items={rec.items} icon={Sparkles} />
+                    <Section 
+                        key={i} 
+                        title={rec.isWatched ? `Because you watched ${rec.source.name}` : `Since you're interested in ${rec.source.name}`} 
+                        items={rec.items} 
+                        icon={Sparkles} 
+                    />
                 ))}
 
                 <Section title="Popular Series" items={trendingTV} icon={Tv} endpoint="/trending/tv/week" type="tv" />
