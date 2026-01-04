@@ -62,14 +62,21 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
         };
     }, []);
 
-    // Desktop Nav Item
-    const NavItem: React.FC<{ to: string; icon: any; label: string; onClick?: () => void }> = ({ to, icon: Icon, label, onClick }) => {
+    // Desktop Nav Item with custom animation prop
+    const NavItem: React.FC<{ to: string; icon: any; label: string; onClick?: () => void; animationClass?: string }> = ({ to, icon: Icon, label, onClick, animationClass }) => {
         const active = isActive(to);
         const isSlim = mode === 'collapsed';
+        
+        // Base icon classes + animation override
+        const iconClasses = `
+            w-5 h-5 shrink-0 transition-all duration-300
+            ${active ? 'scale-110 text-indigo-500 stroke-[2.5px]' : 'stroke-2 group-hover:text-zinc-300'}
+            ${animationClass || 'group-hover:scale-110'}
+        `;
 
         const content = (
             <div className={`group flex items-center gap-4 px-3 py-2.5 rounded-lg transition-all duration-200 relative mx-2 ${active ? 'text-text-main' : 'text-text-muted hover:text-text-main hover:bg-white/[0.04]'} ${isSlim ? 'justify-center' : ''}`}>
-                <Icon className={`w-5 h-5 shrink-0 transition-transform ${active ? 'scale-110 text-indigo-500 stroke-[2.5px]' : 'group-hover:scale-105 stroke-2'}`} />
+                <Icon className={iconClasses} />
                 {!isSlim && <span className={`text-[13px] tracking-wide ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>}
                 {active && !isSlim && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-indigo-500 rounded-r-full shadow-[0_0_12px_rgba(99,102,241,0.5)]" />}
             </div>
@@ -113,18 +120,38 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                 </div>
 
                 <div className="flex-1 py-6 space-y-1">
-                    <NavItem to="/calendar" icon={CalendarDays} label="Calendar" />
-                    <NavItem to="/discover" icon={Compass} label="Discovery" />
-                    <NavItem to="/library" icon={GalleryHorizontalEnd} label="Library" />
+                    <NavItem 
+                        to="/calendar" 
+                        icon={CalendarDays} 
+                        label="Calendar" 
+                        animationClass="group-hover:scale-110" 
+                    />
+                    <NavItem 
+                        to="/discover" 
+                        icon={Compass} 
+                        label="Discovery" 
+                        animationClass="group-hover:rotate-45" 
+                    />
+                    <NavItem 
+                        to="/library" 
+                        icon={GalleryHorizontalEnd} 
+                        label="Library" 
+                        animationClass="group-hover:scale-110 group-hover:-translate-x-0.5" 
+                    />
                     <div className="my-2 mx-4 h-px bg-border" />
-                    <NavItem to="/ipoint" icon={Earth} label="IPoint Tool" />
+                    <NavItem 
+                        to="/ipoint" 
+                        icon={Earth} 
+                        label="IPoint Tool" 
+                        animationClass="group-hover:animate-[spin_4s_linear_infinite]" 
+                    />
                 </div>
 
                 <div className="mt-auto border-t border-border bg-background/50">
                     <div className="p-2 space-y-1">
-                        <NavItem to="#" icon={Settings} label="Settings" onClick={onOpenSettings} />
+                        <NavItem to="#" icon={Settings} label="Settings" onClick={onOpenSettings} animationClass="group-hover:rotate-90" />
                         <button onClick={() => updateSettings({ v2SidebarMode: mode === 'fixed' ? 'collapsed' : 'fixed' })} className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-lg text-text-muted hover:text-text-main hover:bg-white/[0.04] transition-colors ${mode === 'collapsed' ? 'justify-center' : ''}`}>
-                            {mode === 'fixed' ? <Minimize2 className="w-5 h-5" /> : <LayoutPanelLeft className="w-5 h-5" />}
+                            {mode === 'fixed' ? <Minimize2 className="w-5 h-5 group-hover:scale-90 transition-transform" /> : <LayoutPanelLeft className="w-5 h-5 group-hover:scale-110 transition-transform" />}
                         </button>
                     </div>
                     <div className="p-4 border-t border-border">
