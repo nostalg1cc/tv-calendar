@@ -37,13 +37,6 @@ const AskReminderModal: React.FC<AskReminderModalProps> = ({ isOpen, item, onClo
     // --- HANDLERS ---
 
     const handleSeenAll = async () => {
-        if (isMovie) {
-             toggleWatched({ tmdb_id: tmdbId, media_type: 'movie', is_watched: true });
-             toast.success("Marked as watched");
-             onClose();
-             return;
-        }
-
         setLoading(true);
         try {
             const showData = await getShowDetails(tmdbId);
@@ -76,6 +69,12 @@ const AskReminderModal: React.FC<AskReminderModalProps> = ({ isOpen, item, onClo
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleMovieSeen = () => {
+         toggleWatched({ tmdb_id: tmdbId, media_type: 'movie', is_watched: false }); // false passed to toggle flips to true
+         toast.success("Marked as watched");
+         onClose();
     };
 
     const handleSeenSome = async () => {
@@ -168,22 +167,32 @@ const AskReminderModal: React.FC<AskReminderModalProps> = ({ isOpen, item, onClo
                                  </div>
                              ) : (
                                  <>
-                                    <button 
-                                        onClick={handleSeenAll}
-                                        className="w-full py-3 px-4 rounded-xl bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-600/20 text-emerald-400 font-bold text-xs uppercase tracking-wide transition-all flex items-center justify-center gap-2 group"
-                                    >
-                                        <CheckCircle className="w-4 h-4" />
-                                        I've Seen All Of It
-                                    </button>
-
-                                    {!isMovie && (
+                                    {isMovie ? (
                                         <button 
-                                            onClick={handleSeenSome}
-                                            className="w-full py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300 font-bold text-xs uppercase tracking-wide transition-all flex items-center justify-center gap-2 group"
+                                            onClick={handleMovieSeen}
+                                            className="w-full py-3 px-4 rounded-xl bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-600/20 text-emerald-400 font-bold text-xs uppercase tracking-wide transition-all flex items-center justify-center gap-2 group"
                                         >
-                                            <Layers className="w-4 h-4" />
-                                            I'm Partway Through
+                                            <CheckCircle className="w-4 h-4" />
+                                            I've Seen It
                                         </button>
+                                    ) : (
+                                        <>
+                                            <button 
+                                                onClick={handleSeenAll}
+                                                className="w-full py-3 px-4 rounded-xl bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-600/20 text-emerald-400 font-bold text-xs uppercase tracking-wide transition-all flex items-center justify-center gap-2 group"
+                                            >
+                                                <CheckCircle className="w-4 h-4" />
+                                                I've Seen All Of It
+                                            </button>
+
+                                            <button 
+                                                onClick={handleSeenSome}
+                                                className="w-full py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300 font-bold text-xs uppercase tracking-wide transition-all flex items-center justify-center gap-2 group"
+                                            >
+                                                <Layers className="w-4 h-4" />
+                                                I'm Partway Through
+                                            </button>
+                                        </>
                                     )}
 
                                     <button 
@@ -191,7 +200,7 @@ const AskReminderModal: React.FC<AskReminderModalProps> = ({ isOpen, item, onClo
                                         className="w-full py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs uppercase tracking-wide transition-all flex items-center justify-center gap-2 group"
                                     >
                                         <Bell className="w-4 h-4 text-zinc-400 group-hover:text-white" />
-                                        Notify New Releases
+                                        {isMovie ? "Notify on Release" : "Notify New Releases"}
                                     </button>
                                  </>
                              )}

@@ -25,7 +25,21 @@ interface PersonalizedSection {
     type: 'tv' | 'movie';
     icon?: any;
     subtitle?: string;
+    endpoint?: string;
+    params?: any;
 }
+
+// Filter out specific regions/languages to reduce clutter
+const filterContent = (items: TVShow[]) => {
+    const BLOCK_LANGS = ['hi', 'te', 'ta', 'kn', 'ml', 'pa', 'mr', 'bn'];
+    const BLOCK_REGIONS = ['IN'];
+    
+    return items.filter(item => {
+        if (item.original_language && BLOCK_LANGS.includes(item.original_language)) return false;
+        if (item.origin_country && item.origin_country.some(c => BLOCK_REGIONS.includes(c))) return false;
+        return true;
+    });
+};
 
 const V2Discover: React.FC = () => {
     const { watchlist, addToWatchlist, setReminderCandidate, settings, history } = useStore();
@@ -48,12 +62,13 @@ const V2Discover: React.FC = () => {
     // Initial Fetch
     useEffect(() => {
         getCollection('/trending/movie/week', 'movie').then(data => {
-            setHeroItems(data.slice(0, 5));
-            setTrending(data);
+            const clean = filterContent(data);
+            setHeroItems(clean.slice(0, 8));
+            setTrending(clean);
         });
-        getCollection('/trending/tv/week', 'tv').then(setTrendingTV);
-        getCollection('/movie/popular', 'movie').then(setPopularMovies);
-        getCollection('/movie/now_playing', 'movie', 1).then(setInTheaters);
+        getCollection('/trending/tv/week', 'tv').then(data => setTrendingTV(filterContent(data)));
+        getCollection('/movie/popular', 'movie').then(data => setPopularMovies(filterContent(data)));
+        getCollection('/movie/now_playing', 'movie', 1).then(data => setInTheaters(filterContent(data)));
     }, []);
 
     // Complex Personalization Logic
@@ -85,14 +100,15 @@ const V2Discover: React.FC = () => {
 
                 try {
                     const recs = await getRecommendations(item.id, item.media_type);
-                    const valid = recs.filter(r => !watchlist.some(w => w.id === r.id));
+                    const valid = filterContent(recs.filter(r => !watchlist.some(w => w.id === r.id)));
                     if (valid.length >= 5) {
                         sections.push({
                             id: `watched-${item.id}`,
                             title: `Because you watched ${item.name}`,
                             items: valid,
                             type: item.media_type,
-                            icon: History
+                            icon: History,
+                            endpoint: `/${item.media_type}/${item.id}/recommendations`
                         });
                         processedIds.add(item.id);
                         watchedCount++;
@@ -110,14 +126,15 @@ const V2Discover: React.FC = () => {
 
                 try {
                     const recs = await getRecommendations(item.id, item.media_type);
-                    const valid = recs.filter(r => !watchlist.some(w => w.id === r.id));
+                    const valid = filterContent(recs.filter(r => !watchlist.some(w => w.id === r.id)));
                     if (valid.length >= 5) {
                         sections.push({
                             id: `interested-${item.id}`,
                             title: `Since you're interested in ${item.name}`,
                             items: valid,
                             type: item.media_type,
-                            icon: Lightbulb
+                            icon: Lightbulb,
+                            endpoint: `/${item.media_type}/${item.id}/recommendations`
                         });
                         processedIds.add(item.id);
                         interestedCount++;
@@ -134,7 +151,7 @@ const V2Discover: React.FC = () => {
                 if (!processedIds.has(target.id)) {
                     try {
                         const recs = await getRecommendations(target.id, target.media_type);
-                        const valid = recs.filter(r => !watchlist.some(w => w.id === r.id));
+                        const valid = filterContent(recs.filter(r => !watchlist.some(w => w.id === r.id)));
                         if (valid.length >= 5) {
                             sections.push({
                                 id: `upcoming-${target.id}`,
@@ -142,7 +159,8 @@ const V2Discover: React.FC = () => {
                                 subtitle: "Similar titles to tide you over",
                                 items: valid,
                                 type: target.media_type,
-                                icon: CalendarClock
+                                icon: CalendarClock,
+                                endpoint: `/${target.media_type}/${target.id}/recommendations`
                             });
                             processedIds.add(target.id);
                         }
@@ -178,18 +196,18 @@ const V2Discover: React.FC = () => {
                 // Construct a query
                 const startDate = `${decade}-01-01`;
                 const endDate = `${decade + 9}-12-31`;
-                
+                const params = {
+                    with_genres: genreIdStr,
+                    'primary_release_date.gte': startDate,
+                    'primary_release_date.lte': endDate,
+                    sort_by: 'vote_average.desc',
+                    'vote_count.gte': '500'
+                };
 
                 try {
-                    const discovery = await getCollection('/discover/movie', 'movie', 1, {
-                        with_genres: genreIdStr,
-                        'primary_release_date.gte': startDate,
-                        'primary_release_date.lte': endDate,
-                        sort_by: 'vote_average.desc',
-                        'vote_count.gte': '500'
-                    });
+                    const discovery = await getCollection('/discover/movie', 'movie', 1, params);
                     
-                    const valid = discovery.filter(r => !watchlist.some(w => w.id === r.id));
+                    const valid = filterContent(discovery.filter(r => !watchlist.some(w => w.id === r.id)));
 
                     if (valid.length >= 5) {
                         sections.push({
@@ -198,7 +216,9 @@ const V2Discover: React.FC = () => {
                             subtitle: "Based on your library trends",
                             items: valid,
                             type: 'movie',
-                            icon: Sparkles
+                            icon: Sparkles,
+                            endpoint: '/discover/movie',
+                            params: params
                         });
                     }
                 } catch(e) {}
@@ -290,7 +310,7 @@ const V2Discover: React.FC = () => {
 
 // --- SHARED SUB-COMPONENTS ---
 
-const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onOpenDetails, onAdd, watchlist }: any) => {
+const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onOpenDetails, onAdd, watchlist, endpoint, params }: any) => {
     if (!items || items.length === 0) return null;
     return (
         <div className="py-8 border-t border-white/5 animate-fade-in-up">
@@ -302,9 +322,10 @@ const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onO
                     </h3>
                     {subtitle && <p className="text-sm text-zinc-500 font-medium mt-1">{subtitle}</p>}
                 </div>
-                {onMore && (
+                {/* Always allow viewing more if we have a way to fetch it */}
+                {(onMore || (endpoint && onMore === undefined)) && (
                     <button 
-                        onClick={onMore} 
+                        onClick={onMore ? onMore : () => { /* Handle prop passing logic in parent usually, but fallback if needed */ }} 
                         className="text-xs font-bold text-zinc-500 hover:text-white uppercase tracking-widest flex items-center gap-2 group"
                     >
                         View All <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -334,7 +355,7 @@ const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onO
                                          </button>
                                     </div>
                                 </div>
-                                <h4 className="text-sm font-bold text-zinc-400 transition-colors truncate">{show.name}</h4>
+                                <h4 className="text-sm font-bold text-zinc-400 truncate">{show.name}</h4>
                                 <div className="flex items-center gap-2 text-xs text-zinc-600 mt-1">
                                     <span className="uppercase font-bold">{show.media_type === 'movie' ? 'Film' : 'TV'}</span>
                                     <span>•</span>
@@ -361,7 +382,7 @@ const BetaView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMovie
         if (autoScrollRef.current) clearInterval(autoScrollRef.current);
         autoScrollRef.current = setInterval(() => {
             setCurrentIndex(prev => (prev + 1) % heroItems.length);
-        }, 10000); // 10s
+        }, 8000); // 8s
     }, [heroItems.length]);
 
     useEffect(() => {
@@ -429,7 +450,9 @@ const BetaView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMovie
                     icon={section.icon}
                     onOpenDetails={onOpenDetails} 
                     onAdd={onAdd} 
-                    watchlist={watchlist} 
+                    watchlist={watchlist}
+                    onMore={() => section.endpoint ? onViewCategory(section.title, section.endpoint, section.type, section.params) : undefined}
+                    endpoint={section.endpoint}
                 />
             ))}
 
@@ -500,6 +523,8 @@ const ClassicView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMo
                         onOpenDetails={onOpenDetails} 
                         onAdd={onAdd} 
                         watchlist={watchlist} 
+                        onMore={() => section.endpoint ? onViewCategory(section.title, section.endpoint, section.type, section.params) : undefined}
+                        endpoint={section.endpoint}
                     />
                 ))}
 
