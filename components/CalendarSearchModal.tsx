@@ -31,6 +31,7 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
     const [loadingSchedule, setLoadingSchedule] = useState(false);
 
     const inputRef = useRef<HTMLInputElement>(null);
+    const scheduleScrollRef = useRef<HTMLDivElement>(null);
 
     // Reset on Open
     useEffect(() => {
@@ -145,6 +146,38 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
 
         fetchSchedule();
     }, [selectedItem]);
+
+    // Auto-scroll to current or next release
+    useEffect(() => {
+        if (schedule.length > 0 && scheduleScrollRef.current) {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0); // Start of today
+
+            const firstUpcomingIndex = schedule.findIndex(s => {
+                const d = parseISO(s.date);
+                return d >= now;
+            });
+
+            if (firstUpcomingIndex !== -1) {
+                setTimeout(() => {
+                    const el = document.getElementById(`schedule-event-${firstUpcomingIndex}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 200);
+            } else if (schedule.length > 0) {
+                 // If all episodes are in the past, maybe scroll to the last one? 
+                 // For now, let's keep it at top (history view) or scroll to bottom. 
+                 // Usually people want to see where they left off or the latest. 
+                 // If a show ended, seeing the finale is useful.
+                 setTimeout(() => {
+                     const lastIdx = schedule.length - 1;
+                     const el = document.getElementById(`schedule-event-${lastIdx}`);
+                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                 }, 200);
+            }
+        }
+    }, [schedule]);
 
     if (!isOpen) return null;
 
@@ -278,7 +311,10 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
                             <h3 className="text-2xl font-black text-zinc-800 uppercase tracking-tighter">Select an Item</h3>
                         </div>
                      ) : (
-                        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+                        <div 
+                            ref={scheduleScrollRef}
+                            className="flex-1 overflow-y-auto custom-scrollbar relative"
+                        >
                              <div className="relative h-64 md:h-80 w-full shrink-0">
                                 <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${getBackdropUrl(selectedItem.backdrop_path)})` }} />
                                 <div className="absolute inset-0 bg-gradient-to-t from-[#020202] via-[#020202]/50 to-transparent" />
@@ -312,7 +348,11 @@ const CalendarSearchModal: React.FC<CalendarSearchModalProps> = ({ isOpen, onClo
                                             const isPhysical = event.raw_type === 'physical';
                                             
                                             return (
-                                                <div key={idx} className="relative pl-8 group">
+                                                <div 
+                                                    key={idx} 
+                                                    id={`schedule-event-${idx}`}
+                                                    className="relative pl-8 group"
+                                                >
                                                     <div className={`absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-[#020202] ${isFutureEvent ? 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]' : 'bg-zinc-700'}`} />
                                                     
                                                     <div className={`p-4 rounded-xl border transition-all ${isFutureEvent ? 'bg-zinc-900/50 border-zinc-800' : 'bg-transparent border-transparent opacity-60'}`}>
