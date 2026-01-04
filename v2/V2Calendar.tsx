@@ -55,8 +55,31 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     const filterRef = useRef<HTMLDivElement>(null);
     const cardScrollRef = useRef<HTMLDivElement>(null);
     const searchIconRef = useRef<IconHandle>(null);
+    const gridContainerRef = useRef<HTMLDivElement>(null);
 
     const isViewingCurrentMonth = isSameMonth(safeCalendarDate, new Date());
+
+    // Helper to check if a calendar date matches "Today" in the user's selected timezone
+    const isTodayInZone = (date: Date) => {
+        try {
+            const tz = settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const now = new Date();
+            
+            const options: Intl.DateTimeFormatOptions = { timeZone: tz, year: 'numeric', month: 'numeric', day: 'numeric' };
+            const formatter = new Intl.DateTimeFormat('en-US', options);
+            const parts = formatter.formatToParts(now);
+            const year = parts.find(p => p.type === 'year')?.value;
+            const month = parts.find(p => p.type === 'month')?.value;
+            const dayVal = parts.find(p => p.type === 'day')?.value;
+
+            if (!year || !month || !dayVal) return isToday(date);
+
+            const targetDateStr = `${year}-${month.padStart(2,'0')}-${dayVal.padStart(2,'0')}`;
+            return format(date, 'yyyy-MM-dd') === targetDateStr;
+        } catch (e) {
+            return isToday(date);
+        }
+    };
 
     useEffect(() => {
         const handleResize = () => {
@@ -120,6 +143,21 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         if (isFilterOpen) document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isFilterOpen]);
+
+    const handleGridMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!gridContainerRef.current) return;
+        const rect = gridContainerRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        gridContainerRef.current.style.setProperty('--mouse-x', `${x}px`);
+        gridContainerRef.current.style.setProperty('--mouse-y', `${y}px`);
+    };
+
+    const handleCardMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        e.currentTarget.style.setProperty('--local-x', `${e.clientX - rect.left}px`);
+        e.currentTarget.style.setProperty('--local-y', `${e.clientY - rect.top}px`);
+    };
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -239,7 +277,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
         return (
             <div 
-                className="absolute inset-0 w-full h-full bg-background overflow-hidden group/cell-item"
+                className="absolute inset-0 w-full h-full overflow-hidden group/cell-item"
                 data-context-type="episode"
                 data-context-meta={JSON.stringify(ep)}
             >
@@ -397,27 +435,77 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
             {/* --- GRID VIEW --- */}
             {viewMode === 'grid' && (
                 <div className="hidden md:flex flex-col h-full min-h-0" data-context-type="calendar_bg">
+                    {/* Weekday Headers */}
                     <div className="grid grid-cols-7 border-b border-border bg-card/30 shrink-0">
                         {weekDays.map(day => (
-                            <div key={day} className="py-2 text-center text-[9px] font-black text-text-muted uppercase tracking-[0.25em] border-r border-border last:border-r-0">{day}</div>
+                            <div key={day} className="py-2 text-center text-[9px] font-black text-text-muted uppercase tracking-[0.25em]">{day}</div>
                         ))}
                     </div>
-                    <div className="flex-1 grid grid-cols-7 grid-rows-6 min-h-0 bg-background">
-                        {gridDays.map((day, idx) => {
-                            const isTodayDate = isSameDay(day, new Date());
-                            const isActive = isSameDay(day, selectedDay);
-                            const isCurrentMonth = isSameMonth(day, monthStart);
-                            const dayEps = getEpisodesForDay(day);
-                            const groupedEps = groupEpisodes(dayEps);
-                            const totalGroups = groupedEps.length;
 
+                    {/* Magic Card Grid */}
+                    <div 
+                        ref={gridContainerRef}
+                        onMouseMove={handleGridMouseMove}
+                        className="flex-1 grid grid-cols-7 grid-rows-6 bg-black p-[2px] gap-[2px] group/grid"
+                        style={{
+                            background: 'radial-gradient(800px circle at var(--mouse-x) var(--mouse-y), rgba(255, 255, 255, 0.15), transparent 40%)'
+                        }}
+                    >
+                        {gridDays.map((day, idx) => {
+                            const dateKey = format(day, 'yyyy-MM-dd');
+                            const dayEpisodes = getEpisodesForDay(day);
+                            const isCurrentMonth = isSameMonth(day, monthStart);
+                            const isDayToday = isTodayInZone(day);
+                            const hasEpisodes = dayEpisodes.length > 0;
+                            const groupedEps = groupEpisodes(dayEpisodes);
+                            const totalGroups = groupedEps.length;
+                            
+                            // Determine cell background color:
+                            // Not current month: very dark
+                            // Current month: dark gray (zinc-900)
+                            // Today: slightly highlighted
+                            const baseBg = !isCurrentMonth ? 'bg-[#050505]' : 'bg-zinc-900';
+                            
                             return (
-                                <div key={day.toISOString()} onClick={() => onSelectDay(day)} className={`relative border-r border-b border-border flex flex-col group/cell overflow-hidden transition-all duration-300 cursor-pointer ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''} ${idx >= 35 ? 'border-b-0' : ''} ${isCurrentMonth ? 'bg-transparent' : 'bg-white/[0.01] opacity-40'} ${isActive ? 'bg-white/[0.04]' : 'hover:z-10 hover:bg-white/[0.02]'}`}>
-                                    <div className="absolute top-2 right-2 z-50">
-                                        <span className={`text-[10px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded ${isTodayDate ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' : isCurrentMonth ? (isActive ? 'text-text-main' : 'text-text-muted group-hover/cell:text-text-main') : 'text-zinc-600'} transition-colors`}>{format(day, 'dd')}</span>
+                                <div 
+                                    key={day.toISOString()} 
+                                    onClick={() => hasEpisodes && onSelectDay(day)}
+                                    onMouseMove={handleCardMouseMove}
+                                    className={`
+                                        relative rounded-xl overflow-hidden group/cell transition-all duration-300
+                                        ${hasEpisodes ? 'cursor-pointer' : ''}
+                                    `}
+                                >
+                                    {/* Inner content wrapper (Inset by padding from grid gap) */}
+                                    <div className={`absolute inset-0 ${baseBg} flex flex-col`}>
+                                        
+                                        {/* Local Inner Glow */}
+                                        <div 
+                                            className="absolute inset-0 opacity-0 group-hover/cell:opacity-100 transition-opacity duration-500 pointer-events-none"
+                                            style={{
+                                                background: 'radial-gradient(600px circle at var(--local-x) var(--local-y), rgba(255, 255, 255, 0.06), transparent 40%)'
+                                            }}
+                                        />
+
+                                        {/* Date Label */}
+                                        <div className="absolute top-2 right-2 z-50">
+                                            <span className={`text-[10px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded transition-colors ${isToday(day) ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' : isCurrentMonth ? (hasEpisodes ? 'text-text-main' : 'text-text-muted group-hover/cell:text-text-main') : 'text-zinc-700'}`}>
+                                                {format(day, 'dd')}
+                                            </span>
+                                        </div>
+
+                                        {/* Content */}
+                                        {totalGroups === 1 && groupedEps[0].length === 1 ? (
+                                            <SingleEpisodeCell ep={groupedEps[0][0]} />
+                                        ) : totalGroups > 0 ? (
+                                            <GroupedEpisodeCell groups={groupedEps} />
+                                        ) : null}
+
+                                        {/* Active Selection Ring */}
+                                        {isSameDay(day, selectedDay) && hasEpisodes && (
+                                            <div className="absolute inset-0 border-[2px] border-indigo-500/80 pointer-events-none z-40 shadow-[inset_0_0_15px_rgba(99,102,241,0.1)] rounded-xl" />
+                                        )}
                                     </div>
-                                    {totalGroups === 1 && groupedEps[0].length === 1 ? (<SingleEpisodeCell ep={groupedEps[0][0]} />) : totalGroups > 0 ? (<GroupedEpisodeCell groups={groupedEps} />) : null}
-                                    {isActive && <div className="absolute inset-0 border-[2px] border-indigo-500/80 pointer-events-none z-40 shadow-[inset_0_0_15px_rgba(99,102,241,0.1)]" />}
                                 </div>
                             );
                         })}
