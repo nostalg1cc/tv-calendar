@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Settings, LogOut, LayoutPanelLeft, Minimize2, MoreHorizontal, User, Database, Cloud, RefreshCw, X, ChevronRight } from 'lucide-react';
-import { CalendarDaysIcon, CompassIcon, GalleryHorizontalEndIcon, EarthIcon, IconHandle } from '../components/icons/AnimatedIcons';
+import { CalendarDaysIcon, CompassIcon, GalleryVerticalEndIcon, EarthIcon, IconHandle } from '../components/icons/AnimatedIcons';
 import { useStore } from '../store';
 
 interface V2SidebarProps {
@@ -69,7 +69,6 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
         const isSlim = mode === 'collapsed';
         const iconRef = useRef<IconHandle>(null);
         
-        // Use simpler classes, animation is handled by JS inside the icon now
         const iconClasses = `
             w-5 h-5 shrink-0 transition-colors duration-300
             ${active ? 'text-indigo-500' : 'text-text-muted group-hover:text-text-main'}
@@ -143,7 +142,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                     />
                     <NavItem 
                         to="/library" 
-                        icon={GalleryHorizontalEndIcon} 
+                        icon={GalleryVerticalEndIcon} 
                         label="Library" 
                     />
                     <div className="my-2 mx-4 h-px bg-border" />
@@ -186,7 +185,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                  >
                     <MobileNavItem to="/calendar" icon={CalendarDaysIcon} label="Calendar" />
                     <MobileNavItem to="/discover" icon={CompassIcon} label="Discover" />
-                    <MobileNavItem to="/library" icon={GalleryHorizontalEndIcon} label="Library" />
+                    <MobileNavItem to="/library" icon={GalleryVerticalEndIcon} label="Library" />
                     
                     <div className="w-px h-8 bg-white/10 mx-2" />
                     
@@ -232,7 +231,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                                        <EarthIcon className="w-5 h-5" />
+                                        <EarthIcon className="w-5 h-5 stroke-2" />
                                     </div>
                                     <span className="text-sm font-bold text-white">IPoint Intelligence</span>
                                 </div>
