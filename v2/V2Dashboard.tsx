@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import V2Sidebar from './V2Sidebar';
@@ -16,10 +15,13 @@ import PosterPickerModal from '../components/PosterPickerModal';
 import ShowDetailsModal from '../components/ShowDetailsModal';
 import V2ShowDetailsModal from './V2ShowDetailsModal';
 import UpsideDownEffect from '../components/UpsideDownEffect';
+import AskReminderModal from '../components/AskReminderModal';
+import ReminderConfigModal from '../components/ReminderConfigModal';
 import { useStore } from '../store';
+import { TVShow, Episode } from '../types';
 
 const V2Dashboard: React.FC = () => {
-    const { settings } = useStore();
+    const { settings, reminderCandidate, setReminderCandidate } = useStore();
     const [calendarDate, setCalendarDate] = useState(new Date());
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -31,6 +33,7 @@ const V2Dashboard: React.FC = () => {
     const [trailerTarget, setTrailerTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', episode?: any} | null>(null);
     const [posterTarget, setPosterTarget] = useState<{showId: number, mediaType: 'tv' | 'movie'} | null>(null);
     const [detailsTarget, setDetailsTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', season?: number, episode?: number} | null>(null);
+    const [reminderConfigItem, setReminderConfigItem] = useState<TVShow | Episode | null>(null);
 
     const handlePlayTrailer = (showId: number, mediaType: 'tv' | 'movie', episode?: any) => {
         setTrailerTarget({ showId, mediaType, episode });
@@ -127,6 +130,28 @@ const V2Dashboard: React.FC = () => {
                         initialEpisode={detailsTarget.episode}
                     />
                 )
+            )}
+            
+            {/* Post-Add Flow */}
+            {reminderCandidate && (
+                <AskReminderModal
+                    isOpen={!!reminderCandidate}
+                    item={reminderCandidate}
+                    onClose={() => setReminderCandidate(null)}
+                    onConfirm={() => {
+                        const item = reminderCandidate;
+                        setReminderCandidate(null);
+                        setReminderConfigItem(item);
+                    }}
+                />
+            )}
+
+            {reminderConfigItem && (
+                <ReminderConfigModal
+                    isOpen={!!reminderConfigItem}
+                    onClose={() => setReminderConfigItem(null)}
+                    item={reminderConfigItem}
+                />
             )}
 
             <ApiKeyPrompt />

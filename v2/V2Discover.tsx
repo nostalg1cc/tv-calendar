@@ -227,9 +227,9 @@ const V2Discover: React.FC = () => {
                     popularMovies={popularMovies}
                     inTheaters={inTheaters}
                     personalizedSections={personalizedSections}
-                    onOpenDetails={(id, type) => setDetailsId({id, type})}
+                    onOpenDetails={(id: number, type: 'tv' | 'movie') => setDetailsId({id, type})}
                     onAdd={handleAdd}
-                    onViewCategory={(title, endpoint, type, params) => setCategoryModal({title, endpoint, type, params})}
+                    onViewCategory={(title: string, endpoint: string, type: 'tv' | 'movie', params?: any) => setCategoryModal({title, endpoint, type, params})}
                     watchlist={watchlist}
                 />
             ) : (
@@ -240,10 +240,10 @@ const V2Discover: React.FC = () => {
                     popularMovies={popularMovies}
                     inTheaters={inTheaters}
                     personalizedSections={personalizedSections}
-                    onOpenDetails={(id, type) => setDetailsId({id, type})}
-                    onOpenTrailer={(id, type) => setTrailerId({id, type})}
+                    onOpenDetails={(id: number, type: 'tv' | 'movie') => setDetailsId({id, type})}
+                    onOpenTrailer={(id: number, type: 'tv' | 'movie') => setTrailerId({id, type})}
                     onAdd={handleAdd}
-                    onViewCategory={(title, endpoint, type, params) => setCategoryModal({title, endpoint, type, params})}
+                    onViewCategory={(title: string, endpoint: string, type: 'tv' | 'movie', params?: any) => setCategoryModal({title, endpoint, type, params})}
                     watchlist={watchlist}
                 />
             )}
