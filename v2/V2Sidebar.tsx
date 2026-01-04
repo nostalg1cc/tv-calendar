@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Settings, LogOut, LayoutPanelLeft, Minimize2, MoreHorizontal, User, Database, Cloud, RefreshCw, X, ChevronRight } from 'lucide-react';
-import { CalendarDaysIcon, CompassIcon, GalleryVerticalEndIcon, EarthIcon, SearchIcon, IconHandle } from '../components/icons/AnimatedIcons';
+import { CalendarDaysIcon, CompassIcon, GalleryVerticalEndIcon, EarthIcon, IconHandle } from '../components/icons/AnimatedIcons';
 import { useStore } from '../store';
 
 interface V2SidebarProps {
@@ -10,7 +10,7 @@ interface V2SidebarProps {
     onOpenSearch?: () => void;
 }
 
-const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) => {
+const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
     const { user, logout, settings, updateSettings, isSyncing, triggerCloudSync } = useStore();
     const mode = settings.v2SidebarMode || 'fixed';
     const location = useLocation();
@@ -147,12 +147,6 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                     />
                     <div className="my-2 mx-4 h-px bg-border" />
                     <NavItem 
-                        to="#" 
-                        icon={SearchIcon} 
-                        label="Search" 
-                        onClick={onOpenSearch}
-                    />
-                    <NavItem 
                         to="/ipoint" 
                         icon={EarthIcon} 
                         label="IPoint Tool" 
@@ -230,19 +224,6 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                         </div>
 
                         <div className="space-y-3">
-                             <button 
-                                onClick={() => { setIsMenuOpen(false); onOpenSearch?.(); }} 
-                                className="w-full flex items-center justify-between p-4 rounded-2xl bg-zinc-900/50 border border-white/5 hover:bg-zinc-900 transition-colors group"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
-                                        <SearchIcon className="w-5 h-5" />
-                                    </div>
-                                    <span className="text-sm font-bold text-white">Search</span>
-                                </div>
-                                <ChevronRight className="w-5 h-5 text-zinc-600" />
-                            </button>
-
                             <Link 
                                 to="/ipoint" 
                                 onClick={() => setIsMenuOpen(false)} 

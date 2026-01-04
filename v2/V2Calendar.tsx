@@ -10,6 +10,7 @@ import { Episode } from '../types';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
 import CalendarSearchModal from '../components/CalendarSearchModal';
 import RatingBadge from '../components/RatingBadge';
+import { SearchIcon, IconHandle } from '../components/icons/AnimatedIcons';
 
 interface V2CalendarProps {
     selectedDay: Date;
@@ -53,6 +54,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
     const filterRef = useRef<HTMLDivElement>(null);
     const cardScrollRef = useRef<HTMLDivElement>(null);
+    const searchIconRef = useRef<IconHandle>(null);
 
     const isViewingCurrentMonth = isSameMonth(safeCalendarDate, new Date());
 
@@ -361,8 +363,14 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                         </span>
                     </button>
                     
-                    <button onClick={() => setIsSearchOpen(true)} className="w-14 h-full flex items-center justify-center text-text-muted hover:text-text-main hover:bg-white/5 transition-colors border-l border-border" title="Search in Calendar">
-                        <Search className="w-5 h-5" />
+                    <button 
+                        onClick={() => setIsSearchOpen(true)} 
+                        className="w-14 h-full flex items-center justify-center text-text-muted hover:text-text-main hover:bg-white/5 transition-colors border-l border-border group" 
+                        title="Search in Calendar"
+                        onMouseEnter={() => searchIconRef.current?.startAnimation()}
+                        onMouseLeave={() => searchIconRef.current?.stopAnimation()}
+                    >
+                        <SearchIcon ref={searchIconRef} className="w-5 h-5 text-zinc-500 group-hover:text-zinc-200" size={20} />
                     </button>
 
                     <div className="flex h-full relative" ref={filterRef}>
