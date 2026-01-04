@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Compass, List, Settings, LogOut, LayoutPanelLeft, Minimize2, Globe, MoreHorizontal, User, Database, Cloud, RefreshCw, X, ChevronRight } from 'lucide-react';
+import { CalendarDays, Compass, GalleryHorizontalEnd, Settings, LogOut, LayoutPanelLeft, Minimize2, Earth, MoreHorizontal, User, Database, Cloud, RefreshCw, X, ChevronRight } from 'lucide-react';
 import { useStore } from '../store';
 
 interface V2SidebarProps {
@@ -113,11 +113,11 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                 </div>
 
                 <div className="flex-1 py-6 space-y-1">
-                    <NavItem to="/calendar" icon={Calendar} label="Calendar" />
+                    <NavItem to="/calendar" icon={CalendarDays} label="Calendar" />
                     <NavItem to="/discover" icon={Compass} label="Discovery" />
-                    <NavItem to="/library" icon={List} label="Library" />
+                    <NavItem to="/library" icon={GalleryHorizontalEnd} label="Library" />
                     <div className="my-2 mx-4 h-px bg-border" />
-                    <NavItem to="/ipoint" icon={Globe} label="IPoint Tool" />
+                    <NavItem to="/ipoint" icon={Earth} label="IPoint Tool" />
                 </div>
 
                 <div className="mt-auto border-t border-border bg-background/50">
@@ -150,9 +150,9 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                         ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-[150%] opacity-0 scale-95'}
                     `}
                  >
-                    <MobileNavItem to="/calendar" icon={Calendar} label="Calendar" />
+                    <MobileNavItem to="/calendar" icon={CalendarDays} label="Calendar" />
                     <MobileNavItem to="/discover" icon={Compass} label="Discover" />
-                    <MobileNavItem to="/library" icon={List} label="Library" />
+                    <MobileNavItem to="/library" icon={GalleryHorizontalEnd} label="Library" />
                     
                     <div className="w-px h-8 bg-white/10 mx-2" />
                     
@@ -198,7 +198,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                                        <Globe className="w-5 h-5 stroke-2" />
+                                        <Earth className="w-5 h-5 stroke-2" />
                                     </div>
                                     <span className="text-sm font-bold text-white">IPoint Intelligence</span>
                                 </div>
