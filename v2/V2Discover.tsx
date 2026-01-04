@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Play, Plus, Check, Info, ChevronRight, Star, Ticket, MonitorPlay, Sparkles, TrendingUp, FlaskConical, LayoutGrid, Newspaper, ArrowRight, Tv, Film } from 'lucide-react';
+import { Play, Plus, Check, Info, ChevronRight, Star, Ticket, MonitorPlay, Sparkles, TrendingUp, FlaskConical, LayoutGrid, Newspaper, ArrowRight, Tv, Film, Heart } from 'lucide-react';
 import { useStore } from '../store';
 import { getCollection, getBackdropUrl, getImageUrl, getRecommendations } from '../services/tmdb';
 import { TVShow } from '../types';
@@ -10,6 +9,16 @@ import V2TrailerModal from './V2TrailerModal';
 import V2DiscoverModal from './V2DiscoverModal';
 import RatingBadge from '../components/RatingBadge';
 
+// Genre Map for Personalization
+const GENRE_MAP: Record<number, string> = {
+    28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
+    99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History',
+    27: 'Horror', 10402: 'Music', 9648: 'Mystery', 10749: 'Romance', 878: 'Sci-Fi',
+    10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western',
+    10759: 'Action & Adventure', 10762: 'Kids', 10763: 'News', 10764: 'Reality',
+    10765: 'Sci-Fi & Fantasy', 10766: 'Soap', 10767: 'Talk', 10768: 'War & Politics'
+};
+
 // Interface for sub-components
 interface DiscoverViewProps {
     heroItems: TVShow[];
@@ -18,11 +27,14 @@ interface DiscoverViewProps {
     popularMovies: TVShow[];
     sciFiShows: TVShow[];
     docuSeries: TVShow[];
-    recSource: TVShow | null;
-    recommendations: TVShow[];
     inTheaters: TVShow[];
     topHorror: TVShow[];
     topAction: TVShow[];
+    
+    // Personalized
+    forYouGenre: { name: string, items: TVShow[], type: 'tv'|'movie' } | null;
+    becauseWatched: { source: TVShow, items: TVShow[] }[];
+
     onOpenDetails: (id: number, type: 'tv' | 'movie') => void;
     onOpenTrailer?: (id: number, type: 'tv' | 'movie') => void;
     onAdd: (e: React.MouseEvent, show: TVShow) => void;
@@ -44,9 +56,9 @@ const V2Discover: React.FC = () => {
     const [topAction, setTopAction] = useState<TVShow[]>([]);
     const [inTheaters, setInTheaters] = useState<TVShow[]>([]);
     
-    // Personalized
-    const [recSource, setRecSource] = useState<TVShow | null>(null);
-    const [recommendations, setRecommendations] = useState<TVShow[]>([]);
+    // Personalized State
+    const [forYouGenre, setForYouGenre] = useState<{ name: string, items: TVShow[], type: 'tv'|'movie' } | null>(null);
+    const [becauseWatched, setBecauseWatched] = useState<{ source: TVShow, items: TVShow[] }[]>([]);
 
     // Modals
     const [detailsId, setDetailsId] = useState<{id: number, type: 'tv'|'movie'} | null>(null);
@@ -64,17 +76,64 @@ const V2Discover: React.FC = () => {
         getCollection('/movie/popular', 'movie').then(setPopularMovies);
         getCollection('/discover/tv', 'tv', 1, { with_genres: '10765', 'vote_count.gte': '200' }).then(setSciFiShows);
         getCollection('/discover/tv', 'tv', 1, { with_genres: '99', 'vote_count.gte': '50' }).then(setDocuSeries);
-
-        if (watchlist.length > 0) {
-            const random = watchlist[Math.floor(Math.random() * watchlist.length)];
-            setRecSource(random);
-            getRecommendations(random.id, random.media_type).then(setRecommendations);
-        }
-
         getCollection('/discover/movie', 'movie', 1, { with_genres: '27', sort_by: 'vote_average.desc', 'vote_count.gte': '300' }).then(setTopHorror);
         getCollection('/discover/movie', 'movie', 1, { with_genres: '28', sort_by: 'popularity.desc' }).then(setTopAction);
         getCollection('/movie/now_playing', 'movie', 1).then(setInTheaters);
-    }, []);
+
+        // --- PERSONALIZATION LOGIC ---
+        if (watchlist.length > 0) {
+            // 1. Analyze Top Genre
+            const genreCounts: Record<number, number> = {};
+            let tvCount = 0;
+            let movieCount = 0;
+
+            watchlist.forEach(item => {
+                if (item.media_type === 'tv') tvCount++; else movieCount++;
+                const ids = (item as any).genre_ids || item.genres?.map(g => g.id) || [];
+                ids.forEach((id: number) => {
+                    genreCounts[id] = (genreCounts[id] || 0) + 1;
+                });
+            });
+
+            const sortedGenres = Object.entries(genreCounts)
+                .sort(([,a], [,b]) => b - a)
+                .map(([id]) => Number(id));
+
+            if (sortedGenres.length > 0) {
+                const topGenreId = sortedGenres[0];
+                const genreName = GENRE_MAP[topGenreId] || 'Popular';
+                
+                // Determine media type for discovery
+                const isTvGenre = topGenreId > 10000; // TV specific genres usually high IDs
+                const prefType = isTvGenre ? 'tv' : (tvCount > movieCount ? 'tv' : 'movie');
+                
+                getCollection(`/discover/${prefType}`, prefType, 1, { with_genres: topGenreId.toString(), sort_by: 'popularity.desc' })
+                    .then(items => {
+                        // Filter out items already in watchlist
+                        const newItems = items.filter(i => !watchlist.some(w => w.id === i.id));
+                        if (newItems.length > 0) {
+                            setForYouGenre({ name: genreName, items: newItems, type: prefType });
+                        }
+                    });
+            }
+
+            // 2. "Because You Watched" (Pick 2 random recent items)
+            const candidates = [...watchlist].reverse().slice(0, 10); // Pick from last 10 added
+            const shuffled = candidates.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+            Promise.all(shuffled.map(async (source) => {
+                try {
+                    const recs = await getRecommendations(source.id, source.media_type);
+                    // Filter duplicates and existing
+                    const validRecs = recs.filter(r => !watchlist.some(w => w.id === r.id));
+                    if (validRecs.length > 0) return { source, items: validRecs };
+                } catch (e) { return null; }
+                return null;
+            })).then(results => {
+                setBecauseWatched(results.filter(Boolean) as { source: TVShow, items: TVShow[] }[]);
+            });
+        }
+    }, [watchlist.length]); // Only re-run if watchlist size changes significantly (length is a decent proxy to avoid deep eq check)
 
     const handleAdd = (e: React.MouseEvent, show: TVShow) => {
         e.stopPropagation();
@@ -92,11 +151,13 @@ const V2Discover: React.FC = () => {
                     popularMovies={popularMovies}
                     sciFiShows={sciFiShows}
                     docuSeries={docuSeries}
-                    recSource={recSource}
-                    recommendations={recommendations}
                     inTheaters={inTheaters}
                     topHorror={topHorror}
                     topAction={topAction}
+                    
+                    forYouGenre={forYouGenre}
+                    becauseWatched={becauseWatched}
+
                     onOpenDetails={(id: number, type: 'tv'|'movie') => setDetailsId({id, type})}
                     onAdd={handleAdd}
                     onViewCategory={(title, endpoint, type, params) => setCategoryModal({title, endpoint, type, params})}
@@ -110,11 +171,13 @@ const V2Discover: React.FC = () => {
                     popularMovies={popularMovies}
                     sciFiShows={sciFiShows}
                     docuSeries={docuSeries}
-                    recSource={recSource}
-                    recommendations={recommendations}
                     inTheaters={inTheaters}
                     topHorror={topHorror}
                     topAction={topAction}
+                    
+                    forYouGenre={forYouGenre}
+                    becauseWatched={becauseWatched}
+
                     onOpenDetails={(id: number, type: 'tv'|'movie') => setDetailsId({id, type})}
                     onOpenTrailer={(id: number, type: 'tv'|'movie') => setTrailerId({id, type})}
                     onAdd={handleAdd}
@@ -172,12 +235,14 @@ const CategorySection = ({ title, items, type, onMore, onOpenDetails, onAdd, wat
         <div className="py-8 border-t border-white/5">
             <div className="max-w-[1800px] mx-auto px-4 md:px-8 mb-6 flex items-end justify-between">
                 <h3 className="text-2xl font-black text-white tracking-tight">{title}</h3>
-                <button 
-                    onClick={onMore} 
-                    className="text-xs font-bold text-zinc-500 hover:text-white uppercase tracking-widest flex items-center gap-2 group"
-                >
-                    View All <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </button>
+                {onMore && (
+                    <button 
+                        onClick={onMore} 
+                        className="text-xs font-bold text-zinc-500 hover:text-white uppercase tracking-widest flex items-center gap-2 group"
+                    >
+                        View All <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                    </button>
+                )}
             </div>
             
             {/* Horizontal Scroll */}
@@ -221,9 +286,12 @@ const CategorySection = ({ title, items, type, onMore, onOpenDetails, onAdd, wat
 
 // --- BETA LAYOUT (Mosaic / Editorial) ---
 const BetaView: React.FC<DiscoverViewProps> = (props) => {
-    const { heroItems, trending, trendingTV, popularMovies, sciFiShows, docuSeries, recSource, recommendations, inTheaters, topHorror, topAction, onOpenDetails, onAdd, onViewCategory, watchlist } = props;
+    const { heroItems, trending, trendingTV, popularMovies, sciFiShows, docuSeries, inTheaters, topHorror, topAction, onOpenDetails, onAdd, onViewCategory, watchlist, forYouGenre, becauseWatched } = props;
     const hero = heroItems[0];
     if (!hero) return <div className="h-screen bg-black" />;
+
+    // Use personalized recommendations for the Bento grid if available
+    const recItem1 = becauseWatched[0]?.items[0];
 
     return (
         <div className="pb-32 font-sans">
@@ -277,14 +345,14 @@ const BetaView: React.FC<DiscoverViewProps> = (props) => {
             <div className="max-w-[1800px] mx-auto p-4 md:p-8">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-[300px]">
                     
-                    {/* Tall Card: Recommendations */}
-                    {recommendations.length > 0 && (
-                        <div className="md:col-span-1 md:row-span-2 relative group overflow-hidden rounded-none border border-white/10 bg-zinc-900 cursor-pointer" onClick={() => onOpenDetails(recommendations[0].id, recommendations[0].media_type)}>
-                            <img src={getImageUrl(recommendations[0].poster_path)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-500" alt="" />
+                    {/* Tall Card: Recommendations (Personalized) */}
+                    {recItem1 && (
+                        <div className="md:col-span-1 md:row-span-2 relative group overflow-hidden rounded-none border border-white/10 bg-zinc-900 cursor-pointer" onClick={() => onOpenDetails(recItem1.id, recItem1.media_type)}>
+                            <img src={getImageUrl(recItem1.poster_path)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-500" alt="" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent p-6 flex flex-col justify-end">
-                                <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">For You</div>
-                                <h3 className="text-2xl font-bold text-white leading-none mb-2">{recommendations[0].name}</h3>
-                                <p className="text-xs text-zinc-400 line-clamp-2">Because you watched {recSource?.name}</p>
+                                <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Sparkles className="w-3 h-3" /> For You</div>
+                                <h3 className="text-2xl font-bold text-white leading-none mb-2">{recItem1.name}</h3>
+                                <p className="text-xs text-zinc-400 line-clamp-2">Because you watched {becauseWatched[0].source.name}</p>
                             </div>
                         </div>
                     )}
@@ -337,11 +405,17 @@ const BetaView: React.FC<DiscoverViewProps> = (props) => {
             </div>
 
             {/* 4. EXPANDED LISTS */}
+            {/* For You Sections */}
+            {forYouGenre && (
+                 <CategorySection title={`Top Pick for You: ${forYouGenre.name}`} items={forYouGenre.items} type={forYouGenre.type} onOpenDetails={onOpenDetails} onAdd={onAdd} watchlist={watchlist} />
+            )}
+            
+            {becauseWatched.map((rec, i) => (
+                <CategorySection key={i} title={`Because you watch ${rec.source.name}`} items={rec.items} type={rec.source.media_type} onOpenDetails={onOpenDetails} onAdd={onAdd} watchlist={watchlist} />
+            ))}
+
             <CategorySection title="Trending TV Shows" items={trendingTV} type="tv" onMore={() => onViewCategory("Trending TV", "/trending/tv/week", "tv")} onOpenDetails={onOpenDetails} onAdd={onAdd} watchlist={watchlist} />
             <CategorySection title="Popular Movies" items={popularMovies} type="movie" onMore={() => onViewCategory("Popular Movies", "/movie/popular", "movie")} onOpenDetails={onOpenDetails} onAdd={onAdd} watchlist={watchlist} />
-            <CategorySection title="Sci-Fi & Fantasy" items={sciFiShows} type="tv" onMore={() => onViewCategory("Sci-Fi & Fantasy", "/discover/tv", "tv", { with_genres: '10765' })} onOpenDetails={onOpenDetails} onAdd={onAdd} watchlist={watchlist} />
-            <CategorySection title="Action Hits" items={topAction} type="movie" onMore={() => onViewCategory("Action Movies", "/discover/movie", "movie", { with_genres: '28' })} onOpenDetails={onOpenDetails} onAdd={onAdd} watchlist={watchlist} />
-
             
             <style>{`
                 @keyframes marquee {
@@ -357,9 +431,9 @@ const BetaView: React.FC<DiscoverViewProps> = (props) => {
 };
 
 // --- CLASSIC LAYOUT (Netflix Style) ---
-const ClassicView: React.FC<DiscoverViewProps> = ({ heroItems, trending, trendingTV, popularMovies, recSource, recommendations, inTheaters, topHorror, topAction, onOpenDetails, onOpenTrailer, onAdd, onViewCategory, watchlist }) => {
+const ClassicView: React.FC<DiscoverViewProps> = ({ heroItems, trending, trendingTV, popularMovies, inTheaters, topHorror, topAction, onOpenDetails, onOpenTrailer, onAdd, onViewCategory, watchlist, forYouGenre, becauseWatched }) => {
     // Standard Horizontal Scroll Component
-    const Section = ({ title, items, isTop10, icon: Icon, endpoint, type, params }: { title: string, items: TVShow[], isTop10?: boolean, icon?: any, endpoint?: string, type?: 'tv'|'movie', params?: any }) => {
+    const Section: React.FC<{ title: string, items: TVShow[], isTop10?: boolean, icon?: any, endpoint?: string, type?: 'tv' | 'movie', params?: any }> = ({ title, items, isTop10, icon: Icon, endpoint, type, params }) => {
         if (!items || items.length === 0) return null;
         return (
             <div className="py-6 group/section">
@@ -430,7 +504,13 @@ const ClassicView: React.FC<DiscoverViewProps> = ({ heroItems, trending, trendin
 
             <div className="relative z-10 -mt-16 space-y-2">
                 <Section title="Top 10 Today" items={trending} isTop10 endpoint="/trending/movie/week" type="movie" />
-                {recSource && <Section title={`Because you watch ${recSource.name}`} items={recommendations} icon={Sparkles} />}
+                
+                {forYouGenre && <Section title={`Top Pick: ${forYouGenre.name}`} items={forYouGenre.items} icon={Heart} />}
+                
+                {becauseWatched.map((rec, i) => (
+                    <Section key={i} title={`Because you watch ${rec.source.name}`} items={rec.items} icon={Sparkles} />
+                ))}
+
                 <Section title="Popular Series" items={trendingTV} icon={Tv} endpoint="/trending/tv/week" type="tv" />
                 <Section title="Now In Cinemas" items={inTheaters} icon={Ticket} endpoint="/movie/now_playing" type="movie" />
                 <Section title="Top Rated Horror" items={topHorror} endpoint="/discover/movie" type="movie" params={{ with_genres: '27' }} />
