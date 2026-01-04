@@ -31,7 +31,8 @@ interface PersonalizedSection {
 
 // Filter out specific regions/languages to reduce clutter
 const filterContent = (items: TVShow[]) => {
-    const BLOCK_LANGS = ['hi', 'te', 'ta', 'kn', 'ml', 'pa', 'mr', 'bn'];
+    // Block list for Indian content as requested
+    const BLOCK_LANGS = ['hi', 'te', 'ta', 'kn', 'ml', 'pa', 'mr', 'bn', 'gu', 'or', 'as', 'ur', 'ne', 'si'];
     const BLOCK_REGIONS = ['IN'];
     
     return items.filter(item => {
@@ -53,6 +54,7 @@ const V2Discover: React.FC = () => {
     
     // Dynamic Personalized Rows
     const [personalizedSections, setPersonalizedSections] = useState<PersonalizedSection[]>([]);
+    const personalizationInitialized = useRef(false);
 
     // Modals
     const [detailsId, setDetailsId] = useState<{id: number, type: 'tv'|'movie'} | null>(null);
@@ -72,8 +74,11 @@ const V2Discover: React.FC = () => {
     }, []);
 
     // Complex Personalization Logic
+    // Only runs ONCE per session (via ref) or if watchlist grows from empty.
+    // This prevents reshuffling when user adds items.
     useEffect(() => {
         if (watchlist.length === 0) return;
+        if (personalizationInitialized.current) return;
 
         const generateSections = async () => {
             const sections: PersonalizedSection[] = [];
@@ -225,10 +230,11 @@ const V2Discover: React.FC = () => {
             }
 
             setPersonalizedSections(sections);
+            personalizationInitialized.current = true;
         };
 
         generateSections();
-    }, [watchlist.length]); // Re-run when library changes size significantly
+    }, [watchlist.length]); 
 
     const handleAdd = (e: React.MouseEvent, show: TVShow) => {
         e.stopPropagation();

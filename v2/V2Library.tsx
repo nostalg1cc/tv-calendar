@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import { LayoutGrid, List as ListIcon, Search, Filter, Star, Clock, Tv, Film, Trash2, Check, ArrowUpDown, Layers } from 'lucide-react';
+import { LayoutGrid, List as ListIcon, Search, Filter, Star, Clock, Tv, Film, Trash2, Check, ArrowUpDown, Layers, Eye, EyeOff } from 'lucide-react';
 import { useStore } from '../store';
 import { getImageUrl } from '../services/tmdb';
 import { TVShow } from '../types';
@@ -9,9 +8,10 @@ import V2ShowDetailsModal from './V2ShowDetailsModal';
 import RatingBadge from '../components/RatingBadge';
 
 const V2Library: React.FC = () => {
-    const { watchlist, removeFromWatchlist, settings } = useStore();
+    const { watchlist, removeFromWatchlist, settings, history } = useStore();
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState<'all' | 'tv' | 'movie'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'watched' | 'unwatched'>('all');
     const [sort, setSort] = useState<'date_added' | 'rating' | 'name' | 'release'>('date_added');
     const [view, setView] = useState<'grid' | 'list'>('grid');
     const [selectedItem, setSelectedItem] = useState<TVShow | null>(null);
@@ -23,10 +23,28 @@ const V2Library: React.FC = () => {
     const filtered = useMemo(() => {
         let items = [...watchlist];
         
+        // Type Filter
         if (typeFilter !== 'all') {
             items = items.filter(i => i.media_type === typeFilter);
         }
         
+        // Status Filter
+        if (statusFilter !== 'all') {
+            items = items.filter(item => {
+                let isWatched = false;
+                if (item.media_type === 'movie') {
+                    isWatched = history[`movie-${item.id}`]?.is_watched;
+                } else {
+                    // For TV, if *any* episode is watched, consider it "started/watched" for this filter context
+                    // Or we could check if user has history entries.
+                    isWatched = Object.keys(history).some(key => key.startsWith(`episode-${item.id}-`) && history[key].is_watched);
+                }
+                
+                return statusFilter === 'watched' ? isWatched : !isWatched;
+            });
+        }
+        
+        // Search
         if (search) {
             const q = search.toLowerCase();
             items = items.filter(i => i.name.toLowerCase().includes(q));
@@ -39,7 +57,7 @@ const V2Library: React.FC = () => {
             // date_added (reverse array order as proxy since newly added are appended)
             return watchlist.indexOf(b) - watchlist.indexOf(a);
         });
-    }, [watchlist, typeFilter, search, sort]);
+    }, [watchlist, typeFilter, statusFilter, search, sort, history]);
 
     return (
         <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
@@ -77,8 +95,8 @@ const V2Library: React.FC = () => {
             </div>
 
             {/* Toolbar */}
-            <div className="px-6 py-2 border-b border-white/5 flex items-center justify-between bg-background">
-                <div className="flex gap-2">
+            <div className="px-6 py-2 border-b border-white/5 flex items-center justify-between bg-background overflow-x-auto hide-scrollbar gap-4">
+                <div className="flex gap-2 shrink-0">
                     {(['all', 'tv', 'movie'] as const).map(t => (
                         <button 
                             key={t}
@@ -88,9 +106,23 @@ const V2Library: React.FC = () => {
                             {t === 'all' ? 'Everything' : t === 'tv' ? 'Series' : 'Films'}
                         </button>
                     ))}
+                    
+                    <div className="w-px h-6 bg-white/10 mx-1 self-center" />
+
+                    {(['all', 'watched', 'unwatched'] as const).map(s => (
+                        <button 
+                            key={s}
+                            onClick={() => setStatusFilter(s)}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all flex items-center gap-1 ${statusFilter === s ? 'bg-white/10 text-white border-white/10' : 'bg-transparent text-zinc-500 border-transparent hover:bg-white/5'}`}
+                        >
+                            {s === 'watched' && <Eye className="w-3 h-3" />}
+                            {s === 'unwatched' && <EyeOff className="w-3 h-3" />}
+                            {s === 'all' ? 'All Status' : (s.charAt(0).toUpperCase() + s.slice(1))}
+                        </button>
+                    ))}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 shrink-0">
                      <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-zinc-500 uppercase">Sort:</span>
                         <select 
