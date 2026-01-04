@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Play, Plus, Check, Info, ChevronRight, Star, Ticket, MonitorPlay, Sparkles, TrendingUp, FlaskConical, LayoutGrid, Newspaper, ArrowRight, Tv, Film, Heart } from 'lucide-react';
 import { useStore } from '../store';
@@ -140,7 +139,7 @@ const V2Discover: React.FC = () => {
                 return null;
             };
 
-            const promises = [];
+            const promises: Promise<{ source: TVShow, items: TVShow[], isWatched: boolean } | null>[] = [];
 
             // Try to get one "Because you watched"
             if (watchedCandidates.length > 0) {
@@ -161,7 +160,7 @@ const V2Discover: React.FC = () => {
             // If we don't have enough, try to fill with another from available pools
             if (promises.length < 2) {
                  if (watchedCandidates.length > 1) {
-                     const another = watchedCandidates.find(c => !promises.some(p => p && false)); // Simple fallback, real logic complex inside promise
+                     const another = watchedCandidates.find(c => !promises.some(p => p && false)); // Simple fallback
                      // Just pick random
                      const random = watchedCandidates[Math.floor(Math.random() * watchedCandidates.length)];
                      promises.push(fetchRecs(random, true));
