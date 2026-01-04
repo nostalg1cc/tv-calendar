@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Plus, Check, ArrowRight, Sparkles, TrendingUp, CalendarClock, History, Lightbulb, Ticket, Tv } from 'lucide-react';
 import { useStore } from '../store';
 import { getCollection, getBackdropUrl, getImageUrl, getRecommendations } from '../services/tmdb';
@@ -65,7 +65,6 @@ const V2Discover: React.FC = () => {
             const processedIds = new Set<number>(); // To avoid duplicate rows
 
             // Helpers
-            const getHistory = (id: number, type: string) => history[`${type}-${id}`] || history[`episode-${id}-1-1`]; // simplified check
             const isWatched = (item: TVShow) => {
                 if (item.media_type === 'movie') return history[`movie-${item.id}`]?.is_watched;
                 // Check if any episode is watched as a proxy for "started"
@@ -179,7 +178,7 @@ const V2Discover: React.FC = () => {
                 // Construct a query
                 const startDate = `${decade}-01-01`;
                 const endDate = `${decade + 9}-12-31`;
-                const mediaType = 'movie'; // Default to movie for nostalgia usually, or infer from logic
+                
 
                 try {
                     const discovery = await getCollection('/discover/movie', 'movie', 1, {
@@ -323,7 +322,7 @@ const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onO
                                 className="w-[160px] md:w-[200px] group relative cursor-pointer"
                                 onClick={() => onOpenDetails(show.id, show.media_type)}
                             >
-                                <div className="aspect-[2/3] overflow-hidden bg-zinc-900 mb-3 border border-white/5 transition-all duration-300 group-hover:-translate-y-2 group-hover:shadow-2xl rounded-xl">
+                                <div className="aspect-[2/3] overflow-hidden bg-zinc-900 mb-3 border border-white/5 transition-all duration-300 group-hover:-translate-y-2 group-hover:shadow-2xl">
                                     <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" alt="" />
                                     {/* Quick Add Overlay */}
                                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -335,7 +334,7 @@ const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onO
                                          </button>
                                     </div>
                                 </div>
-                                <h4 className="text-sm font-bold text-zinc-400 group-hover:text-white transition-colors truncate">{show.name}</h4>
+                                <h4 className="text-sm font-bold text-zinc-400 transition-colors truncate">{show.name}</h4>
                                 <div className="flex items-center gap-2 text-xs text-zinc-600 mt-1">
                                     <span className="uppercase font-bold">{show.media_type === 'movie' ? 'Film' : 'TV'}</span>
                                     <span>•</span>
@@ -353,7 +352,27 @@ const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onO
 
 // --- BETA LAYOUT ---
 const BetaView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMovies, inTheaters, personalizedSections, onOpenDetails, onAdd, onViewCategory, watchlist }) => {
-    const hero = heroItems[0];
+    // Hero Marquee Logic
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const hasHero = heroItems && heroItems.length > 0;
+
+    const resetTimer = useCallback(() => {
+        if (autoScrollRef.current) clearInterval(autoScrollRef.current);
+        autoScrollRef.current = setInterval(() => {
+            setCurrentIndex(prev => (prev + 1) % heroItems.length);
+        }, 10000); // 10s
+    }, [heroItems.length]);
+
+    useEffect(() => {
+        if (hasHero) {
+            resetTimer();
+        }
+        return () => { if (autoScrollRef.current) clearInterval(autoScrollRef.current); };
+    }, [hasHero, resetTimer]);
+
+    const hero = hasHero ? heroItems[currentIndex] : null;
+
     if (!hero) return <div className="h-screen bg-black" />;
 
     // Find "For You" item for Bento
@@ -361,16 +380,23 @@ const BetaView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMovie
 
     return (
         <div className="pb-32 font-sans">
-             {/* Hero Section */}
+             {/* Hero Section with Marquee */}
             <div className="relative w-full h-[85vh] flex flex-col justify-end p-6 md:p-12 overflow-hidden group">
-                <div className="absolute inset-0 bg-cover bg-center transition-transform duration-[20s] ease-linear scale-105 group-hover:scale-100" style={{ backgroundImage: `url(${getBackdropUrl(hero.backdrop_path)})` }}>
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#020202] via-[#020202]/20 to-transparent" />
-                </div>
+                 {heroItems.map((item: TVShow, idx: number) => (
+                     <div 
+                        key={item.id}
+                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out ${idx === currentIndex ? 'opacity-100' : 'opacity-0'}`} 
+                        style={{ backgroundImage: `url(${getBackdropUrl(item.backdrop_path)})` }}
+                    >
+                         <div className="absolute inset-0 bg-gradient-to-t from-[#020202] via-[#020202]/20 to-transparent" />
+                    </div>
+                 ))}
+                
                 <div className="relative z-10 max-w-4xl animate-fade-in-up">
                     <div className="flex items-center gap-3 mb-4">
                         <span className="bg-white text-black text-[10px] font-black uppercase tracking-widest px-2 py-1">Editor's Choice</span>
                         <div className="h-px w-10 bg-white/50" />
-                        <span className="text-white/80 text-xs font-mono uppercase tracking-widest">Trending #1</span>
+                        <span className="text-white/80 text-xs font-mono uppercase tracking-widest">Trending #{currentIndex + 1}</span>
                     </div>
                     <h1 className="text-5xl md:text-8xl font-black text-white leading-[0.85] tracking-tighter mb-6 mix-blend-overlay opacity-90">{hero.name}</h1>
                     <p className="text-zinc-300 text-sm md:text-lg font-medium max-w-xl leading-relaxed mb-8 line-clamp-3">{hero.overview}</p>
@@ -378,6 +404,17 @@ const BetaView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMovie
                         <button onClick={() => onOpenDetails(hero.id, hero.media_type)} className="h-12 px-8 bg-white text-black font-bold uppercase tracking-widest text-xs hover:bg-zinc-200 transition-colors">Explore</button>
                         <button onClick={(e) => onAdd(e, hero)} className="h-12 w-12 border border-white/20 flex items-center justify-center text-white hover:bg-white/10 transition-colors"><Plus className="w-5 h-5" /></button>
                     </div>
+                </div>
+
+                {/* Indicators */}
+                <div className="absolute right-6 md:right-12 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-20">
+                     {heroItems.map((_: any, idx: number) => (
+                         <button
+                            key={idx}
+                            onClick={() => { setCurrentIndex(idx); resetTimer(); }}
+                            className={`w-1 h-8 md:h-12 rounded-full transition-all duration-300 ${idx === currentIndex ? 'bg-white scale-y-110' : 'bg-white/20 hover:bg-white/40'}`}
+                         />
+                     ))}
                 </div>
             </div>
 
