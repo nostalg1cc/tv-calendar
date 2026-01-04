@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Play, Plus, Check, Info, ChevronRight, Star, Ticket, MonitorPlay, Sparkles, TrendingUp, FlaskConical, LayoutGrid, Newspaper, ArrowRight, Tv, Film, Heart } from 'lucide-react';
 import { useStore } from '../store';
@@ -117,37 +118,73 @@ const V2Discover: React.FC = () => {
                     });
             }
 
-            // 2. "Because You Watched" / "Since you're interested in" (Pick 2 random recent items)
-            const candidates = [...watchlist].reverse().slice(0, 10); // Pick from last 10 added
-            const shuffled = candidates.sort(() => 0.5 - Math.random()).slice(0, 2);
-
-            // Pre-calculate watched TV IDs (since history keys for TV are by episode)
-            const watchedShowIds = new Set<number>();
+            // 2. Personalization: Watched vs Interested
+            // Get watched items from history to cross-reference
+            const watchedIds = new Set<number>();
             (Object.values(history) as WatchedItem[]).forEach(h => {
-                if (h.media_type === 'episode' && h.is_watched) watchedShowIds.add(h.tmdb_id);
+                if (h.is_watched) watchedIds.add(h.tmdb_id);
             });
 
-            Promise.all(shuffled.map(async (source) => {
-                try {
-                    const recs = await getRecommendations(source.id, source.media_type);
-                    // Filter duplicates and existing
-                    const validRecs = recs.filter(r => !watchlist.some(w => w.id === r.id));
-                    
-                    let isSourceWatched = false;
-                    if (source.media_type === 'movie') {
-                        isSourceWatched = history[`movie-${source.id}`]?.is_watched || false;
-                    } else {
-                        isSourceWatched = watchedShowIds.has(source.id);
-                    }
+            // Split watchlist
+            const watchedCandidates = watchlist.filter(w => watchedIds.has(w.id));
+            const interestedCandidates = watchlist.filter(w => !watchedIds.has(w.id));
 
-                    if (validRecs.length > 0) return { source, items: validRecs, isWatched: isSourceWatched };
+            const fetchRecs = async (candidate: TVShow, isWatched: boolean) => {
+                try {
+                     const recs = await getRecommendations(candidate.id, candidate.media_type);
+                     const validRecs = recs.filter(r => !watchlist.some(w => w.id === r.id));
+                     if (validRecs.length > 0) {
+                         return { source: candidate, items: validRecs, isWatched };
+                     }
                 } catch (e) { return null; }
                 return null;
-            })).then(results => {
-                setBecauseWatched(results.filter(Boolean) as { source: TVShow, items: TVShow[], isWatched: boolean }[]);
+            };
+
+            const promises = [];
+
+            // Try to get one "Because you watched"
+            if (watchedCandidates.length > 0) {
+                // Pick random from recent 20
+                const recentWatched = watchedCandidates.slice(-20);
+                const randomWatched = recentWatched[Math.floor(Math.random() * recentWatched.length)];
+                promises.push(fetchRecs(randomWatched, true));
+            }
+
+            // Try to get one "Since you're interested in"
+            if (interestedCandidates.length > 0) {
+                // Pick random from recent 20
+                const recentInterested = interestedCandidates.slice(-20);
+                const randomInterested = recentInterested[Math.floor(Math.random() * recentInterested.length)];
+                promises.push(fetchRecs(randomInterested, false));
+            }
+
+            // If we don't have enough, try to fill with another from available pools
+            if (promises.length < 2) {
+                 if (watchedCandidates.length > 1) {
+                     const another = watchedCandidates.find(c => !promises.some(p => p && false)); // Simple fallback, real logic complex inside promise
+                     // Just pick random
+                     const random = watchedCandidates[Math.floor(Math.random() * watchedCandidates.length)];
+                     promises.push(fetchRecs(random, true));
+                 } else if (interestedCandidates.length > 1) {
+                     const random = interestedCandidates[Math.floor(Math.random() * interestedCandidates.length)];
+                     promises.push(fetchRecs(random, false));
+                 }
+            }
+            
+            Promise.all(promises).then(results => {
+                // Deduplicate by source ID just in case
+                const uniqueResults: any[] = [];
+                const seenSources = new Set();
+                results.forEach(r => {
+                    if (r && !seenSources.has(r.source.id)) {
+                        seenSources.add(r.source.id);
+                        uniqueResults.push(r);
+                    }
+                });
+                setBecauseWatched(uniqueResults);
             });
         }
-    }, [watchlist.length]); // Only re-run if watchlist size changes significantly (length is a decent proxy to avoid deep eq check)
+    }, [watchlist.length]); 
 
     const handleAdd = (e: React.MouseEvent, show: TVShow) => {
         e.stopPropagation();
