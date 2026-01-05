@@ -130,8 +130,6 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                 </div>
 
                 <div className="flex-1 py-6 space-y-1">
-                    <NavItem to="#" icon={SearchIcon} label="Search" onClick={onOpenSearch} />
-                    <div className="my-2 mx-4 h-px bg-border" />
                     <NavItem 
                         to="/calendar" 
                         icon={CalendarDaysIcon} 
@@ -147,6 +145,8 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                         icon={GalleryVerticalEndIcon} 
                         label="Library" 
                     />
+                    <div className="my-2 mx-4 h-px bg-border" />
+                    <NavItem to="#" icon={SearchIcon} label="Search" onClick={onOpenSearch} />
                     <div className="my-2 mx-4 h-px bg-border" />
                     <NavItem 
                         to="/ipoint" 

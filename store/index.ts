@@ -412,7 +412,7 @@ export const useStore = create<State>()(
                         if (profile.trakt_profile) set({ traktProfile: profile.trakt_profile });
                     }
 
-                    const { data: watchlistData } = await supabase.from('watchlist').select('*');
+                    const { data: watchlistData } = await supabase.from('watchlist').select('*').eq('user_id', user.id);
                     if (watchlistData) {
                         const currentSettings = get().settings;
                         const mapped = watchlistData.map((w: any) => ({
@@ -430,8 +430,12 @@ export const useStore = create<State>()(
                     }
 
                     const map: Record<string, WatchedItem> = {};
-                    const { data: dbHistory } = await supabase.from('interactions').select('*');
-                    if (dbHistory) {
+                    const { data: dbHistory, error: dbError } = await supabase.from('interactions').select('*').eq('user_id', user.id);
+                    
+                    if (dbError) {
+                        console.error("Failed to sync interactions from cloud:", dbError);
+                        // Do not overwrite history if DB fetch failed
+                    } else if (dbHistory) {
                         dbHistory.forEach((h: any) => {
                             const key = h.media_type === 'episode' 
                                 ? `episode-${h.tmdb_id}-${h.season_number}-${h.episode_number}`
@@ -446,6 +450,8 @@ export const useStore = create<State>()(
                                 watched_at: h.watched_at
                             };
                         });
+                        // Only update history if we successfully processed cloud data
+                        set({ history: map });
                     }
 
                     const currentTraktToken = get().traktToken;
@@ -456,13 +462,15 @@ export const useStore = create<State>()(
                                 getWatchedHistory(currentTraktToken, 'shows')
                             ]);
 
+                            const mergedHistory = { ...get().history }; 
+
                             if (Array.isArray(traktMovies)) {
                                 traktMovies.forEach((m: any) => {
                                     if (m.movie?.ids?.tmdb) {
                                         const tmdbId = m.movie.ids.tmdb;
                                         const key = `movie-${tmdbId}`;
-                                        const existing = map[key];
-                                        map[key] = {
+                                        const existing = mergedHistory[key];
+                                        mergedHistory[key] = {
                                             tmdb_id: tmdbId,
                                             media_type: 'movie',
                                             is_watched: true,
@@ -481,8 +489,8 @@ export const useStore = create<State>()(
                                             if (season.episodes) {
                                                 season.episodes.forEach((ep: any) => {
                                                     const key = `episode-${showTmdbId}-${season.number}-${ep.number}`;
-                                                    const existing = map[key];
-                                                    map[key] = {
+                                                    const existing = mergedHistory[key];
+                                                    mergedHistory[key] = {
                                                         tmdb_id: showTmdbId,
                                                         media_type: 'episode',
                                                         season_number: season.number,
@@ -497,12 +505,12 @@ export const useStore = create<State>()(
                                     }
                                 });
                             }
+                            // Update with merged Trakt data
+                            set({ history: mergedHistory });
                         } catch (e) {
                             console.error("Trakt sync failed inside cloud sync", e);
                         }
                     }
-
-                    set({ history: map });
 
                 } catch (e) {
                     console.error("Sync error", e);
