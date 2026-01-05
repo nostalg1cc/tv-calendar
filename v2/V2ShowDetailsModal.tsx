@@ -1,6 +1,5 @@
-
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Play, Plus, Check, Star, Loader2, MonitorPlay, Ticket, ChevronDown, Video, ExternalLink, Clock, Calendar, Hash, User, RefreshCw, Image, Layout, Download, Film, Tv } from 'lucide-react';
+import { X, Play, Plus, Check, Star, Loader2, MonitorPlay, Ticket, ChevronDown, Video, ExternalLink, Clock, Calendar, Hash, User, RefreshCw, Image, Layout, Download, Film, Tv, StarOff } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails, getMovieReleaseDates, getShowImages } from '../services/tmdb';
 import { getTVMazeEpisodes } from '../services/tvmaze';
 import { TVShow, Episode, Season, Video as VideoType } from '../types';
@@ -8,6 +7,7 @@ import { useStore } from '../store';
 import { format, parseISO, isFuture } from 'date-fns';
 import { getTraktIdFromTmdbId, getTraktSeason, getTraktShowSummary } from '../services/trakt';
 import RatingBadge from '../components/RatingBadge';
+import toast from 'react-hot-toast';
 
 interface V2ShowDetailsModalProps {
     isOpen: boolean;
@@ -19,7 +19,7 @@ interface V2ShowDetailsModalProps {
 }
 
 const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose, showId, mediaType, initialSeason, initialEpisode }) => {
-    const { addToWatchlist, watchlist, history, toggleWatched, settings } = useStore();
+    const { addToWatchlist, watchlist, history, toggleWatched, setRating, setReminderCandidate, settings } = useStore();
     
     const [activeTab, setActiveTab] = useState<'overview' | 'episodes' | 'media' | 'releases'>('overview');
     const [details, setDetails] = useState<TVShow | null>(null);
@@ -48,7 +48,6 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
     useEffect(() => {
         if (isOpen && showId) {
             setLoading(true);
-            // Reset state
             setDetails(null);
             setVideos([]);
             setImages({ posters: [], backdrops: [] });
@@ -61,7 +60,6 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                     const data = await fetcher(showId);
                     setDetails(data);
                     
-                    // Parallel fetches for standard data
                     const [vids, imgs] = await Promise.all([
                          getVideos(mediaType, showId),
                          getShowImages(mediaType, showId)
@@ -95,7 +93,6 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                         setSelectedSeasonNum(seasonToLoad);
                         setActiveTab(initialSeason ? 'episodes' : 'overview');
 
-                        // Trakt Status
                         try {
                             const traktId = await getTraktIdFromTmdbId(showId, 'show');
                             if (traktId) {
@@ -130,7 +127,6 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                     const sData = await getSeasonDetails(details.id, selectedSeasonNum);
                     setSeasonData(sData);
 
-                    // Parallel fetches for overrides
                     const [mazeMap, traktId] = await Promise.all([
                         getTVMazeEpisodes(details.external_ids?.imdb_id, details.external_ids?.tvdb_id, settings.country),
                         getTraktIdFromTmdbId(details.id, 'show')
@@ -170,15 +166,105 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
         }
     }, [loadingSeason, seasonData, initialEpisode, activeTab]);
 
-    if (!isOpen) return null;
-
     const isAdded = details ? watchlist.some(s => s.id === details.id) : false;
+
+    // --- RATING LOGIC ---
+    const getMyRating = () => {
+        const key = `${mediaType}-${showId}`;
+        return history[key]?.rating || 0;
+    };
+    
+    const isWatched = () => {
+        if (mediaType === 'movie') return history[`movie-${showId}`]?.is_watched;
+        // For TV, generally check if *any* episode watched or the show object is marked
+        return Object.keys(history).some(key => key.startsWith(`episode-${showId}-`) && history[key].is_watched);
+    };
+
+    const handleRate = (rating: number) => {
+        if (!details) return;
+
+        const currentWatched = isWatched();
+        
+        // 1. Add to Watchlist if not present
+        if (!isAdded) {
+            addToWatchlist(details);
+            toast.success("Added to library");
+        }
+
+        // 2. Set Rating
+        setRating(showId, mediaType, rating);
+        
+        // 3. Handle Watched Status Logic
+        if (!currentWatched) {
+            if (mediaType === 'movie') {
+                toggleWatched({ tmdb_id: showId, media_type: 'movie', is_watched: false }); // false passed to flip to true
+                toast.success("Marked as watched & rated");
+            } else {
+                // For TV, triggering the reminder candidate opens the "Seen All?" modal
+                setReminderCandidate(details);
+                toast.success("Rated! Have you seen all episodes?");
+            }
+        } else {
+            toast.success(`Rated ${rating} stars`);
+        }
+    };
+
+    // --- Helper Components ---
+
+    const StatusBadge = () => {
+        const status = traktStatus || details?.status;
+        if (!status) return null;
+        const s = status.toLowerCase();
+        let colorClass = 'bg-zinc-800 text-zinc-400 border-zinc-700'; 
+        
+        if (s.includes('returning')) colorClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+        else if (s.includes('ended') || s.includes('canceled')) colorClass = 'bg-red-500/20 text-red-400 border-red-500/30';
+        else if (s.includes('production')) colorClass = 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+
+        return (
+            <span className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border ${colorClass}`}>
+                {status}
+            </span>
+        );
+    };
+
+    const UserRatingStars = () => {
+        const rating = getMyRating();
+        return (
+            <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                        key={star}
+                        onClick={() => handleRate(star)}
+                        className={`transition-transform hover:scale-110 ${star <= rating ? 'text-yellow-400' : 'text-zinc-600 hover:text-yellow-200'}`}
+                    >
+                        <Star className={`w-6 h-6 ${star <= rating ? 'fill-current' : ''}`} strokeWidth={2} />
+                    </button>
+                ))}
+                {rating > 0 && (
+                     <button onClick={() => handleRate(0)} className="ml-2 text-zinc-600 hover:text-red-400">
+                         <StarOff className="w-4 h-4" />
+                     </button>
+                )}
+            </div>
+        );
+    };
+
+    const TabButton = ({ id, label, icon: Icon }: { id: 'overview' | 'episodes' | 'media' | 'releases', label: string, icon: any }) => (
+        <button
+            onClick={() => setActiveTab(id)}
+            className={`flex items-center gap-2 px-6 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === id ? 'border-indigo-500 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+        >
+            <Icon className="w-4 h-4" /> {label}
+        </button>
+    );
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 md:p-6 bg-black/90 backdrop-blur-xl animate-fade-in">
              <div className="w-full h-full md:max-w-6xl md:h-[90vh] bg-[#020202] md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative border border-white/5 group/modal">
                  
-                 {/* Close Button */}
                 <button 
                     onClick={onClose} 
                     className="absolute top-6 right-6 z-50 p-3 rounded-full bg-black/40 hover:bg-white/10 text-white backdrop-blur-xl transition-all border border-white/5 group-hover/modal:border-white/20"
@@ -200,7 +286,6 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                              <div className="absolute inset-0 bg-gradient-to-r from-[#020202]/90 via-transparent to-transparent" />
                              
                              <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 flex flex-col justify-end">
-                                  {/* Meta Row */}
                                   <div className="flex flex-wrap items-center gap-3 mb-4 animate-fade-in-up">
                                       <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
                                           {mediaType === 'movie' ? <Film className="w-3 h-3 text-white" /> : <Tv className="w-3 h-3 text-white" />}
@@ -214,16 +299,13 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                       <div className="flex items-center gap-1.5 text-yellow-400 text-sm font-bold bg-black/40 px-3 py-1 rounded-full border border-white/5 backdrop-blur-md">
                                            <Star className="w-3.5 h-3.5 fill-current" /> {details.vote_average.toFixed(1)}
                                       </div>
-                                      <span className="text-sm font-bold text-zinc-300 font-mono">
-                                          {details.first_air_date?.split('-')[0]}
-                                      </span>
                                   </div>
 
                                   <h1 className="text-4xl md:text-7xl font-black text-white leading-[0.9] tracking-tighter mb-6 drop-shadow-2xl max-w-4xl animate-fade-in-up" style={{ animationDelay: '100ms' }}>
                                       {details.name}
                                   </h1>
 
-                                  <div className="flex items-center gap-4 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+                                  <div className="flex items-center gap-6 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
                                       <button 
                                           onClick={() => !isAdded && addToWatchlist(details)}
                                           disabled={isAdded}
@@ -233,14 +315,11 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                           {isAdded ? 'In Library' : 'Add to Library'}
                                       </button>
                                       
-                                      {videos.length > 0 && (
-                                          <button 
-                                              onClick={() => setPlayingVideo(videos.find(v => v.type === 'Trailer') || videos[0])}
-                                              className="h-12 px-8 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all bg-white/5 hover:bg-white/15 text-white border border-white/10 backdrop-blur-md"
-                                          >
-                                              <Play className="w-4 h-4 fill-current" /> Trailer
-                                          </button>
-                                      )}
+                                      {/* Interactive Rating in Header */}
+                                      <div className="flex flex-col gap-1">
+                                          <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest pl-1">Your Rating</span>
+                                          <UserRatingStars />
+                                      </div>
                                   </div>
                              </div>
                          </div>
@@ -319,24 +398,12 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                                      </div>
                                                  )}
                                              </div>
-
-                                             {details.external_ids && (
-                                                 <div className="pt-4 border-t border-white/5">
-                                                     <div className="flex gap-4">
-                                                         {details.external_ids.imdb_id && (
-                                                             <a href={`https://www.imdb.com/title/${details.external_ids.imdb_id}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-[#f5c518] transition-colors">
-                                                                 <ExternalLink className="w-3 h-3" /> IMDb
-                                                             </a>
-                                                         )}
-                                                     </div>
-                                                 </div>
-                                             )}
                                          </div>
                                      </div>
                                  </div>
                              )}
 
-                             {/* EPISODES TAB */}
+                             {/* EPISODES TAB, MEDIA TAB, RELEASES TAB... (retained content) */}
                              {activeTab === 'episodes' && mediaType === 'tv' && (
                                  <div className="max-w-4xl mx-auto animate-fade-in">
                                      <div className="flex items-center justify-between mb-8">
@@ -429,10 +496,8 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                  </div>
                              )}
 
-                             {/* MEDIA TAB */}
                              {activeTab === 'media' && (
                                  <div className="space-y-12 animate-fade-in">
-                                     {/* Trailers */}
                                      <div>
                                          <h3 className="text-sm font-black text-zinc-600 uppercase tracking-widest mb-6">Trailers & Clips</h3>
                                          {videos.length > 0 ? (
@@ -453,35 +518,14 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                                                  <Play className="w-5 h-5 text-white fill-current" />
                                                              </div>
                                                          </div>
-                                                         <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
-                                                             <p className="text-xs font-bold text-white truncate">{video.name}</p>
-                                                             <p className="text-[10px] text-zinc-400 uppercase tracking-wider">{video.type}</p>
-                                                         </div>
                                                      </div>
                                                  ))}
                                              </div>
                                          ) : <div className="text-sm text-zinc-500 italic">No videos available.</div>}
                                      </div>
-
-                                     {/* Posters */}
-                                     <div>
-                                         <h3 className="text-sm font-black text-zinc-600 uppercase tracking-widest mb-6">Posters</h3>
-                                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
-                                             {images.posters.slice(0, 12).map((img, idx) => (
-                                                 <div 
-                                                     key={idx} 
-                                                     onClick={() => setPreviewImage(getImageUrl(img.file_path, 'original'))}
-                                                     className="aspect-[2/3] bg-zinc-900 rounded-xl overflow-hidden border border-white/5 hover:scale-105 transition-transform cursor-pointer shadow-lg"
-                                                 >
-                                                     <img src={getImageUrl(img.file_path, 'w342')} className="w-full h-full object-cover" loading="lazy" alt="" />
-                                                 </div>
-                                             ))}
-                                         </div>
-                                     </div>
                                  </div>
                              )}
-
-                             {/* RELEASES TAB (MOVIES) */}
+                             
                              {activeTab === 'releases' && mediaType === 'movie' && (
                                  <div className="max-w-2xl mx-auto animate-fade-in">
                                      <h3 className="text-sm font-black text-zinc-600 uppercase tracking-widest mb-6">Global Release Dates</h3>
@@ -510,7 +554,6 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                 )}
              </div>
 
-             {/* VIDEO OVERLAY */}
              {playingVideo && (
                  <div className="absolute inset-0 z-[250] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 md:p-20 animate-fade-in" onClick={() => setPlayingVideo(null)}>
                      <div className="w-full h-full bg-black relative shadow-2xl rounded-3xl overflow-hidden border border-white/10 max-w-7xl max-h-[80vh]">
@@ -526,17 +569,10 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                      </div>
                  </div>
              )}
-
-             {/* IMAGE PREVIEW OVERLAY */}
+             
              {previewImage && (
                  <div className="absolute inset-0 z-[300] bg-black/95 backdrop-blur-xl flex flex-col animate-fade-in" onClick={() => setPreviewImage(null)}>
                      <div className="absolute top-6 right-6 flex gap-4 z-50">
-                         <button 
-                             onClick={(e) => { e.stopPropagation(); window.open(previewImage, '_blank'); }}
-                             className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/5 backdrop-blur-md"
-                         >
-                             <Download className="w-6 h-6" />
-                         </button>
                          <button 
                              onClick={() => setPreviewImage(null)}
                              className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/5 backdrop-blur-md"
@@ -545,12 +581,7 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                          </button>
                      </div>
                      <div className="flex-1 flex items-center justify-center p-4 md:p-12">
-                         <img 
-                             src={previewImage} 
-                             className="max-w-full max-h-full object-contain shadow-2xl rounded-lg" 
-                             alt="Preview"
-                             onClick={(e) => e.stopPropagation()} 
-                         />
+                         <img src={previewImage} className="max-w-full max-h-full object-contain shadow-2xl rounded-lg" alt="Preview" onClick={(e) => e.stopPropagation()} />
                      </div>
                  </div>
              )}

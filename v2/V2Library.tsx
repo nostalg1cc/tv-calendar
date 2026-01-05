@@ -8,7 +8,7 @@ import V2ShowDetailsModal from './V2ShowDetailsModal';
 import RatingBadge from '../components/RatingBadge';
 
 const V2Library: React.FC = () => {
-    const { watchlist, removeFromWatchlist, settings, history } = useStore();
+    const { watchlist, removeFromWatchlist, settings, history, toggleWatched } = useStore();
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState<'all' | 'tv' | 'movie'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'watched' | 'unwatched'>('all');
@@ -35,11 +35,8 @@ const V2Library: React.FC = () => {
                 if (item.media_type === 'movie') {
                     isWatched = history[`movie-${item.id}`]?.is_watched;
                 } else {
-                    // For TV, if *any* episode is watched, consider it "started/watched" for this filter context
-                    // Or we could check if user has history entries.
                     isWatched = Object.keys(history).some(key => key.startsWith(`episode-${item.id}-`) && history[key].is_watched);
                 }
-                
                 return statusFilter === 'watched' ? isWatched : !isWatched;
             });
         }
@@ -54,7 +51,6 @@ const V2Library: React.FC = () => {
             if (sort === 'name') return a.name.localeCompare(b.name);
             if (sort === 'rating') return b.vote_average - a.vote_average;
             if (sort === 'release') return (b.first_air_date || '').localeCompare(a.first_air_date || '');
-            // date_added (reverse array order as proxy since newly added are appended)
             return watchlist.indexOf(b) - watchlist.indexOf(a);
         });
     }, [watchlist, typeFilter, statusFilter, search, sort, history]);
@@ -156,60 +152,72 @@ const V2Library: React.FC = () => {
                         ? "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-4" 
                         : "flex flex-col gap-2"
                     }>
-                        {filtered.map(item => (
-                            <div 
-                                key={item.id} 
-                                onClick={() => setSelectedItem(item)}
-                                className={`group relative cursor-pointer ${view === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5' : ''}`}
-                            >
-                                {/* Poster Container */}
-                                <div className={`relative overflow-hidden rounded-lg bg-zinc-900 border border-white/10 shadow-lg ${view === 'grid' ? 'aspect-[2/3]' : 'w-12 h-16 shrink-0'}`}>
-                                    <img src={getImageUrl(item.custom_poster_path || item.poster_path)} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" alt="" />
-                                    {/* Rating Banner */}
-                                    <RatingBadge rating={item.vote_average} />
-                                    
-                                    {/* Grid Overlay Actions */}
-                                    {view === 'grid' && (
-                                        <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                        {filtered.map(item => {
+                            let isWatched = false;
+                            if (item.media_type === 'movie') isWatched = history[`movie-${item.id}`]?.is_watched;
+                            else isWatched = Object.keys(history).some(key => key.startsWith(`episode-${item.id}-`) && history[key].is_watched);
+
+                            return (
+                                <div 
+                                    key={item.id} 
+                                    onClick={() => setSelectedItem(item)}
+                                    className={`group relative cursor-pointer ${view === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5' : ''}`}
+                                >
+                                    {/* Poster Container */}
+                                    <div className={`relative overflow-hidden rounded-lg bg-zinc-900 border border-white/10 shadow-lg ${view === 'grid' ? 'aspect-[2/3]' : 'w-12 h-16 shrink-0'}`}>
+                                        <img src={getImageUrl(item.custom_poster_path || item.poster_path)} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" alt="" />
+                                        <RatingBadge rating={item.vote_average} />
+                                        
+                                        {/* Grid Overlay Actions */}
+                                        {view === 'grid' && (
+                                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0 duration-300">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); if(confirm("Remove from library?")) removeFromWatchlist(item.id); }}
+                                                    className="w-8 h-8 flex items-center justify-center rounded-full shadow-lg bg-zinc-900 text-red-500 hover:bg-red-500 hover:text-white transition-colors"
+                                                    title="Remove"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); toggleWatched({ tmdb_id: item.id, media_type: 'movie', is_watched: isWatched }); }}
+                                                    className={`w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 ${isWatched ? 'bg-emerald-500 text-white' : 'bg-black/50 backdrop-blur-md text-white hover:bg-black/70'}`}
+                                                    title={isWatched ? "Mark Unwatched" : "Mark Watched"}
+                                                >
+                                                    {isWatched ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Meta Info (Grid vs List) */}
+                                    {view === 'grid' ? (
+                                        <div className="mt-2">
+                                            <h4 className="text-[11px] font-bold text-zinc-200 truncate group-hover:text-indigo-400 transition-colors">{item.name}</h4>
+                                            <div className="flex items-center justify-between mt-0.5">
+                                                <span className="text-[9px] font-mono text-zinc-500">{item.first_air_date?.split('-')[0]}</span>
+                                                <span className="text-[9px] font-bold text-zinc-600 uppercase">{item.media_type === 'movie' ? 'Film' : 'TV'}</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 min-w-0 flex items-center justify-between pr-4">
+                                            <div>
+                                                <h4 className="text-sm font-bold text-zinc-200">{item.name}</h4>
+                                                <div className="flex items-center gap-3 mt-1">
+                                                    <span className="text-[10px] bg-white/10 px-1.5 rounded text-zinc-300 font-mono">{item.first_air_date?.split('-')[0]}</span>
+                                                    <span className="text-[10px] text-zinc-500 uppercase font-bold">{item.media_type === 'movie' ? 'Movie' : 'TV Series'}</span>
+                                                </div>
+                                            </div>
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); if(confirm("Remove?")) removeFromWatchlist(item.id); }}
-                                                className="p-2 bg-zinc-800 rounded-full text-zinc-400 hover:text-red-500 transition-colors"
+                                                className="p-2 text-zinc-600 hover:text-red-500 transition-colors"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
-                                            <span className="text-[9px] font-bold text-zinc-500 uppercase">View Details</span>
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Meta Info (Grid vs List) */}
-                                {view === 'grid' ? (
-                                    <div className="mt-2">
-                                        <h4 className="text-[11px] font-bold text-zinc-200 truncate group-hover:text-indigo-400 transition-colors">{item.name}</h4>
-                                        <div className="flex items-center justify-between mt-0.5">
-                                            <span className="text-[9px] font-mono text-zinc-500">{item.first_air_date?.split('-')[0]}</span>
-                                            <span className="text-[9px] font-bold text-zinc-600 uppercase">{item.media_type === 'movie' ? 'Film' : 'TV'}</span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex-1 min-w-0 flex items-center justify-between pr-4">
-                                        <div>
-                                            <h4 className="text-sm font-bold text-zinc-200">{item.name}</h4>
-                                            <div className="flex items-center gap-3 mt-1">
-                                                <span className="text-[10px] bg-white/10 px-1.5 rounded text-zinc-300 font-mono">{item.first_air_date?.split('-')[0]}</span>
-                                                <span className="text-[10px] text-zinc-500 uppercase font-bold">{item.media_type === 'movie' ? 'Movie' : 'TV Series'}</span>
-                                            </div>
-                                        </div>
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); if(confirm("Remove?")) removeFromWatchlist(item.id); }}
-                                            className="p-2 text-zinc-600 hover:text-red-500 transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
