@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Settings, LogOut, LayoutPanelLeft, Minimize2, MoreHorizontal, User, Database, Cloud, RefreshCw, X, ChevronRight, Search } from 'lucide-react';
+import { Settings, LogOut, LayoutPanelLeft, Minimize2, MoreHorizontal, User, Database, Cloud, RefreshCw, X, ChevronRight, Search, Flame } from 'lucide-react';
 import { CalendarDaysIcon, CompassIcon, GalleryVerticalEndIcon, EarthIcon, IconHandle, SearchIcon } from '../components/icons/AnimatedIcons';
 import { useStore } from '../store';
 
@@ -77,8 +77,8 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
         const content = (
             <div 
                 className={`group flex items-center gap-4 px-3 py-2.5 rounded-lg transition-all duration-200 relative mx-2 ${active ? 'text-text-main' : 'text-text-muted hover:text-text-main hover:bg-white/[0.04]'} ${isSlim ? 'justify-center' : ''}`}
-                onMouseEnter={() => iconRef.current?.startAnimation()}
-                onMouseLeave={() => iconRef.current?.stopAnimation()}
+                onMouseEnter={() => iconRef.current?.startAnimation?.()}
+                onMouseLeave={() => iconRef.current?.stopAnimation?.()}
             >
                 <Icon ref={iconRef} className={iconClasses} size={20} />
                 {!isSlim && <span className={`text-[13px] tracking-wide ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>}
@@ -113,8 +113,8 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
             <Link 
                 to={to!} 
                 className="relative z-10 outline-none tap-highlight-transparent"
-                onMouseEnter={() => iconRef.current?.startAnimation()}
-                onMouseLeave={() => iconRef.current?.stopAnimation()}
+                onMouseEnter={() => iconRef.current?.startAnimation?.()}
+                onMouseLeave={() => iconRef.current?.stopAnimation?.()}
             >
                {content}
             </Link>
@@ -139,6 +139,11 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                         to="/discover" 
                         icon={CompassIcon} 
                         label="Discovery" 
+                    />
+                    <NavItem 
+                        to="/matches" 
+                        icon={Flame} 
+                        label="Matches" 
                     />
                     <NavItem 
                         to="/library" 
@@ -227,6 +232,23 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                         </div>
 
                         <div className="space-y-3">
+                             <Link 
+                                to="/matches" 
+                                onClick={() => setIsMenuOpen(false)} 
+                                className="flex items-center justify-between p-4 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 hover:bg-indigo-600/20 transition-colors group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white group-hover:scale-110 transition-transform shadow-lg shadow-indigo-900/30">
+                                        <Flame className="w-5 h-5 fill-current" />
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-bold text-white block">Match Mode</span>
+                                        <span className="text-xs text-indigo-300">Swipe & Discover</span>
+                                    </div>
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-indigo-400" />
+                            </Link>
+
                             <Link 
                                 to="/ipoint" 
                                 onClick={() => setIsMenuOpen(false)} 

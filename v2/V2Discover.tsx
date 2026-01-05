@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Plus, Check, ArrowRight, Sparkles, TrendingUp, CalendarClock, History, Lightbulb, Ticket, Tv, Eye, EyeOff } from 'lucide-react';
+import { Play, Plus, Check, ArrowRight, Sparkles, TrendingUp, CalendarClock, History, Lightbulb, Ticket, Tv, Eye, EyeOff, Flame } from 'lucide-react';
 import { useStore } from '../store';
 import { getCollection, getBackdropUrl, getImageUrl, getRecommendations } from '../services/tmdb';
 import { TVShow, WatchedItem } from '../types';
@@ -8,6 +9,7 @@ import V2ShowDetailsModal from './V2ShowDetailsModal';
 import V2TrailerModal from './V2TrailerModal';
 import V2DiscoverModal from './V2DiscoverModal';
 import toast from 'react-hot-toast';
+import { Link } from 'react-router-dom';
 
 // Genre Map for Personalization context
 const GENRE_MAP: Record<number, string> = {
@@ -208,6 +210,28 @@ const V2Discover: React.FC = () => {
                 />
             )}
 
+            {/* MATCHES BANNER */}
+            <div className="px-4 md:px-8 pb-12 pt-4 animate-fade-in-up">
+                <Link to="/matches" className="block group relative w-full h-40 md:h-48 rounded-3xl overflow-hidden cursor-pointer border border-white/10 hover:border-indigo-500/50 transition-all duration-300">
+                    {/* Dynamic Backgrounds from Hero Items */}
+                    <div className="absolute inset-0 flex">
+                        {heroItems.slice(0, 3).map((item, i) => (
+                            <div key={item.id} className="flex-1 bg-cover bg-center blur-sm opacity-40 group-hover:opacity-60 transition-opacity" style={{ backgroundImage: `url(${getImageUrl(item.poster_path)})` }} />
+                        ))}
+                    </div>
+                    
+                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/90 via-black/80 to-indigo-900/90" />
+                    
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                         <div className="w-12 h-12 bg-white text-indigo-600 rounded-full flex items-center justify-center mb-3 shadow-[0_0_20px_rgba(255,255,255,0.3)] group-hover:scale-110 transition-transform">
+                             <Flame className="w-6 h-6 fill-current" />
+                         </div>
+                         <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-1">Find Your Next Obsession</h3>
+                         <p className="text-sm text-indigo-200 font-medium">Swipe through personalized picks in Match Mode</p>
+                    </div>
+                </Link>
+            </div>
+
             {detailsId && (
                 settings.useBetaLayouts ? (
                     <V2ShowDetailsModal 
@@ -352,7 +376,7 @@ const BetaView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMovie
     const isAdded = watchlist.some((w: any) => w.id === hero.id);
 
     return (
-        <div className="pb-32 font-sans">
+        <div className="pb-8 font-sans">
             <div className="relative w-full h-[85vh] flex flex-col justify-end p-6 md:p-12 overflow-hidden group">
                  {heroItems.map((item: TVShow, idx: number) => (
                      <div 
@@ -442,7 +466,7 @@ const ClassicView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMo
      const isAdded = hero ? watchlist.some((w: any) => w.id === hero.id) : false;
 
     return (
-        <div className="pb-20">
+        <div className="pb-8">
             {hero && (
                 <div className="relative w-full h-[65vh] group">
                      <div className="absolute inset-0 bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${getBackdropUrl(hero.backdrop_path)})` }}>

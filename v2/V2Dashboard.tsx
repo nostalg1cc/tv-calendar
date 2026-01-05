@@ -10,6 +10,7 @@ import V2Library from './V2Library';
 import V2Agenda from './V2Agenda';
 import V2TrailerModal from './V2TrailerModal';
 import V2IPoint from './V2IPoint';
+import V2Matches from './V2Matches';
 import ApiKeyPrompt from '../components/ApiKeyPrompt';
 import ContextMenu from '../components/ContextMenu';
 import PosterPickerModal from '../components/PosterPickerModal';
@@ -85,6 +86,7 @@ const V2Dashboard: React.FC = () => {
                 } />
                 <Route path="discover" element={<V2Discover />} />
                 <Route path="library" element={<V2Library />} />
+                <Route path="matches" element={<V2Matches />} />
                 <Route path="ipoint" element={<V2IPoint />} />
                 <Route path="*" element={<Navigate to="calendar" replace />} />
             </Routes>
