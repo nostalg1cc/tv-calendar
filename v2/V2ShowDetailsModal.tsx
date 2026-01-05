@@ -8,6 +8,7 @@ import { format, parseISO, isFuture } from 'date-fns';
 import { getTraktIdFromTmdbId, getTraktSeason, getTraktShowSummary } from '../services/trakt';
 import RatingBadge from '../components/RatingBadge';
 import toast from 'react-hot-toast';
+import V2PersonDetailsModal from './V2PersonDetailsModal';
 
 interface V2ShowDetailsModalProps {
     isOpen: boolean;
@@ -16,9 +17,10 @@ interface V2ShowDetailsModalProps {
     mediaType: 'tv' | 'movie';
     initialSeason?: number;
     initialEpisode?: number;
+    onSwitchShow?: (id: number, type: 'tv' | 'movie') => void;
 }
 
-const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose, showId, mediaType, initialSeason, initialEpisode }) => {
+const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose, showId, mediaType, initialSeason, initialEpisode, onSwitchShow }) => {
     const { addToWatchlist, watchlist, history, toggleWatched, setRating, setReminderCandidate, settings } = useStore();
     
     const [activeTab, setActiveTab] = useState<'overview' | 'episodes' | 'media' | 'releases'>('overview');
@@ -36,6 +38,7 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
     // Preview States
     const [playingVideo, setPlayingVideo] = useState<VideoType | null>(null);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null);
 
     // Third Party Data
     const [traktStatus, setTraktStatus] = useState<string | null>(null);
@@ -200,6 +203,13 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
              // For TV, open the "Seen All?" modal which acts as the mark watched flow
              setReminderCandidate(details);
          }
+    };
+
+    const handleSwitchShow = (id: number, type: 'tv' | 'movie') => {
+        setSelectedPersonId(null);
+        if (onSwitchShow) {
+            onSwitchShow(id, type);
+        }
     };
 
     // --- RATING LOGIC ---
@@ -392,12 +402,16 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                                  <h3 className="text-sm font-black text-zinc-600 uppercase tracking-widest mb-6">Starring</h3>
                                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                                      {details.credits.cast.slice(0, 8).map(person => (
-                                                         <div key={person.id} className="flex items-center gap-3 bg-zinc-900/30 p-2 rounded-xl border border-white/5">
+                                                         <div 
+                                                            key={person.id} 
+                                                            onClick={() => setSelectedPersonId(person.id)}
+                                                            className="flex items-center gap-3 bg-zinc-900/30 p-2 rounded-xl border border-white/5 cursor-pointer hover:bg-zinc-800 hover:border-white/20 transition-all group"
+                                                         >
                                                              <div className="w-10 h-10 rounded-full bg-zinc-800 overflow-hidden shrink-0">
-                                                                 {person.profile_path ? <img src={getImageUrl(person.profile_path, 'w185')} className="w-full h-full object-cover" alt="" /> : <User className="w-full h-full p-2 text-zinc-600" />}
+                                                                 {person.profile_path ? <img src={getImageUrl(person.profile_path, 'w185')} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt="" /> : <User className="w-full h-full p-2 text-zinc-600" />}
                                                              </div>
                                                              <div className="min-w-0">
-                                                                 <p className="text-xs font-bold text-white truncate">{person.name}</p>
+                                                                 <p className="text-xs font-bold text-white truncate group-hover:text-indigo-400 transition-colors">{person.name}</p>
                                                                  <p className="text-[10px] text-zinc-500 truncate">{person.character}</p>
                                                              </div>
                                                          </div>
@@ -621,6 +635,15 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                      </div>
                  </div>
              )}
+
+            {selectedPersonId && (
+                <V2PersonDetailsModal 
+                    isOpen={!!selectedPersonId}
+                    onClose={() => setSelectedPersonId(null)}
+                    personId={selectedPersonId}
+                    onSelectShow={(id, type) => handleSwitchShow(id, type)}
+                />
+            )}
         </div>
     );
 };

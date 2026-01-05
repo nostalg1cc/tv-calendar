@@ -261,6 +261,20 @@ export const getShowImages = async (mediaType: 'tv' | 'movie', id: number) => {
     };
 };
 
+export const getPersonDetails = async (id: number) => {
+    return await fetchTMDB<any>(`/person/${id}`);
+};
+
+export const getPersonCredits = async (id: number) => {
+    const data = await fetchTMDB<any>(`/person/${id}/combined_credits`);
+    const cast = data.cast || [];
+    // Filter out items without posters and sort by popularity
+    return cast
+        .filter((item: any) => item.poster_path)
+        .sort((a: any, b: any) => b.popularity - a.popularity)
+        .map(mapShow);
+};
+
 const mapShow = (data: any): TVShow => ({
     id: data.id,
     name: data.title || data.name,

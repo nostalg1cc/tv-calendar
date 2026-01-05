@@ -1,9 +1,12 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Loader2, Plus, Check, Sparkles, Star, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Search, X, Loader2, Plus, Check, Sparkles, Star, ArrowRight, Film, Tv, Eye, EyeOff, Layout, Globe } from 'lucide-react';
 import { useStore } from '../store';
 import { searchShows, getPopularShows, getImageUrl, getRecommendations } from '../services/tmdb';
-import { TVShow } from '../types';
+import { TVShow, WatchedItem } from '../types';
+import V2ShowDetailsModal from './V2ShowDetailsModal';
+import ShowDetailsModal from '../components/ShowDetailsModal';
+import toast from 'react-hot-toast';
 
 interface V2SearchModalProps {
     isOpen: boolean;
@@ -11,25 +14,30 @@ interface V2SearchModalProps {
 }
 
 const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
-    const { addToWatchlist, watchlist, settings } = useStore();
+    const { addToWatchlist, watchlist, settings, history, toggleWatched } = useStore();
     const [query, setQuery] = useState('');
-    const [results, setResults] = useState<TVShow[]>([]);
+    
+    // Results
+    const [localResults, setLocalResults] = useState<TVShow[]>([]);
+    const [globalResults, setGlobalResults] = useState<TVShow[]>([]);
+    
+    // State
     const [loading, setLoading] = useState(false);
+    const [detailsItem, setDetailsItem] = useState<TVShow | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Recommendation State
-    const [recommendations, setRecommendations] = useState<TVShow[]>([]);
-    const [recLoading, setRecLoading] = useState(false);
-    const [recSource, setRecSource] = useState<string>('');
-
+    // Initial focus and reset
     useEffect(() => {
         if (isOpen) {
             setQuery('');
-            setResults([]);
-            setRecommendations([]);
+            setLocalResults([]);
+            setGlobalResults([]);
             setTimeout(() => inputRef.current?.focus(), 100);
+            
+            // Preload popular if empty
             setLoading(true);
-            getPopularShows().then(setResults).finally(() => setLoading(false));
+            getPopularShows().then(setGlobalResults).finally(() => setLoading(false));
+            
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = '';
@@ -37,154 +45,214 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
         return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
 
+    // Search Logic
     useEffect(() => {
-        if (!query.trim()) return;
-        const timeoutId = setTimeout(() => {
-            setLoading(true);
-            setRecommendations([]); // Clear recs on new search
-            searchShows(query).then(setResults).finally(() => setLoading(false));
-        }, 400);
-        return () => clearTimeout(timeoutId);
-    }, [query]);
+        if (!query.trim()) {
+            setLocalResults([]);
+            // If empty query, revert to popular global
+            if (isOpen) {
+                 getPopularShows().then(setGlobalResults);
+            }
+            return;
+        }
 
-    const handleAdd = async (e: React.MouseEvent, show: TVShow) => {
+        // 1. Search Local Library first (Instant)
+        const lowerQ = query.toLowerCase();
+        const matches = watchlist.filter(item => item.name.toLowerCase().includes(lowerQ));
+        setLocalResults(matches);
+
+        // 2. Debounced Global Search
+        const timeoutId = setTimeout(() => {
+            // Only search global if user wants more or local is empty (we'll fetch anyway to show options)
+            setLoading(true);
+            searchShows(query).then(res => {
+                // Filter out items already in local results to avoid duplication in global list
+                const localIds = new Set(matches.map(m => m.id));
+                setGlobalResults(res.filter(r => !localIds.has(r.id)));
+            }).finally(() => setLoading(false));
+        }, 400);
+
+        return () => clearTimeout(timeoutId);
+    }, [query, watchlist, isOpen]);
+
+    // --- HANDLERS ---
+
+    const handleAdd = (e: React.MouseEvent, show: TVShow) => {
         e.stopPropagation();
         addToWatchlist(show);
+        toast.success("Added to Library");
+    };
 
-        // Fetch Recommendations
-        if (settings.recommendationsEnabled) {
-            setRecLoading(true);
-            setRecSource(show.name);
-            try {
-                const recs = await getRecommendations(show.id, show.media_type);
-                const trackedIds = new Set(watchlist.map(s => s.id));
-                const validRecs = recs.filter(r => !trackedIds.has(r.id));
-
-                if (validRecs.length > 0) {
-                    if (settings.recommendationMethod === 'banner') {
-                        setRecommendations(validRecs);
-                    } else {
-                        // Inline Mode: Inject into results
-                        setResults(prev => {
-                             const idx = prev.findIndex(p => p.id === show.id);
-                             if (idx === -1) return prev;
-                             const newResults = [...prev];
-                             // Insert up to 3 recs after the added item, marking them
-                             const recsWithFlag = validRecs.slice(0, 3).map(r => ({...r, _isRec: true}));
-                             newResults.splice(idx + 1, 0, ...recsWithFlag);
-                             return newResults;
-                        });
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to fetch recommendations", err);
-            } finally {
-                setRecLoading(false);
-            }
+    const handleWatch = (e: React.MouseEvent, show: TVShow, isWatched: boolean) => {
+        e.stopPropagation();
+        if (!watchlist.some(w => w.id === show.id)) {
+            addToWatchlist(show);
         }
+
+        if (show.media_type === 'movie') {
+            toggleWatched({ tmdb_id: show.id, media_type: 'movie', is_watched: isWatched });
+            toast.success(isWatched ? "Marked unwatched" : "Marked watched");
+        } else {
+            // For TV, simply toggle tracking + maybe prompt in future. 
+            // In search context, we just want quick action.
+            toast("Added to library. Use details to mark specific episodes.");
+        }
+    };
+
+    const openDetails = (show: TVShow) => {
+        setDetailsItem(show);
+    };
+
+    // --- RENDER HELPERS ---
+
+    const ResultItem = ({ show, isLocal }: { show: TVShow, isLocal: boolean }) => {
+        const isAdded = watchlist.some(w => w.id === show.id);
+        
+        let isWatched = false;
+        if (show.media_type === 'movie') isWatched = history[`movie-${show.id}`]?.is_watched;
+        else isWatched = Object.values(history).some((h: WatchedItem) => h.tmdb_id === show.id && h.is_watched);
+
+        return (
+            <div 
+                onClick={() => openDetails(show)}
+                className={`group flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all border ${isLocal ? 'bg-indigo-900/10 border-indigo-500/20 hover:bg-indigo-900/20' : 'bg-zinc-900/40 border-white/5 hover:bg-zinc-800'}`}
+            >
+                {/* Poster */}
+                <div className="relative w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-zinc-800 shadow-md">
+                    <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover" alt="" loading="lazy" />
+                    {isWatched && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-[1px]">
+                            <Check className="w-5 h-5 text-emerald-500" />
+                        </div>
+                    )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                    <h4 className={`text-sm font-bold truncate ${isLocal ? 'text-white' : 'text-zinc-300 group-hover:text-white'}`}>
+                        {show.name}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${show.media_type === 'movie' ? 'border-pink-500/20 text-pink-400 bg-pink-500/5' : 'border-blue-500/20 text-blue-400 bg-blue-500/5'}`}>
+                            {show.media_type === 'movie' ? 'Film' : 'Series'}
+                        </span>
+                        <span className="text-[10px] text-zinc-500 font-mono">
+                            {show.first_air_date?.split('-')[0] || 'TBA'}
+                        </span>
+                        {isLocal && <span className="text-[9px] text-indigo-400 font-bold ml-auto flex items-center gap-1"><Check className="w-3 h-3" /> In Library</span>}
+                    </div>
+                </div>
+
+                {/* Actions (Hover) */}
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!isAdded && (
+                         <button 
+                            onClick={(e) => handleAdd(e, show)}
+                            className="p-2 rounded-full bg-white text-black hover:scale-110 transition-transform shadow-lg"
+                            title="Add to Library"
+                        >
+                            <Plus className="w-4 h-4" />
+                        </button>
+                    )}
+                    <button 
+                        onClick={(e) => handleWatch(e, show, isWatched)}
+                        className={`p-2 rounded-full transition-transform hover:scale-110 shadow-lg ${isWatched ? 'bg-emerald-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                        title={isWatched ? "Mark Unwatched" : "Mark Watched"}
+                    >
+                        {isWatched ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                </div>
+            </div>
+        );
     };
 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[9999] bg-[#050505]/95 backdrop-blur-2xl flex flex-col animate-fade-in">
-            <div className="shrink-0 p-6 md:p-12 pb-0 flex flex-col relative z-20">
-                <button onClick={onClose} className="absolute top-6 right-6 p-3 rounded-full bg-white/5 hover:bg-white/10 text-zinc-500 hover:text-white"><X className="w-6 h-6" /></button>
-                <div className="max-w-5xl w-full mx-auto">
-                    <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-4 block flex items-center gap-2"><Search className="w-3 h-3" /> Database Search</label>
-                    <input ref={inputRef} type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="TYPE TO SEARCH..." className="w-full bg-transparent border-none outline-none text-4xl md:text-7xl font-black text-white placeholder:text-zinc-800 uppercase tracking-tight" />
+        <>
+            <div className="fixed inset-0 z-[150] bg-[#050505]/95 backdrop-blur-2xl flex flex-col animate-fade-in">
+                
+                {/* Header Input */}
+                <div className="shrink-0 p-6 md:p-8 border-b border-white/5 bg-[#050505] flex items-center gap-6">
+                    <Search className="w-6 h-6 text-zinc-500" />
+                    <input 
+                        ref={inputRef} 
+                        type="text" 
+                        value={query} 
+                        onChange={(e) => setQuery(e.target.value)} 
+                        placeholder="Search your library or the world..." 
+                        className="flex-1 bg-transparent border-none outline-none text-2xl md:text-4xl font-black text-white placeholder:text-zinc-800 uppercase tracking-tight h-full" 
+                    />
+                    <button onClick={onClose} className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
+                        <X className="w-6 h-6" />
+                    </button>
                 </div>
-            </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 md:px-12 py-8 relative z-20">
-                <div className="max-w-5xl w-full mx-auto pb-20">
-                    
-                    {/* Banner Recommendations */}
-                    {(recommendations.length > 0 || recLoading) && settings.recommendationMethod === 'banner' && (
-                        <div className="mb-10 p-6 bg-gradient-to-r from-indigo-900/20 to-transparent border-l-4 border-indigo-500 rounded-r-xl animate-enter">
-                            <div className="flex items-center justify-between mb-4">
-                                <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-widest flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4 text-indigo-400" /> 
-                                    {recLoading ? 'Curating suggestions...' : `Because you added "${recSource}"`}
-                                </h4>
-                                {!recLoading && <button onClick={() => setRecommendations([])} className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase">Close</button>}
+                {/* Results Area */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8">
+                    <div className="max-w-5xl mx-auto space-y-12 pb-20">
+                        
+                        {/* 1. Local Results */}
+                        {localResults.length > 0 && (
+                            <div className="animate-fade-in-up">
+                                <h3 className="text-xs font-black text-indigo-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <Layout className="w-4 h-4" /> My Library
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {localResults.map(item => <ResultItem key={item.id} show={item} isLocal={true} />)}
+                                </div>
                             </div>
-                            
-                            {recLoading ? (
-                                <div className="flex gap-4">
-                                    {[1,2,3].map(i => <div key={i} className="w-32 h-48 bg-white/5 rounded-xl animate-pulse" />)}
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                                    {recommendations.slice(0, 5).map(show => {
-                                        const trackedItem = watchlist.find(s => s.id === show.id);
-                                        const isTracked = !!trackedItem;
-                                        const posterSrc = trackedItem?.custom_poster_path || show.poster_path;
+                        )}
 
-                                        return (
-                                            <div key={show.id} className="group relative flex flex-col gap-2 cursor-pointer" onClick={(e) => !isTracked && handleAdd(e, show)}>
-                                                <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-zinc-900 border border-white/5 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-indigo-500/30">
-                                                    <img src={getImageUrl(posterSrc)} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                                        <Plus className="w-6 h-6 text-white" />
-                                                    </div>
-                                                </div>
-                                                <h5 className="text-[10px] font-bold text-indigo-200 truncate">{show.name}</h5>
-                                            </div>
-                                        )
-                                    })}
+                        {/* 2. Global Results */}
+                        {(globalResults.length > 0 || loading) && (
+                            <div className="animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                                        <Globe className="w-4 h-4" /> {query ? "Global Database" : "Trending Now"}
+                                    </h3>
+                                    {loading && <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" />}
                                 </div>
-                            )}
-                        </div>
-                    )}
-
-                    {loading ? (
-                        <div className="flex justify-center py-20"><Loader2 className="w-12 h-12 text-zinc-800 animate-spin" /></div>
-                    ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                            {results.map(show => {
-                                const trackedItem = watchlist.find(s => s.id === show.id);
-                                const isTracked = !!trackedItem;
-                                const isRec = (show as any)._isRec;
-                                const posterSrc = trackedItem?.custom_poster_path || show.poster_path;
                                 
-                                return (
-                                    <div 
-                                        key={`${show.id}-${isRec ? 'rec' : 'res'}`} 
-                                        className={`group relative flex flex-col gap-3 cursor-pointer animate-fade-in ${isRec ? 'col-span-1' : ''}`} 
-                                        onClick={(e) => !isTracked && handleAdd(e, show)}
-                                    >
-                                        <div className={`relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border shadow-2xl transition-all duration-300 ${isRec ? 'border-indigo-500/30 shadow-indigo-500/10 ring-1 ring-indigo-500/20' : 'border-white/5'}`}>
-                                            <img src={getImageUrl(posterSrc)} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
-                                            
-                                            {isRec && (
-                                                <div className="absolute top-2 left-2 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg flex items-center gap-1">
-                                                    <Sparkles className="w-2 h-2" /> Suggested
-                                                </div>
-                                            )}
-
-                                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
-                                                <button className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform hover:scale-110 shadow-xl ${isTracked ? 'bg-zinc-800 text-zinc-500' : 'bg-white text-black'}`}>
-                                                    {isTracked ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="px-1">
-                                            <h4 className={`text-sm font-bold leading-tight line-clamp-1 ${isRec ? 'text-indigo-300' : 'text-white'}`}>{show.name}</h4>
-                                            {isRec ? (
-                                                <p className="text-[9px] text-zinc-500 mt-0.5 flex items-center gap-1">Based on previous add</p>
-                                            ) : (
-                                                <p className="text-[10px] text-zinc-600 mt-1">{show.first_air_date?.split('-')[0] || 'TBA'}</p>
-                                            )}
-                                        </div>
+                                {globalResults.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {globalResults.map(item => <ResultItem key={item.id} show={item} isLocal={false} />)}
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                ) : !loading && query && (
+                                    <div className="text-zinc-600 text-sm italic">No global matches found.</div>
+                                )}
+                            </div>
+                        )}
+
+                        {!query && localResults.length === 0 && globalResults.length === 0 && !loading && (
+                             <div className="text-center py-20 opacity-30">
+                                 <Search className="w-24 h-24 mx-auto mb-4 text-zinc-700" />
+                                 <p className="text-xl font-bold text-zinc-500 uppercase tracking-widest">Start Typing...</p>
+                             </div>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+
+            {/* Nested Details Modal */}
+            {detailsItem && (
+                settings.useBetaLayouts ? (
+                    <V2ShowDetailsModal 
+                        isOpen={!!detailsItem} 
+                        onClose={() => setDetailsItem(null)} 
+                        showId={detailsItem.id} 
+                        mediaType={detailsItem.media_type} 
+                    />
+                ) : (
+                    <ShowDetailsModal 
+                        isOpen={!!detailsItem} 
+                        onClose={() => setDetailsItem(null)} 
+                        showId={detailsItem.id} 
+                        mediaType={detailsItem.media_type} 
+                    />
+                )
+            )}
+        </>
     );
 };
 

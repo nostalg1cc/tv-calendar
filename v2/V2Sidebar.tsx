@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Settings, LogOut, LayoutPanelLeft, Minimize2, MoreHorizontal, User, Database, Cloud, RefreshCw, X, ChevronRight } from 'lucide-react';
-import { CalendarDaysIcon, CompassIcon, GalleryVerticalEndIcon, EarthIcon, IconHandle } from '../components/icons/AnimatedIcons';
+import { Settings, LogOut, LayoutPanelLeft, Minimize2, MoreHorizontal, User, Database, Cloud, RefreshCw, X, ChevronRight, Search } from 'lucide-react';
+import { CalendarDaysIcon, CompassIcon, GalleryVerticalEndIcon, EarthIcon, IconHandle, SearchIcon } from '../components/icons/AnimatedIcons';
 import { useStore } from '../store';
 
 interface V2SidebarProps {
@@ -10,7 +10,7 @@ interface V2SidebarProps {
     onOpenSearch?: () => void;
 }
 
-const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
+const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) => {
     const { user, logout, settings, updateSettings, isSyncing, triggerCloudSync } = useStore();
     const mode = settings.v2SidebarMode || 'fixed';
     const location = useLocation();
@@ -91,32 +91,32 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
     };
 
     // Mobile Nav Item
-    const MobileNavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
-        const active = isActive(to);
+    const MobileNavItem = ({ to, icon: Icon, label, onClick }: { to?: string, icon: any, label: string, onClick?: () => void }) => {
+        const active = to ? isActive(to) : false;
         const iconRef = useRef<IconHandle>(null);
         
+        const content = (
+             <div 
+                className={`
+                    flex items-center justify-center gap-2 rounded-full transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                    ${active ? 'bg-white text-black px-5 py-3' : 'text-zinc-500 w-12 h-12 hover:text-zinc-300'}
+                `}
+            >
+                <Icon ref={iconRef} className={`w-6 h-6 flex-shrink-0 ${active ? 'text-black' : ''}`} size={24} />
+                <span className={`text-sm font-bold overflow-hidden whitespace-nowrap transition-all duration-500 ease-out ${active ? 'max-w-[100px] opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>{label}</span>
+            </div>
+        );
+
+        if (onClick) return <button onClick={onClick} className="relative z-10 outline-none tap-highlight-transparent">{content}</button>;
+
         return (
             <Link 
-                to={to} 
+                to={to!} 
                 className="relative z-10 outline-none tap-highlight-transparent"
                 onMouseEnter={() => iconRef.current?.startAnimation()}
                 onMouseLeave={() => iconRef.current?.stopAnimation()}
             >
-                <div 
-                    className={`
-                        flex items-center justify-center gap-2 rounded-full transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
-                        ${active ? 'bg-white text-black px-5 py-3' : 'text-zinc-500 w-12 h-12 hover:text-zinc-300'}
-                    `}
-                >
-                    <Icon ref={iconRef} className={`w-6 h-6 flex-shrink-0 ${active ? 'text-black' : ''}`} size={24} />
-                    
-                    <span className={`
-                        text-sm font-bold overflow-hidden whitespace-nowrap transition-all duration-500 ease-out
-                        ${active ? 'max-w-[100px] opacity-100 ml-1' : 'max-w-0 opacity-0'}
-                    `}>
-                        {label}
-                    </span>
-                </div>
+               {content}
             </Link>
         );
     };
@@ -130,6 +130,8 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                 </div>
 
                 <div className="flex-1 py-6 space-y-1">
+                    <NavItem to="#" icon={SearchIcon} label="Search" onClick={onOpenSearch} />
+                    <div className="my-2 mx-4 h-px bg-border" />
                     <NavItem 
                         to="/calendar" 
                         icon={CalendarDaysIcon} 
@@ -224,6 +226,19 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings }) => {
                         </div>
 
                         <div className="space-y-3">
+                            <button 
+                                onClick={() => { setIsMenuOpen(false); onOpenSearch?.(); }} 
+                                className="w-full flex items-center justify-between p-4 rounded-2xl bg-zinc-900/50 border border-white/5 hover:bg-zinc-900 transition-colors group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+                                        <Search className="w-5 h-5 stroke-2" />
+                                    </div>
+                                    <span className="text-sm font-bold text-white">Search</span>
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-zinc-600" />
+                            </button>
+
                             <Link 
                                 to="/ipoint" 
                                 onClick={() => setIsMenuOpen(false)} 

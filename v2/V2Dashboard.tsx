@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import V2Sidebar from './V2Sidebar';
@@ -119,6 +120,7 @@ const V2Dashboard: React.FC = () => {
                         mediaType={detailsTarget.mediaType}
                         initialSeason={detailsTarget.season}
                         initialEpisode={detailsTarget.episode}
+                        onSwitchShow={(id, type) => setDetailsTarget({ showId: id, mediaType: type })}
                     />
                 ) : (
                     <ShowDetailsModal 
