@@ -187,6 +187,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                  >
                     <MobileNavItem to="/calendar" icon={CalendarDaysIcon} label="Calendar" />
                     <MobileNavItem to="/discover" icon={CompassIcon} label="Discover" />
+                    <MobileNavItem onClick={onOpenSearch} icon={SearchIcon} label="Search" />
                     <MobileNavItem to="/library" icon={GalleryVerticalEndIcon} label="Library" />
                     
                     <div className="w-px h-8 bg-white/10 mx-2" />
@@ -226,19 +227,6 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                         </div>
 
                         <div className="space-y-3">
-                            <button 
-                                onClick={() => { setIsMenuOpen(false); onOpenSearch?.(); }} 
-                                className="w-full flex items-center justify-between p-4 rounded-2xl bg-zinc-900/50 border border-white/5 hover:bg-zinc-900 transition-colors group"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
-                                        <Search className="w-5 h-5 stroke-2" />
-                                    </div>
-                                    <span className="text-sm font-bold text-white">Search</span>
-                                </div>
-                                <ChevronRight className="w-5 h-5 text-zinc-600" />
-                            </button>
-
                             <Link 
                                 to="/ipoint" 
                                 onClick={() => setIsMenuOpen(false)} 

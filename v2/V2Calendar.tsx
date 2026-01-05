@@ -39,7 +39,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
     }, [rawEpisodes]);
 
     const [isFilterOpen, setIsFilterOpen] = useState(false);
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
     
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         const isMobile = window.innerWidth < 768;
@@ -54,7 +53,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
     const filterRef = useRef<HTMLDivElement>(null);
     const cardScrollRef = useRef<HTMLDivElement>(null);
-    const searchIconRef = useRef<IconHandle>(null);
 
     const isViewingCurrentMonth = isSameMonth(safeCalendarDate, new Date());
 
@@ -362,16 +360,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                             {viewMode === 'list' && <ListIcon className="w-5 h-5" />}
                         </span>
                     </button>
-                    
-                    <button 
-                        onClick={() => setIsSearchOpen(true)} 
-                        className="w-14 h-full flex items-center justify-center text-text-muted hover:text-text-main hover:bg-white/5 transition-colors border-l border-border group" 
-                        title="Search in Calendar"
-                        onMouseEnter={() => searchIconRef.current?.startAnimation()}
-                        onMouseLeave={() => searchIconRef.current?.stopAnimation()}
-                    >
-                        <SearchIcon ref={searchIconRef} className="w-5 h-5 text-zinc-500 group-hover:text-zinc-200" size={20} />
-                    </button>
 
                     <div className="flex h-full relative" ref={filterRef}>
                         <button onClick={() => setIsFilterOpen(!isFilterOpen)} className={`w-14 h-full flex items-center justify-center border-l border-border transition-colors ${isFilterOpen ? 'bg-indigo-600 text-white' : 'text-text-muted hover:text-text-main hover:bg-white/5'}`} title="Filters">
@@ -576,8 +564,6 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                     )}
                 </div>
             )}
-
-            <CalendarSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
         </div>
     );
 };

@@ -27,14 +27,7 @@ const applyTheme = (settings: AppSettings) => {
     const body = document.body;
     body.setAttribute('data-font', settings.appFont);
     
-    // Determine effective theme
     let themeToApply: string = settings.baseTheme === 'auto' ? 'cosmic' : settings.baseTheme;
-    
-    // STRICT PRIORITY: 
-    // 1. If activeTheme is explicitly 'upside-down', use it.
-    // 2. If activeTheme is explicitly 'standard', use baseTheme (IGNORE legacy flags).
-    // 3. Fallback: If activeTheme is missing (legacy state), check legacy flag.
-    
     if (settings.activeTheme === 'upside-down') {
         themeToApply = 'upside-down';
     } else if (settings.activeTheme === 'standard') {
@@ -160,7 +153,6 @@ export const useStore = create<State>()(
                     const merged = { ...state.settings, ...newSettings };
                     applyTheme(merged);
                     
-                    // Sync Trakt credentials to localStorage for service usage
                     if (merged.traktClient) {
                         localStorage.setItem('trakt_client_id', merged.traktClient.id);
                         localStorage.setItem('trakt_client_secret', merged.traktClient.secret);
@@ -212,6 +204,7 @@ export const useStore = create<State>()(
                     
                     const exists = state.history[key];
                     const nextStatus = !exists?.is_watched;
+                    const now = new Date().toISOString();
                     
                     const newItem: WatchedItem = { 
                         tmdb_id: item.tmdb_id,
@@ -219,8 +212,9 @@ export const useStore = create<State>()(
                         season_number: item.season_number,
                         episode_number: item.episode_number,
                         is_watched: nextStatus, 
-                        watched_at: nextStatus ? new Date().toISOString() : undefined,
-                        rating: exists?.rating
+                        watched_at: nextStatus ? now : undefined,
+                        rating: exists?.rating,
+                        updated_at: now // Update timestamp for sync comparison
                     };
                     
                     const nextHistory = { ...state.history, [key]: newItem };
@@ -234,7 +228,7 @@ export const useStore = create<State>()(
                             episode_number: item.episode_number ?? -1,
                             is_watched: nextStatus,
                             watched_at: newItem.watched_at,
-                            updated_at: new Date().toISOString()
+                            updated_at: now
                         }, { onConflict: 'user_id,tmdb_id,media_type,season_number,episode_number' }).then();
                     }
                     return { history: nextHistory };
@@ -252,21 +246,20 @@ export const useStore = create<State>()(
                             ? `episode-${item.tmdb_id}-${item.season_number}-${item.episode_number}`
                             : `${item.media_type}-${item.tmdb_id}`;
                         
-                        if (!nextHistory[key]?.is_watched) {
-                             const newItem = { ...item, is_watched: true, watched_at: now };
-                             nextHistory[key] = newItem;
-                             if (state.user?.is_cloud) {
-                                 cloudUpserts.push({
-                                    user_id: state.user.id,
-                                    tmdb_id: item.tmdb_id,
-                                    media_type: item.media_type,
-                                    season_number: item.season_number ?? -1,
-                                    episode_number: item.episode_number ?? -1,
-                                    is_watched: true,
-                                    watched_at: now,
-                                    updated_at: now
-                                 });
-                             }
+                        const newItem = { ...item, is_watched: true, watched_at: now, updated_at: now };
+                        nextHistory[key] = newItem;
+                        
+                        if (state.user?.is_cloud) {
+                            cloudUpserts.push({
+                                user_id: state.user.id,
+                                tmdb_id: item.tmdb_id,
+                                media_type: item.media_type,
+                                season_number: item.season_number ?? -1,
+                                episode_number: item.episode_number ?? -1,
+                                is_watched: true,
+                                watched_at: now,
+                                updated_at: now
+                            });
                         }
                     });
 
@@ -281,17 +274,18 @@ export const useStore = create<State>()(
                  set((state) => {
                     const key = `${mediaType}-${id}`;
                     const exists = state.history[key] || { tmdb_id: id, media_type: mediaType, is_watched: false };
-                    const newItem = { ...exists, rating };
+                    const now = new Date().toISOString();
+                    const newItem = { ...exists, rating, updated_at: now };
                     const nextHistory = { ...state.history, [key]: newItem };
                     if (state.user?.is_cloud) {
                          supabase?.from('interactions').upsert({
                             user_id: state.user.id,
                             tmdb_id: id,
                             media_type: mediaType,
-                            season_number: -1,
-                            episode_number: -1,
+                            season_number: exists.season_number ?? -1,
+                            episode_number: exists.episode_number ?? -1,
                             rating: rating,
-                            updated_at: new Date().toISOString()
+                            updated_at: now
                         }, { onConflict: 'user_id,tmdb_id,media_type,season_number,episode_number' }).then();
                     }
                     return { history: nextHistory };
@@ -346,72 +340,32 @@ export const useStore = create<State>()(
             },
 
             syncFromDB: async () => {
-                const { user, history } = get();
-                if (!user?.is_cloud || !supabase) return;
-
-                const { data } = await supabase.from('interactions').select('*').eq('user_id', user.id);
-                if (!data) return;
-
-                let hasChanges = false;
-                const newHistory = { ...history };
-
-                data.forEach((row: any) => {
-                    const key = row.media_type === 'episode' 
-                        ? `episode-${row.tmdb_id}-${row.season_number}-${row.episode_number}`
-                        : `${row.media_type}-${row.tmdb_id}`;
-                    
-                    const existing = newHistory[key];
-                    if (row.is_watched && (!existing || !existing.is_watched)) {
-                        newHistory[key] = {
-                            tmdb_id: row.tmdb_id,
-                            media_type: row.media_type,
-                            season_number: row.season_number,
-                            episode_number: row.episode_number,
-                            is_watched: true,
-                            rating: row.rating,
-                            watched_at: row.watched_at
-                        };
-                        hasChanges = true;
-                    }
-                });
-                
-                if (hasChanges) {
-                    set({ history: newHistory });
-                }
+                 // Background polling just triggers the main sync which has safety checks
+                 get().triggerCloudSync();
             },
 
             triggerCloudSync: async () => {
-                const { user } = get();
+                const { user, history } = get();
                 if (!user || !user.is_cloud || !supabase) return;
                 
                 set({ isSyncing: true });
+                
                 try {
+                    // 1. Profile & Settings Sync
                     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
                     if (profile) {
-                        if (profile.settings) {
-                            // Ensure migration during sync
-                            const settings = profile.settings;
-                            if (!settings.activeTheme) {
-                                settings.activeTheme = settings.upsideDownMode ? 'upside-down' : 'standard';
-                            }
-
-                            const newSettings = { ...get().settings, ...settings };
-                            if (!newSettings.country) newSettings.country = 'US';
-                            if (newSettings.traktClient) {
-                                localStorage.setItem('trakt_client_id', newSettings.traktClient.id);
-                                localStorage.setItem('trakt_client_secret', newSettings.traktClient.secret);
-                            }
+                         if (profile.settings) {
+                            const newSettings = { ...get().settings, ...profile.settings };
                             set({ settings: newSettings });
                             applyTheme(newSettings);
-                        }
-                        if (profile.tmdb_key) {
-                            set(s => ({ user: { ...s.user!, tmdb_key: profile.tmdb_key } }));
-                            setApiToken(profile.tmdb_key);
-                        }
-                        if (profile.trakt_token) set({ traktToken: profile.trakt_token });
-                        if (profile.trakt_profile) set({ traktProfile: profile.trakt_profile });
+                         }
+                         if (profile.tmdb_key && !user.tmdb_key) {
+                             set(s => ({ user: { ...s.user!, tmdb_key: profile.tmdb_key } }));
+                             setApiToken(profile.tmdb_key);
+                         }
                     }
 
+                    // 2. Watchlist Sync
                     const { data: watchlistData } = await supabase.from('watchlist').select('*').eq('user_id', user.id);
                     if (watchlistData) {
                         const currentSettings = get().settings;
@@ -429,31 +383,99 @@ export const useStore = create<State>()(
                         set({ watchlist: mapped });
                     }
 
-                    const map: Record<string, WatchedItem> = {};
-                    const { data: dbHistory, error: dbError } = await supabase.from('interactions').select('*').eq('user_id', user.id);
+                    // 3. Interactions Sync (Last-Write-Wins Merge)
+                    const { data: dbData, error: dbError } = await supabase.from('interactions').select('*').eq('user_id', user.id);
                     
-                    if (dbError) {
-                        console.error("Failed to sync interactions from cloud:", dbError);
-                        // Do not overwrite history if DB fetch failed
-                    } else if (dbHistory) {
-                        dbHistory.forEach((h: any) => {
-                            const key = h.media_type === 'episode' 
-                                ? `episode-${h.tmdb_id}-${h.season_number}-${h.episode_number}`
-                                : `${h.media_type}-${h.tmdb_id}`;
-                            map[key] = {
-                                tmdb_id: h.tmdb_id,
-                                media_type: h.media_type,
-                                season_number: h.season_number,
-                                episode_number: h.episode_number,
-                                is_watched: h.is_watched,
-                                rating: h.rating,
-                                watched_at: h.watched_at
-                            };
+                    if (!dbError && dbData) {
+                        const mergedHistory = { ...history };
+                        const toUpsert: any[] = [];
+                        const dbMap = new Map();
+
+                        // Map DB items by key
+                        dbData.forEach((row: any) => {
+                            const key = row.media_type === 'episode' 
+                                ? `episode-${row.tmdb_id}-${row.season_number}-${row.episode_number}`
+                                : `${row.media_type}-${row.tmdb_id}`;
+                            dbMap.set(key, row);
                         });
-                        // Only update history if we successfully processed cloud data
-                        set({ history: map });
+
+                        // 3a. Compare Local vs Cloud
+                        // Iterate through ALL known items (Cloud + Local)
+                        const allKeys = new Set([...Object.keys(mergedHistory), ...dbMap.keys()]);
+
+                        allKeys.forEach(key => {
+                             const localItem = mergedHistory[key];
+                             const cloudItem = dbMap.get(key);
+
+                             // Case 1: Exists in both - Compare Timestamps
+                             if (localItem && cloudItem) {
+                                 const localTime = new Date(localItem.updated_at || localItem.watched_at || 0).getTime();
+                                 const cloudTime = new Date(cloudItem.updated_at || cloudItem.watched_at || 0).getTime();
+
+                                 if (cloudTime > localTime) {
+                                     // Cloud is newer -> Update Local
+                                     mergedHistory[key] = {
+                                         tmdb_id: cloudItem.tmdb_id,
+                                         media_type: cloudItem.media_type,
+                                         season_number: cloudItem.season_number,
+                                         episode_number: cloudItem.episode_number,
+                                         is_watched: cloudItem.is_watched,
+                                         rating: cloudItem.rating,
+                                         watched_at: cloudItem.watched_at,
+                                         updated_at: cloudItem.updated_at
+                                     };
+                                 } else if (localTime > cloudTime) {
+                                     // Local is newer -> Push to Cloud
+                                     toUpsert.push({
+                                        user_id: user.id,
+                                        tmdb_id: localItem.tmdb_id,
+                                        media_type: localItem.media_type,
+                                        season_number: localItem.season_number ?? -1,
+                                        episode_number: localItem.episode_number ?? -1,
+                                        is_watched: localItem.is_watched,
+                                        rating: localItem.rating,
+                                        watched_at: localItem.watched_at,
+                                        updated_at: localItem.updated_at
+                                     });
+                                 }
+                             }
+                             // Case 2: Only in Cloud -> Add to Local
+                             else if (cloudItem) {
+                                 mergedHistory[key] = {
+                                     tmdb_id: cloudItem.tmdb_id,
+                                     media_type: cloudItem.media_type,
+                                     season_number: cloudItem.season_number,
+                                     episode_number: cloudItem.episode_number,
+                                     is_watched: cloudItem.is_watched,
+                                     rating: cloudItem.rating,
+                                     watched_at: cloudItem.watched_at,
+                                     updated_at: cloudItem.updated_at
+                                 };
+                             }
+                             // Case 3: Only in Local -> Push to Cloud
+                             else if (localItem) {
+                                 toUpsert.push({
+                                    user_id: user.id,
+                                    tmdb_id: localItem.tmdb_id,
+                                    media_type: localItem.media_type,
+                                    season_number: localItem.season_number ?? -1,
+                                    episode_number: localItem.episode_number ?? -1,
+                                    is_watched: localItem.is_watched,
+                                    rating: localItem.rating,
+                                    watched_at: localItem.watched_at,
+                                    updated_at: localItem.updated_at || new Date().toISOString()
+                                 });
+                             }
+                        });
+
+                        set({ history: mergedHistory });
+
+                        if (toUpsert.length > 0) {
+                             await supabase.from('interactions').upsert(toUpsert, { onConflict: 'user_id,tmdb_id,media_type,season_number,episode_number' });
+                        }
                     }
 
+                    // 4. Trakt Sync (Additive)
                     const currentTraktToken = get().traktToken;
                     if (currentTraktToken) {
                         try {
@@ -464,19 +486,30 @@ export const useStore = create<State>()(
 
                             const mergedHistory = { ...get().history }; 
 
+                            // Helper to merge single item
+                            const mergeTraktItem = (key: string, itemData: WatchedItem) => {
+                                 const existing = mergedHistory[key];
+                                 // If local exists and is newer, keep local. If Trakt is newer or local missing, use Trakt.
+                                 // Trakt history usually implies "watched", so we set is_watched=true.
+                                 if (!existing || !existing.is_watched) {
+                                     mergedHistory[key] = itemData;
+                                     // Also queue this for cloud push if we want full sync
+                                     // For now, we update local state, next sync cycle will push if timestamp is newer
+                                 }
+                            };
+
                             if (Array.isArray(traktMovies)) {
                                 traktMovies.forEach((m: any) => {
                                     if (m.movie?.ids?.tmdb) {
                                         const tmdbId = m.movie.ids.tmdb;
                                         const key = `movie-${tmdbId}`;
-                                        const existing = mergedHistory[key];
-                                        mergedHistory[key] = {
+                                        mergeTraktItem(key, {
                                             tmdb_id: tmdbId,
                                             media_type: 'movie',
                                             is_watched: true,
-                                            rating: existing?.rating,
-                                            watched_at: m.last_watched_at || existing?.watched_at
-                                        };
+                                            watched_at: m.last_watched_at,
+                                            updated_at: m.last_watched_at // Trust Trakt timestamp
+                                        });
                                     }
                                 });
                             }
@@ -489,23 +522,21 @@ export const useStore = create<State>()(
                                             if (season.episodes) {
                                                 season.episodes.forEach((ep: any) => {
                                                     const key = `episode-${showTmdbId}-${season.number}-${ep.number}`;
-                                                    const existing = mergedHistory[key];
-                                                    mergedHistory[key] = {
+                                                    mergeTraktItem(key, {
                                                         tmdb_id: showTmdbId,
                                                         media_type: 'episode',
                                                         season_number: season.number,
                                                         episode_number: ep.number,
                                                         is_watched: true,
-                                                        rating: existing?.rating,
-                                                        watched_at: ep.last_watched_at || existing?.watched_at
-                                                    };
+                                                        watched_at: ep.last_watched_at,
+                                                        updated_at: ep.last_watched_at
+                                                    });
                                                 });
                                             }
                                         });
                                     }
                                 });
                             }
-                            // Update with merged Trakt data
                             set({ history: mergedHistory });
                         } catch (e) {
                             console.error("Trakt sync failed inside cloud sync", e);
@@ -534,11 +565,9 @@ export const useStore = create<State>()(
             onRehydrateStorage: () => (state) => {
                 if (state) {
                     if (state.settings) {
-                        // MIGRATION: Ensure activeTheme is set if missing
                         if (!state.settings.activeTheme) {
                             state.settings.activeTheme = state.settings.upsideDownMode ? 'upside-down' : 'standard';
                         }
-                        
                         applyTheme(state.settings);
                         if (state.settings.traktClient) {
                             localStorage.setItem('trakt_client_id', state.settings.traktClient.id);

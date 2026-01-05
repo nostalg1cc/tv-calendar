@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { LayoutGrid, List as ListIcon, Search, Filter, Star, Clock, Tv, Film, Trash2, Check, ArrowUpDown, Layers, Eye, EyeOff, Play } from 'lucide-react';
+import { LayoutGrid, List as ListIcon, Search, Filter, Tv, Film, Trash2, Check, Eye, EyeOff } from 'lucide-react';
 import { useStore } from '../store';
 import { getImageUrl } from '../services/tmdb';
 import { TVShow } from '../types';
@@ -50,9 +50,9 @@ const V2Library: React.FC = () => {
 
         return items.sort((a, b) => {
             if (sort === 'name') return a.name.localeCompare(b.name);
-            if (sort === 'rating') return b.vote_average - a.vote_average;
+            if (sort === 'rating') return (b.vote_average || 0) - (a.vote_average || 0);
             if (sort === 'release') return (b.first_air_date || '').localeCompare(a.first_air_date || '');
-            // date_added fallback to array index (approximate)
+            // date_added fallback to array index (reverse)
             return watchlist.indexOf(b) - watchlist.indexOf(a);
         });
     }, [watchlist, typeFilter, statusFilter, search, sort, history]);
@@ -80,7 +80,7 @@ const V2Library: React.FC = () => {
                 </div>
                 
                 {/* Search */}
-                <div className="relative group w-64">
+                <div className="relative group w-64 hidden sm:block">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600 group-focus-within:text-white transition-colors" />
                     <input 
                         type="text" 

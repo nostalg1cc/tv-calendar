@@ -146,6 +146,7 @@ export interface WatchedItem {
     is_watched: boolean;
     rating?: number;
     watched_at?: string;
+    updated_at?: string;
 }
 
 export type Interaction = WatchedItem;
