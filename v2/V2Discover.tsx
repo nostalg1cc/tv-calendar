@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Plus, Check, ArrowRight, Sparkles, TrendingUp, CalendarClock, History, Lightbulb, Ticket, Tv, Eye, EyeOff, Flame, Layers, Star } from 'lucide-react';
+import { Play, Plus, Check, ArrowRight, TrendingUp, History, Lightbulb, Ticket, Tv, Eye, EyeOff, Flame, Layers, Star, Clock, Calendar } from 'lucide-react';
 import { useStore } from '../store';
 import { getCollection, getBackdropUrl, getImageUrl, getRecommendations } from '../services/tmdb';
 import { TVShow, WatchedItem } from '../types';
@@ -27,6 +27,7 @@ const filterContent = (items: TVShow[]) => {
     const BLOCK_LANGS = ['hi', 'te', 'ta', 'kn', 'ml', 'pa', 'mr', 'bn', 'gu', 'or', 'as', 'ur', 'ne', 'si'];
     return items.filter(item => {
         if (item.original_language && BLOCK_LANGS.includes(item.original_language)) return false;
+        if (!item.poster_path) return false;
         return true;
     });
 };
@@ -36,8 +37,12 @@ const V2Discover: React.FC = () => {
     
     // Data State
     const [heroItems, setHeroItems] = useState<TVShow[]>([]);
-    const [viralHits, setViralHits] = useState<TVShow[]>([]); // "Global Viral Hits"
-    const [criticalHits, setCriticalHits] = useState<TVShow[]>([]); // "Critically Acclaimed"
+    const [viralHits, setViralHits] = useState<TVShow[]>([]); 
+    const [criticalHits, setCriticalHits] = useState<TVShow[]>([]); 
+    const [hiddenGems, setHiddenGems] = useState<TVShow[]>([]);
+    const [shortMovies, setShortMovies] = useState<TVShow[]>([]);
+    const [upcoming, setUpcoming] = useState<TVShow[]>([]);
+    
     const [genreRow, setGenreRow] = useState<{title: string, items: TVShow[]} | null>(null);
     const [personalizedSections, setPersonalizedSections] = useState<PersonalizedSection[]>([]);
     const [isPersonalizing, setIsPersonalizing] = useState(false);
@@ -59,18 +64,39 @@ const V2Discover: React.FC = () => {
             setViralHits(filterContent(data).slice(0, 10));
         });
 
-        // Critically Acclaimed: Top Rated Movies
+        // Critically Acclaimed: Top Rated
         getCollection('/movie/top_rated', 'movie').then(data => {
              setCriticalHits(filterContent(data));
         });
 
+        // Hidden Gems: Discover with filters
+        getCollection('/discover/movie', 'movie', 1, { 
+            'vote_average.gte': '7.5', 
+            'vote_count.gte': '100', 
+            'vote_count.lte': '5000',
+            'sort_by': 'popularity.desc'
+        }).then(data => setHiddenGems(filterContent(data)));
+
+        // Short & Sweet: Runtime < 100m
+        getCollection('/discover/movie', 'movie', 1, {
+            'with_runtime.lte': '100',
+            'sort_by': 'popularity.desc'
+        }).then(data => setShortMovies(filterContent(data)));
+
+        // Upcoming
+        const today = new Date().toISOString().split('T')[0];
+        getCollection('/discover/movie', 'movie', 1, {
+            'primary_release_date.gte': today,
+            'sort_by': 'popularity.desc'
+        }).then(data => setUpcoming(filterContent(data)));
+
         // Random Genre Spotlight
         const genres = [
-            { id: 878, name: 'Sci-Fi & Cyberpunk', type: 'movie' },
-            { id: 27, name: 'Late Night Horror', type: 'movie' },
-            { id: 16, name: 'Animation Universe', type: 'movie' },
-            { id: 35, name: 'Comedy Club', type: 'tv' },
-            { id: 99, name: 'True Stories', type: 'movie' }
+            { id: 878, name: 'Sci-Fi', type: 'movie' },
+            { id: 27, name: 'Horror', type: 'movie' },
+            { id: 16, name: 'Animation', type: 'movie' },
+            { id: 35, name: 'Comedy', type: 'tv' },
+            { id: 80, name: 'Crime', type: 'tv' }
         ] as const;
         
         const randomGenre = genres[Math.floor(Math.random() * genres.length)];
@@ -84,7 +110,6 @@ const V2Discover: React.FC = () => {
 
     // Smart "For You" Algorithm
     useEffect(() => {
-        // Prevent frequent re-runs, only run if watchlist changes significantly or first load
         if (isPersonalizing || personalizedSections.length > 0) return;
 
         const generateSections = async () => {
@@ -92,16 +117,13 @@ const V2Discover: React.FC = () => {
             const sections: PersonalizedSection[] = [];
             const processedIds = new Set<number>();
 
-            // Helper: Check if item is watched
             const isWatched = (item: TVShow) => {
                 if (item.media_type === 'movie') return history[`movie-${item.id}`]?.is_watched;
                 return Object.values(history).some((h: WatchedItem) => h.tmdb_id === item.id && h.is_watched);
             };
 
-            // Strategy 1: "Because you watched [X]" (Based on History)
             const watchedItems = watchlist.filter(item => isWatched(item));
             if (watchedItems.length > 0) {
-                 // Pick 2 random watched items
                  const shuffled = [...watchedItems].sort(() => 0.5 - Math.random()).slice(0, 2);
                  for (const item of shuffled) {
                      try {
@@ -111,7 +133,7 @@ const V2Discover: React.FC = () => {
                              sections.push({
                                  id: `watched-${item.id}`,
                                  title: `Because you watched ${item.name}`,
-                                 subtitle: "Recommendations based on your history",
+                                 subtitle: "Similar styles & themes",
                                  items: valid,
                                  type: item.media_type,
                                  icon: History,
@@ -121,30 +143,6 @@ const V2Discover: React.FC = () => {
                          }
                      } catch(e) {}
                  }
-            }
-
-            // Strategy 2: "Since you added [Y]" (Based on Watchlist Interest)
-            const interestedItems = watchlist.filter(item => !isWatched(item));
-            if (interestedItems.length > 0) {
-                // Pick 1 random interested item
-                const item = interestedItems[Math.floor(Math.random() * interestedItems.length)];
-                if (item && !processedIds.has(item.id)) {
-                    try {
-                        const recs = await getRecommendations(item.id, item.media_type);
-                        const valid = filterContent(recs.filter(r => !watchlist.some(w => w.id === r.id)));
-                        if (valid.length >= 5) {
-                             sections.push({
-                                 id: `interested-${item.id}`,
-                                 title: `Since you added ${item.name}`,
-                                 subtitle: "More like this in your library",
-                                 items: valid,
-                                 type: item.media_type,
-                                 icon: Lightbulb,
-                                 endpoint: `/${item.media_type}/${item.id}/recommendations`
-                             });
-                        }
-                    } catch(e) {}
-                }
             }
 
             setPersonalizedSections(sections);
@@ -165,17 +163,10 @@ const V2Discover: React.FC = () => {
 
     const handleWatch = (e: React.MouseEvent, show: TVShow, isAdded: boolean, isWatched: boolean) => {
         e.stopPropagation();
-        
-        if (!isAdded) {
-            addToWatchlist(show);
-        }
+        if (!isAdded) addToWatchlist(show);
 
         if (show.media_type === 'movie') {
-            toggleWatched({ 
-                tmdb_id: show.id, 
-                media_type: 'movie', 
-                is_watched: isWatched 
-            });
+            toggleWatched({ tmdb_id: show.id, media_type: 'movie', is_watched: isWatched });
             toast.success(isWatched ? "Marked unwatched" : "Marked watched");
         } else {
             setReminderCandidate(show);
@@ -197,14 +188,17 @@ const V2Discover: React.FC = () => {
                 heroItems={heroItems}
                 viralHits={viralHits}
                 criticalHits={criticalHits}
+                hiddenGems={hiddenGems}
+                shortMovies={shortMovies}
+                upcoming={upcoming}
                 genreRow={genreRow}
                 personalizedSections={personalizedSections}
                 {...sharedProps}
             />
 
             {/* MATCHES BANNER */}
-            <div className="px-4 md:px-8 pb-12 pt-4 animate-fade-in-up">
-                <Link to="/matches" className="block group relative w-full h-40 md:h-48 rounded-3xl overflow-hidden cursor-pointer border border-white/10 hover:border-indigo-500/50 transition-all duration-300">
+            <div className="px-6 md:px-12 pb-12 pt-4 animate-fade-in-up">
+                <Link to="/matches" className="block group relative w-full h-40 md:h-48 rounded-sm overflow-hidden cursor-pointer border border-white/10 hover:border-indigo-500/50 transition-all duration-300">
                     <div className="absolute inset-0 flex">
                         {heroItems.slice(0, 3).map((item, i) => (
                             <div key={item.id} className="flex-1 bg-cover bg-center blur-sm opacity-40 group-hover:opacity-60 transition-opacity" style={{ backgroundImage: `url(${getBackdropUrl(item.backdrop_path)})` }} />
@@ -262,124 +256,102 @@ const V2Discover: React.FC = () => {
     );
 };
 
-// --- SUB-COMPONENTS ---
+// --- REUSABLE 1PX GAP ROW ---
 
-const Top10Row = ({ items, onOpenDetails }: any) => {
+const DiscoveryRow = ({ 
+    title, 
+    subtitle, 
+    items, 
+    onOpenDetails, 
+    onAdd, 
+    onWatch, 
+    watchlist, 
+    history, 
+    onMore,
+    icon: Icon 
+}: any) => {
     if (!items || items.length === 0) return null;
+    
     return (
-        <div className="py-8 animate-fade-in-up">
-            <div className="max-w-[1800px] mx-auto px-4 md:px-8 mb-6">
-                 <h3 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
-                     <TrendingUp className="w-6 h-6 text-red-500" />
-                     Global Viral Hits
-                 </h3>
-                 <p className="text-sm text-zinc-500 font-medium mt-1">The top 10 most popular titles right now.</p>
-            </div>
-            
-            <div className="overflow-x-auto hide-scrollbar px-4 md:px-8 -mx-0 w-full">
-                <div className="flex gap-6 w-max">
-                    {items.map((show: TVShow, idx: number) => (
-                        <div 
-                            key={show.id} 
-                            className="relative group cursor-pointer w-[140px] md:w-[180px] shrink-0 transition-transform hover:scale-105"
-                            onClick={() => onOpenDetails(show.id, show.media_type)}
-                        >
-                             {/* Big Number */}
-                             <span className="absolute -left-6 bottom-4 text-[100px] md:text-[140px] font-black text-zinc-800/50 leading-none select-none z-0 drop-shadow-md stroke-white" style={{ WebkitTextStroke: '2px #333' }}>
-                                 {idx + 1}
-                             </span>
+        <div className="py-6 border-b border-white/5 animate-fade-in-up last:border-0">
+             <div className="flex items-end justify-between px-6 md:px-12 mb-4">
+                 <div className="flex items-center gap-3">
+                     {Icon && <div className="p-1.5 bg-zinc-900 rounded border border-white/10 text-indigo-400"><Icon className="w-4 h-4" /></div>}
+                     <div>
+                        <h3 className="text-sm font-black text-white uppercase tracking-widest">{title}</h3>
+                        {subtitle && <p className="text-[10px] font-medium text-zinc-500 mt-0.5">{subtitle}</p>}
+                     </div>
+                 </div>
+                 {onMore && (
+                     <button onClick={onMore} className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-wider flex items-center gap-1">
+                         View All <ArrowRight className="w-3 h-3" />
+                     </button>
+                 )}
+             </div>
+
+             <div className="flex overflow-x-auto hide-scrollbar bg-white/5 gap-px pb-px">
+                 {/* Left Spacer to align with padding */}
+                 <div className="w-[23px] md:w-[47px] shrink-0 bg-[#020202]" />
+                 
+                 {items.slice(0, 15).map((show: TVShow) => {
+                     const isAdded = watchlist.some((w: any) => w.id === show.id);
+                     let isWatched = false;
+                     if (show.media_type === 'movie') isWatched = history[`movie-${show.id}`]?.is_watched;
+                     else isWatched = Object.values(history).some((h: any) => h.tmdb_id === show.id && h.is_watched);
+
+                     return (
+                         <div 
+                             key={show.id} 
+                             className="group relative w-[140px] md:w-[160px] shrink-0 aspect-[2/3] bg-[#09090b] cursor-pointer overflow-hidden"
+                             onClick={() => onOpenDetails(show.id, show.media_type)}
+                         >
+                             <img 
+                                 src={getImageUrl(show.poster_path)} 
+                                 className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-500 group-hover:scale-105" 
+                                 loading="lazy" 
+                                 alt="" 
+                             />
                              
-                             <div className="relative z-10 aspect-[2/3] rounded-xl overflow-hidden shadow-xl border border-white/5 bg-zinc-900 ml-4">
-                                 <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover" loading="lazy" alt="" />
-                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                      <Play className="w-10 h-10 text-white fill-current" />
+                             {/* Gradient & Info Overlay */}
+                             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+                                 <h4 className="text-xs font-bold text-white leading-tight line-clamp-2 mb-1">{show.name}</h4>
+                                 <div className="flex items-center justify-between">
+                                     <span className="text-[9px] text-zinc-400 font-mono">{show.first_air_date?.split('-')[0]}</span>
+                                     <span className="text-[9px] text-indigo-400 font-bold">{show.vote_average.toFixed(1)}</span>
                                  </div>
                              </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
 
-const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onOpenDetails, onAdd, onWatch, watchlist, history, endpoint }: any) => {
-    if (!items || items.length === 0) return null;
-    return (
-        <div className="py-8 border-t border-white/5 animate-fade-in-up">
-            <div className="max-w-[1800px] mx-auto px-4 md:px-8 mb-6 flex items-end justify-between">
-                <div>
-                    <h3 className="text-xl md:text-2xl font-black text-white tracking-tight flex items-center gap-3">
-                         {Icon && <Icon className="w-6 h-6 text-indigo-500" />}
-                         {title}
-                    </h3>
-                    {subtitle && <p className="text-sm text-zinc-500 font-medium mt-1">{subtitle}</p>}
-                </div>
-                {(onMore || (endpoint && onMore === undefined)) && (
-                    <button 
-                        onClick={onMore ? onMore : () => {}} 
-                        className="text-xs font-bold text-zinc-500 hover:text-white uppercase tracking-widest flex items-center gap-2 group"
-                    >
-                        View All <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                    </button>
-                )}
-            </div>
-            
-            <div className="overflow-x-auto hide-scrollbar px-4 md:px-8 -mx-0 w-full">
-                <div className="flex gap-4 w-max">
-                    {items.slice(0, 15).map((show: TVShow) => {
-                         const isAdded = watchlist.some((w: any) => w.id === show.id);
-                         let isWatched = false;
-                         if (show.media_type === 'movie') isWatched = history[`movie-${show.id}`]?.is_watched;
-                         else isWatched = Object.values(history).some((h: any) => h.tmdb_id === show.id && h.is_watched);
-
-                         return (
-                            <div 
-                                key={show.id} 
-                                className="w-[160px] md:w-[200px] group relative cursor-pointer"
-                                onClick={() => onOpenDetails(show.id, show.media_type)}
-                            >
-                                <div className="aspect-[2/3] overflow-hidden bg-zinc-900 mb-3 border border-white/5 transition-all duration-300 group-hover:-translate-y-2 group-hover:shadow-2xl rounded-xl">
-                                    <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" alt="" />
-                                    
-                                    {/* Action Overlay */}
-                                    <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0 duration-300">
-                                         {/* Watchlist Toggle */}
-                                         <button 
-                                            onClick={(e) => !isAdded && onAdd(e, show)} 
-                                            className={`w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 ${isAdded ? 'bg-zinc-900 text-zinc-500 cursor-default' : 'bg-white text-black'}`}
-                                            title={isAdded ? "In Library" : "Add to Library"}
-                                         >
-                                            {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                                         </button>
-                                         {/* Watched Toggle */}
-                                         <button 
-                                            onClick={(e) => onWatch(e, show, isAdded, isWatched)} 
-                                            className={`w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 ${isWatched ? 'bg-emerald-500 text-white' : 'bg-black/50 backdrop-blur-md text-white hover:bg-black/70'}`}
-                                            title={isWatched ? "Mark Unwatched" : "Mark Watched"}
-                                         >
-                                            {isWatched ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                         </button>
-                                    </div>
-                                </div>
-                                <h4 className="text-sm font-bold text-zinc-400 truncate group-hover:text-white transition-colors">{show.name}</h4>
-                                <div className="flex items-center gap-2 text-xs text-zinc-600 mt-1">
-                                    <span className="uppercase font-bold">{show.media_type === 'movie' ? 'Film' : 'TV'}</span>
-                                    <span>•</span>
-                                    <span>{show.first_air_date?.split('-')[0] || 'TBA'}</span>
-                                    <span className="ml-auto text-indigo-500 font-bold">{show.vote_average.toFixed(1)}</span>
-                                </div>
-                            </div>
-                         );
-                    })}
-                </div>
-            </div>
+                             {/* Status Indicators */}
+                             <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0 duration-200">
+                                 <button 
+                                     onClick={(e) => !isAdded && onAdd(e, show)}
+                                     className={`w-6 h-6 flex items-center justify-center rounded-sm shadow-md ${isAdded ? 'bg-zinc-800 text-zinc-500' : 'bg-white text-black hover:bg-zinc-200'}`}
+                                 >
+                                     {isAdded ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                                 </button>
+                                 <button 
+                                     onClick={(e) => onWatch(e, show, isAdded, isWatched)}
+                                     className={`w-6 h-6 flex items-center justify-center rounded-sm shadow-md ${isWatched ? 'bg-emerald-600 text-white' : 'bg-black/60 backdrop-blur-md text-white hover:bg-black'}`}
+                                 >
+                                     {isWatched ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                 </button>
+                             </div>
+                         </div>
+                     );
+                 })}
+                 
+                 {/* Right Spacer */}
+                 <div className="w-[24px] md:w-[48px] shrink-0 bg-[#020202]" />
+             </div>
         </div>
     );
 };
 
 // --- VIEW COMPONENT ---
-const BetaView: React.FC<any> = ({ heroItems, viralHits, criticalHits, genreRow, personalizedSections, onOpenDetails, onAdd, onWatch, onViewCategory, watchlist, history }) => {
+const BetaView: React.FC<any> = ({ 
+    heroItems, viralHits, criticalHits, genreRow, personalizedSections, hiddenGems, shortMovies, upcoming,
+    onOpenDetails, onAdd, onWatch, onViewCategory, watchlist, history 
+}) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const hasHero = heroItems && heroItems.length > 0;
@@ -398,118 +370,199 @@ const BetaView: React.FC<any> = ({ heroItems, viralHits, criticalHits, genreRow,
 
     const hero = hasHero ? heroItems[currentIndex] : null;
 
-    if (!hero) return <div className="h-screen bg-black" />;
+    if (!hero) return <div className="h-screen bg-black flex items-center justify-center"><div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"/></div>;
 
     const isAdded = watchlist.some((w: any) => w.id === hero.id);
 
     return (
         <div className="pb-8 font-sans">
             {/* HERO BILLBOARD */}
-            <div className="relative w-full h-[85vh] flex flex-col justify-end p-6 md:p-12 overflow-hidden group">
+            <div className="relative w-full h-[80vh] flex flex-col justify-end overflow-hidden group border-b border-white/5">
                  {heroItems.map((item: TVShow, idx: number) => (
                      <div 
                         key={item.id}
                         className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out ${idx === currentIndex ? 'opacity-100' : 'opacity-0'}`} 
                         style={{ backgroundImage: `url(${getBackdropUrl(item.backdrop_path)})` }}
                     >
-                         <div className="absolute inset-0 bg-gradient-to-t from-[#020202] via-[#020202]/20 to-transparent" />
+                         <div className="absolute inset-0 bg-gradient-to-t from-[#020202] via-[#020202]/30 to-transparent" />
+                         <div className="absolute inset-0 bg-gradient-to-r from-[#020202]/80 via-transparent to-transparent" />
                     </div>
                  ))}
                 
-                <div className="relative z-10 max-w-4xl animate-fade-in-up">
-                    <div className="flex items-center gap-3 mb-4">
-                        <span className="bg-white text-black text-[10px] font-black uppercase tracking-widest px-2 py-1">Editor's Choice</span>
-                        <div className="h-px w-10 bg-white/50" />
-                        <span className="text-white/80 text-xs font-mono uppercase tracking-widest">Trending #{currentIndex + 1}</span>
+                <div className="relative z-10 w-full px-6 md:px-12 pb-16 md:pb-20 max-w-5xl animate-fade-in-up">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="flex items-center gap-2 bg-white/10 backdrop-blur-xl border border-white/10 rounded-sm px-3 py-1.5">
+                            <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest">Trending #{currentIndex + 1}</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest border border-zinc-700 px-2 py-1 rounded-sm">
+                            {hero.media_type === 'movie' ? 'Film' : 'Series'}
+                        </span>
                     </div>
-                    <h1 className="text-5xl md:text-8xl font-black text-white leading-[0.85] tracking-tighter mb-6 mix-blend-overlay opacity-90">{hero.name}</h1>
-                    <p className="text-zinc-300 text-sm md:text-lg font-medium max-w-xl leading-relaxed mb-8 line-clamp-3">{hero.overview}</p>
+                    
+                    <h1 className="text-5xl md:text-8xl font-black text-white leading-[0.85] tracking-tighter mb-6 mix-blend-overlay opacity-90 drop-shadow-2xl">
+                        {hero.name}
+                    </h1>
+                    
+                    <p className="text-zinc-300 text-sm md:text-lg font-medium max-w-xl leading-relaxed mb-8 line-clamp-3 drop-shadow-md">
+                        {hero.overview}
+                    </p>
+                    
                     <div className="flex gap-4">
-                        <button onClick={() => onOpenDetails(hero.id, hero.media_type)} className="h-12 px-8 bg-white text-black font-bold uppercase tracking-widest text-xs hover:bg-zinc-200 transition-colors">Explore</button>
-                        <button onClick={(e) => onAdd(e, hero)} className={`h-12 w-12 border flex items-center justify-center transition-colors ${isAdded ? 'bg-zinc-800 border-zinc-700 text-zinc-500' : 'border-white/20 text-white hover:bg-white/10'}`}>
+                        <button 
+                            onClick={() => onOpenDetails(hero.id, hero.media_type)} 
+                            className="h-12 px-8 bg-white text-black hover:bg-zinc-200 rounded-sm font-black uppercase tracking-widest text-xs transition-colors flex items-center gap-2"
+                        >
+                            <Play className="w-4 h-4 fill-current" /> Explore
+                        </button>
+                        <button 
+                            onClick={(e) => onAdd(e, hero)} 
+                            className={`h-12 w-12 border flex items-center justify-center transition-colors rounded-sm ${isAdded ? 'bg-zinc-900 border-zinc-700 text-zinc-500' : 'border-white/20 text-white hover:bg-white/10 backdrop-blur-md'}`}
+                        >
                             {isAdded ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                         </button>
                     </div>
                 </div>
 
-                <div className="absolute right-6 md:right-12 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-20">
+                {/* Hero Indicators */}
+                <div className="absolute right-6 md:right-12 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-20">
                      {heroItems.map((_: any, idx: number) => (
                          <button
                             key={idx}
                             onClick={() => { setCurrentIndex(idx); resetTimer(); }}
-                            className={`w-1 h-8 md:h-12 rounded-full transition-all duration-300 ${idx === currentIndex ? 'bg-white scale-y-110' : 'bg-white/20 hover:bg-white/40'}`}
+                            className={`w-1 h-8 md:h-12 transition-all duration-300 ${idx === currentIndex ? 'bg-white scale-y-110' : 'bg-white/20 hover:bg-white/40'}`}
                          />
                      ))}
                 </div>
             </div>
 
-            {/* VIRAL HITS (TOP 10) */}
-            <Top10Row items={viralHits} onOpenDetails={onOpenDetails} />
-
-            {/* PERSONALIZED SECTIONS */}
-            {personalizedSections.map((section: PersonalizedSection) => (
-                <CategorySection 
-                    key={section.id} 
-                    title={section.title} 
-                    subtitle={section.subtitle}
-                    items={section.items} 
-                    type={section.type} 
-                    icon={section.icon}
-                    onOpenDetails={onOpenDetails} 
-                    onAdd={onAdd} 
-                    onWatch={onWatch}
-                    watchlist={watchlist} 
-                    history={history}
-                    onMore={() => section.endpoint ? onViewCategory(section.title, section.endpoint, section.type, section.params) : undefined}
-                    endpoint={section.endpoint}
-                />
-            ))}
-
-            {/* GENRE SPOTLIGHT BANNER */}
-            {genreRow && (
-                <div className="max-w-[1800px] mx-auto px-4 md:px-8 py-8 animate-fade-in-up">
-                    <div className="relative rounded-3xl overflow-hidden bg-zinc-900 border border-white/5 h-[300px] md:h-[400px]">
-                         <div className="absolute inset-0 bg-cover bg-center opacity-40" style={{ backgroundImage: `url(${getBackdropUrl(genreRow.items[0]?.backdrop_path)})` }} />
-                         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent" />
-                         
-                         <div className="absolute inset-0 p-8 md:p-12 flex flex-col justify-center max-w-2xl">
-                             <div className="flex items-center gap-2 mb-2">
-                                 <Layers className="w-5 h-5 text-indigo-500" />
-                                 <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Genre Spotlight</span>
-                             </div>
-                             <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4">{genreRow.title}</h2>
-                             <p className="text-zinc-400 text-sm mb-8 max-w-md">Explore our curated selection of the best titles in this category.</p>
-                             
-                             <div className="flex gap-4 overflow-x-auto hide-scrollbar w-full pb-4">
-                                 {genreRow.items.slice(0, 5).map((item: TVShow) => (
-                                     <div key={item.id} className="w-24 md:w-32 aspect-[2/3] shrink-0 bg-zinc-800 rounded-lg overflow-hidden border border-white/10 cursor-pointer hover:scale-105 transition-transform" onClick={() => onOpenDetails(item.id, item.media_type)}>
-                                         <img src={getImageUrl(item.poster_path)} className="w-full h-full object-cover" alt="" />
-                                     </div>
-                                 ))}
-                                 <button onClick={() => onViewCategory(genreRow.title, '/discover/movie', 'movie', { with_genres: '878' })} className="w-24 md:w-32 aspect-[2/3] shrink-0 bg-zinc-800/50 rounded-lg border border-white/10 flex flex-col items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors">
-                                     <ArrowRight className="w-6 h-6 mb-2" />
-                                     <span className="text-[10px] font-bold uppercase">View All</span>
-                                 </button>
-                             </div>
+            {/* ROWS CONTAINER */}
+            <div className="flex flex-col">
+                
+                {/* 1. VIRAL HITS (Top 10 Style) */}
+                <div className="py-8 border-b border-white/5">
+                    <div className="px-6 md:px-12 mb-4 flex items-end justify-between">
+                         <div>
+                            <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                <TrendingUp className="w-4 h-4 text-red-500" /> Global Viral Hits
+                            </h3>
+                            <p className="text-[10px] text-zinc-500 mt-0.5">Most watched today.</p>
                          </div>
                     </div>
+                    
+                    <div className="overflow-x-auto hide-scrollbar px-6 md:px-12 w-full">
+                        <div className="flex gap-8 w-max">
+                            {viralHits.map((show: TVShow, idx: number) => (
+                                <div 
+                                    key={show.id} 
+                                    className="relative group cursor-pointer w-[140px] md:w-[160px] shrink-0 transition-transform hover:scale-105"
+                                    onClick={() => onOpenDetails(show.id, show.media_type)}
+                                >
+                                     {/* Big Number */}
+                                     <span className="absolute -left-6 bottom-0 text-[120px] font-black text-zinc-900 leading-none select-none z-0 stroke-white/10" style={{ WebkitTextStroke: '1px rgba(255,255,255,0.1)' }}>
+                                         {idx + 1}
+                                     </span>
+                                     
+                                     <div className="relative z-10 aspect-[2/3] bg-zinc-900 ml-6 border border-white/10 shadow-xl overflow-hidden rounded-sm">
+                                         <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover" loading="lazy" alt="" />
+                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                              <div className="bg-white/10 backdrop-blur-md p-2 rounded-full border border-white/20">
+                                                  <ArrowRight className="w-4 h-4 text-white" />
+                                              </div>
+                                         </div>
+                                     </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-            )}
 
-            {/* CRITICALLY ACCLAIMED */}
-            <CategorySection 
-                title="Critically Acclaimed" 
-                subtitle="Top rated masterpieces you can't miss" 
-                items={criticalHits} 
-                type="movie" 
-                onOpenDetails={onOpenDetails} 
-                onAdd={onAdd} 
-                onWatch={onWatch} 
-                watchlist={watchlist} 
-                history={history} 
-                icon={Star} 
-                onMore={() => onViewCategory("Critically Acclaimed", "/movie/top_rated", "movie")}
-            />
+                {/* 2. COMING SOON */}
+                <DiscoveryRow 
+                    title="Coming Soon"
+                    subtitle="Releasing in the next 30 days"
+                    items={upcoming}
+                    icon={Calendar}
+                    {...{ onOpenDetails, onAdd, onWatch, watchlist, history }}
+                    onMore={() => onViewCategory("Coming Soon", "/discover/movie", "movie", { 'primary_release_date.gte': new Date().toISOString().split('T')[0], 'sort_by': 'popularity.desc' })}
+                />
+
+                {/* 3. PERSONALIZED SECTIONS */}
+                {personalizedSections.map((section: PersonalizedSection) => (
+                    <DiscoveryRow 
+                        key={section.id}
+                        title={section.title}
+                        subtitle={section.subtitle}
+                        items={section.items}
+                        icon={section.icon}
+                        {...{ onOpenDetails, onAdd, onWatch, watchlist, history }}
+                        onMore={section.endpoint ? () => onViewCategory(section.title, section.endpoint!, section.type, section.params) : undefined}
+                    />
+                ))}
+
+                {/* 4. GENRE SPOTLIGHT BANNER */}
+                {genreRow && (
+                    <div className="px-6 md:px-12 py-12 border-b border-white/5">
+                        <div className="relative rounded-sm overflow-hidden bg-zinc-900 border border-white/5 h-[320px]">
+                             <div className="absolute inset-0 bg-cover bg-center opacity-40" style={{ backgroundImage: `url(${getBackdropUrl(genreRow.items[0]?.backdrop_path)})` }} />
+                             <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent" />
+                             
+                             <div className="absolute inset-0 p-10 flex flex-col justify-center max-w-xl">
+                                 <div className="flex items-center gap-2 mb-2">
+                                     <Layers className="w-4 h-4 text-indigo-500" />
+                                     <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Genre Spotlight</span>
+                                 </div>
+                                 <h2 className="text-4xl font-black text-white tracking-tight mb-4">{genreRow.title}</h2>
+                                 <p className="text-zinc-400 text-sm mb-8 leading-relaxed font-medium">Explore our curated selection of top-tier titles in this category. Handpicked for quality and relevance.</p>
+                                 
+                                 <div className="flex gap-4">
+                                     {genreRow.items.slice(0, 3).map(item => (
+                                         <div key={item.id} className="w-20 aspect-[2/3] bg-zinc-800 border border-white/10 cursor-pointer hover:scale-105 transition-transform" onClick={() => onOpenDetails(item.id, item.media_type)}>
+                                             <img src={getImageUrl(item.poster_path)} className="w-full h-full object-cover" alt="" />
+                                         </div>
+                                     ))}
+                                     <button 
+                                        onClick={() => onViewCategory(genreRow.title, '/discover/movie', 'movie', { with_genres: '878' })} // Generic link for now, logic handles it
+                                        className="w-20 aspect-[2/3] bg-zinc-900/80 border border-white/10 flex flex-col items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+                                     >
+                                         <ArrowRight className="w-5 h-5 mb-1" />
+                                         <span className="text-[8px] font-black uppercase tracking-widest">View All</span>
+                                     </button>
+                                 </div>
+                             </div>
+                        </div>
+                    </div>
+                )}
+                
+                {/* 5. CRITICALLY ACCLAIMED */}
+                <DiscoveryRow 
+                    title="Critically Acclaimed" 
+                    subtitle="Masterpieces with 8.0+ rating" 
+                    items={criticalHits} 
+                    icon={Star}
+                    {...{ onOpenDetails, onAdd, onWatch, watchlist, history }}
+                    onMore={() => onViewCategory("Critically Acclaimed", "/movie/top_rated", "movie")}
+                />
+
+                {/* 6. HIDDEN GEMS */}
+                <DiscoveryRow 
+                    title="Hidden Gems" 
+                    subtitle="Highly rated but less known" 
+                    items={hiddenGems} 
+                    icon={Lightbulb}
+                    {...{ onOpenDetails, onAdd, onWatch, watchlist, history }}
+                />
+
+                {/* 7. SHORT & SWEET */}
+                <DiscoveryRow 
+                    title="Short & Punchy" 
+                    subtitle="Movies under 100 minutes" 
+                    items={shortMovies} 
+                    icon={Clock}
+                    {...{ onOpenDetails, onAdd, onWatch, watchlist, history }}
+                />
+
+            </div>
         </div>
     );
 };
