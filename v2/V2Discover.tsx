@@ -516,7 +516,7 @@ const BetaView: React.FC<any> = ({
                                  <p className="text-zinc-400 text-sm mb-8 leading-relaxed font-medium">Explore our curated selection of top-tier titles in this category. Handpicked for quality and relevance.</p>
                                  
                                  <div className="flex gap-4">
-                                     {genreRow.items.slice(0, 3).map(item => (
+                                     {genreRow.items.slice(0, 3).map((item: TVShow) => (
                                          <div key={item.id} className="w-20 aspect-[2/3] bg-zinc-800 border border-white/10 cursor-pointer hover:scale-105 transition-transform" onClick={() => onOpenDetails(item.id, item.media_type)}>
                                              <img src={getImageUrl(item.poster_path)} className="w-full h-full object-cover" alt="" />
                                          </div>
