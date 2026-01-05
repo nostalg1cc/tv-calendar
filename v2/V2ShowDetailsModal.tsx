@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Play, Plus, Check, Star, Loader2, MonitorPlay, Ticket, ChevronDown, Video, ExternalLink, Clock, Calendar, Hash, User, RefreshCw, Image, Layout, Download, Film, Tv, StarOff } from 'lucide-react';
+import { X, Play, Plus, Check, Star, Loader2, MonitorPlay, Ticket, ChevronDown, Video, ExternalLink, Clock, Calendar, Hash, User, RefreshCw, Image, Layout, Download, Film, Tv, StarOff, Eye, CheckCircle } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails, getMovieReleaseDates, getShowImages } from '../services/tmdb';
 import { getTVMazeEpisodes } from '../services/tvmaze';
 import { TVShow, Episode, Season, Video as VideoType } from '../types';
@@ -127,6 +127,17 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                     const sData = await getSeasonDetails(details.id, selectedSeasonNum);
                     setSeasonData(sData);
 
+                    // Fetch season specific videos if in extras tab (optimization)
+                    if (activeTab === 'media') {
+                         getVideos('tv', details.id, selectedSeasonNum).then(seasonVids => {
+                             setVideos(prev => {
+                                 const existingIds = new Set(prev.map(v => v.id));
+                                 const newVids = seasonVids.filter(v => !existingIds.has(v.id));
+                                 return [...prev, ...newVids];
+                             });
+                         });
+                    }
+
                     const [mazeMap, traktId] = await Promise.all([
                         getTVMazeEpisodes(details.external_ids?.imdb_id, details.external_ids?.tvdb_id, settings.country),
                         getTraktIdFromTmdbId(details.id, 'show')
@@ -154,7 +165,7 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
             };
             fetchSeason();
         }
-    }, [selectedSeasonNum, details, mediaType]);
+    }, [selectedSeasonNum, details, mediaType, activeTab]);
 
     // Auto-scroll
     useEffect(() => {
@@ -167,17 +178,34 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
     }, [loadingSeason, seasonData, initialEpisode, activeTab]);
 
     const isAdded = details ? watchlist.some(s => s.id === details.id) : false;
+    
+    // Watched Logic
+    const isWatched = () => {
+        if (mediaType === 'movie') return history[`movie-${showId}`]?.is_watched;
+        // For TV, generally check if *any* episode watched or the show object is marked
+        return Object.keys(history).some(key => key.startsWith(`episode-${showId}-`) && history[key].is_watched);
+    };
+
+    const handleHeaderWatch = () => {
+         if (!details) return;
+         if (!isAdded) {
+             addToWatchlist(details);
+         }
+         
+         if (mediaType === 'movie') {
+             const currentlyWatched = history[`movie-${showId}`]?.is_watched;
+             toggleWatched({ tmdb_id: showId, media_type: 'movie', is_watched: currentlyWatched });
+             toast.success(currentlyWatched ? "Marked unwatched" : "Marked watched");
+         } else {
+             // For TV, open the "Seen All?" modal which acts as the mark watched flow
+             setReminderCandidate(details);
+         }
+    };
 
     // --- RATING LOGIC ---
     const getMyRating = () => {
         const key = `${mediaType}-${showId}`;
         return history[key]?.rating || 0;
-    };
-    
-    const isWatched = () => {
-        if (mediaType === 'movie') return history[`movie-${showId}`]?.is_watched;
-        // For TV, generally check if *any* episode watched or the show object is marked
-        return Object.keys(history).some(key => key.startsWith(`episode-${showId}-`) && history[key].is_watched);
     };
 
     const handleRate = (rating: number) => {
@@ -197,10 +225,9 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
         // 3. Handle Watched Status Logic
         if (!currentWatched) {
             if (mediaType === 'movie') {
-                toggleWatched({ tmdb_id: showId, media_type: 'movie', is_watched: false }); // false passed to flip to true
+                toggleWatched({ tmdb_id: showId, media_type: 'movie', is_watched: false }); 
                 toast.success("Marked as watched & rated");
             } else {
-                // For TV, triggering the reminder candidate opens the "Seen All?" modal
                 setReminderCandidate(details);
                 toast.success("Rated! Have you seen all episodes?");
             }
@@ -315,8 +342,17 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                           {isAdded ? 'In Library' : 'Add to Library'}
                                       </button>
                                       
+                                      {/* MARK WATCHED BUTTON */}
+                                      <button 
+                                          onClick={handleHeaderWatch}
+                                          className={`h-12 px-8 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all border ${mediaType === 'movie' && isWatched() ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-black/40 border-white/10 text-white hover:bg-white/10 backdrop-blur-md'}`}
+                                      >
+                                          {mediaType === 'movie' && isWatched() ? <CheckCircle className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                          {mediaType === 'movie' && isWatched() ? 'Seen' : 'Mark Seen'}
+                                      </button>
+
                                       {/* Interactive Rating in Header */}
-                                      <div className="flex flex-col gap-1">
+                                      <div className="flex flex-col gap-1 ml-4 border-l border-white/10 pl-6">
                                           <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest pl-1">Your Rating</span>
                                           <UserRatingStars />
                                       </div>

@@ -1,11 +1,11 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Loader2, Plus, Check, ArrowUpRight } from 'lucide-react';
-import { TVShow } from '../types';
+import { X, Loader2, Plus, Check, ArrowUpRight, Eye, EyeOff } from 'lucide-react';
+import { TVShow, WatchedItem } from '../types';
 import { getCollection, getImageUrl } from '../services/tmdb';
 import { useStore } from '../store';
 import ShowDetailsModal from '../components/ShowDetailsModal';
 import V2ShowDetailsModal from './V2ShowDetailsModal';
+import toast from 'react-hot-toast';
 
 interface V2DiscoverModalProps {
   isOpen: boolean;
@@ -24,7 +24,7 @@ const V2DiscoverModal: React.FC<V2DiscoverModalProps> = ({ isOpen, onClose, titl
   const [detailsId, setDetailsId] = useState<number | null>(null);
   
   const containerRef = useRef<HTMLDivElement>(null);
-  const { watchlist, addToWatchlist, setReminderCandidate, settings } = useStore();
+  const { watchlist, addToWatchlist, setReminderCandidate, settings, history, toggleWatched } = useStore();
 
   useEffect(() => {
     if (isOpen) {
@@ -75,7 +75,27 @@ const V2DiscoverModal: React.FC<V2DiscoverModalProps> = ({ isOpen, onClose, titl
   const handleAdd = async (e: React.MouseEvent, show: TVShow) => {
       e.stopPropagation();
       addToWatchlist(show);
-      setReminderCandidate(show);
+      toast.success("Added to Library");
+  };
+
+  const handleWatch = (e: React.MouseEvent, show: TVShow, isWatched: boolean) => {
+      e.stopPropagation();
+      
+      // Auto-add to library if not present
+      if (!watchlist.some(w => w.id === show.id)) {
+          addToWatchlist(show);
+      }
+
+      if (show.media_type === 'movie') {
+          toggleWatched({ 
+              tmdb_id: show.id, 
+              media_type: 'movie', 
+              is_watched: isWatched 
+          });
+          toast.success(isWatched ? "Marked unwatched" : "Marked watched");
+      } else {
+          setReminderCandidate(show);
+      }
   };
 
   if (!isOpen) return null;
@@ -109,6 +129,11 @@ const V2DiscoverModal: React.FC<V2DiscoverModalProps> = ({ isOpen, onClose, titl
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 md:gap-8 pb-20">
                 {items.map((show, idx) => {
                     const isAdded = watchlist.some(s => s.id === show.id);
+                    
+                    let isWatched = false;
+                    if (show.media_type === 'movie') isWatched = history[`movie-${show.id}`]?.is_watched;
+                    else isWatched = Object.values(history).some((h: WatchedItem) => h.tmdb_id === show.id && h.is_watched);
+
                     return (
                         <div 
                             key={`${show.id}-${idx}`} 
@@ -125,13 +150,21 @@ const V2DiscoverModal: React.FC<V2DiscoverModalProps> = ({ isOpen, onClose, titl
                                 
                                 <div className="absolute inset-0 bg-indigo-900/40 opacity-0 group-hover:opacity-100 transition-opacity mix-blend-overlay" />
                                 
-                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+                                {/* Overlay Actions */}
+                                <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-x-2 group-hover:translate-x-0">
                                     <button 
-                                        onClick={(e) => handleAdd(e, show)}
-                                        disabled={isAdded}
-                                        className={`w-8 h-8 flex items-center justify-center rounded-full shadow-xl ${isAdded ? 'bg-emerald-500 text-white' : 'bg-white text-black hover:scale-110 transition-transform'}`}
+                                        onClick={(e) => !isAdded && handleAdd(e, show)}
+                                        className={`w-8 h-8 flex items-center justify-center rounded-full shadow-xl transition-transform hover:scale-110 ${isAdded ? 'bg-zinc-900 text-zinc-500 cursor-default' : 'bg-white text-black'}`}
+                                        title={isAdded ? "In Library" : "Add to Library"}
                                     >
                                         {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                                    </button>
+                                    <button 
+                                        onClick={(e) => handleWatch(e, show, isWatched)} 
+                                        className={`w-8 h-8 flex items-center justify-center rounded-full shadow-xl transition-transform hover:scale-110 ${isWatched ? 'bg-emerald-500 text-white' : 'bg-black/50 backdrop-blur-md text-white hover:bg-black/70'}`}
+                                        title={isWatched ? "Mark Unwatched" : "Mark Watched"}
+                                    >
+                                        {isWatched ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                     </button>
                                 </div>
                                 
