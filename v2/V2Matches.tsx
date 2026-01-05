@@ -29,103 +29,115 @@ const V2Matches: React.FC = () => {
     
     // --- STATE ---
     const [stack, setStack] = useState<TVShow[]>([]);
-    const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [status, setStatus] = useState<'loading' | 'ready' | 'empty'>('loading');
     const [dragDirection, setDragDirection] = useState<ActionType | null>(null);
+    const [sourceLabel, setSourceLabel] = useState<string>('Trending');
     
     // Session Algorithm State
-    const [sessionLikes, setSessionLikes] = useState<number[]>([]); // IDs of things liked THIS session
-    const [historyStack, setHistoryStack] = useState<ActionHistory[]>([]); // For Undo
+    const [sessionLikes, setSessionLikes] = useState<TVShow[]>([]); 
+    const [historyStack, setHistoryStack] = useState<ActionHistory[]>([]); 
     const fetchedIds = useRef<Set<number>>(new Set());
     const isFetching = useRef(false);
 
     // --- ALGORITHM: LOAD CARDS ---
-    const fetchMoreCards = useCallback(async () => {
+    const fetchMoreCards = useCallback(async (reset = false) => {
         if (isFetching.current) return;
         isFetching.current = true;
+        if (reset) setStatus('loading');
         
         try {
-            let seedIds: number[] = [];
+            let seedItem: TVShow | undefined;
+            let newItems: TVShow[] = [];
+            let label = "Trending Now";
             
-            // 1. Prioritize Session Rhythm (what did I just like?)
+            // 1. Prioritize Session Rhythm (The "Rabbit Hole")
+            // If user liked something recently in this session, dig deeper into that.
             if (sessionLikes.length > 0) {
-                // Pick random from last 5 likes to keep it somewhat focused but diverse
-                const recentLikes = sessionLikes.slice(-5);
-                seedIds = [recentLikes[Math.floor(Math.random() * recentLikes.length)]];
+                // 70% chance to use the most recent like, 30% to use a random recent like
+                const useRecent = Math.random() > 0.3;
+                seedItem = useRecent 
+                    ? sessionLikes[sessionLikes.length - 1] 
+                    : sessionLikes[Math.floor(Math.random() * sessionLikes.length)];
+                
+                label = `Based on ${seedItem.name}`;
             } 
-            // 2. Fallback to Library
+            // 2. Fallback to Library (Personalized)
             else if (watchlist.length > 0) {
-                const randomWatchlist = watchlist[Math.floor(Math.random() * watchlist.length)];
-                seedIds = [randomWatchlist.id];
+                seedItem = watchlist[Math.floor(Math.random() * watchlist.length)];
+                label = `Because you track ${seedItem.name}`;
             }
 
-            let newItems: TVShow[] = [];
-
-            // Fetch based on seeds or trending if empty
-            if (seedIds.length > 0) {
-                const seedId = seedIds[0];
-                // We don't know the type easily here if it comes from sessionLikes (just IDs), 
-                // but getRecommendations usually handles ID lookup or we try both.
-                // Optimistically assuming generic recommendations or try Movie then TV.
-                // To be safe, let's find the object in watchlist for type, or default to movie.
-                const knownItem = watchlist.find(i => i.id === seedId);
-                const type = knownItem?.media_type || 'movie'; 
-                
-                newItems = await getRecommendations(seedId, type);
+            // Execute Fetch
+            if (seedItem) {
+                newItems = await getRecommendations(seedItem.id, seedItem.media_type);
+                // If recommendations are exhausted or empty, fallback to popular
+                if (newItems.length < 5) {
+                     const fallback = await getCollection('/trending/all/day', 'movie');
+                     newItems = [...newItems, ...fallback];
+                     label = "Trending Mix";
+                }
             } else {
-                // Cold start: Fetch both Trending Movies and TV to ensure mixed variety with correct types
+                // Cold start: Fetch both Trending Movies and TV to ensure mixed variety
                 const [movies, tvs] = await Promise.all([
                     getCollection('/trending/movie/day', 'movie', 1),
                     getCollection('/trending/tv/day', 'tv', 1)
                 ]);
-                newItems = [...movies, ...tvs].sort(() => 0.5 - Math.random());
+                // Interleave them for variety
+                newItems = [];
+                const maxLen = Math.max(movies.length, tvs.length);
+                for (let i = 0; i < maxLen; i++) {
+                    if (movies[i]) newItems.push(movies[i]);
+                    if (tvs[i]) newItems.push(tvs[i]);
+                }
+                label = "Global Trending";
             }
 
-            // Filter duplicates (Global history + Current session)
+            // Filter duplicates (Global history + Current session + Watchlist)
+            // We want to show things the user hasn't seen/added yet usually
             const validItems = newItems.filter(item => {
                 if (fetchedIds.current.has(item.id)) return false;
                 if (historyStack.some(h => h.item.id === item.id)) return false;
-                // Optional: Don't show things ALREADY in library? 
-                // Tinder style usually hides what you already have.
-                if (watchlist.some(w => w.id === item.id)) return false; 
+                if (watchlist.some(w => w.id === item.id)) return false;
+                
+                // Also filter out things marked as watched in history
+                const watchedKey = item.media_type === 'movie' ? `movie-${item.id}` : `episode-${item.id}`; // Simple check
+                // Deep check for history existence (rough)
+                if (Object.keys(history).some(k => k.includes(`-${item.id}`))) return false;
+
                 return true;
             });
 
             validItems.forEach(i => fetchedIds.current.add(i.id));
 
-            // Add to Stack
-            // We PREPEND items so they sit "under" the current top card (which is at the end of the array)
-            // Wait, standard react state update:
-            // If stack is [A, B, C] (C is top).
-            // We want [D, E, A, B, C] (C is still top, D and E are bottom).
             if (validItems.length > 0) {
-                setStack(prev => [...validItems.slice(0, 20), ...prev]); 
-            } else if (stack.length === 0) {
-                 // Emergency fallback if filter removed everything
-                 const fallback = await getCollection('/movie/popular', 'movie', Math.floor(Math.random() * 10) + 1);
-                 const cleanFallback = fallback.filter(t => !fetchedIds.current.has(t.id));
-                 fetchedIds.current.add(cleanFallback[0]?.id); // Prevent immediate re-fetch loop
-                 setStack(cleanFallback);
+                // Prepend to stack (so they appear "behind" current if we are just refilling)
+                // If it's a reset, just set.
+                setStack(prev => reset ? validItems.slice(0, 15) : [...validItems.slice(0, 10), ...prev]); 
+                setSourceLabel(label);
+                setStatus('ready');
+            } else {
+                 if (stack.length === 0) setStatus('empty');
             }
 
         } catch (e) {
             console.error("Match algo failed", e);
+            setStatus('empty');
         } finally {
-            setIsInitialLoad(false);
             isFetching.current = false;
         }
-    }, [sessionLikes, watchlist, stack.length]); // Dependencies
+    }, [sessionLikes, watchlist, history, stack.length]);
 
     // Initial Load
     useEffect(() => {
-        fetchMoreCards();
+        if (stack.length === 0) fetchMoreCards(true);
     }, []);
 
-    // Infinite Scroll trigger
+    // Infinite Scroll / Refill
     useEffect(() => {
-        if (!isInitialLoad && stack.length < 5) {
-            fetchMoreCards();
+        if (status === 'ready' && stack.length < 5) {
+            fetchMoreCards(false);
         }
-    }, [stack.length, isInitialLoad, fetchMoreCards]);
+    }, [stack.length, status, fetchMoreCards]);
 
     // --- ACTIONS ---
 
@@ -154,14 +166,13 @@ const V2Matches: React.FC = () => {
             else if (direction === 'right') {
                 // Like -> Add to Library
                 if (!wasInLibrary) addToWatchlist(current);
-                setSessionLikes(prev => [...prev, current.id]);
+                setSessionLikes(prev => [...prev, current]); // Add full object to session likes
                 toast.success('Added to Library', { icon: '👍', style: { background: '#18181b', color: '#fff' } });
             } 
             else if (direction === 'up') {
                 // Seen -> Add to Library
                 if (!wasInLibrary) addToWatchlist(current);
-                
-                setSessionLikes(prev => [...prev, current.id]); // Liking a seen movie is still a strong signal
+                setSessionLikes(prev => [...prev, current]);
 
                 if (current.media_type === 'movie') {
                     // Movie: Mark Watched Immediately
@@ -169,7 +180,7 @@ const V2Matches: React.FC = () => {
                     toast.success('Marked as Watched', { icon: '👁️', style: { background: '#18181b', color: '#fff' } });
                 } else {
                     // TV: Trigger Question (Seen all? Progress?)
-                    // We set the candidate, which V2Dashboard listens to and opens the modal
+                    // Crucial: Use setReminderCandidate to trigger the global modal in Dashboard
                     setReminderCandidate(current);
                 }
             }
@@ -188,21 +199,20 @@ const V2Matches: React.FC = () => {
 
         // 2. Revert Store Logic
         if (action === 'right') {
-            // If it wasn't tracked before, remove it. If it was, leave it alone.
             if (!wasPreviouslyTracked) removeFromWatchlist(item.id);
-            setSessionLikes(prev => prev.filter(id => id !== item.id));
+            setSessionLikes(prev => prev.filter(i => i.id !== item.id));
         } 
         else if (action === 'up') {
-            // Un-mark watched
             if (item.media_type === 'movie') {
-                toggleWatched({ tmdb_id: item.id, media_type: 'movie', is_watched: true }); // Toggle back to false
+                toggleWatched({ tmdb_id: item.id, media_type: 'movie', is_watched: true }); 
             } else {
-                // For TV, simply remove from watchlist is usually enough as we can't easily undo "mark all episodes" 
-                // without complex tracking. If the modal was cancelled, this cleans up the add.
+                // TV logic implies we might have marked episodes. 
+                // A true "Undo" for TV bulk marking is complex. 
+                // We'll just remove from watchlist if it wasn't there.
             }
             
             if (!wasPreviouslyTracked) removeFromWatchlist(item.id);
-            setSessionLikes(prev => prev.filter(id => id !== item.id));
+            setSessionLikes(prev => prev.filter(i => i.id !== item.id));
         }
 
         toast('Action Undone', { icon: 'Hz', style: { background: '#18181b', color: '#fff', fontSize: '12px' } });
@@ -210,25 +220,25 @@ const V2Matches: React.FC = () => {
 
     // --- RENDER ---
 
-    if (stack.length === 0 && isInitialLoad) {
+    if (status === 'loading' && stack.length === 0) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-[#020202] text-white">
                 <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
-                <p className="text-sm font-bold uppercase tracking-widest text-zinc-500">Curating for you...</p>
+                <p className="text-sm font-bold uppercase tracking-widest text-zinc-500 animate-pulse">Curating your deck...</p>
             </div>
         );
     }
 
-    if (stack.length === 0 && !isInitialLoad) {
+    if (status === 'empty' && stack.length === 0) {
          return (
             <div className="flex-1 flex flex-col items-center justify-center bg-[#020202] text-white p-8 text-center">
                 <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mb-6 border border-zinc-800">
                     <Sparkles className="w-10 h-10 text-indigo-500" />
                 </div>
                 <h2 className="text-2xl font-black mb-2">That's all for now</h2>
-                <p className="text-zinc-500 mb-8 max-w-xs mx-auto">We've run out of recommendations based on your current library.</p>
+                <p className="text-zinc-500 mb-8 max-w-xs mx-auto">We've run out of recommendations based on your current filters.</p>
                 <button 
-                    onClick={() => { fetchedIds.current.clear(); fetchMoreCards(); }}
+                    onClick={() => { fetchedIds.current.clear(); fetchMoreCards(true); }}
                     className="px-8 py-4 bg-white text-black rounded-2xl font-bold uppercase tracking-wider text-xs hover:bg-zinc-200 transition-colors flex items-center gap-2"
                 >
                     <RefreshCw className="w-4 h-4" /> Refresh Stack
@@ -250,8 +260,8 @@ const V2Matches: React.FC = () => {
     return (
         <div className="flex-1 flex flex-col bg-[#050505] relative overflow-hidden h-full">
             {/* Header */}
-            <div className="absolute top-0 left-0 right-0 z-30 p-6 flex justify-between items-start bg-gradient-to-b from-black/90 to-transparent h-32">
-                 <button onClick={() => navigate(-1)} className="p-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-white hover:bg-white/20 transition-colors">
+            <div className="absolute top-0 left-0 right-0 z-30 p-6 flex justify-between items-start bg-gradient-to-b from-black/90 to-transparent h-32 pointer-events-none">
+                 <button onClick={() => navigate(-1)} className="pointer-events-auto p-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-white hover:bg-white/20 transition-colors">
                      <ChevronLeft className="w-6 h-6" />
                  </button>
                  
@@ -260,9 +270,9 @@ const V2Matches: React.FC = () => {
                          <Flame className="w-3 h-3 text-indigo-400 fill-current" />
                          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Match Mode</span>
                      </div>
-                     {sessionLikes.length > 0 && (
-                         <span className="text-[9px] text-zinc-500 font-medium">Adapted to {sessionLikes.length} likes</span>
-                     )}
+                     <span className="text-[9px] text-zinc-400 font-medium bg-black/40 px-2 py-0.5 rounded backdrop-blur-md border border-white/5">
+                        {sourceLabel}
+                     </span>
                  </div>
 
                  <div className="w-12" /> {/* Spacer */}
@@ -305,8 +315,7 @@ const V2Matches: React.FC = () => {
                          ) : (
                              <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 bg-zinc-900/50 rounded-[2rem] border border-white/5">
                                  <RefreshCw className="w-12 h-12 text-zinc-600 mb-4 animate-spin-slow" />
-                                 <h3 className="text-xl font-bold text-white mb-2">Refilling Deck...</h3>
-                                 <p className="text-sm text-zinc-500">Finding more gems based on your taste.</p>
+                                 <h3 className="text-xl font-bold text-white mb-2">Finding Gems...</h3>
                              </div>
                          )}
                      </AnimatePresence>

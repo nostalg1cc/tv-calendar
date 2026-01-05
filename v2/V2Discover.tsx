@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Plus, Check, ArrowRight, Sparkles, TrendingUp, CalendarClock, History, Lightbulb, Ticket, Tv, Eye, EyeOff, Flame } from 'lucide-react';
+import { Play, Plus, Check, ArrowRight, Sparkles, TrendingUp, CalendarClock, History, Lightbulb, Ticket, Tv, Eye, EyeOff, Flame, Layers, Star } from 'lucide-react';
 import { useStore } from '../store';
 import { getCollection, getBackdropUrl, getImageUrl, getRecommendations } from '../services/tmdb';
 import { TVShow, WatchedItem } from '../types';
@@ -10,16 +10,6 @@ import V2TrailerModal from './V2TrailerModal';
 import V2DiscoverModal from './V2DiscoverModal';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
-
-// Genre Map for Personalization context
-const GENRE_MAP: Record<number, string> = {
-    28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
-    99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History',
-    27: 'Horror', 10402: 'Music', 9648: 'Mystery', 10749: 'Romance', 878: 'Sci-Fi',
-    10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western',
-    10759: 'Action & Adventure', 10762: 'Kids', 10763: 'News', 10764: 'Reality',
-    10765: 'Sci-Fi & Fantasy', 10766: 'Soap', 10767: 'Talk', 10768: 'War & Politics'
-};
 
 interface PersonalizedSection {
     id: string;
@@ -32,15 +22,11 @@ interface PersonalizedSection {
     params?: any;
 }
 
-// Filter out specific regions/languages to reduce clutter
+// Helper to filter out clutter (specific regions/languages)
 const filterContent = (items: TVShow[]) => {
-    // Block list for Indian content as requested
     const BLOCK_LANGS = ['hi', 'te', 'ta', 'kn', 'ml', 'pa', 'mr', 'bn', 'gu', 'or', 'as', 'ur', 'ne', 'si'];
-    const BLOCK_REGIONS = ['IN'];
-    
     return items.filter(item => {
         if (item.original_language && BLOCK_LANGS.includes(item.original_language)) return false;
-        if (item.origin_country && item.origin_country.some(c => BLOCK_REGIONS.includes(c))) return false;
         return true;
     });
 };
@@ -48,16 +34,13 @@ const filterContent = (items: TVShow[]) => {
 const V2Discover: React.FC = () => {
     const { watchlist, addToWatchlist, setReminderCandidate, settings, history, toggleWatched } = useStore();
     
-    // Static Data
+    // Data State
     const [heroItems, setHeroItems] = useState<TVShow[]>([]);
-    const [trending, setTrending] = useState<TVShow[]>([]);
-    const [trendingTV, setTrendingTV] = useState<TVShow[]>([]);
-    const [popularMovies, setPopularMovies] = useState<TVShow[]>([]);
-    const [inTheaters, setInTheaters] = useState<TVShow[]>([]);
-    
-    // Dynamic Personalized Rows
+    const [viralHits, setViralHits] = useState<TVShow[]>([]); // "Global Viral Hits"
+    const [criticalHits, setCriticalHits] = useState<TVShow[]>([]); // "Critically Acclaimed"
+    const [genreRow, setGenreRow] = useState<{title: string, items: TVShow[]} | null>(null);
     const [personalizedSections, setPersonalizedSections] = useState<PersonalizedSection[]>([]);
-    const personalizationInitialized = useRef(false);
+    const [isPersonalizing, setIsPersonalizing] = useState(false);
 
     // Modals
     const [detailsId, setDetailsId] = useState<{id: number, type: 'tv'|'movie'} | null>(null);
@@ -66,86 +49,111 @@ const V2Discover: React.FC = () => {
 
     // Initial Fetch
     useEffect(() => {
+        // Hero: Trending Movies
         getCollection('/trending/movie/week', 'movie').then(data => {
-            const clean = filterContent(data);
-            setHeroItems(clean.slice(0, 8));
-            setTrending(clean);
+            setHeroItems(filterContent(data).slice(0, 8));
         });
-        getCollection('/trending/tv/week', 'tv').then(data => setTrendingTV(filterContent(data)));
-        getCollection('/movie/popular', 'movie').then(data => setPopularMovies(filterContent(data)));
-        getCollection('/movie/now_playing', 'movie', 1).then(data => setInTheaters(filterContent(data)));
+
+        // Viral Hits: Trending All
+        getCollection('/trending/all/day', 'movie').then(data => {
+            setViralHits(filterContent(data).slice(0, 10));
+        });
+
+        // Critically Acclaimed: Top Rated Movies
+        getCollection('/movie/top_rated', 'movie').then(data => {
+             setCriticalHits(filterContent(data));
+        });
+
+        // Random Genre Spotlight
+        const genres = [
+            { id: 878, name: 'Sci-Fi & Cyberpunk', type: 'movie' },
+            { id: 27, name: 'Late Night Horror', type: 'movie' },
+            { id: 16, name: 'Animation Universe', type: 'movie' },
+            { id: 35, name: 'Comedy Club', type: 'tv' },
+            { id: 99, name: 'True Stories', type: 'movie' }
+        ] as const;
+        
+        const randomGenre = genres[Math.floor(Math.random() * genres.length)];
+        const endpoint = randomGenre.type === 'movie' ? '/discover/movie' : '/discover/tv';
+        getCollection(endpoint, randomGenre.type, 1, { with_genres: randomGenre.id.toString(), sort_by: 'popularity.desc' })
+            .then(data => {
+                setGenreRow({ title: randomGenre.name, items: filterContent(data) });
+            });
+
     }, []);
 
-    // Personalization Logic
+    // Smart "For You" Algorithm
     useEffect(() => {
-        if (watchlist.length === 0) return;
-        if (personalizationInitialized.current) return;
+        // Prevent frequent re-runs, only run if watchlist changes significantly or first load
+        if (isPersonalizing || personalizedSections.length > 0) return;
 
         const generateSections = async () => {
+            setIsPersonalizing(true);
             const sections: PersonalizedSection[] = [];
             const processedIds = new Set<number>();
 
+            // Helper: Check if item is watched
             const isWatched = (item: TVShow) => {
                 if (item.media_type === 'movie') return history[`movie-${item.id}`]?.is_watched;
                 return Object.values(history).some((h: WatchedItem) => h.tmdb_id === item.id && h.is_watched);
             };
 
+            // Strategy 1: "Because you watched [X]" (Based on History)
             const watchedItems = watchlist.filter(item => isWatched(item));
-            const interestedItems = watchlist.filter(item => !isWatched(item));
-            
-            const shuffledWatched = [...watchedItems].sort(() => 0.5 - Math.random());
-            let watchedCount = 0;
-            
-            for (const item of shuffledWatched) {
-                if (watchedCount >= 2) break;
-                if (processedIds.has(item.id)) continue;
-                try {
-                    const recs = await getRecommendations(item.id, item.media_type);
-                    const valid = filterContent(recs.filter(r => !watchlist.some(w => w.id === r.id)));
-                    if (valid.length >= 5) {
-                        sections.push({
-                            id: `watched-${item.id}`,
-                            title: `Because you watched ${item.name}`,
-                            items: valid,
-                            type: item.media_type,
-                            icon: History,
-                            endpoint: `/${item.media_type}/${item.id}/recommendations`
-                        });
-                        processedIds.add(item.id);
-                        watchedCount++;
-                    }
-                } catch(e) {}
+            if (watchedItems.length > 0) {
+                 // Pick 2 random watched items
+                 const shuffled = [...watchedItems].sort(() => 0.5 - Math.random()).slice(0, 2);
+                 for (const item of shuffled) {
+                     try {
+                         const recs = await getRecommendations(item.id, item.media_type);
+                         const valid = filterContent(recs.filter(r => !watchlist.some(w => w.id === r.id)));
+                         if (valid.length >= 5) {
+                             sections.push({
+                                 id: `watched-${item.id}`,
+                                 title: `Because you watched ${item.name}`,
+                                 subtitle: "Recommendations based on your history",
+                                 items: valid,
+                                 type: item.media_type,
+                                 icon: History,
+                                 endpoint: `/${item.media_type}/${item.id}/recommendations`
+                             });
+                             processedIds.add(item.id);
+                         }
+                     } catch(e) {}
+                 }
             }
 
-            const shuffledInterested = [...interestedItems].sort(() => 0.5 - Math.random());
-            let interestedCount = 0;
-
-            for (const item of shuffledInterested) {
-                if (interestedCount >= 2) break;
-                if (processedIds.has(item.id)) continue;
-                try {
-                    const recs = await getRecommendations(item.id, item.media_type);
-                    const valid = filterContent(recs.filter(r => !watchlist.some(w => w.id === r.id)));
-                    if (valid.length >= 5) {
-                        sections.push({
-                            id: `interested-${item.id}`,
-                            title: `Since you're interested in ${item.name}`,
-                            items: valid,
-                            type: item.media_type,
-                            icon: Lightbulb,
-                            endpoint: `/${item.media_type}/${item.id}/recommendations`
-                        });
-                        processedIds.add(item.id);
-                        interestedCount++;
-                    }
-                } catch(e) {}
+            // Strategy 2: "Since you added [Y]" (Based on Watchlist Interest)
+            const interestedItems = watchlist.filter(item => !isWatched(item));
+            if (interestedItems.length > 0) {
+                // Pick 1 random interested item
+                const item = interestedItems[Math.floor(Math.random() * interestedItems.length)];
+                if (item && !processedIds.has(item.id)) {
+                    try {
+                        const recs = await getRecommendations(item.id, item.media_type);
+                        const valid = filterContent(recs.filter(r => !watchlist.some(w => w.id === r.id)));
+                        if (valid.length >= 5) {
+                             sections.push({
+                                 id: `interested-${item.id}`,
+                                 title: `Since you added ${item.name}`,
+                                 subtitle: "More like this in your library",
+                                 items: valid,
+                                 type: item.media_type,
+                                 icon: Lightbulb,
+                                 endpoint: `/${item.media_type}/${item.id}/recommendations`
+                             });
+                        }
+                    } catch(e) {}
+                }
             }
 
             setPersonalizedSections(sections);
-            personalizationInitialized.current = true;
+            setIsPersonalizing(false);
         };
 
-        generateSections();
+        if (watchlist.length > 0) {
+            generateSections();
+        }
     }, [watchlist.length]); 
 
     // --- HANDLERS ---
@@ -163,7 +171,6 @@ const V2Discover: React.FC = () => {
         }
 
         if (show.media_type === 'movie') {
-            // For movies, just toggle watched status
             toggleWatched({ 
                 tmdb_id: show.id, 
                 media_type: 'movie', 
@@ -171,7 +178,6 @@ const V2Discover: React.FC = () => {
             });
             toast.success(isWatched ? "Marked unwatched" : "Marked watched");
         } else {
-            // For TV, trigger the advanced "Seen All / Progress" modal
             setReminderCandidate(show);
         }
     };
@@ -187,41 +193,24 @@ const V2Discover: React.FC = () => {
 
     return (
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#020202] relative">
-            {settings.useBetaLayouts ? (
-                <BetaView 
-                    heroItems={heroItems}
-                    trending={trending}
-                    trendingTV={trendingTV}
-                    popularMovies={popularMovies}
-                    inTheaters={inTheaters}
-                    personalizedSections={personalizedSections}
-                    {...sharedProps}
-                />
-            ) : (
-                <ClassicView 
-                    heroItems={heroItems}
-                    trending={trending}
-                    trendingTV={trendingTV}
-                    popularMovies={popularMovies}
-                    inTheaters={inTheaters}
-                    personalizedSections={personalizedSections}
-                    onOpenTrailer={(id: number, type: 'tv' | 'movie') => setTrailerId({id, type})}
-                    {...sharedProps}
-                />
-            )}
+            <BetaView 
+                heroItems={heroItems}
+                viralHits={viralHits}
+                criticalHits={criticalHits}
+                genreRow={genreRow}
+                personalizedSections={personalizedSections}
+                {...sharedProps}
+            />
 
             {/* MATCHES BANNER */}
             <div className="px-4 md:px-8 pb-12 pt-4 animate-fade-in-up">
                 <Link to="/matches" className="block group relative w-full h-40 md:h-48 rounded-3xl overflow-hidden cursor-pointer border border-white/10 hover:border-indigo-500/50 transition-all duration-300">
-                    {/* Dynamic Backgrounds from Hero Items */}
                     <div className="absolute inset-0 flex">
                         {heroItems.slice(0, 3).map((item, i) => (
-                            <div key={item.id} className="flex-1 bg-cover bg-center blur-sm opacity-40 group-hover:opacity-60 transition-opacity" style={{ backgroundImage: `url(${getImageUrl(item.poster_path)})` }} />
+                            <div key={item.id} className="flex-1 bg-cover bg-center blur-sm opacity-40 group-hover:opacity-60 transition-opacity" style={{ backgroundImage: `url(${getBackdropUrl(item.backdrop_path)})` }} />
                         ))}
                     </div>
-                    
                     <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/90 via-black/80 to-indigo-900/90" />
-                    
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
                          <div className="w-12 h-12 bg-white text-indigo-600 rounded-full flex items-center justify-center mb-3 shadow-[0_0_20px_rgba(255,255,255,0.3)] group-hover:scale-110 transition-transform">
                              <Flame className="w-6 h-6 fill-current" />
@@ -273,15 +262,54 @@ const V2Discover: React.FC = () => {
     );
 };
 
-// --- SHARED SUB-COMPONENTS ---
+// --- SUB-COMPONENTS ---
 
-const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onOpenDetails, onAdd, onWatch, watchlist, history, endpoint, params }: any) => {
+const Top10Row = ({ items, onOpenDetails }: any) => {
+    if (!items || items.length === 0) return null;
+    return (
+        <div className="py-8 animate-fade-in-up">
+            <div className="max-w-[1800px] mx-auto px-4 md:px-8 mb-6">
+                 <h3 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
+                     <TrendingUp className="w-6 h-6 text-red-500" />
+                     Global Viral Hits
+                 </h3>
+                 <p className="text-sm text-zinc-500 font-medium mt-1">The top 10 most popular titles right now.</p>
+            </div>
+            
+            <div className="overflow-x-auto hide-scrollbar px-4 md:px-8 -mx-0 w-full">
+                <div className="flex gap-6 w-max">
+                    {items.map((show: TVShow, idx: number) => (
+                        <div 
+                            key={show.id} 
+                            className="relative group cursor-pointer w-[140px] md:w-[180px] shrink-0 transition-transform hover:scale-105"
+                            onClick={() => onOpenDetails(show.id, show.media_type)}
+                        >
+                             {/* Big Number */}
+                             <span className="absolute -left-6 bottom-4 text-[100px] md:text-[140px] font-black text-zinc-800/50 leading-none select-none z-0 drop-shadow-md stroke-white" style={{ WebkitTextStroke: '2px #333' }}>
+                                 {idx + 1}
+                             </span>
+                             
+                             <div className="relative z-10 aspect-[2/3] rounded-xl overflow-hidden shadow-xl border border-white/5 bg-zinc-900 ml-4">
+                                 <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover" loading="lazy" alt="" />
+                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <Play className="w-10 h-10 text-white fill-current" />
+                                 </div>
+                             </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onOpenDetails, onAdd, onWatch, watchlist, history, endpoint }: any) => {
     if (!items || items.length === 0) return null;
     return (
         <div className="py-8 border-t border-white/5 animate-fade-in-up">
             <div className="max-w-[1800px] mx-auto px-4 md:px-8 mb-6 flex items-end justify-between">
                 <div>
-                    <h3 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
+                    <h3 className="text-xl md:text-2xl font-black text-white tracking-tight flex items-center gap-3">
                          {Icon && <Icon className="w-6 h-6 text-indigo-500" />}
                          {title}
                     </h3>
@@ -311,7 +339,7 @@ const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onO
                                 className="w-[160px] md:w-[200px] group relative cursor-pointer"
                                 onClick={() => onOpenDetails(show.id, show.media_type)}
                             >
-                                <div className="aspect-[2/3] overflow-hidden bg-zinc-900 mb-3 border border-white/5 transition-all duration-300 group-hover:-translate-y-2 group-hover:shadow-2xl">
+                                <div className="aspect-[2/3] overflow-hidden bg-zinc-900 mb-3 border border-white/5 transition-all duration-300 group-hover:-translate-y-2 group-hover:shadow-2xl rounded-xl">
                                     <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" alt="" />
                                     
                                     {/* Action Overlay */}
@@ -334,7 +362,7 @@ const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onO
                                          </button>
                                     </div>
                                 </div>
-                                <h4 className="text-sm font-bold text-zinc-400 truncate">{show.name}</h4>
+                                <h4 className="text-sm font-bold text-zinc-400 truncate group-hover:text-white transition-colors">{show.name}</h4>
                                 <div className="flex items-center gap-2 text-xs text-zinc-600 mt-1">
                                     <span className="uppercase font-bold">{show.media_type === 'movie' ? 'Film' : 'TV'}</span>
                                     <span>•</span>
@@ -350,8 +378,8 @@ const CategorySection = ({ title, subtitle, items, type, icon: Icon, onMore, onO
     );
 };
 
-// --- BETA LAYOUT ---
-const BetaView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMovies, inTheaters, personalizedSections, onOpenDetails, onAdd, onWatch, onViewCategory, watchlist, history }) => {
+// --- VIEW COMPONENT ---
+const BetaView: React.FC<any> = ({ heroItems, viralHits, criticalHits, genreRow, personalizedSections, onOpenDetails, onAdd, onWatch, onViewCategory, watchlist, history }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const hasHero = heroItems && heroItems.length > 0;
@@ -372,11 +400,11 @@ const BetaView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMovie
 
     if (!hero) return <div className="h-screen bg-black" />;
 
-    const recItem = personalizedSections[0]?.items[0];
     const isAdded = watchlist.some((w: any) => w.id === hero.id);
 
     return (
         <div className="pb-8 font-sans">
+            {/* HERO BILLBOARD */}
             <div className="relative w-full h-[85vh] flex flex-col justify-end p-6 md:p-12 overflow-hidden group">
                  {heroItems.map((item: TVShow, idx: number) => (
                      <div 
@@ -415,6 +443,10 @@ const BetaView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMovie
                 </div>
             </div>
 
+            {/* VIRAL HITS (TOP 10) */}
+            <Top10Row items={viralHits} onOpenDetails={onOpenDetails} />
+
+            {/* PERSONALIZED SECTIONS */}
             {personalizedSections.map((section: PersonalizedSection) => (
                 <CategorySection 
                     key={section.id} 
@@ -424,93 +456,60 @@ const BetaView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMovie
                     type={section.type} 
                     icon={section.icon}
                     onOpenDetails={onOpenDetails} 
-                    onAdd={onAdd}
-                    onWatch={onWatch} 
-                    watchlist={watchlist}
+                    onAdd={onAdd} 
+                    onWatch={onWatch}
+                    watchlist={watchlist} 
                     history={history}
                     onMore={() => section.endpoint ? onViewCategory(section.title, section.endpoint, section.type, section.params) : undefined}
                     endpoint={section.endpoint}
                 />
             ))}
 
-            <div className="max-w-[1800px] mx-auto p-4 md:p-8">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-[300px]">
-                    {recItem && (
-                        <div className="md:col-span-1 md:row-span-2 relative group overflow-hidden bg-zinc-900 cursor-pointer border border-white/5" onClick={() => onOpenDetails(recItem.id, recItem.media_type)}>
-                            <img src={getImageUrl(recItem.poster_path)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-500" alt="" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent p-6 flex flex-col justify-end">
-                                <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Top Pick</div>
-                                <h3 className="text-2xl font-bold text-white leading-none mb-2">{recItem.name}</h3>
-                            </div>
-                        </div>
-                    )}
-                    <div className="md:col-span-2 md:row-span-1 relative group overflow-hidden bg-zinc-900 cursor-pointer border border-white/5" onClick={() => onViewCategory("In Theaters", "/movie/now_playing", "movie")}>
-                        {inTheaters[0] && <img src={getBackdropUrl(inTheaters[0].backdrop_path)} className="w-full h-full object-cover opacity-50 group-hover:scale-105 transition-all duration-700" alt="" />}
-                        <div className="absolute inset-0 p-8 flex flex-col justify-center items-start">
-                            <div className="bg-white text-black text-[10px] font-black uppercase px-2 py-0.5 mb-3">Cinema</div>
-                            <h3 className="text-4xl font-black text-white uppercase italic tracking-tighter mb-2">Now Playing</h3>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <CategorySection title="Trending TV" items={trendingTV} type="tv" onMore={() => onViewCategory("Trending TV", "/trending/tv/week", "tv")} onOpenDetails={onOpenDetails} onAdd={onAdd} onWatch={onWatch} watchlist={watchlist} history={history} icon={TrendingUp} />
-            <CategorySection title="Popular Movies" items={popularMovies} type="movie" onMore={() => onViewCategory("Popular Movies", "/movie/popular", "movie")} onOpenDetails={onOpenDetails} onAdd={onAdd} onWatch={onWatch} watchlist={watchlist} history={history} icon={Ticket} />
-        </div>
-    );
-};
-
-// --- CLASSIC VIEW ---
-const ClassicView: React.FC<any> = ({ heroItems, trending, trendingTV, popularMovies, inTheaters, personalizedSections, onOpenDetails, onOpenTrailer, onAdd, onWatch, onViewCategory, watchlist, history }) => {
-     const hero = heroItems[0];
-     const isAdded = hero ? watchlist.some((w: any) => w.id === hero.id) : false;
-
-    return (
-        <div className="pb-8">
-            {hero && (
-                <div className="relative w-full h-[65vh] group">
-                     <div className="absolute inset-0 bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${getBackdropUrl(hero.backdrop_path)})` }}>
-                        <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/40 to-transparent" />
-                        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#020202] to-transparent" />
-                    </div>
-                    <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-16 max-w-3xl pt-20">
-                        <h1 className="text-4xl md:text-7xl font-bold text-white tracking-tighter mb-4 drop-shadow-2xl">{hero.name}</h1>
-                        <p className="text-zinc-200 text-sm md:text-base line-clamp-3 mb-8 font-medium drop-shadow-md">{hero.overview}</p>
-                        <div className="flex gap-4">
-                            <button onClick={() => onOpenTrailer && onOpenTrailer(hero.id, hero.media_type)} className="px-6 py-3 bg-white text-black font-bold rounded-lg flex items-center gap-2 hover:bg-zinc-200 transition-colors"><Play className="w-5 h-5 fill-current" /> Play Trailer</button>
-                            <button onClick={(e) => onAdd(e, hero)} className={`px-6 py-3 font-bold rounded-lg flex items-center gap-2 transition-colors backdrop-blur-md ${isAdded ? 'bg-zinc-800 text-zinc-500' : 'bg-zinc-800/80 text-white hover:bg-zinc-700'}`}>
-                                {isAdded ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                                {isAdded ? 'Library' : 'My List'}
-                            </button>
-                        </div>
+            {/* GENRE SPOTLIGHT BANNER */}
+            {genreRow && (
+                <div className="max-w-[1800px] mx-auto px-4 md:px-8 py-8 animate-fade-in-up">
+                    <div className="relative rounded-3xl overflow-hidden bg-zinc-900 border border-white/5 h-[300px] md:h-[400px]">
+                         <div className="absolute inset-0 bg-cover bg-center opacity-40" style={{ backgroundImage: `url(${getBackdropUrl(genreRow.items[0]?.backdrop_path)})` }} />
+                         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent" />
+                         
+                         <div className="absolute inset-0 p-8 md:p-12 flex flex-col justify-center max-w-2xl">
+                             <div className="flex items-center gap-2 mb-2">
+                                 <Layers className="w-5 h-5 text-indigo-500" />
+                                 <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Genre Spotlight</span>
+                             </div>
+                             <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4">{genreRow.title}</h2>
+                             <p className="text-zinc-400 text-sm mb-8 max-w-md">Explore our curated selection of the best titles in this category.</p>
+                             
+                             <div className="flex gap-4 overflow-x-auto hide-scrollbar w-full pb-4">
+                                 {genreRow.items.slice(0, 5).map(item => (
+                                     <div key={item.id} className="w-24 md:w-32 aspect-[2/3] shrink-0 bg-zinc-800 rounded-lg overflow-hidden border border-white/10 cursor-pointer hover:scale-105 transition-transform" onClick={() => onOpenDetails(item.id, item.media_type)}>
+                                         <img src={getImageUrl(item.poster_path)} className="w-full h-full object-cover" alt="" />
+                                     </div>
+                                 ))}
+                                 <button onClick={() => onViewCategory(genreRow.title, '/discover/movie', 'movie', { with_genres: '878' })} className="w-24 md:w-32 aspect-[2/3] shrink-0 bg-zinc-800/50 rounded-lg border border-white/10 flex flex-col items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors">
+                                     <ArrowRight className="w-6 h-6 mb-2" />
+                                     <span className="text-[10px] font-bold uppercase">View All</span>
+                                 </button>
+                             </div>
+                         </div>
                     </div>
                 </div>
             )}
-            
-            <div className="relative z-10 -mt-16 space-y-2">
-                 <CategorySection title="Top 10 Today" items={trending} type="movie" onOpenDetails={onOpenDetails} onAdd={onAdd} onWatch={onWatch} watchlist={watchlist} history={history} />
-                 
-                 {personalizedSections.map((section: PersonalizedSection) => (
-                    <CategorySection 
-                        key={section.id} 
-                        title={section.title} 
-                        subtitle={section.subtitle}
-                        items={section.items} 
-                        type={section.type} 
-                        icon={section.icon}
-                        onOpenDetails={onOpenDetails} 
-                        onAdd={onAdd} 
-                        onWatch={onWatch}
-                        watchlist={watchlist} 
-                        history={history}
-                        onMore={() => section.endpoint ? onViewCategory(section.title, section.endpoint, section.type, section.params) : undefined}
-                        endpoint={section.endpoint}
-                    />
-                ))}
 
-                 <CategorySection title="Popular Series" items={trendingTV} type="tv" onOpenDetails={onOpenDetails} onAdd={onAdd} onWatch={onWatch} watchlist={watchlist} history={history} icon={Tv} />
-                 <CategorySection title="Now In Cinemas" items={inTheaters} type="movie" onOpenDetails={onOpenDetails} onAdd={onAdd} onWatch={onWatch} watchlist={watchlist} history={history} icon={Ticket} />
-            </div>
+            {/* CRITICALLY ACCLAIMED */}
+            <CategorySection 
+                title="Critically Acclaimed" 
+                subtitle="Top rated masterpieces you can't miss" 
+                items={criticalHits} 
+                type="movie" 
+                onOpenDetails={onOpenDetails} 
+                onAdd={onAdd} 
+                onWatch={onWatch} 
+                watchlist={watchlist} 
+                history={history} 
+                icon={Star} 
+                onMore={() => onViewCategory("Critically Acclaimed", "/movie/top_rated", "movie")}
+            />
         </div>
     );
 };

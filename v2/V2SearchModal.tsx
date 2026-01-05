@@ -13,7 +13,17 @@ interface V2SearchModalProps {
     onClose: () => void;
 }
 
-const ResultItem = ({ 
+interface ResultItemProps {
+    show: TVShow;
+    isLocal: boolean;
+    watchlist: TVShow[];
+    history: Record<string, WatchedItem>;
+    onOpenDetails: (show: TVShow) => void;
+    onAdd: (e: React.MouseEvent, show: TVShow) => void;
+    onWatch: (e: React.MouseEvent, show: TVShow, isWatched: boolean) => void;
+}
+
+const ResultItem: React.FC<ResultItemProps> = ({ 
     show, 
     isLocal, 
     watchlist, 
@@ -21,14 +31,6 @@ const ResultItem = ({
     onOpenDetails, 
     onAdd, 
     onWatch 
-}: { 
-    show: TVShow, 
-    isLocal: boolean,
-    watchlist: TVShow[],
-    history: Record<string, WatchedItem>,
-    onOpenDetails: (show: TVShow) => void,
-    onAdd: (e: React.MouseEvent, show: TVShow) => void,
-    onWatch: (e: React.MouseEvent, show: TVShow, isWatched: boolean) => void
 }) => {
     const isAdded = watchlist.some(w => w.id === show.id);
     
