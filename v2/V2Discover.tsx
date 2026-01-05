@@ -481,7 +481,7 @@ const BetaView: React.FC<any> = ({ heroItems, viralHits, criticalHits, genreRow,
                              <p className="text-zinc-400 text-sm mb-8 max-w-md">Explore our curated selection of the best titles in this category.</p>
                              
                              <div className="flex gap-4 overflow-x-auto hide-scrollbar w-full pb-4">
-                                 {genreRow.items.slice(0, 5).map(item => (
+                                 {genreRow.items.slice(0, 5).map((item: TVShow) => (
                                      <div key={item.id} className="w-24 md:w-32 aspect-[2/3] shrink-0 bg-zinc-800 rounded-lg overflow-hidden border border-white/10 cursor-pointer hover:scale-105 transition-transform" onClick={() => onOpenDetails(item.id, item.media_type)}>
                                          <img src={getImageUrl(item.poster_path)} className="w-full h-full object-cover" alt="" />
                                      </div>
