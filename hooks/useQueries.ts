@@ -155,7 +155,8 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                         name: show.name,
                                         overview: show.overview,
                                         vote_average: show.vote_average,
-                                        air_date: formatInTimeZone(dateObj, settings.timezone), 
+                                        // For Movies: use local format to match details
+                                        air_date: format(dateObj, 'yyyy-MM-dd'),
                                         air_date_iso: entry.date, 
                                         episode_number: 1,
                                         season_number: 0,
@@ -187,9 +188,6 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                         const typesFound = new Set<string>();
 
                         const addRelease = (r: any, forcedType: 'theatrical' | 'digital') => {
-                            // TMDB movie dates are usually strictly dates (YYYY-MM-DD).
-                            // We do NOT want to shift these based on timezone to avoid day-shift errors.
-                            // We treat them as "Local Day" events.
                             const dateStr = r.date.split('T')[0];
                             const key = `${dateStr}-${forcedType}`;
                             if (typesFound.has(key)) return;
@@ -283,14 +281,12 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                         let dateObj: Date;
                                         let localDateKey: string;
 
-                                        // If strict timestamp, respect timezone. If just YYYY-MM-DD, respect day.
                                         if (finalIsoString.includes('T')) {
                                             dateObj = new Date(finalIsoString);
-                                            // Apply Timezone Format to get local string
-                                            localDateKey = formatInTimeZone(dateObj, settings.timezone);
+                                            // Fallback to local format for consistency
+                                            localDateKey = format(dateObj, 'yyyy-MM-dd');
                                         } else {
                                             dateObj = parseISO(finalIsoString);
-                                            // Keep simple date as is to avoid UTC midnight shifts
                                             localDateKey = finalIsoString.split('T')[0];
                                         }
 
@@ -346,8 +342,10 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                      let dateObj = new Date(entry.date); // Trakt usually sends ISO timestamp with time
 
                      if (!isNaN(dateObj.getTime())) {
-                        // Crucial: Use formatInTimeZone to respect user settings
-                        const localDateKey = formatInTimeZone(dateObj, settings.timezone);
+                        // CRITICAL: Use `format` (Local Time) instead of `formatInTimeZone` to align with Details Modal
+                        // The Details Modal uses standard date-fns format which uses browser local time.
+                        // By doing the same here, we ensure the calendar grid placement matches the modal's date text.
+                        const localDateKey = format(dateObj, 'yyyy-MM-dd');
                         
                         return {
                             ...ep,
