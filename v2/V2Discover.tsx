@@ -230,7 +230,7 @@ const V2Discover: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto custom-scrollbar pb-20">
                 {/* HERO */}
-                <HeroView items={heroItems} onOpenDetails={(id, type) => setDetailsId({id, type})} onAdd={handleAdd} watchlist={watchlist} />
+                <HeroView items={heroItems} onOpenDetails={(id: number, type: 'tv' | 'movie') => setDetailsId({id, type})} onAdd={handleAdd} watchlist={watchlist} />
 
                 {/* SECTIONS */}
                 <div className="flex flex-col gap-px bg-white/5 pb-px border-t border-white/5">
@@ -238,7 +238,7 @@ const V2Discover: React.FC = () => {
                         <DiscoveryRow 
                             key={section.id}
                             data={section}
-                            onOpenDetails={(id, type) => setDetailsId({id, type})}
+                            onOpenDetails={(id: number, type: 'tv' | 'movie') => setDetailsId({id, type})}
                             onAdd={handleAdd}
                             onWatch={handleWatch}
                             watchlist={watchlist}
