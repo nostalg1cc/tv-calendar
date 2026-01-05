@@ -29,32 +29,6 @@ const getUserRegion = () => {
     }
 };
 
-// Helper to format ISO date string to YYYY-MM-DD in specific timezone
-const formatInTimeZone = (date: Date, timeZone?: string) => {
-    try {
-        const tz = timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-        // Use Intl to format to parts then reconstruct YYYY-MM-DD
-        // We use en-CA because it outputs YYYY-MM-DD format naturally
-        const formatter = new Intl.DateTimeFormat('en-CA', {
-            timeZone: tz,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-        });
-        return formatter.format(date);
-    } catch (e) {
-        // Fallback to system local
-        return format(date, 'yyyy-MM-dd');
-    }
-};
-
-// Heuristic: Major streamers usually release at specific UTC times (e.g. 8AM UTC / 12AM PT)
-const isGlobalStreamer = (networks: any[]) => {
-    if (!networks || networks.length === 0) return false;
-    const streamers = ['Netflix', 'Disney+', 'Amazon', 'Apple TV+', 'Hulu', 'HBO Max', 'Peacock', 'Paramount+'];
-    return networks.some(n => streamers.some(s => n.name.includes(s)));
-};
-
 interface TraktDateEntry {
     date: string; // ISO
     type?: 'theatrical' | 'digital';
@@ -99,6 +73,7 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                          const s = item.episode?.season;
                          const e = item.episode?.number;
                          const airtime = item.first_aired; 
+                         
                          if (tmdbId && s && e && airtime) {
                              const key = `${tmdbId}_${s}_${e}`;
                              if (!map[key]) map[key] = [];
@@ -128,22 +103,22 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
             }
         },
         enabled: !!traktToken && hasKey,
-        staleTime: 1000 * 60 * 60 * 1 
+        staleTime: 1000 * 60 * 5 // Short stale time to ensure updates
     });
 
     const traktMap = traktQuery.data || {};
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({
-            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, settings.timezone, traktToken ? 'trakt' : 'no-trakt'],
+            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, traktToken ? 'trakt' : 'no-trakt'],
             queryFn: async (): Promise<Episode[]> => {
                 try {
                     // --- MOVIES LOGIC ---
                     if (show.media_type === 'movie') {
                         const results: Episode[] = [];
+                        
+                        // Check Trakt Override (Movies)
                         const traktEntries = traktMap[`movie_${show.id}`];
-
-                        // 1. If Trakt data exists, use it
                         if (traktEntries && traktEntries.length > 0) {
                             traktEntries.forEach(entry => {
                                 const posterToUse = show.custom_poster_path || show.poster_path;
@@ -155,8 +130,7 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                         name: show.name,
                                         overview: show.overview,
                                         vote_average: show.vote_average,
-                                        // For Movies: use local format to match details
-                                        air_date: format(dateObj, 'yyyy-MM-dd'),
+                                        air_date: format(dateObj, 'yyyy-MM-dd'), // Local Time
                                         air_date_iso: entry.date, 
                                         episode_number: 1,
                                         season_number: 0,
@@ -175,9 +149,8 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                             return results; 
                         }
 
-                        // 2. Fallback to TMDB
+                        // Fallback to TMDB
                         let releases = await getMovieReleaseDates(show.id, true);
-                        
                         if (releases.length === 0 && show.first_air_date) {
                             releases = [{ date: show.first_air_date, type: 'theatrical', country: 'US' }];
                         }
@@ -263,18 +236,10 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                         finalIsoString = mazeEntry.timestamp;
                                         source = 'tvmaze';
                                     } else if (mazeEntry && mazeEntry.date) {
-                                        if (isGlobalStreamer(details.networks || [])) {
-                                            finalIsoString = `${mazeEntry.date}T08:00:00Z`;
-                                        } else {
-                                            finalIsoString = mazeEntry.date;
-                                        }
+                                        finalIsoString = mazeEntry.date; // Use just date if no timestamp
                                         source = 'tvmaze';
                                     } else if (tmdbDateStr) {
-                                        if (isGlobalStreamer(details.networks || [])) {
-                                            finalIsoString = `${tmdbDateStr}T08:00:00Z`; 
-                                        } else {
-                                            finalIsoString = tmdbDateStr;
-                                        }
+                                        finalIsoString = tmdbDateStr;
                                     }
 
                                     if (finalIsoString) {
@@ -283,7 +248,7 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
 
                                         if (finalIsoString.includes('T')) {
                                             dateObj = new Date(finalIsoString);
-                                            // Fallback to local format for consistency
+                                            // STRICT LOCAL FORMATTING - No timezone shenanigans
                                             localDateKey = format(dateObj, 'yyyy-MM-dd');
                                         } else {
                                             dateObj = parseISO(finalIsoString);
@@ -333,18 +298,17 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
         .flatMap(q => q.data || [])
         .map(ep => {
             // Apply Trakt Override for TV Episodes (Priority #1)
+            // This runs after the main fetch to ensure we catch updates from the lightweight Trakt calendar query
             if (!ep.is_movie && ep.show_id && ep.season_number && ep.episode_number) {
                  const traktKey = `${ep.show_id}_${ep.season_number}_${ep.episode_number}`;
                  const traktEntries = traktMap[traktKey];
                  
                  if (traktEntries && traktEntries.length > 0) {
                      const entry = traktEntries[0];
-                     let dateObj = new Date(entry.date); // Trakt usually sends ISO timestamp with time
+                     let dateObj = new Date(entry.date); 
 
                      if (!isNaN(dateObj.getTime())) {
-                        // CRITICAL: Use `format` (Local Time) instead of `formatInTimeZone` to align with Details Modal
-                        // The Details Modal uses standard date-fns format which uses browser local time.
-                        // By doing the same here, we ensure the calendar grid placement matches the modal's date text.
+                        // FORCE MATCH DETAILS MODAL: Use local formatting
                         const localDateKey = format(dateObj, 'yyyy-MM-dd');
                         
                         return {
@@ -361,7 +325,7 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
         .filter(ep => {
              if (!ep.air_date) return false;
              try {
-                // air_date is formatted YYYY-MM-DD (local), so parsing it locally is correct for filtering
+                // Filter based on the *computed* local date key
                 const d = parseISO(ep.air_date);
                 if (isNaN(d.getTime())) return false;
                 return d >= startWindow && d <= endWindow;
