@@ -29,17 +29,19 @@ const V2Matches: React.FC = () => {
     
     // --- STATE ---
     const [stack, setStack] = useState<TVShow[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [dragDirection, setDragDirection] = useState<ActionType | null>(null);
     
     // Session Algorithm State
     const [sessionLikes, setSessionLikes] = useState<number[]>([]); // IDs of things liked THIS session
     const [historyStack, setHistoryStack] = useState<ActionHistory[]>([]); // For Undo
     const fetchedIds = useRef<Set<number>>(new Set());
+    const isFetching = useRef(false);
 
     // --- ALGORITHM: LOAD CARDS ---
     const fetchMoreCards = useCallback(async () => {
-        if (loading) return;
+        if (isFetching.current) return;
+        isFetching.current = true;
         
         try {
             let seedIds: number[] = [];
@@ -70,8 +72,12 @@ const V2Matches: React.FC = () => {
                 
                 newItems = await getRecommendations(seedId, type);
             } else {
-                // Cold start: Trending
-                newItems = await getCollection('/trending/all/day', 'movie'); // Mixed content usually
+                // Cold start: Fetch both Trending Movies and TV to ensure mixed variety with correct types
+                const [movies, tvs] = await Promise.all([
+                    getCollection('/trending/movie/day', 'movie', 1),
+                    getCollection('/trending/tv/day', 'tv', 1)
+                ]);
+                newItems = [...movies, ...tvs].sort(() => 0.5 - Math.random());
             }
 
             // Filter duplicates (Global history + Current session)
@@ -84,36 +90,42 @@ const V2Matches: React.FC = () => {
                 return true;
             });
 
+            validItems.forEach(i => fetchedIds.current.add(i.id));
+
+            // Add to Stack
+            // We PREPEND items so they sit "under" the current top card (which is at the end of the array)
+            // Wait, standard react state update:
+            // If stack is [A, B, C] (C is top).
+            // We want [D, E, A, B, C] (C is still top, D and E are bottom).
             if (validItems.length > 0) {
-                validItems.forEach(i => fetchedIds.current.add(i.id));
-                // Add to BEGINNING of stack (bottom of deck)
-                setStack(prev => [...prev, ...validItems.slice(0, 10)]); 
+                setStack(prev => [...validItems.slice(0, 20), ...prev]); 
             } else if (stack.length === 0) {
                  // Emergency fallback if filter removed everything
-                 const trending = await getCollection('/movie/popular', 'movie', Math.floor(Math.random() * 10) + 1);
-                 setStack(prev => [...prev, ...trending.filter(t => !fetchedIds.current.has(t.id))]);
+                 const fallback = await getCollection('/movie/popular', 'movie', Math.floor(Math.random() * 10) + 1);
+                 const cleanFallback = fallback.filter(t => !fetchedIds.current.has(t.id));
+                 fetchedIds.current.add(cleanFallback[0]?.id); // Prevent immediate re-fetch loop
+                 setStack(cleanFallback);
             }
 
         } catch (e) {
             console.error("Match algo failed", e);
         } finally {
-            setLoading(false);
+            setIsInitialLoad(false);
+            isFetching.current = false;
         }
-    }, [sessionLikes, watchlist, stack.length, loading]);
+    }, [sessionLikes, watchlist, stack.length]); // Dependencies
 
     // Initial Load
     useEffect(() => {
-        if (stack.length === 0) {
-            fetchMoreCards();
-        }
+        fetchMoreCards();
     }, []);
 
     // Infinite Scroll trigger
     useEffect(() => {
-        if (stack.length < 5 && stack.length > 0) {
+        if (!isInitialLoad && stack.length < 5) {
             fetchMoreCards();
         }
-    }, [stack.length, fetchMoreCards]);
+    }, [stack.length, isInitialLoad, fetchMoreCards]);
 
     // --- ACTIONS ---
 
@@ -131,7 +143,7 @@ const V2Matches: React.FC = () => {
             // Add to Undo Stack
             setHistoryStack(prev => [...prev, { item: current, action: direction, wasPreviouslyTracked: wasInLibrary }]);
             
-            // Remove from visual stack
+            // Remove from visual stack (Pop from end)
             setStack(prev => prev.slice(0, -1));
             setDragDirection(null);
 
@@ -170,7 +182,7 @@ const V2Matches: React.FC = () => {
         const lastAction = historyStack[historyStack.length - 1];
         const { item, action, wasPreviouslyTracked } = lastAction;
 
-        // 1. Restore Visual Stack
+        // 1. Restore Visual Stack (Push to end)
         setStack(prev => [...prev, item]);
         setHistoryStack(prev => prev.slice(0, -1));
 
@@ -198,11 +210,35 @@ const V2Matches: React.FC = () => {
 
     // --- RENDER ---
 
-    if (stack.length === 0 && loading) {
+    if (stack.length === 0 && isInitialLoad) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-[#020202] text-white">
                 <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
                 <p className="text-sm font-bold uppercase tracking-widest text-zinc-500">Curating for you...</p>
+            </div>
+        );
+    }
+
+    if (stack.length === 0 && !isInitialLoad) {
+         return (
+            <div className="flex-1 flex flex-col items-center justify-center bg-[#020202] text-white p-8 text-center">
+                <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mb-6 border border-zinc-800">
+                    <Sparkles className="w-10 h-10 text-indigo-500" />
+                </div>
+                <h2 className="text-2xl font-black mb-2">That's all for now</h2>
+                <p className="text-zinc-500 mb-8 max-w-xs mx-auto">We've run out of recommendations based on your current library.</p>
+                <button 
+                    onClick={() => { fetchedIds.current.clear(); fetchMoreCards(); }}
+                    className="px-8 py-4 bg-white text-black rounded-2xl font-bold uppercase tracking-wider text-xs hover:bg-zinc-200 transition-colors flex items-center gap-2"
+                >
+                    <RefreshCw className="w-4 h-4" /> Refresh Stack
+                </button>
+                 <button 
+                    onClick={() => navigate(-1)}
+                    className="mt-4 text-zinc-600 font-bold text-xs uppercase tracking-wider hover:text-white"
+                >
+                    Go Back
+                </button>
             </div>
         );
     }

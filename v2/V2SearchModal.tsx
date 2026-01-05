@@ -13,6 +13,83 @@ interface V2SearchModalProps {
     onClose: () => void;
 }
 
+const ResultItem = ({ 
+    show, 
+    isLocal, 
+    watchlist, 
+    history, 
+    onOpenDetails, 
+    onAdd, 
+    onWatch 
+}: { 
+    show: TVShow, 
+    isLocal: boolean,
+    watchlist: TVShow[],
+    history: Record<string, WatchedItem>,
+    onOpenDetails: (show: TVShow) => void,
+    onAdd: (e: React.MouseEvent, show: TVShow) => void,
+    onWatch: (e: React.MouseEvent, show: TVShow, isWatched: boolean) => void
+}) => {
+    const isAdded = watchlist.some(w => w.id === show.id);
+    
+    let isWatched = false;
+    if (show.media_type === 'movie') isWatched = history[`movie-${show.id}`]?.is_watched;
+    else isWatched = Object.values(history).some((h: WatchedItem) => h.tmdb_id === show.id && h.is_watched);
+
+    return (
+        <div 
+            onClick={() => onOpenDetails(show)}
+            className={`group flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all border ${isLocal ? 'bg-indigo-900/10 border-indigo-500/20 hover:bg-indigo-900/20' : 'bg-zinc-900/40 border-white/5 hover:bg-zinc-800'}`}
+        >
+            {/* Poster */}
+            <div className="relative w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-zinc-800 shadow-md">
+                <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover" alt="" loading="lazy" />
+                {isWatched && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-[1px]">
+                        <Check className="w-5 h-5 text-emerald-500" />
+                    </div>
+                )}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+                <h4 className={`text-sm font-bold truncate ${isLocal ? 'text-white' : 'text-zinc-300 group-hover:text-white'}`}>
+                    {show.name}
+                </h4>
+                <div className="flex items-center gap-2 mt-1">
+                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${show.media_type === 'movie' ? 'border-pink-500/20 text-pink-400 bg-pink-500/5' : 'border-blue-500/20 text-blue-400 bg-blue-500/5'}`}>
+                        {show.media_type === 'movie' ? 'Film' : 'Series'}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-mono">
+                        {show.first_air_date?.split('-')[0] || 'TBA'}
+                    </span>
+                    {isLocal && <span className="text-[9px] text-indigo-400 font-bold ml-auto flex items-center gap-1"><Check className="w-3 h-3" /> In Library</span>}
+                </div>
+            </div>
+
+            {/* Actions (Hover) */}
+            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                {!isAdded && (
+                     <button 
+                        onClick={(e) => onAdd(e, show)}
+                        className="p-2 rounded-full bg-white text-black hover:scale-110 transition-transform shadow-lg"
+                        title="Add to Library"
+                    >
+                        <Plus className="w-4 h-4" />
+                    </button>
+                )}
+                <button 
+                    onClick={(e) => onWatch(e, show, isWatched)}
+                    className={`p-2 rounded-full transition-transform hover:scale-110 shadow-lg ${isWatched ? 'bg-emerald-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                    title={isWatched ? "Mark Unwatched" : "Mark Watched"}
+                >
+                    {isWatched ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
     const { addToWatchlist, watchlist, settings, history, toggleWatched } = useStore();
     const [query, setQuery] = useState('');
@@ -103,69 +180,6 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
         setDetailsItem(show);
     };
 
-    // --- RENDER HELPERS ---
-
-    const ResultItem = ({ show, isLocal }: { show: TVShow, isLocal: boolean }) => {
-        const isAdded = watchlist.some(w => w.id === show.id);
-        
-        let isWatched = false;
-        if (show.media_type === 'movie') isWatched = history[`movie-${show.id}`]?.is_watched;
-        else isWatched = Object.values(history).some((h: WatchedItem) => h.tmdb_id === show.id && h.is_watched);
-
-        return (
-            <div 
-                onClick={() => openDetails(show)}
-                className={`group flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all border ${isLocal ? 'bg-indigo-900/10 border-indigo-500/20 hover:bg-indigo-900/20' : 'bg-zinc-900/40 border-white/5 hover:bg-zinc-800'}`}
-            >
-                {/* Poster */}
-                <div className="relative w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-zinc-800 shadow-md">
-                    <img src={getImageUrl(show.poster_path)} className="w-full h-full object-cover" alt="" loading="lazy" />
-                    {isWatched && (
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-[1px]">
-                            <Check className="w-5 h-5 text-emerald-500" />
-                        </div>
-                    )}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                    <h4 className={`text-sm font-bold truncate ${isLocal ? 'text-white' : 'text-zinc-300 group-hover:text-white'}`}>
-                        {show.name}
-                    </h4>
-                    <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${show.media_type === 'movie' ? 'border-pink-500/20 text-pink-400 bg-pink-500/5' : 'border-blue-500/20 text-blue-400 bg-blue-500/5'}`}>
-                            {show.media_type === 'movie' ? 'Film' : 'Series'}
-                        </span>
-                        <span className="text-[10px] text-zinc-500 font-mono">
-                            {show.first_air_date?.split('-')[0] || 'TBA'}
-                        </span>
-                        {isLocal && <span className="text-[9px] text-indigo-400 font-bold ml-auto flex items-center gap-1"><Check className="w-3 h-3" /> In Library</span>}
-                    </div>
-                </div>
-
-                {/* Actions (Hover) */}
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {!isAdded && (
-                         <button 
-                            onClick={(e) => handleAdd(e, show)}
-                            className="p-2 rounded-full bg-white text-black hover:scale-110 transition-transform shadow-lg"
-                            title="Add to Library"
-                        >
-                            <Plus className="w-4 h-4" />
-                        </button>
-                    )}
-                    <button 
-                        onClick={(e) => handleWatch(e, show, isWatched)}
-                        className={`p-2 rounded-full transition-transform hover:scale-110 shadow-lg ${isWatched ? 'bg-emerald-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
-                        title={isWatched ? "Mark Unwatched" : "Mark Watched"}
-                    >
-                        {isWatched ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
     if (!isOpen) return null;
 
     return (
@@ -199,7 +213,18 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                                     <Layout className="w-4 h-4" /> My Library
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {localResults.map(item => <ResultItem key={item.id} show={item} isLocal={true} />)}
+                                    {localResults.map(item => (
+                                        <ResultItem 
+                                            key={item.id} 
+                                            show={item} 
+                                            isLocal={true} 
+                                            watchlist={watchlist} 
+                                            history={history}
+                                            onOpenDetails={openDetails}
+                                            onAdd={handleAdd}
+                                            onWatch={handleWatch}
+                                        />
+                                    ))}
                                 </div>
                             </div>
                         )}
@@ -216,7 +241,18 @@ const V2SearchModal: React.FC<V2SearchModalProps> = ({ isOpen, onClose }) => {
                                 
                                 {globalResults.length > 0 ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {globalResults.map(item => <ResultItem key={item.id} show={item} isLocal={false} />)}
+                                        {globalResults.map(item => (
+                                            <ResultItem 
+                                                key={item.id} 
+                                                show={item} 
+                                                isLocal={false} 
+                                                watchlist={watchlist} 
+                                                history={history}
+                                                onOpenDetails={openDetails}
+                                                onAdd={handleAdd}
+                                                onWatch={handleWatch}
+                                            />
+                                        ))}
                                     </div>
                                 ) : !loading && query && (
                                     <div className="text-zinc-600 text-sm italic">No global matches found.</div>
