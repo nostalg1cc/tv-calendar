@@ -187,9 +187,9 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                         const typesFound = new Set<string>();
 
                         const addRelease = (r: any, forcedType: 'theatrical' | 'digital') => {
-                            // If date string is simple YYYY-MM-DD, parsing it as local time is usually correct for movies
-                            // but if we want to be safe, we treat it as noon on that day to avoid shifts
-                            // However, TMDB usually gives just dates.
+                            // TMDB movie dates are usually strictly dates (YYYY-MM-DD).
+                            // We do NOT want to shift these based on timezone to avoid day-shift errors.
+                            // We treat them as "Local Day" events.
                             const dateStr = r.date.split('T')[0];
                             const key = `${dateStr}-${forcedType}`;
                             if (typesFound.has(key)) return;
@@ -281,18 +281,21 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
 
                                     if (finalIsoString) {
                                         let dateObj: Date;
-                                        // If we have a full timestamp, we must respect timezone settings
+                                        let localDateKey: string;
+
+                                        // If strict timestamp, respect timezone. If just YYYY-MM-DD, respect day.
                                         if (finalIsoString.includes('T')) {
                                             dateObj = new Date(finalIsoString);
+                                            // Apply Timezone Format to get local string
+                                            localDateKey = formatInTimeZone(dateObj, settings.timezone);
                                         } else {
                                             dateObj = parseISO(finalIsoString);
+                                            // Keep simple date as is to avoid UTC midnight shifts
+                                            localDateKey = finalIsoString.split('T')[0];
                                         }
 
                                         if (isNaN(dateObj.getTime())) return;
 
-                                        // Apply Timezone Format to get local string
-                                        const localDateKey = formatInTimeZone(dateObj, settings.timezone);
-                                        
                                         eps.push({
                                             ...e,
                                             air_date: localDateKey, 
@@ -333,19 +336,22 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
     const allEpisodes = showQueries
         .flatMap(q => q.data || [])
         .map(ep => {
-            // Apply Trakt Override for TV Episodes
+            // Apply Trakt Override for TV Episodes (Priority #1)
             if (!ep.is_movie && ep.show_id && ep.season_number && ep.episode_number) {
                  const traktKey = `${ep.show_id}_${ep.season_number}_${ep.episode_number}`;
                  const traktEntries = traktMap[traktKey];
                  
                  if (traktEntries && traktEntries.length > 0) {
                      const entry = traktEntries[0];
-                     let dateObj = new Date(entry.date); // Trakt usually sends ISO timestamp
+                     let dateObj = new Date(entry.date); // Trakt usually sends ISO timestamp with time
 
                      if (!isNaN(dateObj.getTime())) {
+                        // Crucial: Use formatInTimeZone to respect user settings
+                        const localDateKey = formatInTimeZone(dateObj, settings.timezone);
+                        
                         return {
                             ...ep,
-                            air_date: formatInTimeZone(dateObj, settings.timezone), // Apply timezone fix here too
+                            air_date: localDateKey, 
                             air_date_iso: entry.date,
                             air_date_source: 'trakt' as const
                         };
@@ -357,7 +363,7 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
         .filter(ep => {
              if (!ep.air_date) return false;
              try {
-                // air_date is now formatted YYYY-MM-DD in target timezone
+                // air_date is formatted YYYY-MM-DD (local), so parsing it locally is correct for filtering
                 const d = parseISO(ep.air_date);
                 if (isNaN(d.getTime())) return false;
                 return d >= startWindow && d <= endWindow;
