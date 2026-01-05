@@ -3,14 +3,13 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, format, isSameMonth, addMonths, subMonths, addDays, isSameDay, isToday, parseISO, isValid
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Filter, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, Ticket, List as ListIcon, Smartphone, Layers, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, LayoutGrid, Check, Tv, Film, MonitorPlay, Eye, EyeOff, Calendar as CalendarIcon, Clock, Ticket, List as ListIcon, Smartphone, Layers } from 'lucide-react';
 import { useStore } from '../store';
 import { useCalendarEpisodes } from '../hooks/useQueries';
 import { Episode } from '../types';
 import { getImageUrl, getBackdropUrl } from '../services/tmdb';
 import CalendarSearchModal from '../components/CalendarSearchModal';
 import RatingBadge from '../components/RatingBadge';
-import { SearchIcon, IconHandle } from '../components/icons/AnimatedIcons';
 
 interface V2CalendarProps {
     selectedDay: Date;

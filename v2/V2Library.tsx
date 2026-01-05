@@ -21,6 +21,19 @@ const V2Library: React.FC = () => {
     const totalShows = watchlist.filter(i => i.media_type === 'tv').length;
     const totalMovies = watchlist.filter(i => i.media_type === 'movie').length;
 
+    // Optimization: Create a set of fully watched or in-progress shows for fast lookup
+    const watchedShowIds = useMemo(() => {
+        const ids = new Set<number>();
+        Object.keys(history).forEach(key => {
+            if (history[key].is_watched) {
+                // Key format: "movie-{id}" or "episode-{id}-{s}-{e}"
+                const parts = key.split('-');
+                if (parts[1]) ids.add(parseInt(parts[1]));
+            }
+        });
+        return ids;
+    }, [history]);
+
     const filtered = useMemo(() => {
         let items = [...watchlist];
         
@@ -32,12 +45,7 @@ const V2Library: React.FC = () => {
         // Status Filter
         if (statusFilter !== 'all') {
             items = items.filter(item => {
-                let isWatched = false;
-                if (item.media_type === 'movie') {
-                    isWatched = history[`movie-${item.id}`]?.is_watched;
-                } else {
-                    isWatched = Object.keys(history).some(key => key.startsWith(`episode-${item.id}-`) && history[key].is_watched);
-                }
+                const isWatched = watchedShowIds.has(item.id);
                 return statusFilter === 'watched' ? isWatched : !isWatched;
             });
         }
@@ -55,7 +63,7 @@ const V2Library: React.FC = () => {
             // date_added fallback to array index (reverse)
             return watchlist.indexOf(b) - watchlist.indexOf(a);
         });
-    }, [watchlist, typeFilter, statusFilter, search, sort, history]);
+    }, [watchlist, typeFilter, statusFilter, search, sort, watchedShowIds]);
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#050505] overflow-hidden">
@@ -153,9 +161,7 @@ const V2Library: React.FC = () => {
                         {view === 'grid' && (
                             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-px bg-zinc-900 border-b border-zinc-900">
                                 {filtered.map(item => {
-                                    let isWatched = false;
-                                    if (item.media_type === 'movie') isWatched = history[`movie-${item.id}`]?.is_watched;
-                                    else isWatched = Object.keys(history).some(key => key.startsWith(`episode-${item.id}-`) && history[key].is_watched);
+                                    const isWatched = watchedShowIds.has(item.id);
 
                                     return (
                                         <div 
@@ -211,9 +217,7 @@ const V2Library: React.FC = () => {
                         {view === 'list' && (
                             <div className="flex flex-col">
                                 {filtered.map(item => {
-                                    let isWatched = false;
-                                    if (item.media_type === 'movie') isWatched = history[`movie-${item.id}`]?.is_watched;
-                                    else isWatched = Object.keys(history).some(key => key.startsWith(`episode-${item.id}-`) && history[key].is_watched);
+                                    const isWatched = watchedShowIds.has(item.id);
 
                                     return (
                                         <div 

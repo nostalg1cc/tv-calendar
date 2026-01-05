@@ -29,8 +29,26 @@ const getUserRegion = () => {
     }
 };
 
+// Helper to format ISO date string to YYYY-MM-DD in specific timezone
+const formatInTimeZone = (date: Date, timeZone?: string) => {
+    try {
+        const tz = timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+        // Use Intl to format to parts then reconstruct YYYY-MM-DD
+        // We use en-CA because it outputs YYYY-MM-DD format naturally
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+        return formatter.format(date);
+    } catch (e) {
+        // Fallback to system local
+        return format(date, 'yyyy-MM-dd');
+    }
+};
+
 // Heuristic: Major streamers usually release at specific UTC times (e.g. 8AM UTC / 12AM PT)
-// If we only get a date string, assuming this time helps adjust for local user timezone.
 const isGlobalStreamer = (networks: any[]) => {
     if (!networks || networks.length === 0) return false;
     const streamers = ['Netflix', 'Disney+', 'Amazon', 'Apple TV+', 'Hulu', 'HBO Max', 'Peacock', 'Paramount+'];
@@ -96,7 +114,6 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                     if (tmdbId && released) {
                         const key = `movie_${tmdbId}`;
                         if (!map[key]) map[key] = [];
-                        // Don't dedupe strictly, we want both types if available
                         map[key].push({ date: released, type });
                     }
                 };
@@ -118,7 +135,7 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
 
     const showQueries = useQueries({
         queries: watchlist.map(show => ({
-            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, traktToken ? 'trakt' : 'no-trakt'],
+            queryKey: ['calendar_data', show.id, show.media_type, show.custom_poster_path, userRegion, settings.timezone, traktToken ? 'trakt' : 'no-trakt'],
             queryFn: async (): Promise<Episode[]> => {
                 try {
                     // --- MOVIES LOGIC ---
@@ -138,7 +155,7 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                         name: show.name,
                                         overview: show.overview,
                                         vote_average: show.vote_average,
-                                        air_date: format(dateObj, 'yyyy-MM-dd'), 
+                                        air_date: formatInTimeZone(dateObj, settings.timezone), 
                                         air_date_iso: entry.date, 
                                         episode_number: 1,
                                         season_number: 0,
@@ -154,7 +171,6 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                     });
                                 }
                             });
-                            // If we have Trakt data, we trust it over TMDB for this specific item
                             return results; 
                         }
 
@@ -168,14 +184,13 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                         const posterToUse = show.custom_poster_path || show.poster_path;
                         const userReleases = releases.filter(r => r.country === userRegion);
                         const globalReleases = releases.filter(r => r.country !== userRegion);
-
-                        // Capture distinct types: Theatrical AND Digital
                         const typesFound = new Set<string>();
 
-                        // Helper to add if valid
                         const addRelease = (r: any, forcedType: 'theatrical' | 'digital') => {
+                            // If date string is simple YYYY-MM-DD, parsing it as local time is usually correct for movies
+                            // but if we want to be safe, we treat it as noon on that day to avoid shifts
+                            // However, TMDB usually gives just dates.
                             const dateStr = r.date.split('T')[0];
-                            // Check if we already have this DATE + TYPE combo to avoid clutter
                             const key = `${dateStr}-${forcedType}`;
                             if (typesFound.has(key)) return;
                             
@@ -200,15 +215,12 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                             });
                         };
 
-                        // 1. Try to find Digital
                         let digital = userReleases.find(r => r.type === 'digital' || r.type === 'physical');
                         if (!digital) digital = globalReleases.find(r => r.country === 'US' && (r.type === 'digital' || r.type === 'physical'));
                         if (digital) addRelease(digital, 'digital');
 
-                        // 2. Try to find Theatrical
                         let theatrical = userReleases.find(r => r.type === 'theatrical' || r.type === 'premiere');
                         if (!theatrical) {
-                            // Fallback Global
                              const sorted = globalReleases.filter(r => r.type === 'theatrical' || r.type === 'premiere').sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                              theatrical = sorted[0];
                         }
@@ -253,7 +265,6 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                         finalIsoString = mazeEntry.timestamp;
                                         source = 'tvmaze';
                                     } else if (mazeEntry && mazeEntry.date) {
-                                        // TVMaze has a date but no timestamp?
                                         if (isGlobalStreamer(details.networks || [])) {
                                             finalIsoString = `${mazeEntry.date}T08:00:00Z`;
                                         } else {
@@ -261,9 +272,7 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                         }
                                         source = 'tvmaze';
                                     } else if (tmdbDateStr) {
-                                        // Fallback to TMDB
                                         if (isGlobalStreamer(details.networks || [])) {
-                                            // Inject 8AM UTC for streamers to force proper day shift in local time
                                             finalIsoString = `${tmdbDateStr}T08:00:00Z`; 
                                         } else {
                                             finalIsoString = tmdbDateStr;
@@ -271,10 +280,8 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                                     }
 
                                     if (finalIsoString) {
-                                        // Key Logic: 
-                                        // If string has 'T' (timestamp), use new Date() to respect timezone shift.
-                                        // If string is just YYYY-MM-DD, parseISO keeps it strictly on that day (Local 00:00).
                                         let dateObj: Date;
+                                        // If we have a full timestamp, we must respect timezone settings
                                         if (finalIsoString.includes('T')) {
                                             dateObj = new Date(finalIsoString);
                                         } else {
@@ -283,8 +290,8 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
 
                                         if (isNaN(dateObj.getTime())) return;
 
-                                        // We store the computed Local Date String (YYYY-MM-DD) for grouping in the calendar
-                                        const localDateKey = format(dateObj, 'yyyy-MM-dd');
+                                        // Apply Timezone Format to get local string
+                                        const localDateKey = formatInTimeZone(dateObj, settings.timezone);
                                         
                                         eps.push({
                                             ...e,
@@ -338,7 +345,7 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
                      if (!isNaN(dateObj.getTime())) {
                         return {
                             ...ep,
-                            air_date: format(dateObj, 'yyyy-MM-dd'),
+                            air_date: formatInTimeZone(dateObj, settings.timezone), // Apply timezone fix here too
                             air_date_iso: entry.date,
                             air_date_source: 'trakt' as const
                         };
@@ -350,6 +357,7 @@ export const useCalendarEpisodes = (targetDateInput: Date | string) => {
         .filter(ep => {
              if (!ep.air_date) return false;
              try {
+                // air_date is now formatted YYYY-MM-DD in target timezone
                 const d = parseISO(ep.air_date);
                 if (isNaN(d.getTime())) return false;
                 return d >= startWindow && d <= endWindow;
