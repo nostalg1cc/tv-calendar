@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle, X, ChevronDown, RefreshCw, Cloud, HardDrive, CheckCheck, Loader2, Sparkles, Plus, ThumbsDown } from 'lucide-react';
 import { useStore } from '../store';
@@ -25,6 +25,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
     const [suggestions, setSuggestions] = useState<TVShow[]>([]);
     const [suggestionIndex, setSuggestionIndex] = useState(0);
     const [suggestionSource, setSuggestionSource] = useState<string>('Trending Now');
+    const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
     
     // Prevent body scroll when drawer is open on mobile
     useEffect(() => {
@@ -34,58 +35,83 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
         return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
 
-    // Fetch Suggestion Logic
+    // Endless Fetching Logic
+    const loadSuggestions = async () => {
+        if (isLoadingSuggestions) return;
+        setIsLoadingSuggestions(true);
+
+        try {
+            let candidates: TVShow[] = [];
+            let source = "Trending Now";
+
+            // Strategy: 40% Chance for Personal Recs (if library exists), 60% for General Discovery
+            const usePersonal = watchlist.length > 0 && Math.random() > 0.6;
+            
+            if (usePersonal) {
+                const seed = watchlist[Math.floor(Math.random() * watchlist.length)];
+                try {
+                     const recs = await getRecommendations(seed.id, seed.media_type);
+                     if (recs.length > 0) {
+                         candidates = recs;
+                         source = `Because you track ${seed.name}`;
+                     }
+                } catch {}
+            }
+
+            // Fallback or General Discovery
+            if (candidates.length === 0) {
+                const endpoints = [
+                    { url: '/trending/tv/week', type: 'tv', label: 'Trending Series' },
+                    { url: '/trending/movie/week', type: 'movie', label: 'Trending Movies' },
+                    { url: '/tv/top_rated', type: 'tv', label: 'Critically Acclaimed TV' },
+                    { url: '/movie/upcoming', type: 'movie', label: 'Upcoming Movies' },
+                    { url: '/tv/on_the_air', type: 'tv', label: 'Airing Now' }
+                ];
+                const pick = endpoints[Math.floor(Math.random() * endpoints.length)];
+                const page = Math.floor(Math.random() * 3) + 1; // Randomize page 1-3 for variety
+                
+                try {
+                    const data = await getCollection(pick.url, pick.type as any, page);
+                    candidates = data;
+                    source = pick.label;
+                } catch {}
+            }
+
+            // Filter out existing items
+            const valid = candidates.filter(show => {
+                // Not in library
+                if (watchlist.some(w => w.id === show.id)) return false;
+                // Not already in current session suggestions
+                if (suggestions.some(s => s.id === show.id)) return false;
+                // Must have poster
+                if (!show.poster_path) return false;
+                return true;
+            });
+
+            // Shuffle valid items
+            const shuffled = valid.sort(() => 0.5 - Math.random());
+
+            if (shuffled.length > 0) {
+                setSuggestions(prev => [...prev, ...shuffled]);
+                // Only update source label if we are appending a significant batch or it's the first load
+                if (suggestions.length === 0) setSuggestionSource(source);
+            }
+        } catch (e) {
+            console.error("Suggestion fetch failed", e);
+        } finally {
+            setIsLoadingSuggestions(false);
+        }
+    };
+
+    // Monitor Index to Load More
     useEffect(() => {
         if (!settings.agendaSuggestions) return;
-
-        const fetchSuggestions = async () => {
-            try {
-                let candidates: TVShow[] = [];
-                let source = "Trending Now";
-
-                // 1. Try to find a recommendation based on library content
-                if (watchlist.length > 0) {
-                    // Pick a random recent addition or random item
-                    const seed = watchlist[Math.floor(Math.random() * watchlist.length)];
-                    try {
-                         const recs = await getRecommendations(seed.id, seed.media_type);
-                         if (recs.length > 0) {
-                             candidates = recs;
-                             source = `Because you track ${seed.name}`;
-                         }
-                    } catch {}
-                }
-
-                // 2. Fallback to "On The Air" if no personal recs or empty library
-                if (candidates.length === 0) {
-                    const trending = await getCollection('/tv/on_the_air', 'tv');
-                    candidates = trending;
-                    source = "Airing Now";
-                }
-
-                // 3. Filter candidates
-                const valid = candidates.filter(show => {
-                    // Exclude existing
-                    if (watchlist.some(w => w.id === show.id)) return false;
-                    
-                    // Date Check
-                    if (!show.first_air_date) return false;
-                    const year = parseInt(show.first_air_date.split('-')[0]);
-                    const currentYear = new Date().getFullYear();
-                    // Keep it somewhat recent (last year or future)
-                    return year >= (currentYear - 1); 
-                });
-
-                setSuggestions(valid);
-                setSuggestionSource(source);
-
-            } catch (e) {
-                console.error("Suggestion fetch failed", e);
-            }
-        };
-
-        fetchSuggestions();
-    }, [settings.agendaSuggestions, watchlist.length]);
+        
+        // If we have fewer than 3 items left in the queue, load more
+        if (suggestions.length - suggestionIndex < 3) {
+            loadSuggestions();
+        }
+    }, [settings.agendaSuggestions, suggestionIndex, suggestions.length]);
 
 
     const dateKey = format(selectedDay, 'yyyy-MM-dd');
@@ -303,6 +329,12 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
         toast.success("Suggestions hidden");
     };
 
+    const handlePosterClick = () => {
+        if (currentSuggestion && onOpenDetails) {
+            onOpenDetails(currentSuggestion.id, currentSuggestion.media_type);
+        }
+    };
+
     return (
         <>
             {isOpen && (
@@ -347,45 +379,66 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                     )}
 
                     {/* SUGGESTION CARD */}
-                    {currentSuggestion && (
-                        <div className="mt-auto p-4 bg-gradient-to-b from-transparent to-black/20 border-t border-white/5 animate-fade-in-up">
-                             <div className="bg-zinc-900/40 border border-white/5 rounded-xl overflow-hidden shadow-lg relative group">
-                                  <div className="absolute top-2 right-2 flex gap-2 z-20">
-                                      <button 
-                                        onClick={handleThumbsDown} 
-                                        className="p-1 rounded-full bg-black/60 hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-colors border border-white/5"
-                                        title="Not interested"
-                                      >
-                                          <ThumbsDown className="w-3 h-3" />
-                                      </button>
-                                  </div>
-                                  
-                                  <div className="flex">
-                                      <div className="w-20 shrink-0 bg-black relative">
-                                          <img src={getImageUrl(currentSuggestion.poster_path)} className="w-full h-full object-cover opacity-80" alt="" />
+                    {settings.agendaSuggestions && (
+                        currentSuggestion ? (
+                            <div className="mt-auto p-4 bg-gradient-to-b from-transparent to-black/20 border-t border-white/5 animate-fade-in-up">
+                                 <div className="bg-zinc-900/40 border border-white/5 rounded-xl overflow-hidden shadow-lg relative group">
+                                      <div className="absolute top-2 right-2 flex gap-2 z-20">
+                                          <button 
+                                            onClick={handleThumbsDown} 
+                                            className="p-1 rounded-full bg-black/60 hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-colors border border-white/5"
+                                            title="Not interested"
+                                          >
+                                              <ThumbsDown className="w-3 h-3" />
+                                          </button>
                                       </div>
-                                      <div className="flex-1 p-3 flex flex-col justify-center">
-                                          <div className="flex items-center gap-1.5 mb-1 text-indigo-400">
-                                              <Sparkles className="w-3 h-3" />
-                                              <span className="text-[9px] font-black uppercase tracking-widest">Suggested for You</span>
+                                      
+                                      <div className="flex">
+                                          <div 
+                                              className="w-20 shrink-0 bg-black relative cursor-pointer"
+                                              onClick={handlePosterClick}
+                                              title="View Details"
+                                          >
+                                              <img src={getImageUrl(currentSuggestion.poster_path)} className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity" alt="" />
                                           </div>
-                                          <h4 className="text-sm font-bold text-white leading-tight mb-1 line-clamp-1">{currentSuggestion.name}</h4>
-                                          <p className="text-[10px] text-zinc-500 line-clamp-2 leading-relaxed mb-3">
-                                              {suggestionSource} • {currentSuggestion.first_air_date?.split('-')[0]}
-                                          </p>
-                                          
-                                          <div className="flex items-center justify-between">
-                                               <button onClick={handleSuggestionAdd} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black rounded-lg text-[10px] font-bold uppercase tracking-wide hover:bg-indigo-400 hover:text-white transition-colors">
-                                                   <Plus className="w-3 h-3" /> Add Library
-                                               </button>
-                                               <button onClick={handleDisableSuggestions} className="text-[9px] text-zinc-600 hover:text-red-400 underline decoration-zinc-700 underline-offset-2">
-                                                   Hide
-                                               </button>
+                                          <div className="flex-1 p-3 flex flex-col justify-center">
+                                              <div className="flex items-center gap-1.5 mb-1 text-indigo-400">
+                                                  <Sparkles className="w-3 h-3" />
+                                                  <span className="text-[9px] font-black uppercase tracking-widest">Suggested for You</span>
+                                              </div>
+                                              <h4 className="text-sm font-bold text-white leading-tight mb-1 line-clamp-1">{currentSuggestion.name}</h4>
+                                              <p className="text-[10px] text-zinc-500 line-clamp-2 leading-relaxed mb-3">
+                                                  {suggestionSource} • {currentSuggestion.first_air_date?.split('-')[0]}
+                                              </p>
+                                              
+                                              <div className="flex items-center justify-between">
+                                                   <button onClick={handleSuggestionAdd} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black rounded-lg text-[10px] font-bold uppercase tracking-wide hover:bg-indigo-400 hover:text-white transition-colors">
+                                                       <Plus className="w-3 h-3" /> Add Library
+                                                   </button>
+                                                   <button onClick={handleDisableSuggestions} className="text-[9px] text-zinc-600 hover:text-red-400 underline decoration-zinc-700 underline-offset-2">
+                                                       Hide
+                                                   </button>
+                                              </div>
                                           </div>
                                       </div>
-                                  </div>
-                             </div>
-                        </div>
+                                 </div>
+                            </div>
+                        ) : isLoadingSuggestions ? (
+                            // SKELETON
+                            <div className="mt-auto p-4 bg-gradient-to-b from-transparent to-black/20 border-t border-white/5 animate-pulse">
+                                <div className="bg-zinc-900/40 border border-white/5 rounded-xl overflow-hidden shadow-lg h-28 flex">
+                                    <div className="w-20 bg-zinc-800 shrink-0" />
+                                    <div className="flex-1 p-3 flex flex-col justify-center space-y-2">
+                                        <div className="w-24 h-3 bg-zinc-800 rounded" />
+                                        <div className="w-32 h-4 bg-zinc-800 rounded" />
+                                        <div className="flex justify-between items-center pt-2">
+                                            <div className="w-20 h-6 bg-zinc-800 rounded" />
+                                            <div className="w-8 h-3 bg-zinc-800 rounded" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null
                     )}
                 </div>
 
