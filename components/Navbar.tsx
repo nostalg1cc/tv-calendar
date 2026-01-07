@@ -85,7 +85,7 @@ const Navbar: React.FC = () => {
             <div className="mb-6">
                 {!isCollapsed && <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 transition-opacity">Menu</p>}
                 <DesktopNavItem to="/v1/" icon={Calendar} label="Calendar" />
-                <DesktopNavItem to="/v1/discover" icon={Compass} label="Discover" />
+                {/* <DesktopNavItem to="/v1/discover" icon={Compass} label="Discover" /> */}
                 <DesktopNavItem to="/v1/watchlist" icon={List} label="My Library" />
                 <DesktopNavItem to="/calendar" icon={Sparkles} label="Go to V2 Dashboard" />
             </div>
@@ -140,7 +140,7 @@ const Navbar: React.FC = () => {
           >
               <div className="flex items-center justify-between px-2 h-16">
                 <MobileTab to="/v1/" icon={Calendar} label="Calendar" active={isActive('/v1/')} />
-                <MobileTab to="/v1/discover" icon={Compass} label="Discover" active={isActive('/v1/discover')} />
+                {/* <MobileTab to="/v1/discover" icon={Compass} label="Discover" active={isActive('/v1/discover')} /> */}
                 
                 <button 
                     onClick={() => setIsSearchOpen(true)}
@@ -179,7 +179,7 @@ const Navbar: React.FC = () => {
                       <Calendar className={`w-6 h-6 ${isActive('/v1/') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
                   </Link>
                   
-                  <Link 
+                  {/* <Link 
                     to="/v1/discover" 
                     className={`
                         relative flex flex-col items-center justify-center w-10 h-10 active:scale-90 transition-all duration-300
@@ -187,7 +187,7 @@ const Navbar: React.FC = () => {
                     `}
                   >
                       <Compass className={`w-6 h-6 ${isActive('/v1/discover') ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-                  </Link>
+                  </Link> */}
 
                   {/* Search Button (Normal Style) */}
                   <button 

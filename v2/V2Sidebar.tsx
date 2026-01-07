@@ -135,16 +135,10 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                         icon={CalendarDaysIcon} 
                         label="Calendar" 
                     />
-                    <NavItem 
-                        to="/discover" 
-                        icon={CompassIcon} 
-                        label="Discovery" 
-                    />
-                    <NavItem 
-                        to="/matches" 
-                        icon={Flame} 
-                        label="Matches" 
-                    />
+                    {/* DISABLED DISCOVERY & MATCHES */}
+                    {/* <NavItem to="/discover" icon={CompassIcon} label="Discovery" /> */}
+                    {/* <NavItem to="/matches" icon={Flame} label="Matches" /> */}
+                    
                     <NavItem 
                         to="/library" 
                         icon={GalleryVerticalEndIcon} 
@@ -191,7 +185,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                     `}
                  >
                     <MobileNavItem to="/calendar" icon={CalendarDaysIcon} label="Calendar" />
-                    <MobileNavItem to="/discover" icon={CompassIcon} label="Discover" />
+                    {/* <MobileNavItem to="/discover" icon={CompassIcon} label="Discover" /> */}
                     <MobileNavItem onClick={onOpenSearch} icon={SearchIcon} label="Search" />
                     <MobileNavItem to="/library" icon={GalleryVerticalEndIcon} label="Library" />
                     
@@ -232,7 +226,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                         </div>
 
                         <div className="space-y-3">
-                             <Link 
+                             {/* <Link 
                                 to="/matches" 
                                 onClick={() => setIsMenuOpen(false)} 
                                 className="flex items-center justify-between p-4 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 hover:bg-indigo-600/20 transition-colors group"
@@ -247,7 +241,7 @@ const V2Sidebar: React.FC<V2SidebarProps> = ({ onOpenSettings, onOpenSearch }) =
                                     </div>
                                 </div>
                                 <ChevronRight className="w-5 h-5 text-indigo-400" />
-                            </Link>
+                            </Link> */}
 
                             <Link 
                                 to="/ipoint" 
