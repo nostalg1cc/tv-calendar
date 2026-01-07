@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle, X, ChevronDown, RefreshCw, Cloud, HardDrive, CheckCheck, Loader2, Sparkles, Plus } from 'lucide-react';
+import { Check, CalendarDays, History, EyeOff, Ticket, MonitorPlay, PlayCircle, X, ChevronDown, RefreshCw, Cloud, HardDrive, CheckCheck, Loader2, Sparkles, Plus, ThumbsDown } from 'lucide-react';
 import { useStore } from '../store';
 import { Episode, WatchedItem, TVShow } from '../types';
 import { getImageUrl, getShowDetails, getCollection, getRecommendations } from '../services/tmdb';
@@ -17,14 +17,14 @@ interface V2AgendaProps {
 }
 
 const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenDetails, isOpen, onClose }) => {
-    const { settings, history: interactions, toggleWatched, markManyWatched, isSyncing, user, triggerCloudSync, watchlist, addToWatchlist, updateSettings } = useStore();
+    const { settings, history: interactions, toggleWatched, markManyWatched, isSyncing, user, triggerCloudSync, watchlist, addToWatchlist, updateSettings, setReminderCandidate } = useStore();
     const { episodes } = useCalendarEpisodes(selectedDay);
     const [markingShowId, setMarkingShowId] = useState<number | null>(null);
     
     // Suggestion State
-    const [suggestion, setSuggestion] = useState<TVShow | null>(null);
+    const [suggestions, setSuggestions] = useState<TVShow[]>([]);
+    const [suggestionIndex, setSuggestionIndex] = useState(0);
     const [suggestionSource, setSuggestionSource] = useState<string>('Trending Now');
-    const [dismissedSession, setDismissedSession] = useState(false);
     
     // Prevent body scroll when drawer is open on mobile
     useEffect(() => {
@@ -36,9 +36,9 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
 
     // Fetch Suggestion Logic
     useEffect(() => {
-        if (!settings.agendaSuggestions || dismissedSession || suggestion) return;
+        if (!settings.agendaSuggestions) return;
 
-        const fetchSuggestion = async () => {
+        const fetchSuggestions = async () => {
             try {
                 let candidates: TVShow[] = [];
                 let source = "Trending Now";
@@ -64,42 +64,28 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                 }
 
                 // 3. Filter candidates
-                // Must NOT be in watchlist
-                // Must have air date in next 60 days (approx)
-                // Filter out foreign language if needed to keep quality high? (optional)
-                const now = new Date();
-                const futureLimit = new Date();
-                futureLimit.setDate(now.getDate() + 60);
-
                 const valid = candidates.filter(show => {
                     // Exclude existing
                     if (watchlist.some(w => w.id === show.id)) return false;
                     
                     // Date Check
                     if (!show.first_air_date) return false;
-                    const d = new Date(show.first_air_date);
-                    // Check if air date is future or very recent (last 30 days)
-                    // Actually prompt says "focus on currently on air... or airing soon"
-                    // On The Air endpoint handles this well.
-                    // For recommendations, we might get old shows.
-                    // Let's filter for anything released > 2023 or future to keep it fresh
                     const year = parseInt(show.first_air_date.split('-')[0]);
                     const currentYear = new Date().getFullYear();
+                    // Keep it somewhat recent (last year or future)
                     return year >= (currentYear - 1); 
                 });
 
-                if (valid.length > 0) {
-                    setSuggestion(valid[0]);
-                    setSuggestionSource(source);
-                }
+                setSuggestions(valid);
+                setSuggestionSource(source);
 
             } catch (e) {
                 console.error("Suggestion fetch failed", e);
             }
         };
 
-        fetchSuggestion();
-    }, [settings.agendaSuggestions, dismissedSession, watchlist.length]);
+        fetchSuggestions();
+    }, [settings.agendaSuggestions, watchlist.length]);
 
 
     const dateKey = format(selectedDay, 'yyyy-MM-dd');
@@ -297,23 +283,24 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
         );
     };
 
+    const currentSuggestion = suggestions[suggestionIndex];
+
     const handleSuggestionAdd = () => {
-        if (suggestion) {
-            addToWatchlist(suggestion);
-            toast.success("Added to library");
-            setSuggestion(null); // Clear after adding
+        if (currentSuggestion) {
+            addToWatchlist(currentSuggestion);
+            setReminderCandidate(currentSuggestion); // Open modal for further actions
+            setSuggestionIndex(prev => prev + 1); // Move to next
         }
     };
 
-    const handleSuggestionDismiss = () => {
-        setDismissedSession(true);
-        setSuggestion(null);
+    const handleThumbsDown = () => {
+        setSuggestionIndex(prev => prev + 1); // Skip
     };
 
     const handleDisableSuggestions = () => {
         updateSettings({ agendaSuggestions: false });
-        setSuggestion(null);
-        toast.success("Suggestions disabled in Settings");
+        setSuggestions([]); // Clear immediately
+        toast.success("Suggestions hidden");
     };
 
     return (
@@ -360,27 +347,31 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                     )}
 
                     {/* SUGGESTION CARD */}
-                    {suggestion && (
-                        <div className="mt-auto p-4 bg-gradient-to-b from-transparent to-black/20 border-t border-white/5">
+                    {currentSuggestion && (
+                        <div className="mt-auto p-4 bg-gradient-to-b from-transparent to-black/20 border-t border-white/5 animate-fade-in-up">
                              <div className="bg-zinc-900/40 border border-white/5 rounded-xl overflow-hidden shadow-lg relative group">
                                   <div className="absolute top-2 right-2 flex gap-2 z-20">
-                                      <button onClick={handleSuggestionDismiss} className="p-1 rounded-full bg-black/60 hover:bg-white text-zinc-500 hover:text-black transition-colors">
-                                          <X className="w-3 h-3" />
+                                      <button 
+                                        onClick={handleThumbsDown} 
+                                        className="p-1 rounded-full bg-black/60 hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-colors border border-white/5"
+                                        title="Not interested"
+                                      >
+                                          <ThumbsDown className="w-3 h-3" />
                                       </button>
                                   </div>
                                   
                                   <div className="flex">
                                       <div className="w-20 shrink-0 bg-black relative">
-                                          <img src={getImageUrl(suggestion.poster_path)} className="w-full h-full object-cover opacity-80" alt="" />
+                                          <img src={getImageUrl(currentSuggestion.poster_path)} className="w-full h-full object-cover opacity-80" alt="" />
                                       </div>
                                       <div className="flex-1 p-3 flex flex-col justify-center">
                                           <div className="flex items-center gap-1.5 mb-1 text-indigo-400">
                                               <Sparkles className="w-3 h-3" />
                                               <span className="text-[9px] font-black uppercase tracking-widest">Suggested for You</span>
                                           </div>
-                                          <h4 className="text-sm font-bold text-white leading-tight mb-1">{suggestion.name}</h4>
+                                          <h4 className="text-sm font-bold text-white leading-tight mb-1 line-clamp-1">{currentSuggestion.name}</h4>
                                           <p className="text-[10px] text-zinc-500 line-clamp-2 leading-relaxed mb-3">
-                                              {suggestionSource} • {suggestion.first_air_date?.split('-')[0]}
+                                              {suggestionSource} • {currentSuggestion.first_air_date?.split('-')[0]}
                                           </p>
                                           
                                           <div className="flex items-center justify-between">
@@ -388,7 +379,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                                                    <Plus className="w-3 h-3" /> Add Library
                                                </button>
                                                <button onClick={handleDisableSuggestions} className="text-[9px] text-zinc-600 hover:text-red-400 underline decoration-zinc-700 underline-offset-2">
-                                                   Don't show again
+                                                   Hide
                                                </button>
                                           </div>
                                       </div>
