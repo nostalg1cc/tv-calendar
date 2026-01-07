@@ -147,6 +147,15 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
         }
     }, [settings.agendaSuggestions, suggestionIndex, suggestions.length]);
 
+    const currentSuggestion = suggestions[suggestionIndex];
+
+    // Auto-advance if suggestion is added to library (internally or via details modal)
+    useEffect(() => {
+        if (currentSuggestion && watchlist.some(w => w.id === currentSuggestion.id)) {
+            setSuggestionIndex(prev => prev + 1);
+        }
+    }, [watchlist, currentSuggestion]);
+
     const dateKey = format(selectedDay, 'yyyy-MM-dd');
     const dayEps = episodes.filter(ep => ep.air_date === dateKey).filter(ep => {
         if (settings.hideTheatrical && ep.is_movie && ep.release_type === 'theatrical') return false;
@@ -283,13 +292,11 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
         );
     };
 
-    const currentSuggestion = suggestions[suggestionIndex];
-
     const handleSuggestionAdd = () => {
         if (currentSuggestion) {
             addToWatchlist(currentSuggestion);
             setReminderCandidate(currentSuggestion); // Open modal for further actions
-            setSuggestionIndex(prev => prev + 1);
+            // Note: Auto-advance is handled by the useEffect watching watchlist
         }
     };
 

@@ -190,6 +190,16 @@ export const getSeasonDetails = async (id: number, seasonNumber: number): Promis
     };
 };
 
+export const getEpisodeDetails = async (showId: number, season: number, episode: number) => {
+    const data = await fetchTMDB<any>(`/tv/${showId}/season/${season}/episode/${episode}?append_to_response=credits,images,videos`);
+    return {
+        ...data,
+        images: data.images,
+        videos: data.videos,
+        credits: data.credits
+    };
+};
+
 export const getMovieReleaseDates = async (id: number, fullList: boolean = false): Promise<{ date: string, type: 'theatrical' | 'digital' | 'physical' | 'premiere', country: string }[]> => {
     try {
         const data = await fetchTMDB<{ results: any[] }>(`/movie/${id}/release_dates`);

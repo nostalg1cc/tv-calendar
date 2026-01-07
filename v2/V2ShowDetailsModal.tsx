@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Play, Plus, Check, Star, Loader2, MonitorPlay, Ticket, ChevronDown, Video, ExternalLink, Clock, Calendar, Hash, User, RefreshCw, Image, Layout, Download, Film, Tv, StarOff, Eye, CheckCircle } from 'lucide-react';
+import { X, Play, Plus, Check, Star, Loader2, MonitorPlay, Ticket, ChevronDown, Video, ExternalLink, Clock, Calendar, Hash, User, RefreshCw, Image, Layout, Download, Film, Tv, StarOff, Eye, CheckCircle, Info, Grid, Box } from 'lucide-react';
 import { getShowDetails, getMovieDetails, getImageUrl, getBackdropUrl, getVideos, getSeasonDetails, getMovieReleaseDates, getShowImages } from '../services/tmdb';
 import { getTVMazeEpisodes } from '../services/tvmaze';
 import { TVShow, Episode, Season, Video as VideoType } from '../types';
@@ -18,9 +19,10 @@ interface V2ShowDetailsModalProps {
     initialSeason?: number;
     initialEpisode?: number;
     onSwitchShow?: (id: number, type: 'tv' | 'movie') => void;
+    onOpenEpisodeDetails?: (showId: number, season: number, episode: number) => void;
 }
 
-const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose, showId, mediaType, initialSeason, initialEpisode, onSwitchShow }) => {
+const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose, showId, mediaType, initialSeason, initialEpisode, onSwitchShow, onOpenEpisodeDetails }) => {
     const { addToWatchlist, watchlist, history, toggleWatched, setRating, setReminderCandidate, settings } = useStore();
     
     const [activeTab, setActiveTab] = useState<'overview' | 'episodes' | 'media' | 'releases'>('overview');
@@ -32,8 +34,11 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
     
     // Extras Data
     const [videos, setVideos] = useState<VideoType[]>([]);
-    const [images, setImages] = useState<{posters: any[], backdrops: any[]}>({ posters: [], backdrops: [] });
+    const [images, setImages] = useState<{posters: any[], backdrops: any[], logos: any[]}>({ posters: [], backdrops: [], logos: [] });
     const [releases, setReleases] = useState<{ date: string, type: string, country: string }[]>([]);
+    
+    // Media Tab State
+    const [mediaFilter, setMediaFilter] = useState<'all' | 'posters' | 'backdrops' | 'logos' | 'videos'>('all');
     
     // Preview States
     const [playingVideo, setPlayingVideo] = useState<VideoType | null>(null);
@@ -53,7 +58,7 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
             setLoading(true);
             setDetails(null);
             setVideos([]);
-            setImages({ posters: [], backdrops: [] });
+            setImages({ posters: [], backdrops: [], logos: [] });
             setSeasonData(null);
             setTraktStatus(null);
             
@@ -185,7 +190,6 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
     // Watched Logic
     const isWatched = () => {
         if (mediaType === 'movie') return history[`movie-${showId}`]?.is_watched;
-        // For TV, generally check if *any* episode watched or the show object is marked
         return Object.keys(history).some(key => key.startsWith(`episode-${showId}-`) && history[key].is_watched);
     };
 
@@ -200,7 +204,6 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
              toggleWatched({ tmdb_id: showId, media_type: 'movie', is_watched: currentlyWatched });
              toast.success(currentlyWatched ? "Marked unwatched" : "Marked watched");
          } else {
-             // For TV, open the "Seen All?" modal which acts as the mark watched flow
              setReminderCandidate(details);
          }
     };
@@ -220,29 +223,18 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
 
     const handleRate = (rating: number) => {
         if (!details) return;
-
         const currentWatched = isWatched();
-        
-        // 1. Add to Watchlist if not present
-        if (!isAdded) {
-            addToWatchlist(details);
-            toast.success("Added to library");
-        }
-
-        // 2. Set Rating
+        if (!isAdded) { addToWatchlist(details); toast.success("Added to library"); }
         setRating(showId, mediaType, rating);
-        
-        // 3. Handle Watched Status Logic
         if (!currentWatched) {
-            if (mediaType === 'movie') {
-                toggleWatched({ tmdb_id: showId, media_type: 'movie', is_watched: false }); 
-                toast.success("Marked as watched & rated");
-            } else {
-                setReminderCandidate(details);
-                toast.success("Rated! Have you seen all episodes?");
-            }
-        } else {
-            toast.success(`Rated ${rating} stars`);
+            if (mediaType === 'movie') { toggleWatched({ tmdb_id: showId, media_type: 'movie', is_watched: false }); toast.success("Marked as watched & rated"); }
+            else { setReminderCandidate(details); toast.success("Rated! Have you seen all episodes?"); }
+        } else { toast.success(`Rated ${rating} stars`); }
+    };
+
+    const handleEpisodeClick = (season: number, episode: number) => {
+        if (onOpenEpisodeDetails) {
+            onOpenEpisodeDetails(showId, season, episode);
         }
     };
 
@@ -253,7 +245,6 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
         if (!status) return null;
         const s = status.toLowerCase();
         let colorClass = 'bg-zinc-800 text-zinc-400 border-zinc-700'; 
-        
         if (s.includes('returning')) colorClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
         else if (s.includes('ended') || s.includes('canceled')) colorClass = 'bg-red-500/20 text-red-400 border-red-500/30';
         else if (s.includes('production')) colorClass = 'bg-blue-500/20 text-blue-400 border-blue-500/30';
@@ -270,31 +261,31 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
         return (
             <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                        key={star}
-                        onClick={() => handleRate(star)}
-                        className={`transition-transform hover:scale-110 ${star <= rating ? 'text-yellow-400' : 'text-zinc-600 hover:text-yellow-200'}`}
-                    >
+                    <button key={star} onClick={() => handleRate(star)} className={`transition-transform hover:scale-110 ${star <= rating ? 'text-yellow-400' : 'text-zinc-600 hover:text-yellow-200'}`}>
                         <Star className={`w-6 h-6 ${star <= rating ? 'fill-current' : ''}`} strokeWidth={2} />
                     </button>
                 ))}
-                {rating > 0 && (
-                     <button onClick={() => handleRate(0)} className="ml-2 text-zinc-600 hover:text-red-400">
-                         <StarOff className="w-4 h-4" />
-                     </button>
-                )}
+                {rating > 0 && <button onClick={() => handleRate(0)} className="ml-2 text-zinc-600 hover:text-red-400"><StarOff className="w-4 h-4" /></button>}
             </div>
         );
     };
 
     const TabButton = ({ id, label, icon: Icon }: { id: 'overview' | 'episodes' | 'media' | 'releases', label: string, icon: any }) => (
-        <button
-            onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-2 px-6 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === id ? 'border-indigo-500 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
-        >
+        <button onClick={() => setActiveTab(id)} className={`flex items-center gap-2 px-6 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === id ? 'border-indigo-500 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}>
             <Icon className="w-4 h-4" /> {label}
         </button>
     );
+
+    // Filtered Media List
+    const getFilteredMedia = () => {
+        if (mediaFilter === 'videos') return videos.map(v => ({ type: 'video', data: v }));
+        const allImages = [
+            ...(mediaFilter === 'all' || mediaFilter === 'posters' ? images.posters.map(p => ({ type: 'poster', data: p })) : []),
+            ...(mediaFilter === 'all' || mediaFilter === 'backdrops' ? images.backdrops.map(b => ({ type: 'backdrop', data: b })) : []),
+            ...(mediaFilter === 'all' || mediaFilter === 'logos' ? images.logos.map(l => ({ type: 'logo', data: l })) : [])
+        ];
+        return allImages;
+    };
 
     if (!isOpen) return null;
 
@@ -352,7 +343,6 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                           {isAdded ? 'In Library' : 'Add to Library'}
                                       </button>
                                       
-                                      {/* MARK WATCHED BUTTON */}
                                       <button 
                                           onClick={handleHeaderWatch}
                                           className={`h-12 px-8 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all border ${mediaType === 'movie' && isWatched() ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-black/40 border-white/10 text-white hover:bg-white/10 backdrop-blur-md'}`}
@@ -361,7 +351,6 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                           {mediaType === 'movie' && isWatched() ? 'Seen' : 'Mark Seen'}
                                       </button>
 
-                                      {/* Interactive Rating in Header */}
                                       <div className="flex flex-col gap-1 ml-4 border-l border-white/10 pl-6">
                                           <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest pl-1">Your Rating</span>
                                           <UserRatingStars />
@@ -453,7 +442,7 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                  </div>
                              )}
 
-                             {/* EPISODES TAB, MEDIA TAB, RELEASES TAB... (retained content) */}
+                             {/* EPISODES TAB */}
                              {activeTab === 'episodes' && mediaType === 'tv' && (
                                  <div className="max-w-4xl mx-auto animate-fade-in">
                                      <div className="flex items-center justify-between mb-8">
@@ -504,8 +493,9 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                                      <div 
                                                          key={ep.id}
                                                          id={`v2-episode-${ep.episode_number}`}
+                                                         onClick={() => handleEpisodeClick(ep.season_number, ep.episode_number)}
                                                          className={`
-                                                             flex gap-6 p-4 rounded-2xl border transition-all duration-300 group
+                                                             flex gap-6 p-4 rounded-2xl border transition-all duration-300 group cursor-pointer
                                                              ${isTarget ? 'bg-indigo-900/10 border-indigo-500/30' : 'bg-zinc-900/20 border-white/5 hover:bg-zinc-900/40'}
                                                              ${isWatched ? 'opacity-60' : ''}
                                                          `}
@@ -519,6 +509,7 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                                              <div className="flex items-center gap-3 mb-1">
                                                                  <span className="text-xs font-mono text-zinc-500">E{ep.episode_number}</span>
                                                                  <h4 className={`text-base font-bold truncate ${isUpcoming ? 'text-indigo-400' : 'text-white'}`}>{ep.name}</h4>
+                                                                 <Info className="w-3.5 h-3.5 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                              </div>
                                                              <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed mb-3">{ep.overview || "No description available."}</p>
                                                              
@@ -531,7 +522,7 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                                          </div>
 
                                                          <button 
-                                                             onClick={() => toggleWatched({ tmdb_id: details.id, media_type: 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched })}
+                                                             onClick={(e) => { e.stopPropagation(); toggleWatched({ tmdb_id: details.id, media_type: 'episode', season_number: ep.season_number, episode_number: ep.episode_number, is_watched: isWatched }); }}
                                                              className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shrink-0 self-center ${isWatched ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:bg-white hover:text-black'}`}
                                                          >
                                                              <Check className="w-5 h-5" />
@@ -546,33 +537,63 @@ const V2ShowDetailsModal: React.FC<V2ShowDetailsModalProps> = ({ isOpen, onClose
                                  </div>
                              )}
 
+                             {/* MEDIA TAB (Updated) */}
                              {activeTab === 'media' && (
-                                 <div className="space-y-12 animate-fade-in">
-                                     <div>
-                                         <h3 className="text-sm font-black text-zinc-600 uppercase tracking-widest mb-6">Trailers & Clips</h3>
-                                         {videos.length > 0 ? (
-                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                 {videos.slice(0, 9).map(video => (
-                                                     <div 
-                                                         key={video.id} 
-                                                         onClick={() => setPlayingVideo(video)}
-                                                         className="group relative aspect-video bg-zinc-900 rounded-xl overflow-hidden cursor-pointer border border-white/5 hover:border-indigo-500/50 transition-all"
-                                                     >
-                                                         <img 
-                                                             src={`https://img.youtube.com/vi/${video.key}/mqdefault.jpg`} 
-                                                             className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
-                                                             alt={video.name} 
-                                                         />
-                                                         <div className="absolute inset-0 flex items-center justify-center">
-                                                             <div className="w-12 h-12 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:scale-110 transition-transform border border-white/20">
-                                                                 <Play className="w-5 h-5 text-white fill-current" />
-                                                             </div>
-                                                         </div>
-                                                     </div>
-                                                 ))}
-                                             </div>
-                                         ) : <div className="text-sm text-zinc-500 italic">No videos available.</div>}
+                                 <div className="space-y-8 animate-fade-in">
+                                     <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-2">
+                                         {['all', 'videos', 'posters', 'backdrops', 'logos'].map((f: any) => (
+                                             <button 
+                                                key={f} 
+                                                onClick={() => setMediaFilter(f)} 
+                                                className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${mediaFilter === f ? 'bg-white text-black border-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+                                             >
+                                                 {f}
+                                             </button>
+                                         ))}
                                      </div>
+
+                                     <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+                                         {/* Videos */}
+                                         {(mediaFilter === 'all' || mediaFilter === 'videos') && videos.map(video => (
+                                             <div 
+                                                key={video.id} 
+                                                onClick={() => setPlayingVideo(video)}
+                                                className="break-inside-avoid relative rounded-xl overflow-hidden cursor-pointer group mb-4 border border-white/10"
+                                             >
+                                                 <img src={`https://img.youtube.com/vi/${video.key}/mqdefault.jpg`} className="w-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt={video.name} />
+                                                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-colors">
+                                                     <div className="w-10 h-10 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
+                                                         <Play className="w-4 h-4 text-white fill-current" />
+                                                     </div>
+                                                 </div>
+                                                 <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
+                                                     <p className="text-[10px] font-bold text-white truncate">{video.name}</p>
+                                                     <p className="text-[9px] text-zinc-400">{video.type}</p>
+                                                 </div>
+                                             </div>
+                                         ))}
+
+                                         {/* Images */}
+                                         {getFilteredMedia().map((item, idx) => (
+                                             <div 
+                                                key={`${item.type}-${idx}`} 
+                                                onClick={() => setPreviewImage(getImageUrl(item.data.file_path, 'original'))}
+                                                className="break-inside-avoid relative rounded-xl overflow-hidden cursor-pointer group mb-4 border border-white/10 bg-zinc-900"
+                                             >
+                                                 <img 
+                                                     src={getImageUrl(item.data.file_path, 'w500')} 
+                                                     className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105" 
+                                                     alt="" 
+                                                     loading="lazy" 
+                                                 />
+                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none" />
+                                                 <span className="absolute top-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest text-white/80 border border-white/10">
+                                                     {item.type}
+                                                 </span>
+                                             </div>
+                                         ))}
+                                     </div>
+                                     {getFilteredMedia().length === 0 && videos.length === 0 && <div className="text-center py-20 text-zinc-500">No media found for this filter.</div>}
                                  </div>
                              )}
                              

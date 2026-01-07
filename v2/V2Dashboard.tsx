@@ -17,6 +17,7 @@ import ContextMenu from '../components/ContextMenu';
 import PosterPickerModal from '../components/PosterPickerModal';
 import ShowDetailsModal from '../components/ShowDetailsModal';
 import V2ShowDetailsModal from './V2ShowDetailsModal';
+import V2EpisodeDetailsModal from './V2EpisodeDetailsModal';
 import UpsideDownEffect from '../components/UpsideDownEffect';
 import AskReminderModal from '../components/AskReminderModal';
 import ReminderConfigModal from '../components/ReminderConfigModal';
@@ -36,6 +37,7 @@ const V2Dashboard: React.FC = () => {
     const [trailerTarget, setTrailerTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', episode?: any} | null>(null);
     const [posterTarget, setPosterTarget] = useState<{showId: number, mediaType: 'tv' | 'movie'} | null>(null);
     const [detailsTarget, setDetailsTarget] = useState<{showId: number, mediaType: 'tv' | 'movie', season?: number, episode?: number} | null>(null);
+    const [episodeDetailsTarget, setEpisodeDetailsTarget] = useState<{showId: number, season: number, episode: number} | null>(null);
     const [reminderConfigItem, setReminderConfigItem] = useState<TVShow | Episode | null>(null);
 
     const handlePlayTrailer = (showId: number, mediaType: 'tv' | 'movie', episode?: any) => {
@@ -44,6 +46,10 @@ const V2Dashboard: React.FC = () => {
 
     const handleOpenDetails = (showId: number, mediaType: 'tv' | 'movie', season?: number, episode?: number) => {
         setDetailsTarget({ showId, mediaType, season, episode });
+    };
+
+    const handleOpenEpisodeDetails = (showId: number, season: number, episode: number) => {
+        setEpisodeDetailsTarget({ showId, season, episode });
     };
 
     const handleDateSelect = (date: Date) => {
@@ -127,6 +133,7 @@ const V2Dashboard: React.FC = () => {
                         initialSeason={detailsTarget.season}
                         initialEpisode={detailsTarget.episode}
                         onSwitchShow={(id, type) => setDetailsTarget({ showId: id, mediaType: type })}
+                        onOpenEpisodeDetails={handleOpenEpisodeDetails}
                     />
                 ) : (
                     <ShowDetailsModal 
@@ -138,6 +145,16 @@ const V2Dashboard: React.FC = () => {
                         initialEpisode={detailsTarget.episode}
                     />
                 )
+            )}
+
+            {episodeDetailsTarget && (
+                <V2EpisodeDetailsModal 
+                    isOpen={!!episodeDetailsTarget}
+                    onClose={() => setEpisodeDetailsTarget(null)}
+                    showId={episodeDetailsTarget.showId}
+                    seasonNumber={episodeDetailsTarget.season}
+                    episodeNumber={episodeDetailsTarget.episode}
+                />
             )}
             
             {/* Post-Add Flow */}
