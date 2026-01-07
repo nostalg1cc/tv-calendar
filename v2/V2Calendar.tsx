@@ -268,44 +268,50 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
     const GroupedEpisodeCell = ({ groups }: { groups: Episode[][] }) => {
         return (
-            <div className="absolute inset-0 p-2 pt-8 flex flex-col gap-1.5">
-                {groups.slice(0, 3).map((group, idx) => {
-                    const first = group[0];
-                    const count = group.length;
-                    const posterSrc = getImageUrl(first.poster_path);
-                    const allWatched = group.every(ep => interactions[ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched);
+            <div className="absolute inset-0 pt-8 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto hide-scrollbar flex flex-col gap-1.5 p-2">
+                    {groups.map((group, idx) => {
+                        const first = group[0];
+                        const count = group.length;
+                        const posterSrc = getImageUrl(first.poster_path);
+                        const allWatched = group.every(ep => interactions[ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched);
 
-                    return (
-                        <div 
-                            key={`${first.show_id}-${idx}`} 
-                            className="flex items-center gap-2 group/item"
-                            data-context-type="episode"
-                            data-context-meta={JSON.stringify(first)}
-                        >
-                            <div className="w-5 h-7 rounded-[2px] bg-card overflow-hidden shrink-0 border border-white/5 relative">
-                                <img src={posterSrc} className={`w-full h-full object-cover ${allWatched ? 'grayscale opacity-50' : ''}`} alt="" />
-                                {allWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-3 h-3 text-emerald-500" /></div>}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <p className={`text-[9px] font-bold truncate leading-none mb-0.5 ${allWatched ? 'text-text-muted line-through' : 'text-text-muted group-hover/item:text-text-main'}`}>{first.show_name}</p>
-                                <div className="flex items-center gap-1.5">
-                                    {first.is_movie ? (
-                                        <div className="flex items-center gap-1">
-                                            <span className={`text-[7px] font-black uppercase tracking-wider ${first.release_type === 'theatrical' ? 'text-pink-500' : 'text-emerald-500'}`}>{first.release_type === 'theatrical' ? 'Cinema' : 'Digital'}</span>
-                                        </div>
-                                    ) : (
-                                        count > 1 ? (
-                                            <span className="text-[7px] font-bold bg-white/10 text-white px-1 rounded flex items-center gap-1"><Layers className="w-2 h-2" /> {count} EP</span>
+                        return (
+                            <div 
+                                key={`${first.show_id}-${idx}`} 
+                                className="flex items-center gap-2 group/item"
+                                data-context-type="episode"
+                                data-context-meta={JSON.stringify(first)}
+                            >
+                                <div className="w-5 h-7 rounded-[2px] bg-card overflow-hidden shrink-0 border border-white/5 relative">
+                                    <img src={posterSrc} className={`w-full h-full object-cover ${allWatched ? 'grayscale opacity-50' : ''}`} alt="" />
+                                    {allWatched && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><Check className="w-3 h-3 text-emerald-500" /></div>}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className={`text-[9px] font-bold truncate leading-none mb-0.5 ${allWatched ? 'text-text-muted line-through' : 'text-text-muted group-hover/item:text-text-main'}`}>{first.show_name}</p>
+                                    <div className="flex items-center gap-1.5">
+                                        {first.is_movie ? (
+                                            <div className="flex items-center gap-1">
+                                                <span className={`text-[7px] font-black uppercase tracking-wider ${first.release_type === 'theatrical' ? 'text-pink-500' : 'text-emerald-500'}`}>{first.release_type === 'theatrical' ? 'Cinema' : 'Digital'}</span>
+                                            </div>
                                         ) : (
-                                            <span className="text-[7px] font-mono text-text-muted">S{first.season_number} E{first.episode_number}</span>
-                                        )
-                                    )}
+                                            count > 1 ? (
+                                                <span className="text-[7px] font-bold bg-white/10 text-white px-1 rounded flex items-center gap-1"><Layers className="w-2 h-2" /> {count} EP</span>
+                                            ) : (
+                                                <span className="text-[7px] font-mono text-text-muted">S{first.season_number} E{first.episode_number}</span>
+                                            )
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    );
-                })}
-                {groups.length > 3 && <div className="mt-auto pt-1 border-t border-white/5"><span className="text-[8px] font-black text-text-muted uppercase tracking-widest block text-center">+{groups.length - 3} MORE</span></div>}
+                        );
+                    })}
+                    {/* Bottom spacer for scroll ease */}
+                    <div className="h-4 shrink-0" />
+                </div>
+                
+                {/* Gradient Fade at bottom to indicate scrolling */}
+                <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[var(--bg-main)] to-transparent pointer-events-none z-10" />
             </div>
         );
     };
@@ -400,7 +406,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
 
                             return (
                                 <div key={day.toISOString()} onClick={() => onSelectDay(day)} className={`relative border-r border-b border-border flex flex-col group/cell overflow-hidden transition-all duration-300 cursor-pointer ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''} ${idx >= 35 ? 'border-b-0' : ''} ${isCurrentMonth ? 'bg-transparent' : 'bg-white/[0.01] opacity-40'} ${isActive ? 'bg-white/[0.04]' : 'hover:z-10 hover:bg-white/[0.02]'}`}>
-                                    <div className="absolute top-2 right-2 z-50">
+                                    <div className="absolute top-2 right-2 z-50 pointer-events-none">
                                         <span className={`text-[10px] font-mono font-black tracking-tighter px-1.5 py-0.5 rounded ${isTodayDate ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40' : isCurrentMonth ? (isActive ? 'text-text-main' : 'text-text-muted group-hover/cell:text-text-main') : 'text-zinc-600'} transition-colors`}>{format(day, 'dd')}</span>
                                     </div>
                                     {totalGroups === 1 && groupedEps[0].length === 1 ? (<SingleEpisodeCell ep={groupedEps[0][0]} />) : totalGroups > 0 ? (<GroupedEpisodeCell groups={groupedEps} />) : null}

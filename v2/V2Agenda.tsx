@@ -26,6 +26,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
     const [suggestionIndex, setSuggestionIndex] = useState(0);
     const [suggestionSource, setSuggestionSource] = useState<string>('Trending Now');
     const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+    const loadedIds = useRef<Set<number>>(new Set());
     
     // Prevent body scroll when drawer is open on mobile
     useEffect(() => {
@@ -44,8 +45,9 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
             let candidates: TVShow[] = [];
             let source = "Trending Now";
 
-            // Strategy: 40% Chance for Personal Recs (if library exists), 60% for General Discovery
-            const usePersonal = watchlist.length > 0 && Math.random() > 0.6;
+            // Strategy: 50% Chance for Personal Recs (if library exists), 50% for General Discovery
+            // Also force general discovery if we've exhausted personal recs or library is empty
+            const usePersonal = watchlist.length > 0 && Math.random() > 0.5;
             
             if (usePersonal) {
                 const seed = watchlist[Math.floor(Math.random() * watchlist.length)];
@@ -68,7 +70,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                     { url: '/tv/on_the_air', type: 'tv', label: 'Airing Now' }
                 ];
                 const pick = endpoints[Math.floor(Math.random() * endpoints.length)];
-                const page = Math.floor(Math.random() * 3) + 1; // Randomize page 1-3 for variety
+                const page = Math.floor(Math.random() * 5) + 1; // Randomize page 1-5 for variety
                 
                 try {
                     const data = await getCollection(pick.url, pick.type as any, page);
@@ -77,13 +79,10 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                 } catch {}
             }
 
-            // Filter out existing items
+            // Filter out existing items (in library OR already loaded in this session)
             const valid = candidates.filter(show => {
-                // Not in library
                 if (watchlist.some(w => w.id === show.id)) return false;
-                // Not already in current session suggestions
-                if (suggestions.some(s => s.id === show.id)) return false;
-                // Must have poster
+                if (loadedIds.current.has(show.id)) return false;
                 if (!show.poster_path) return false;
                 return true;
             });
@@ -92,9 +91,10 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
             const shuffled = valid.sort(() => 0.5 - Math.random());
 
             if (shuffled.length > 0) {
+                shuffled.forEach(s => loadedIds.current.add(s.id));
                 setSuggestions(prev => [...prev, ...shuffled]);
-                // Only update source label if we are appending a significant batch or it's the first load
-                if (suggestions.length === 0) setSuggestionSource(source);
+                // Only update source label if it's the current batch being shown
+                if (suggestions.length <= suggestionIndex) setSuggestionSource(source);
             }
         } catch (e) {
             console.error("Suggestion fetch failed", e);
@@ -108,6 +108,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
         if (!settings.agendaSuggestions) return;
         
         // If we have fewer than 3 items left in the queue, load more
+        // Or if queue is empty
         if (suggestions.length - suggestionIndex < 3) {
             loadSuggestions();
         }
