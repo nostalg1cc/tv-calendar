@@ -161,14 +161,26 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
         if (settings.hideTheatrical && ep.is_movie && ep.release_type === 'theatrical') return false;
         if (settings.ignoreSpecials && ep.season_number === 0) return false;
         return true;
+    }).sort((a, b) => {
+        // Sort by time
+        const ta = a.air_date_iso || a.air_date || '';
+        const tb = b.air_date_iso || b.air_date || '';
+        return ta.localeCompare(tb);
     });
 
-    const groupedEps: Record<number, Episode[]> = {};
+    const groupedEpsMap: Record<number, Episode[]> = {};
+    const groupOrder: number[] = [];
+
     dayEps.forEach(ep => {
         const key = ep.show_id || ep.id;
-        if (!groupedEps[key]) groupedEps[key] = [];
-        groupedEps[key].push(ep);
+        if (!groupedEpsMap[key]) {
+             groupedEpsMap[key] = [];
+             groupOrder.push(key);
+        }
+        groupedEpsMap[key].push(ep);
     });
+
+    const groupedEpsList = groupOrder.map(key => groupedEpsMap[key]);
 
     const handleMarkPrevious = async (ep: Episode) => {
         if (!ep.show_id || markingShowId) return;
@@ -354,7 +366,7 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                 <div className="flex-1 overflow-y-auto custom-scrollbar bg-background flex flex-col">
                     {dayEps.length > 0 ? (
                         <div className="flex flex-col">
-                            {Object.values(groupedEps).map((group, idx) => (
+                            {groupedEpsList.map((group, idx) => (
                                 <GroupedShowCard key={idx} eps={group} />
                             ))}
                         </div>

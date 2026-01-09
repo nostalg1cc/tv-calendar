@@ -131,6 +131,10 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
             if (!showMovies && ep.is_movie) return false;
             if (settings.hiddenItems.includes(ep.show_id) && !showHidden) return false;
             return true;
+        }).sort((a, b) => {
+            const timeA = a.air_date_iso || (a.air_date + 'T00:00:00');
+            const timeB = b.air_date_iso || (b.air_date + 'T00:00:00');
+            return timeA.localeCompare(timeB);
         });
     };
 
@@ -233,6 +237,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
         const imageUrl = getImageUrl(ep.poster_path);
         const watchedKey = ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`;
         const isWatched = interactions[watchedKey]?.is_watched;
+        const timeStr = formatTime(ep.air_date_iso);
 
         return (
             <div 
@@ -248,7 +253,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent z-20 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 right-0 p-2 flex flex-col justify-end h-full z-30 pointer-events-none">
                     <h4 className={`text-[10px] font-black uppercase tracking-tight leading-tight line-clamp-2 mb-1 drop-shadow-md ${isWatched ? 'text-zinc-500 line-through' : 'text-white'}`}>{ep.show_name}</h4>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                         {ep.is_movie ? (
                             <div className="flex items-center gap-1.5">
                                  <span className={`text-[8px] font-bold uppercase tracking-wider flex items-center gap-1 ${ep.release_type === 'theatrical' ? 'text-pink-400' : 'text-emerald-400'}`}>
@@ -259,6 +264,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                         ) : (
                             <span className={`text-[9px] font-mono font-bold ${isWatched ? 'text-zinc-600' : 'text-zinc-300'}`}>S{ep.season_number} E{ep.episode_number}</span>
                         )}
+                        {!ep.is_movie && timeStr && <span className="text-[9px] font-mono text-zinc-400">{timeStr}</span>}
                         {isWatched && <Check className="w-3 h-3 text-emerald-500" />}
                     </div>
                 </div>
@@ -275,6 +281,7 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                         const count = group.length;
                         const posterSrc = getImageUrl(first.poster_path);
                         const allWatched = group.every(ep => interactions[ep.is_movie ? `movie-${ep.show_id}` : `episode-${ep.show_id}-${ep.season_number}-${ep.episode_number}`]?.is_watched);
+                        const timeStr = formatTime(first.air_date_iso);
 
                         return (
                             <div 
@@ -298,7 +305,10 @@ const V2Calendar: React.FC<V2CalendarProps> = ({ selectedDay, onSelectDay }) => 
                                             count > 1 ? (
                                                 <span className="text-[7px] font-bold bg-white/10 text-white px-1 rounded flex items-center gap-1"><Layers className="w-2 h-2" /> {count} EP</span>
                                             ) : (
-                                                <span className="text-[7px] font-mono text-text-muted">S{first.season_number} E{first.episode_number}</span>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[7px] font-mono text-text-muted">S{first.season_number} E{first.episode_number}</span>
+                                                    {timeStr && <span className="text-[7px] text-zinc-600 ml-1">{timeStr}</span>}
+                                                </div>
                                             )
                                         )}
                                     </div>
