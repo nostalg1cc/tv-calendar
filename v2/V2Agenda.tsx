@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Check, CalendarDays, Ticket, MonitorPlay, PlayCircle, ChevronDown, RefreshCw, Cloud, HardDrive, CheckCheck, Loader2, Sparkles, Plus, ThumbsDown, Flame, CalendarClock, EyeOff } from 'lucide-react';
 import { useStore } from '../store';
 import { Episode, WatchedItem, TVShow } from '../types';
@@ -224,6 +224,8 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
              if (onOpenDetails) onOpenDetails(firstEp.show_id || firstEp.id, firstEp.is_movie ? 'movie' : 'tv', firstEp.season_number, firstEp.episode_number);
         };
 
+        const isGrid = (settings.viewMode || 'grid') === 'grid';
+
         return (
             <div className="w-full bg-zinc-950 border-b border-white/5 flex flex-col group/card first:border-t-0">
                 <div className="bg-zinc-900/40 px-4 py-2 border-y border-white/5 flex items-center justify-between">
@@ -264,11 +266,19 @@ const V2Agenda: React.FC<V2AgendaProps> = ({ selectedDay, onPlayTrailer, onOpenD
                         const titleText = isTextCensored ? `Episode ${ep.episode_number}` : (ep.is_movie ? (ep.release_type === 'theatrical' ? 'Cinema Premiere' : 'Digital Release') : ep.name);
                         const subText = isDescCensored ? 'Description hidden' : (ep.is_movie ? ep.overview : `S${ep.season_number} E${ep.episode_number}`);
                         const isMarking = markingShowId === ep.show_id;
+                        
+                        const hasTime = ep.air_date_iso && ep.air_date_iso.includes('T');
+                        const timeStr = hasTime ? format(parseISO(ep.air_date_iso!), 'h:mm a') : '';
 
                         return (
                             <div key={`${ep.show_id}-${ep.id}`} onClick={() => onOpenDetails?.(ep.show_id || ep.id, ep.is_movie ? 'movie' : 'tv', ep.season_number, ep.episode_number)} className={`px-4 py-3 border-b border-white/[0.03] last:border-b-0 flex items-center justify-between gap-4 cursor-pointer ${isWatched ? 'opacity-30' : 'hover:bg-white/[0.02]'} transition-all`}>
                                 <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2 mb-1"><p className={`text-[11px] font-bold truncate leading-none ${isTextCensored ? 'text-zinc-600' : 'text-zinc-200'}`}>{titleText}</p></div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className={`text-[11px] font-bold truncate leading-none ${isTextCensored ? 'text-zinc-600' : 'text-zinc-200'}`}>{titleText}</p>
+                                        {isGrid && timeStr && !ep.is_movie && (
+                                            <span className="text-[9px] text-zinc-500 font-mono opacity-70 ml-1">{timeStr}</span>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         {ep.is_movie && (ep.release_type === 'theatrical' ? <Ticket className="w-2.5 h-2.5 text-pink-400" /> : <MonitorPlay className="w-2.5 h-2.5 text-emerald-400" />)}
                                         <p className={`text-[9px] font-mono uppercase tracking-tighter truncate ${isDescCensored ? 'text-zinc-700 italic' : 'text-zinc-500'}`}>{subText}</p>
